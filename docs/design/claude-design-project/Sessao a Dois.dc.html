@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: #09090a; color: #f6f4ec; font-family: 'DM Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #ffcb2b; text-decoration: none; }
+  a:hover { color: #ffe08a; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #2b2920; border-radius: 20px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes sdFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sdPop { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes sdFab { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), #09090a;">
+
+  <!-- ===================== HEADER ===================== -->
+  <header style="position:sticky; top:0; z-index:40; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:16px clamp(20px,4vw,48px); background:rgba(9,9,10,.72); backdrop-filter:blur(18px); border-bottom:1px solid rgba(255,255,255,.07);">
+    <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
+      <div style="width:38px; height:38px; border-radius:12px; background:#ffcb2b; display:grid; place-items:center; box-shadow:0 6px 20px rgba(255,203,43,.35);">
+        <span style="font-size:18px;">♥</span>
+      </div>
+      <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em; white-space:nowrap;">Sessão<span style="color:#ff9e2c;">·</span>a·Dois</div>
+    </div>
+
+    <nav style="display:flex; align-items:center; gap:6px; padding:5px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.06); border-radius:14px;">
+      <button onClick="{{ goHub }}" style="{{ navHubStyle }}">Hub Principal</button>
+      <button onClick="{{ goMatch }}" style="{{ navMatchStyle }}">Match ♥</button>
+      <button onClick="{{ goDash }}" style="{{ navDashStyle }}">Dashboard</button>
+    </nav>
+
+    <div style="display:flex; align-items:center; justify-content:flex-end; gap:12px; flex:1; min-width:0;">
+      <div style="text-align:right; line-height:1.15;" class="sd-hide-sm">
+        <div style="font-size:13px; font-weight:600;">Ana &amp; Léo</div>
+        <div style="font-size:11px; color:#a6a39a;">312 dias juntos no app</div>
+      </div>
+      <div style="position:relative; width:46px; height:38px; flex:none;">
+        <div style="position:absolute; left:0; top:2px; width:34px; height:34px; border-radius:50%; border:2px solid #09090a; background:linear-gradient(160deg,hsl(45 92% 42%),hsl(45 88% 24%)); overflow:hidden;">
+          <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 5px,transparent 5px 10px);"></div>
+        </div>
+        <div style="position:absolute; right:0; top:2px; width:34px; height:34px; border-radius:50%; border:2px solid #09090a; background:linear-gradient(160deg,hsl(34 92% 42%),hsl(34 88% 24%)); overflow:hidden;">
+          <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 5px,transparent 5px 10px);"></div>
+        </div>
+        <div style="position:absolute; left:50%; bottom:-3px; transform:translateX(-50%); width:18px; height:18px; border-radius:50%; background:#ffcb2b; display:grid; place-items:center; font-size:9px; border:2px solid #09090a;">♥</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== SCREEN 1: HUB ===================== -->
+  <sc-if value="{{ isHub }}" hint-placeholder-val="{{ true }}">
+  <main style="max-width:1240px; margin:0 auto; padding:clamp(24px,4vw,44px) clamp(20px,4vw,48px) 120px; animation:sdFade .4s ease;">
+
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:28px;">
+      <div>
+        <div style="font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#ffcb2b; margin-bottom:8px;">Minha Lista</div>
+        <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:clamp(28px,4vw,40px); letter-spacing:-.03em; margin:0;">O que estamos vendo</h1>
+        <p style="color:#a6a39a; margin:8px 0 0; font-size:15px;">Tudo o que vocês dois estão acompanhando, em um só lugar.</p>
+      </div>
+      <button onClick="{{ openModal }}" style="display:inline-flex; align-items:center; gap:9px; padding:13px 22px; border:none; border-radius:14px; background:#ffcb2b; color:#111; font-family:'DM Sans',sans-serif; font-weight:700; font-size:15px; cursor:pointer; box-shadow:0 10px 26px rgba(255,203,43,.34);">
+        <span style="font-size:19px; line-height:0;">＋</span> Adicionar Título
+      </button>
+    </div>
+
+    <!-- Section: Assistindo Atualmente -->
+    <section style="margin-bottom:44px;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+        <span style="width:9px; height:9px; border-radius:50%; background:#ff9e2c; box-shadow:0 0 12px #ff9e2c;"></span>
+        <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:20px; margin:0; letter-spacing:-.01em;">Assistindo Atualmente</h2>
+        <span style="font-size:13px; color:#a6a39a; background:rgba(255,255,255,.05); padding:2px 10px; border-radius:20px;">2</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:22px;">
+        <sc-for list="{{ watching }}" as="m" hint-placeholder-count="2">
+          <div onClick="{{ m.onOpen }}" style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; overflow:hidden; cursor:pointer; transition:transform .18s ease, border-color .18s ease;" style-hover="transform:translateY(-4px); border-color:rgba(255,203,43,.5);">
+            <div style="position:relative; aspect-ratio:3/4; background:linear-gradient(160deg,hsl({{ m.hue }} 42% 24%),hsl({{ m.hue }} 46% 11%));">
+              <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 8px,transparent 8px 16px);"></div>
+              <div style="position:absolute; top:10px; left:10px; padding:4px 9px; border-radius:8px; font-size:11px; font-weight:600; background:rgba(9,9,10,.6); backdrop-filter:blur(6px); color:#f6f4ec;">{{ m.genre }}</div>
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:14px 12px; background:linear-gradient(transparent, rgba(9,9,10,.85)); font-family:monospace; font-size:10px; color:rgba(255,255,255,.4);">[ pôster ]</div>
+            </div>
+            <div style="padding:14px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;">
+                <div style="font-weight:700; font-size:15px; line-height:1.25;">{{ m.title }}</div>
+                <div style="font-size:12px; color:#a6a39a; flex:none;">{{ m.year }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:7px; margin-top:10px; flex-wrap:wrap;">
+                <span style="padding:3px 9px; border-radius:7px; font-size:11px; font-weight:600; background:rgba(255,203,43,.12); border:1px solid rgba(255,203,43,.25); color:#ffdd7a;">{{ m.type }}</span>
+                <sc-for list="{{ m.streams }}" as="st" hint-placeholder-count="1"><span style="display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:600; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#d8d3c5;"><span style="width:7px; height:7px; border-radius:50%; background:{{ st.color }};"></span>{{ st.name }}</span></sc-for>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:9px;">
+                <span style="color:#ffb443; font-size:14px; letter-spacing:1px;">{{ m.stars }}</span>
+                <span style="font-size:12px; color:#a6a39a;">{{ m.rating }},0</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#a6a39a;">
+                <span style="opacity:.7;">◷</span> Assistido em {{ m.date }}
+              </div>
+              <div title="{{ m.opinion }}" style="margin-top:11px; padding:9px 11px; background:rgba(255,203,43,.09); border:1px solid rgba(255,203,43,.18); border-radius:10px; font-size:12.5px; font-style:italic; color:#d9d4e6; line-height:1.4; cursor:default;">
+                <span style="color:#ffcb2b; font-weight:700;">“</span>{{ m.opinion }}
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- Section: Queremos Ver -->
+    <section style="margin-bottom:44px;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+        <span style="width:9px; height:9px; border-radius:50%; background:#ffcb2b; box-shadow:0 0 12px #ffcb2b;"></span>
+        <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:20px; margin:0; letter-spacing:-.01em;">Queremos Ver</h2>
+        <span style="font-size:13px; color:#a6a39a; background:rgba(255,255,255,.05); padding:2px 10px; border-radius:20px;">3</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:22px;">
+        <sc-for list="{{ wantToSee }}" as="m" hint-placeholder-count="3">
+          <div onClick="{{ m.onOpen }}" style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; overflow:hidden; cursor:pointer; transition:transform .18s ease, border-color .18s ease;" style-hover="transform:translateY(-4px); border-color:rgba(255,203,43,.5);">
+            <div style="position:relative; aspect-ratio:3/4; background:linear-gradient(160deg,hsl({{ m.hue }} 42% 24%),hsl({{ m.hue }} 46% 11%));">
+              <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 8px,transparent 8px 16px);"></div>
+              <div style="position:absolute; top:10px; left:10px; padding:4px 9px; border-radius:8px; font-size:11px; font-weight:600; background:rgba(9,9,10,.6); backdrop-filter:blur(6px); color:#f6f4ec;">{{ m.genre }}</div>
+              <div style="position:absolute; inset:0; display:grid; place-items:center;">
+                <span style="font-size:34px; opacity:.5;">🍿</span>
+              </div>
+            </div>
+            <div style="padding:14px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;">
+                <div style="font-weight:700; font-size:15px; line-height:1.25;">{{ m.title }}</div>
+                <div style="font-size:12px; color:#a6a39a; flex:none;">{{ m.year }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:7px; margin-top:10px; flex-wrap:wrap;">
+                <span style="padding:3px 9px; border-radius:7px; font-size:11px; font-weight:600; background:rgba(255,203,43,.12); border:1px solid rgba(255,203,43,.25); color:#ffdd7a;">{{ m.type }}</span>
+                <sc-for list="{{ m.streams }}" as="st" hint-placeholder-count="1"><span style="display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:600; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#d8d3c5;"><span style="width:7px; height:7px; border-radius:50%; background:{{ st.color }};"></span>{{ st.name }}</span></sc-for>
+              </div>
+              <div style="margin-top:9px; font-size:12.5px; color:#a6a39a;">Adicionado por {{ m.addedBy }}</div>
+              <button onClick="{{ stop }}" style="margin-top:12px; width:100%; padding:9px; border:1px solid rgba(255,255,255,.12); border-radius:10px; background:transparent; color:#f6f4ec; font-family:'DM Sans',sans-serif; font-weight:600; font-size:13px; cursor:pointer;" style-hover="background:rgba(255,255,255,.06);">Marcar como visto</button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- Section: Já Vimos -->
+    <section>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+        <span style="width:9px; height:9px; border-radius:50%; background:#3ddc97; box-shadow:0 0 12px #3ddc97;"></span>
+        <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:20px; margin:0; letter-spacing:-.01em;">Já Vimos</h2>
+        <span style="font-size:13px; color:#a6a39a; background:rgba(255,255,255,.05); padding:2px 10px; border-radius:20px;">4</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:22px;">
+        <sc-for list="{{ watched }}" as="m" hint-placeholder-count="4">
+          <div onClick="{{ m.onOpen }}" style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; overflow:hidden; cursor:pointer; transition:transform .18s ease, border-color .18s ease;" style-hover="transform:translateY(-4px); border-color:rgba(61,220,151,.4);">
+            <div style="position:relative; aspect-ratio:3/4; background:linear-gradient(160deg,hsl({{ m.hue }} 42% 24%),hsl({{ m.hue }} 46% 11%));">
+              <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 8px,transparent 8px 16px);"></div>
+              <div style="position:absolute; top:10px; left:10px; padding:4px 9px; border-radius:8px; font-size:11px; font-weight:600; background:rgba(9,9,10,.6); backdrop-filter:blur(6px); color:#f6f4ec;">{{ m.genre }}</div>
+              <div style="position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:50%; background:rgba(61,220,151,.9); display:grid; place-items:center; font-size:12px; color:#07130d; font-weight:800;">✓</div>
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:14px 12px; background:linear-gradient(transparent, rgba(9,9,10,.85)); font-family:monospace; font-size:10px; color:rgba(255,255,255,.4);">[ pôster ]</div>
+            </div>
+            <div style="padding:14px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;">
+                <div style="font-weight:700; font-size:15px; line-height:1.25;">{{ m.title }}</div>
+                <div style="font-size:12px; color:#a6a39a; flex:none;">{{ m.year }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:7px; margin-top:10px; flex-wrap:wrap;">
+                <span style="padding:3px 9px; border-radius:7px; font-size:11px; font-weight:600; background:rgba(255,203,43,.12); border:1px solid rgba(255,203,43,.25); color:#ffdd7a;">{{ m.type }}</span>
+                <sc-for list="{{ m.streams }}" as="st" hint-placeholder-count="1"><span style="display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:7px; font-size:11px; font-weight:600; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#d8d3c5;"><span style="width:7px; height:7px; border-radius:50%; background:{{ st.color }};"></span>{{ st.name }}</span></sc-for>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:9px;">
+                <span style="color:#ffb443; font-size:14px; letter-spacing:1px;">{{ m.stars }}</span>
+                <span style="font-size:12px; color:#a6a39a;">{{ m.rating }},0</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#a6a39a;">
+                <span style="opacity:.7;">◷</span> Assistido em {{ m.date }}
+              </div>
+              <div title="{{ m.opinion }}" style="margin-top:11px; padding:9px 11px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; font-size:12.5px; font-style:italic; color:#d8d3c5; line-height:1.4; cursor:default;">
+                <span style="color:#ffcb2b; font-weight:700;">“</span>{{ m.opinion }}
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </main>
+
+  <!-- FAB -->
+  <button onClick="{{ openModal }}" title="Adicionar Título" style="position:fixed; right:clamp(20px,4vw,44px); bottom:32px; z-index:35; width:60px; height:60px; border-radius:20px; border:none; background:#ffcb2b; color:#111; font-size:28px; cursor:pointer; box-shadow:0 14px 34px rgba(255,203,43,.45); animation:sdFab 3s ease-in-out infinite;">＋</button>
+  </sc-if>
+
+  <!-- ===================== SCREEN 2: DASHBOARD ===================== -->
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ false }}">
+  <main style="max-width:1240px; margin:0 auto; padding:clamp(24px,4vw,44px) clamp(20px,4vw,48px) 80px; animation:sdFade .4s ease;">
+    <div style="margin-bottom:28px;">
+      <div style="font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#ff9e2c; margin-bottom:8px;">Estatísticas do Casal</div>
+      <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:clamp(28px,4vw,40px); letter-spacing:-.03em; margin:0;">O ano de vocês em telas</h1>
+      <p style="color:#a6a39a; margin:8px 0 0; font-size:15px;">Um retrato de tudo que Ana &amp; Léo assistiram juntos.</p>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px; margin-bottom:22px;">
+      <div style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:22px;">
+        <div style="display:flex; align-items:center; gap:8px; color:#a6a39a; font-size:13px; font-weight:600;"><span style="color:#ffcb2b;">◷</span> Tempo juntos</div>
+        <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:36px; letter-spacing:-.02em; margin-top:12px;">148h <span style="font-size:20px; color:#a6a39a;">30m</span></div>
+        <div style="font-size:12.5px; color:#3ddc97; margin-top:6px;">↑ 12h neste mês</div>
+      </div>
+      <div style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:22px;">
+        <div style="display:flex; align-items:center; gap:8px; color:#a6a39a; font-size:13px; font-weight:600;"><span style="color:#ff9e2c;">◲</span> Filmes vs Séries</div>
+        <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:36px; letter-spacing:-.02em; margin-top:12px;">62<span style="font-size:18px; color:#a6a39a;">% filmes</span></div>
+        <div style="display:flex; height:8px; border-radius:20px; overflow:hidden; margin-top:12px; background:rgba(255,255,255,.06);">
+          <div style="width:62%; background:#ffcb2b;"></div>
+          <div style="width:38%; background:#ff9e2c;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:11.5px; color:#a6a39a; margin-top:7px;"><span>52 filmes</span><span>32 séries</span></div>
+      </div>
+      <div style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:22px;">
+        <div style="display:flex; align-items:center; gap:8px; color:#a6a39a; font-size:13px; font-weight:600;"><span style="color:#ffb443;">♥</span> Gênero favorito</div>
+        <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:36px; letter-spacing:-.02em; margin-top:12px;">Drama</div>
+        <div style="font-size:12.5px; color:#a6a39a; margin-top:6px;">27 títulos · seguido de Ficção</div>
+      </div>
+      <div style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:22px;">
+        <div style="display:flex; align-items:center; gap:8px; color:#a6a39a; font-size:13px; font-weight:600;"><span style="color:#3ddc97;">✓</span> Total assistido</div>
+        <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:36px; letter-spacing:-.02em; margin-top:12px;">84 <span style="font-size:18px; color:#a6a39a;">títulos</span></div>
+        <div style="font-size:12.5px; color:#a6a39a; margin-top:6px;">Nota média do casal: 4,3 ★</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div style="display:grid; grid-template-columns:1.6fr 1fr; gap:18px; margin-bottom:22px;">
+      <!-- Monthly bars -->
+      <div style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:24px; min-width:0;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+          <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-size:17px; margin:0;">Títulos por mês</h3>
+          <span style="font-size:12px; color:#a6a39a;">2026</span>
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:clamp(8px,2vw,20px); height:200px; padding-top:10px;">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:9px; height:100%; justify-content:flex-end;"><span style="font-size:12px; color:#a6a39a;">7</span><div style="width:100%; height:45%; border-radius:8px 8px 3px 3px; background:#ffcb2b;"></div><span style="font-size:12px; color:#a6a39a;">Fev</span></div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:9px; height:100%; justify-content:flex-end;"><span style="font-size:12px; color:#a6a39a;">11</span><div style="width:100%; height:66%; border-radius:8px 8px 3px 3px; background:#ffcb2b;"></div><span style="font-size:12px; color:#a6a39a;">Mar</span></div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:9px; height:100%; justify-content:flex-end;"><span style="font-size:12px; color:#a6a39a;">8</span><div style="width:100%; height:50%; border-radius:8px 8px 3px 3px; background:#ffcb2b;"></div><span style="font-size:12px; color:#a6a39a;">Abr</span></div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:9px; height:100%; justify-content:flex-end;"><span style="font-size:12px; color:#a6a39a;">14</span><div style="width:100%; height:84%; border-radius:8px 8px 3px 3px; background:#ffcb2b;"></div><span style="font-size:12px; color:#a6a39a;">Mai</span></div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:9px; height:100%; justify-content:flex-end;"><span style="font-size:12px; color:#a6a39a;">10</span><div style="width:100%; height:60%; border-radius:8px 8px 3px 3px; background:#ffcb2b;"></div><span style="font-size:12px; color:#a6a39a;">Jun</span></div>
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:9px; height:100%; justify-content:flex-end;"><span style="font-size:12px; color:#a6a39a;">16</span><div style="width:100%; height:100%; border-radius:8px 8px 3px 3px; background:#ffcb2b;"></div><span style="font-size:12px; color:#f6f4ec;">Jul</span></div>
+        </div>
+      </div>
+
+      <!-- Donut -->
+      <div style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:24px; display:flex; flex-direction:column;">
+        <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-size:17px; margin:0 0 18px;">Filmes vs Séries</h3>
+        <div style="display:flex; align-items:center; gap:20px; flex:1;">
+          <div style="position:relative; width:130px; height:130px; flex:none; border-radius:50%; background:conic-gradient(#ffcb2b 0 62%, #ff9e2c 62% 100%);">
+            <div style="position:absolute; inset:16px; border-radius:50%; background:#161513; display:grid; place-items:center; text-align:center;">
+              <div><div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:22px;">84</div><div style="font-size:10px; color:#a6a39a;">títulos</div></div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div><div style="display:flex; align-items:center; gap:8px;"><span style="width:11px; height:11px; border-radius:3px; background:#ffcb2b;"></span><span style="font-size:13px; font-weight:600;">Filmes</span></div><div style="font-size:12px; color:#a6a39a; margin-left:19px;">52 · 62%</div></div>
+            <div><div style="display:flex; align-items:center; gap:8px;"><span style="width:11px; height:11px; border-radius:3px; background:#ff9e2c;"></span><span style="font-size:13px; font-weight:600;">Séries</span></div><div style="font-size:12px; color:#a6a39a; margin-left:19px;">32 · 38%</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Genre breakdown -->
+    <div style="background:#161513; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:24px;">
+      <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-size:17px; margin:0 0 20px;">Gêneros mais assistidos</h3>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:7px;"><span style="font-weight:600;">Drama</span><span style="color:#a6a39a;">32%</span></div><div style="height:9px; border-radius:20px; background:rgba(255,255,255,.06);"><div style="width:32%; height:100%; border-radius:20px; background:#ffcb2b;"></div></div></div>
+        <div><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:7px;"><span style="font-weight:600;">Ficção Científica</span><span style="color:#a6a39a;">24%</span></div><div style="height:9px; border-radius:20px; background:rgba(255,255,255,.06);"><div style="width:24%; height:100%; border-radius:20px; background:#ffcb2b;"></div></div></div>
+        <div><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:7px;"><span style="font-weight:600;">Romance</span><span style="color:#a6a39a;">18%</span></div><div style="height:9px; border-radius:20px; background:rgba(255,255,255,.06);"><div style="width:18%; height:100%; border-radius:20px; background:#ffcb2b;"></div></div></div>
+        <div><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:7px;"><span style="font-weight:600;">Suspense</span><span style="color:#a6a39a;">14%</span></div><div style="height:9px; border-radius:20px; background:rgba(255,255,255,.06);"><div style="width:14%; height:100%; border-radius:20px; background:#ffcb2b;"></div></div></div>
+        <div><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:7px;"><span style="font-weight:600;">Comédia</span><span style="color:#a6a39a;">12%</span></div><div style="height:9px; border-radius:20px; background:rgba(255,255,255,.06);"><div style="width:12%; height:100%; border-radius:20px; background:#ffcb2b;"></div></div></div>
+      </div>
+    </div>
+  </main>
+  </sc-if>
+
+  <!-- ===================== SCREEN 3: MATCH ===================== -->
+  <sc-if value="{{ isMatch }}" hint-placeholder-val="{{ false }}">
+  <main style="max-width:1240px; margin:0 auto; padding:clamp(24px,4vw,44px) clamp(20px,4vw,48px) 70px; animation:sdFade .4s ease;">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#ff9e2c; margin-bottom:8px;">Match a Dois</div>
+      <h1 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:clamp(26px,4vw,38px); letter-spacing:-.03em; margin:0;">Descubram o próximo juntos</h1>
+      <p style="color:#a6a39a; margin:8px auto 0; font-size:15px; max-width:540px; text-wrap:pretty;">Cada um avalia as sugestões no seu ritmo. Quando os dois curtirem o mesmo título, vira um match — ele entra na lista de vocês com uma notificação.</p>
+    </div>
+
+    <div style="display:flex; justify-content:center; margin-bottom:20px;">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 16px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:100px;">
+        <span style="width:24px; height:24px; border-radius:50%; background:linear-gradient(160deg,hsl(45 92% 44%),hsl(45 88% 26%));"></span>
+        <span style="font-size:13.5px; color:#d8d3c5;">Avaliando como <b style="color:#ffe08a;">{{ swipeUser }}</b></span>
+      </div>
+    </div>
+
+    <sc-if value="{{ swipeDone }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:420px; margin:20px auto; text-align:center; background:#161513; border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:48px 28px;">
+        <div style="font-size:44px; margin-bottom:10px;">🎬</div>
+        <h3 style="font-family:'Bricolage Grotesque',sans-serif; margin:0 0 8px; font-size:20px;">Fim das sugestões!</h3>
+        <p style="color:#a6a39a; font-size:14px; margin:0 0 22px; line-height:1.5;">Vocês avaliaram tudo por enquanto. Volte mais tarde para novas recomendações personalizadas.</p>
+        <button onClick="{{ resetSwipes }}" style="padding:12px 24px; border:none; border-radius:12px; background:#ffcb2b; color:#111; font-weight:700; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer;">Recomeçar</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ swipeActive }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:400px; margin:0 auto;">
+        <div style="position:relative; height:520px; margin-bottom:26px;">
+          <div style="position:absolute; left:26px; right:26px; top:0; height:490px; background:#0f0e0c; border:1px solid rgba(255,255,255,.05); border-radius:24px; transform:translateY(20px) scale(.94);"></div>
+          <div style="position:absolute; left:14px; right:14px; top:0; height:500px; background:#161513; border:1px solid rgba(255,255,255,.06); border-radius:24px; transform:translateY(10px) scale(.97);"></div>
+          <div onClick="{{ current.onOpen }}" style="position:absolute; inset:0; background:#161513; border:1px solid rgba(255,255,255,.1); border-radius:24px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.5); cursor:pointer; animation:sdPop .3s ease;">
+            <div style="position:relative; height:340px; background:linear-gradient(160deg,hsl({{ current.hue }} 44% 26%),hsl({{ current.hue }} 48% 12%));">
+              <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 8px,transparent 8px 16px);"></div>
+              <div style="position:absolute; top:14px; left:14px; padding:5px 11px; border-radius:8px; font-size:12px; font-weight:600; background:rgba(9,9,10,.6); backdrop-filter:blur(6px); color:#f6f4ec;">{{ current.genre }}</div>
+              <sc-if value="{{ current.partnerLiked }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; top:14px; right:14px; display:flex; align-items:center; gap:6px; padding:5px 11px; border-radius:100px; font-size:12px; font-weight:700; background:rgba(255,158,44,.92); color:#fff;">♥ {{ partnerName }} curtiu</div>
+              </sc-if>
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:16px; background:linear-gradient(transparent, rgba(9,9,10,.9)); font-family:monospace; font-size:10px; color:rgba(255,255,255,.4);">[ pôster ]</div>
+            </div>
+            <div style="padding:18px 20px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px;">
+                <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-size:21px; margin:0; letter-spacing:-.01em;">{{ current.title }}</h3>
+                <span style="color:#a6a39a; font-size:14px; flex:none;">{{ current.year }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:7px; margin-top:11px; flex-wrap:wrap;">
+                <span style="padding:4px 10px; border-radius:7px; font-size:11.5px; font-weight:600; background:rgba(255,203,43,.12); border:1px solid rgba(255,203,43,.25); color:#ffdd7a;">{{ current.type }}</span>
+                <sc-for list="{{ current.streams }}" as="st" hint-placeholder-count="1"><span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:7px; font-size:11.5px; font-weight:600; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#d8d3c5;"><span style="width:7px; height:7px; border-radius:50%; background:{{ st.color }};"></span>{{ st.name }}</span></sc-for>
+              </div>
+              <p style="color:#d8d3c5; font-size:13.5px; line-height:1.5; margin:12px 0 0; text-wrap:pretty;">{{ current.synopsis }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:center; gap:22px;">
+          <button onClick="{{ swipePass }}" title="Passar" style="width:64px; height:64px; border-radius:50%; border:1px solid rgba(255,255,255,.14); background:#201e18; color:#ff9e2c; font-size:24px; cursor:pointer; transition:transform .15s ease, border-color .15s ease;" style-hover="transform:scale(1.08); border-color:#ff9e2c;">✕</button>
+          <div style="font-size:12.5px; color:#a6a39a; width:74px; text-align:center;">{{ remaining }} restantes</div>
+          <button onClick="{{ swipeLike }}" title="Curtir" style="width:72px; height:72px; border-radius:50%; border:none; background:#ffcb2b; color:#111; font-size:30px; cursor:pointer; box-shadow:0 12px 30px rgba(255,203,43,.4); transition:transform .15s ease;" style-hover="transform:scale(1.08);">♥</button>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+  </sc-if>
+
+  <!-- ===================== MODAL ===================== -->
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeModal }}" style="position:fixed; inset:0; z-index:60; background:rgba(8,7,11,.72); backdrop-filter:blur(8px); display:grid; place-items:center; padding:20px; animation:sdFade .2s ease;">
+    <div onClick="{{ stop }}" style="width:100%; max-width:520px; max-height:92vh; overflow:auto; background:#161513; border:1px solid rgba(255,255,255,.1); border-radius:22px; box-shadow:0 30px 80px rgba(0,0,0,.6); animation:sdPop .28s cubic-bezier(.2,.9,.3,1);">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; padding:24px 24px 0;">
+        <div>
+          <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:22px; margin:0; letter-spacing:-.02em;">Adicionar Título</h2>
+          <p style="color:#a6a39a; font-size:13.5px; margin:6px 0 0;">Registre um filme ou série na lista de vocês.</p>
+        </div>
+        <button onClick="{{ closeModal }}" style="width:34px; height:34px; flex:none; border-radius:10px; border:1px solid rgba(255,255,255,.1); background:transparent; color:#a6a39a; font-size:18px; cursor:pointer;" style-hover="background:rgba(255,255,255,.06); color:#fff;">✕</button>
+      </div>
+
+      <div style="padding:22px 24px 24px; display:flex; flex-direction:column; gap:20px;">
+        <!-- Search title -->
+        <div>
+          <label style="display:block; font-size:13px; font-weight:600; color:#d8d3c5; margin-bottom:8px;">Buscar título</label>
+          <div style="position:relative;">
+            <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#a6a39a; font-size:15px;">⌕</span>
+            <input placeholder="Ex.: Coração de Vidro, Fronteira Norte…" style="width:100%; padding:13px 14px 13px 40px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#201e18; color:#f6f4ec; font-family:'DM Sans',sans-serif; font-size:14px; outline:none;" style-focus="border-color:#ffcb2b; box-shadow:0 0 0 3px rgba(255,203,43,.2);" />
+          </div>
+        </div>
+
+        <!-- Status pills -->
+        <div>
+          <label style="display:block; font-size:13px; font-weight:600; color:#d8d3c5; margin-bottom:8px;">Status</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <sc-for list="{{ statusPills }}" as="p" hint-placeholder-count="3">
+              <button onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- Rating + Date -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; color:#d8d3c5; margin-bottom:8px;">Nota do casal</label>
+            <div style="display:flex; gap:4px; align-items:center; height:44px;">
+              <sc-for list="{{ starPicker }}" as="s" hint-placeholder-count="5">
+                <button onClick="{{ s.onClick }}" style="background:none; border:none; cursor:pointer; padding:0 1px; font-size:26px; line-height:1; color:{{ s.color }};">★</button>
+              </sc-for>
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; color:#d8d3c5; margin-bottom:8px;">Data assistida</label>
+            <input type="date" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#201e18; color:#f6f4ec; font-family:'DM Sans',sans-serif; font-size:14px; outline:none; color-scheme:dark;" style-focus="border-color:#ffcb2b; box-shadow:0 0 0 3px rgba(255,203,43,.2);" />
+          </div>
+        </div>
+
+        <!-- Opinion -->
+        <div>
+          <label style="display:block; font-size:13px; font-weight:600; color:#d8d3c5; margin-bottom:8px;">Opinião do casal <span style="color:#a6a39a; font-weight:400;">(opcional)</span></label>
+          <textarea rows="3" placeholder="O que vocês acharam? Alguma cena inesquecível?" style="width:100%; padding:13px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#201e18; color:#f6f4ec; font-family:'DM Sans',sans-serif; font-size:14px; outline:none; resize:vertical;" style-focus="border-color:#ffcb2b; box-shadow:0 0 0 3px rgba(255,203,43,.2);"></textarea>
+        </div>
+
+        <div style="display:flex; gap:12px; padding-top:2px;">
+          <button onClick="{{ closeModal }}" style="flex:1; padding:13px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:transparent; color:#f6f4ec; font-family:'DM Sans',sans-serif; font-weight:600; font-size:14px; cursor:pointer;" style-hover="background:rgba(255,255,255,.06);">Cancelar</button>
+          <button onClick="{{ closeModal }}" style="flex:1.4; padding:13px; border-radius:12px; border:none; background:#ffcb2b; color:#111; font-family:'DM Sans',sans-serif; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 8px 22px rgba(255,203,43,.35);">Salvar Título</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== MATCH CELEBRATION ===================== -->
+  <sc-if value="{{ matchOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeMatch }}" style="position:fixed; inset:0; z-index:70; background:rgba(8,7,11,.82); backdrop-filter:blur(10px); display:grid; place-items:center; padding:20px; animation:sdFade .25s ease;">
+    <div onClick="{{ stop }}" style="width:100%; max-width:400px; text-align:center; background:linear-gradient(180deg,#251e0c,#161513); border:1px solid rgba(255,158,44,.35); border-radius:24px; padding:36px 28px; box-shadow:0 30px 80px rgba(0,0,0,.6); animation:sdPop .32s cubic-bezier(.2,.9,.3,1);">
+      <div style="font-size:14px; font-weight:800; letter-spacing:.22em; text-transform:uppercase; background:#ffcb2b; -webkit-background-clip:text; background-clip:text; color:transparent;">É um Match!</div>
+      <div style="font-size:52px; margin:14px 0 10px;">💜</div>
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:24px; margin:0 0 10px; letter-spacing:-.02em;">{{ matchTitle }}</h2>
+      <p style="color:#a6a39a; font-size:14px; margin:0; line-height:1.5; text-wrap:pretty;">Vocês dois curtiram este título! Ele foi adicionado automaticamente à lista <b style="color:#ffe08a;">Queremos Ver</b>.</p>
+      <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin:18px 0 24px; font-size:12.5px; color:#3ddc97;"><span>🔔</span> Notificação enviada para os dois</div>
+      <div style="display:flex; gap:12px;">
+        <button onClick="{{ goHubFromMatch }}" style="flex:1; padding:13px; border-radius:12px; border:1px solid rgba(255,255,255,.14); background:transparent; color:#f6f4ec; font-weight:600; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer;" style-hover="background:rgba(255,255,255,.06);">Ver na lista</button>
+        <button onClick="{{ closeMatch }}" style="flex:1; padding:13px; border-radius:12px; border:none; background:#ffcb2b; color:#111; font-weight:700; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer;">Continuar</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== DETALHES DO TÍTULO ===================== -->
+  <sc-if value="{{ detailOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeDetail }}" style="position:fixed; inset:0; z-index:80; background:rgba(8,7,11,.8); backdrop-filter:blur(10px); display:grid; place-items:center; padding:20px; animation:sdFade .22s ease;">
+    <div onClick="{{ stop }}" style="width:100%; max-width:880px; max-height:92vh; overflow:auto; position:relative; background:#0f0e0c; border:1px solid rgba(255,255,255,.1); border-radius:22px; box-shadow:0 30px 80px rgba(0,0,0,.65); animation:sdPop .3s cubic-bezier(.2,.9,.3,1);">
+      <button onClick="{{ closeDetail }}" style="position:absolute; top:18px; right:18px; z-index:2; width:36px; height:36px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(20,17,24,.7); color:#d8d3c5; font-size:18px; cursor:pointer;" style-hover="background:rgba(255,255,255,.08); color:#fff;">✕</button>
+      <div style="padding:clamp(28px,4vw,40px) clamp(24px,4vw,44px);">
+        <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-size:clamp(26px,4vw,34px); letter-spacing:-.02em; margin:0 56px 16px 0;">{{ detail.title }}</h2>
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:28px;">
+          <span style="padding:6px 14px; border-radius:100px; font-size:13px; font-weight:700; background:{{ detail.statusBg }}; border:1px solid {{ detail.statusBorder }}; color:{{ detail.statusColor }};">{{ detail.status }}</span>
+          <span style="font-size:15px; color:#a6a39a;">{{ detail.type }} · {{ detail.streamNames }}</span>
+        </div>
+        <div style="display:grid; grid-template-columns:minmax(0,210px) 1fr; gap:clamp(20px,4vw,40px); align-items:start;">
+          <div style="position:relative; aspect-ratio:2/3; border-radius:14px; overflow:hidden; background:linear-gradient(160deg,hsl({{ detail.hue }} 44% 26%),hsl({{ detail.hue }} 48% 12%));">
+            <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 8px,transparent 8px 16px);"></div>
+            <div style="position:absolute; bottom:0; left:0; right:0; padding:14px; background:linear-gradient(transparent, rgba(9,9,10,.9)); font-family:monospace; font-size:10px; color:rgba(255,255,255,.4);">[ pôster ]</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:24px;">
+            <div style="display:flex; gap:48px; flex-wrap:wrap;">
+              <div>
+                <div style="font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a877c; margin-bottom:6px;">Ano de lançamento</div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-size:22px;">{{ detail.year }}</div>
+              </div>
+              <div>
+                <div style="font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a877c; margin-bottom:6px;">Avaliação do casal</div>
+                <div style="display:flex; align-items:center; gap:8px;"><span style="color:#ffb443; font-size:18px; letter-spacing:2px;">{{ detail.starsStr }}</span><span style="font-family:'Bricolage Grotesque',sans-serif; font-size:15px; color:#d8d3c5;">{{ detail.ratingLabel }}</span></div>
+              </div>
+              <div>
+                <div style="font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a877c; margin-bottom:6px;">Nota TMDB</div>
+                <div style="display:inline-flex; align-items:center; gap:8px;">
+                  <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:9px; background:rgba(1,180,127,.14); border:1px solid rgba(1,180,127,.4);">
+                    <span style="width:8px; height:8px; border-radius:50%; background:#01b47f;"></span>
+                    <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; color:#3ddc97;">{{ detail.tmdb }}</span>
+                  </span>
+                  <span style="font-size:14px; color:#a6a39a;">/ 10</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a877c; margin-bottom:10px;">Gêneros</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <sc-for list="{{ detail.genreList }}" as="g" hint-placeholder-count="2"><span style="padding:5px 12px; border-radius:8px; font-size:12.5px; font-weight:600; background:rgba(255,203,43,.12); border:1px solid rgba(255,203,43,.25); color:#ffdd7a;">{{ g }}</span></sc-for>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a877c; margin-bottom:10px;">Onde assistir</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <sc-for list="{{ detail.streams }}" as="st" hint-placeholder-count="1"><span style="display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:8px; font-size:12.5px; font-weight:600; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#d8d3c5;"><span style="width:8px; height:8px; border-radius:50%; background:{{ st.color }};"></span>{{ st.name }}</span></sc-for>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8a877c; margin-bottom:10px;">Sinopse</div>
+              <p style="color:#d8d3c5; font-size:15px; line-height:1.6; margin:0; text-wrap:pretty;">{{ detail.desc }}</p>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:30px;">
+          <button onClick="{{ closeDetail }}" style="padding:13px 24px; border-radius:12px; border:none; background:#ffcb2b; color:#111; font-family:'DM Sans',sans-serif; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 10px 26px rgba(255,203,43,.34);">{{ detail.action }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;swipeUser&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Ana&quot;, &quot;Léo&quot;], &quot;default&quot;: &quot;Ana&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Match&quot;, &quot;label&quot;: &quot;Avaliando como&quot; },
+  &quot;autoAddOnMatch&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Match&quot;, &quot;label&quot;: &quot;Adicionar à lista ao dar match&quot; },
+  &quot;celebrateMatch&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Match&quot;, &quot;label&quot;: &quot;Mostrar celebração de match&quot; }
+}">
+class Component extends DCLogic {
+  state = { screen: 'hub', modalOpen: false, modalStatus: 'watching', modalStars: 4, swipeIndex: 0, matchTitle: null, matched: [], detail: null };
+
+  stars(n) { return '★★★★★☆☆☆☆☆'.slice(5 - n, 10 - n); }
+
+  navStyle(active) {
+    const base = "padding:9px 16px; border:none; border-radius:10px; font-family:'DM Sans',sans-serif; font-weight:600; font-size:14px; cursor:pointer; transition:all .18s ease;";
+    return active
+      ? base + "background:#ffcb2b; color:#111; box-shadow:0 4px 14px rgba(255,203,43,.4);"
+      : base + "background:transparent; color:#a6a39a;";
+  }
+
+  pillStyle(active) {
+    const base = "padding:10px 16px; border-radius:11px; font-family:'DM Sans',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer; transition:all .16s ease;";
+    return active
+      ? base + "background:rgba(255,203,43,.16); border:1px solid #ffcb2b; color:#ffe08a;"
+      : base + "background:#201e18; border:1px solid rgba(255,255,255,.1); color:#a6a39a;";
+  }
+
+  renderVals() {
+    const watching = [
+      { title: 'Coração de Vidro', year: 2024, genre: 'Drama', genres: ['Drama', 'Romance'], type: 'Filme', streamings: ['Netflix', 'Globoplay'], hue: 280, rating: 4, date: '12 Jul', opinion: 'Ela chorou litros; ele quase dormiu no final.', desc: 'Uma pianista perde a audição às vésperas do maior concerto da vida e precisa reaprender a sentir a música — e o amor.' },
+      { title: 'Fronteira Norte', year: 2025, genre: 'Suspense', genres: ['Suspense', 'Policial'], type: 'Série', streamings: ['Max'], hue: 210, rating: 5, date: '08 Jul', opinion: 'Prendeu a gente até 3h da manhã. Vício.', desc: 'Numa cidade gelada na fronteira, uma detetive investiga desaparecimentos que a levam a segredos enterrados sob o gelo.' },
+    ];
+    const wantToSee = [
+      { title: 'O Último Verão', year: 2023, genre: 'Romance', genres: ['Romance', 'Drama'], type: 'Filme', streamings: ['Prime Video', 'Apple TV+'], hue: 340, addedBy: 'Ana', desc: 'Dois amigos de infância se reencontram no último verão antes de a vida adulta separá-los para sempre.' },
+      { title: 'Neon City', year: 2025, genre: 'Ficção', genres: ['Ficção', 'Cyberpunk'], type: 'Série', streamings: ['Netflix'], hue: 260, addedBy: 'Léo', desc: 'Numa metrópole movida a luz neon, uma hacker descobre que suas próprias memórias foram vendidas como mercadoria.' },
+      { title: 'A Casa Silenciosa', year: 2024, genre: 'Terror', genres: ['Terror', 'Suspense'], type: 'Filme', streamings: ['Max', 'Prime Video'], hue: 160, addedBy: 'Ana', desc: 'Uma família se muda para uma casa isolada onde o silêncio esconde algo que não quer ser ouvido.' },
+    ];
+    const watched = [
+      { title: 'Cartas de Outono', year: 2022, genre: 'Drama', genres: ['Drama', 'Romance'], type: 'Filme', streamings: ['Prime Video'], hue: 30, rating: 5, date: '02 Jun', opinion: 'Nosso favorito do ano, disparado.', desc: 'Cartas trocadas por décadas revelam um amor que resistiu ao tempo, à distância e ao destino.' },
+      { title: 'Duplo Sentido', year: 2021, genre: 'Comédia', genres: ['Comédia', 'Romance'], type: 'Série', streamings: ['Netflix', 'Globoplay'], hue: 50, rating: 4, date: '21 Mai', opinion: 'Rimos demais. Revê fácil num domingo.', desc: 'Um casal em crise decide se separar, mas um mal-entendido os obriga a fingir que ainda estão juntos por uma semana.' },
+      { title: 'Órbita', year: 2023, genre: 'Ficção', genres: ['Ficção', 'Aventura'], type: 'Filme', streamings: ['Disney+'], hue: 220, rating: 5, date: '14 Mai', opinion: 'Visual de cair o queixo, som impecável.', desc: 'A tripulação de uma estação orbital precisa tomar uma decisão impossível quando a Terra para de responder.' },
+      { title: 'Maré Alta', year: 2020, genre: 'Aventura', genres: ['Aventura', 'Drama'], type: 'Filme', streamings: ['Globoplay'], hue: 190, rating: 3, date: '28 Abr', opinion: 'Divertido, mas esquecível. Ok pra relaxar.', desc: 'Um velho pescador e sua neta enfrentam a maior tempestade da temporada em busca de uma última travessia.' },
+    ];
+    const streamColors = { 'Netflix': '#e50914', 'Prime Video': '#00a8e1', 'Max': '#ffcb2b', 'Disney+': '#3a7bff', 'Apple TV+': '#d8d3c5', 'Globoplay': '#f7454f' };
+    // Nota vinda da TMDB API (mock — no app real viria de /movie/{id} ou /tv/{id})
+    const tmdbScores = { 'Coração de Vidro': 7.8, 'Fronteira Norte': 8.6, 'O Último Verão': 7.1, 'Neon City': 8.0, 'A Casa Silenciosa': 6.4, 'Cartas de Outono': 8.9, 'Duplo Sentido': 7.3, 'Órbita': 8.5, 'Maré Alta': 6.7, 'Vento Sul': 7.6, 'A Hora Azul': 7.9, 'Protocolo Zero': 8.2, 'Café da Meia-Noite': 7.0, 'Ecos': 6.9 };
+    const enrich = (arr) => arr.map(m => ({ ...m, streams: (m.streamings || []).map(n => ({ name: n, color: streamColors[n] || '#a6a39a' })) }));
+    const addStars = (arr) => enrich(arr).map(m => ({ ...m, stars: this.stars(m.rating) }));
+    const attach = (arr, status, statusColor, action) => arr.map(m => {
+      const o = { ...m, status, statusColor, action,
+        statusBg: statusColor + '22', statusBorder: statusColor + '55',
+        tmdb: (tmdbScores[m.title] ?? 0).toFixed(1),
+        genreList: m.genres || [m.genre],
+        streamNames: (m.streamings || []).join(' · '),
+        starsStr: m.rating ? this.stars(m.rating) : '',
+        ratingLabel: m.rating ? (m.rating + ',0 / 5') : 'Ainda sem nota',
+        desc: m.desc || m.synopsis || '' };
+      o.onOpen = () => this.setState({ detail: o });
+      return o;
+    });
+
+    const swipeUser = this.props.swipeUser ?? 'Ana';
+    const partnerName = swipeUser === 'Ana' ? 'Léo' : 'Ana';
+    const suggestions = enrich([
+      { title: 'Vento Sul', year: 2025, genre: 'Drama', genres: ['Drama', 'Romance'], type: 'Filme', streamings: ['Netflix'], hue: 300, partnerLiked: true, synopsis: 'Dois estranhos presos por uma tempestade redescobrem o que haviam perdido.', desc: 'Dois estranhos ficam presos por uma tempestade numa estação de trem e, ao longo da noite, redescobrem o que haviam perdido em si mesmos.' },
+      { title: 'A Hora Azul', year: 2024, genre: 'Romance', genres: ['Romance', 'Drama'], type: 'Filme', streamings: ['Prime Video', 'Apple TV+'], hue: 340, partnerLiked: false, synopsis: 'Um verão em Lisboa muda o rumo de um casal em crise.', desc: 'Um verão em Lisboa, entre becos e fados, muda o rumo de um casal à beira do fim.' },
+      { title: 'Protocolo Zero', year: 2025, genre: 'Ação', genres: ['Ação', 'Suspense'], type: 'Série', streamings: ['Max', 'Netflix'], hue: 210, partnerLiked: true, synopsis: 'Uma agente precisa desarmar uma conspiração global em 12 horas.', desc: 'Uma agente da inteligência precisa desarmar uma conspiração global em apenas 12 horas, sem saber em quem confiar.' },
+      { title: 'Café da Meia-Noite', year: 2023, genre: 'Comédia', genres: ['Comédia', 'Drama'], type: 'Série', streamings: ['Globoplay'], hue: 40, partnerLiked: false, synopsis: 'As histórias cruzadas de quem frequenta um café aberto 24 horas.', desc: 'As histórias cruzadas de quem frequenta um café aberto 24 horas, onde cada xícara guarda uma confissão.' },
+      { title: 'Ecos', year: 2024, genre: 'Suspense', genres: ['Suspense', 'Terror'], type: 'Filme', streamings: ['Disney+', 'Max'], hue: 260, partnerLiked: true, synopsis: 'Sons inexplicáveis assombram uma família numa casa isolada.', desc: 'Sons inexplicáveis assombram uma família numa casa isolada, revelando que o passado nunca ficou realmente para trás.' },
+    ]);
+    const idx = this.state.swipeIndex;
+    const current = suggestions[idx] || null;
+    const currentA = current ? { ...current, status: 'Sugestão', statusColor: '#ffb443', statusBg: '#ffb44322', statusBorder: '#ffb44355', action: 'Adicionar à lista', tmdb: (tmdbScores[current.title] ?? 0).toFixed(1), genreList: current.genres || [current.genre], streamNames: (current.streamings || []).join(' · '), starsStr: '', ratingLabel: 'Ainda sem nota', desc: current.desc || current.synopsis || '' } : null;
+    if (currentA) currentA.onOpen = () => this.setState({ detail: currentA });
+    const done = idx >= suggestions.length;
+    const auto = this.props.autoAddOnMatch ?? true;
+    const celebrate = this.props.celebrateMatch ?? true;
+    const swipeLike = () => {
+      const s = suggestions[idx];
+      if (s && s.partnerLiked && auto) {
+        const added = { title: s.title, year: s.year, genre: s.genre, type: s.type, streamings: s.streamings, hue: s.hue, addedBy: 'Match 💜' };
+        this.setState({ swipeIndex: idx + 1, matched: [added, ...this.state.matched], matchTitle: celebrate ? s.title : null });
+      } else {
+        this.setState({ swipeIndex: idx + 1 });
+      }
+    };
+
+    const statuses = [
+      { key: 'watching', label: 'Assistindo' },
+      { key: 'want', label: 'Queremos Ver' },
+      { key: 'watched', label: 'Já Vimos' },
+    ];
+
+    return {
+      isHub: this.state.screen === 'hub',
+      isDash: this.state.screen === 'dashboard',
+      isMatch: this.state.screen === 'match',
+      goHub: () => this.setState({ screen: 'hub' }),
+      goDash: () => this.setState({ screen: 'dashboard' }),
+      goMatch: () => this.setState({ screen: 'match' }),
+      navHubStyle: this.navStyle(this.state.screen === 'hub'),
+      navDashStyle: this.navStyle(this.state.screen === 'dashboard'),
+      navMatchStyle: this.navStyle(this.state.screen === 'match'),
+
+      swipeUser,
+      partnerName,
+      current: currentA,
+      remaining: suggestions.length - idx,
+      swipeDone: done,
+      swipeActive: !done && !!current,
+      swipeLike,
+      swipePass: () => this.setState({ swipeIndex: idx + 1 }),
+      resetSwipes: () => this.setState({ swipeIndex: 0 }),
+      matchOpen: !!this.state.matchTitle,
+      matchTitle: this.state.matchTitle,
+      closeMatch: () => this.setState({ matchTitle: null }),
+      goHubFromMatch: () => this.setState({ screen: 'hub', matchTitle: null }),
+
+      watching: attach(addStars(watching), 'Assistindo Atualmente', '#ff9e2c', 'Marcar como visto'),
+      wantToSee: attach(enrich([...this.state.matched, ...wantToSee]), 'Queremos Ver', '#ffcb2b', 'Começar a assistir'),
+      watched: attach(addStars(watched), 'Já Vimos', '#3ddc97', 'Reavaliar'),
+
+      detail: this.state.detail,
+      detailOpen: !!this.state.detail,
+      closeDetail: () => this.setState({ detail: null }),
+
+      modalOpen: this.state.modalOpen,
+      openModal: () => this.setState({ modalOpen: true }),
+      closeModal: () => this.setState({ modalOpen: false }),
+      stop: (e) => e.stopPropagation(),
+
+      statusPills: statuses.map(s => ({
+        label: s.label,
+        style: this.pillStyle(this.state.modalStatus === s.key),
+        onClick: () => this.setState({ modalStatus: s.key }),
+      })),
+      starPicker: [1, 2, 3, 4, 5].map(n => ({
+        color: n <= this.state.modalStars ? '#ffb443' : 'rgba(255,255,255,.18)',
+        onClick: () => this.setState({ modalStars: n }),
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>
