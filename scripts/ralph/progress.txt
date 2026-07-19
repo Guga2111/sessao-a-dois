@@ -7,6 +7,18 @@
 - CLAUDE.md mandates reading everything under `docs/` before any task, and using the `frontend-design` skill for any `client/` work. NOTE: docs/ now also has `BACKLOG.md` (the full epic/task backlog) — read it too.
 - Spring Security config lives in `com.app.security.SecurityConfig` as a `@Configuration` exposing a `SecurityFilterChain` bean (Spring Security 6 lambda DSL: `.csrf(c -> c.disable())`, `.authorizeHttpRequests(a -> a.anyRequest()...)`, `.formLogin(f -> f.disable())`, `.httpBasic(b -> b.disable())`). Epico 1 uses permitAll; Epico 2 replaces it with JWT + CORS.
 - Public/root endpoints (e.g. health) go directly under `com.app` as `@RestController`. `/api/health` returns `Map.of("status","UP")` (auto JSON).
+- API Docker image: `api/Dockerfile` is multi-stage — build stage `eclipse-temurin:21-jdk` (uses `./mvnw`, copy `.mvn/`+`mvnw`+`pom.xml` and `dependency:go-offline` BEFORE `COPY src/` for layer cache), runtime stage `eclipse-temurin:21-jre` copying only `target/*.jar` -> `app.jar`. Repackaged jar is `sessao-a-dois-0.0.1-SNAPSHOT.jar` (artifactId `sessao-a-dois`, version `0.0.1-SNAPSHOT`); `target/*.jar` glob deliberately excludes the plugin's `.jar.original`. `api/.dockerignore` must keep `target/` out of the build context.
+
+## 2026-07-19 - US-004
+- Criado o Dockerfile multi-stage da API para produzir uma imagem executavel enxuta.
+  - `api/Dockerfile` (novo): estagio `build` (`eclipse-temurin:21-jdk`) copia `.mvn/`, `mvnw` e `pom.xml`, roda `./mvnw dependency:go-offline` (camada cacheavel de dependencias), depois `COPY src/` e `./mvnw -DskipTests package`; estagio `runtime` (`eclipse-temurin:21-jre`) copia so `target/*.jar` -> `app.jar`, `EXPOSE 8080`, `ENTRYPOINT ["java","-jar","app.jar"]`.
+  - `api/.dockerignore` (novo): exclui `target/`, artefatos de IDE, `.mvn/wrapper/maven-wrapper.jar`, `.git/` e o proprio `Dockerfile`/`.dockerignore`.
+- Files changed: api/Dockerfile (novo); api/.dockerignore (novo); api/CLAUDE.md (secao Docker); scripts/ralph/prd.json (passes/notes US-004).
+- **Learnings for future iterations:**
+  - ENV CONSTRAINT reconfirmado (4a vez): sem Docker/JDK aqui e rede so github.com (Docker Hub/Maven Central bloqueados). `docker build`/`docker run` NAO validaveis aqui — confirmar em ambiente com Docker + internet.
+  - O `spring-boot-maven-plugin` gera DOIS arquivos em target/: o jar repackaged executavel e um `*.jar.original`. O glob `target/*.jar` casa apenas o `.jar` (nao o `.jar.original`), entao `COPY --from=build /app/target/*.jar app.jar` resolve para exatamente 1 arquivo. Se algum dia houver >1 `.jar`, o COPY-para-arquivo falha.
+  - Ordem de camadas para cache: copie `.mvn/`+`mvnw`+`pom.xml` e rode `dependency:go-offline` ANTES de `COPY src/`. Assim mudancas em `src/` nao invalidam o download de dependencias.
+  - O app EXIGE datasource alcancavel para subir (JPA auto-config, ver US-003), entao `docker run` so sobe com `DB_URL` apontando para um PostgreSQL acessivel (na rede do docker-compose ou host).
 
 ## 2026-07-19 - US-003
 - Configurado o datasource e um health-check publico para validar a base antes de features de dominio.

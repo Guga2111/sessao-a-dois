@@ -11,3 +11,9 @@ Spring Boot (parent 4.1.0) + Java 21, built with the Maven wrapper `./mvnw`.
 ## Build / verify
 - `./mvnw -DskipTests package` to compile; `./mvnw test` to run tests.
 - Note: some sandboxed runtimes lack a JDK and block Maven Central — the build can only be verified where JDK 21 + Maven Central are available.
+
+## Docker
+- `Dockerfile` is multi-stage: build (`eclipse-temurin:21-jdk`, uses `./mvnw`) → runtime (`eclipse-temurin:21-jre`, carries only the jar). Build with `docker build -t sessao-api ./api`.
+- Layer-cache order matters: copy `.mvn/`, `mvnw`, `pom.xml` and run `dependency:go-offline` **before** `COPY src/`.
+- Runtime copies `target/*.jar` → `app.jar`; the glob intentionally excludes the plugin's `.jar.original`. Keep `target/` in `.dockerignore`.
+- The app needs a reachable datasource to boot (JPA auto-config), so `docker run` requires `DB_URL` pointing at an accessible PostgreSQL.
