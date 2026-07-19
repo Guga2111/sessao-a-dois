@@ -1,0 +1,20 @@
+## Codebase Patterns
+- Backend Java lives in `api/` (Spring Boot, Maven wrapper `./mvnw`). Base Java package is `com.app` (NOT the Maven groupId, which stays `com.lf`).
+- Spring Boot parent version is 4.1.0 with Java 21 (see api/pom.xml).
+- Package-by-feature is the target architecture: com.app.user, com.app.couple, com.app.media, com.app.tracking, com.app.match, com.app.security, com.app.websocket (see docs/ARCHITECTURE.md).
+- ENV CONSTRAINT: This Ralph runtime has NO JDK/Maven installed and only `github.com` is on the network allowlist (Maven Central / Adoptium unreachable). Maven builds/tests CANNOT be executed here. Validate builds in an environment with JDK 21 + Maven Central access. Do static validation (XML well-formedness, package/dir structure) as a stopgap.
+- CLAUDE.md mandates reading everything under `docs/` before any task, and using the `frontend-design` skill for any `client/` work.
+
+## 2026-07-19 - US-001
+- Renamed the base Java package from `com.lf.sessao_a_dois` to `com.app`.
+  - Moved main class to `api/src/main/java/com/app/SessaoADoisApplication.java` (package `com.app;`).
+  - Moved test class to `api/src/test/java/com/app/SessaoADoisApplicationTests.java` (package `com.app;`).
+  - Removed old `api/src/main/java/com/lf` and `api/src/test/java/com/lf` directories.
+- Added base dependencies to `api/pom.xml`: spring-boot-starter-web, -data-jpa, -validation, -security, -websocket; postgresql driver (scope runtime); plus spring-security-test (test scope) as a companion for the security starter.
+- Maven `groupId` left as `com.lf` (only the Java base package changed), per acceptance criteria.
+- Files changed: api/pom.xml, api/src/main/java/com/app/SessaoADoisApplication.java (new), api/src/test/java/com/app/SessaoADoisApplicationTests.java (new); deleted api/src/**/com/lf/*.
+- **Learnings for future iterations:**
+  - The `mvnw -DskipTests package` acceptance check could NOT be run: no JDK/Maven in this environment and Maven Central is blocked (only github.com reachable). Did static validation instead: `python3 -c "xml.dom.minidom.parse('pom.xml')"` confirms well-formed XML; structure and `package com.app;` declarations verified by inspection. The build MUST be confirmed in a JDK-capable environment before relying on it.
+  - Keep `groupId` = `com.lf`; do not "fix" it to com.app — the criteria explicitly separate the Maven coordinate from the Java package.
+  - Downloading a portable JDK/Maven is not viable here because their download hosts are outside the network allowlist.
+---
