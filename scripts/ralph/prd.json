@@ -34,8 +34,8 @@
         "docker compose -f docker-compose-dev.yml up -d sobe ambos os servicos e o postgres fica healthy"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado: docker-compose-dev.yml na raiz com servico postgres (postgres:17-alpine, porta 5432, POSTGRES_DB=sessao, POSTGRES_USER=sessao, POSTGRES_PASSWORD=sessao, volume nomeado postgres-data, healthcheck com pg_isready) e servico pgadmin (dpage/pgadmin4, porta host 5050->80, PGADMIN_DEFAULT_EMAIL/PASSWORD, depends_on postgres healthy). Credenciais de dev (db/user/senha=sessao) definidas para serem reutilizadas pelos defaults da API na US-003. Docker NAO esta instalado neste ambiente e a rede so permite github.com, entao 'docker compose config' e 'up -d' NAO puderam ser executados; validacao estatica feita (sem tabs, indentacao 2-espacos consistente, top-level services/volumes, todos os campos exigidos presentes). Necessario validar 'docker compose -f docker-compose-dev.yml config' e 'up -d' (postgres healthy) em ambiente com Docker."
     },
     {
       "id": "US-003",

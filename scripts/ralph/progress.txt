@@ -2,8 +2,21 @@
 - Backend Java lives in `api/` (Spring Boot, Maven wrapper `./mvnw`). Base Java package is `com.app` (NOT the Maven groupId, which stays `com.lf`).
 - Spring Boot parent version is 4.1.0 with Java 21 (see api/pom.xml).
 - Package-by-feature is the target architecture: com.app.user, com.app.couple, com.app.media, com.app.tracking, com.app.match, com.app.security, com.app.websocket (see docs/ARCHITECTURE.md).
-- ENV CONSTRAINT: This Ralph runtime has NO JDK/Maven installed and only `github.com` is on the network allowlist (Maven Central / Adoptium unreachable). Maven builds/tests CANNOT be executed here. Validate builds in an environment with JDK 21 + Maven Central access. Do static validation (XML well-formedness, package/dir structure) as a stopgap.
+- ENV CONSTRAINT: This Ralph runtime has NO JDK/Maven and NO Docker installed, and only `github.com` is on the network allowlist (Maven Central / Adoptium / Docker Hub / pip unreachable). Maven builds/tests, Docker builds, and `docker compose` CANNOT be executed here. Validate in an environment with JDK 21 + Docker + internet. Do static validation (XML well-formedness, YAML no-tabs/indentation, package/dir structure) as a stopgap.
+- DEV DB CREDENTIALS (single source of truth): db=sessao, user=sessao, password=sessao, on localhost:5432 (see docker-compose-dev.yml). The API defaults (US-003 application.properties) MUST match these exactly: DB_URL=jdbc:postgresql://localhost:5432/sessao, DB_USER=sessao, DB_PASSWORD=sessao. PgAdmin dev UI is on host port 5050.
 - CLAUDE.md mandates reading everything under `docs/` before any task, and using the `frontend-design` skill for any `client/` work.
+
+## 2026-07-19 - US-002
+- Criado `docker-compose-dev.yml` na raiz do repositorio com dois servicos:
+  - `postgres`: imagem `postgres:17-alpine`, porta `5432:5432`, `POSTGRES_DB=sessao`, `POSTGRES_USER=sessao`, `POSTGRES_PASSWORD=sessao`, volume nomeado `postgres-data` para persistencia, healthcheck via `pg_isready -U sessao -d sessao`.
+  - `pgadmin`: imagem `dpage/pgadmin4`, porta host `5050:80`, `PGADMIN_DEFAULT_EMAIL/PASSWORD`, `PGADMIN_CONFIG_SERVER_MODE=False` (facilita login em dev), `depends_on` postgres com `condition: service_healthy`.
+- Credenciais de conexao de DEV padronizadas como `sessao/sessao/sessao` (db/user/senha). Estes valores DEVEM virar os defaults da API na US-003 (ex.: `${DB_URL:jdbc:postgresql://localhost:5432/sessao}`, `${DB_USER:sessao}`, `${DB_PASSWORD:sessao}`).
+- Files changed: docker-compose-dev.yml (novo); scripts/ralph/prd.json (passes/notes US-002).
+- **Learnings for future iterations:**
+  - ENV CONSTRAINT reconfirmado: Docker NAO esta instalado e nao ha modulo `yaml` / `pip` disponivel (rede so github.com). `docker compose config`/`up -d` e validacao YAML via pyyaml NAO rodam aqui. Fiz validacao estatica manual: sem tabs, indentacao 2-espacos, top-level `services`/`volumes` e todos os campos exigidos presentes. Confirme com Docker num ambiente com internet.
+  - Ao mexer em datasource/config na US-003, reutilize EXATAMENTE db=sessao, user=sessao, senha=sessao para casar com o docker-compose-dev.yml.
+  - PgAdmin roda em 5050 (host) -> 80 (container); Postgres exposto em 5432. Volume `postgres-data` persiste dados entre `up/down` (use `down -v` para zerar).
+---
 
 ## 2026-07-19 - US-001
 - Renamed the base Java package from `com.lf.sessao_a_dois` to `com.app`.
