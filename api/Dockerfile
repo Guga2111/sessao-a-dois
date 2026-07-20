@@ -13,7 +13,7 @@ RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
 
 # Now copy the source and build the runnable jar (tests skipped for image build).
 COPY src/ src/
-RUN ./mvnw -B -q -DskipTests package
+RUN ./mvnw -B -q -Dmaven.test.skip=true package
 
 # ---- Stage 2: runtime ----
 # Lean JRE 21 base; carries only the built jar, not the JDK or Maven.

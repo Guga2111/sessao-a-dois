@@ -1,0 +1,170 @@
+{
+  "project": "Sessao a Dois - Couple Media Tracker",
+  "branchName": "ralph/epico-2-auth-casais",
+  "description": "Epico 2: Autenticacao e Gestao de Casais - cadastro/login com JWT (access token, sem refresh token) e vinculo entre duas contas via invite_code formando um Couple",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Entidade User e repositorio",
+      "description": "Como desenvolvedor, preciso de uma entidade User persistida para armazenar contas individuais.",
+      "acceptanceCriteria": [
+        "Criar entidade User no pacote com.app.user com campos: id (UUID gerado), name, email (unico, nao nulo), passwordHash (nao nulo), createdAt",
+        "Criar UserRepository (Spring Data JPA) com metodo findByEmail(String email) e existsByEmail(String email)",
+        "A coluna email possui restricao de unicidade no banco",
+        "A tabela e criada corretamente ao subir a aplicacao contra o PostgreSQL do docker-compose-dev.yml",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Entidade User (com.app.user) + UserRepository com findByEmail/existsByEmail. Unicidade de email via @Column(unique=true) e constraint na tabela; ddl-auto=update cria o schema. Testes com @DataJpaTest + H2 (test scope) cobrindo save/find, existsByEmail e violacao de unicidade. Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede) - build nao verificado localmente."
+    },
+    {
+      "id": "US-002",
+      "title": "Endpoint de Registro",
+      "description": "Como novo usuario, quero criar uma conta com nome, e-mail e senha para acessar o app.",
+      "acceptanceCriteria": [
+        "Endpoint POST /api/auth/register recebe { name, email, password }",
+        "Validacao: name nao vazio; email em formato valido; password com no minimo 8 caracteres (Bean Validation / @Valid)",
+        "A senha e armazenada com hash usando BCryptPasswordEncoder (nunca em texto puro)",
+        "Se o e-mail ja existir, retorna 409 Conflict com mensagem generica ('e-mail ja cadastrado'), sem revelar detalhes sensiveis",
+        "Em caso de sucesso, retorna 201 Created. O registro NAO retorna JWT - o token e obtido depois via login",
+        "Erros de validacao retornam 400 Bad Request com corpo descrevendo os campos invalidos",
+        "Teste cobre: registro com sucesso, e-mail duplicado, senha curta, e-mail invalido",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Endpoint POST /api/auth/register (com.app.auth): AuthController + AuthService + RegisterRequest (Bean Validation: name NotBlank, email Email, password min 8) + RegisterResponse (sem token) + EmailAlreadyExistsException (409) + AuthExceptionHandler (@RestControllerAdvice, 409 duplicado e 400 validacao). Senha com BCryptPasswordEncoder (bean ja existia em SecurityConfig). Testes: AuthServiceTest (sucesso, email duplicado) + AuthControllerTest via @WebMvcTest+@Import(SecurityConfig) (201 sucesso, 409 duplicado, 400 senha curta, 400 email invalido). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
+    },
+    {
+      "id": "US-003",
+      "title": "Endpoint de Login e geracao de JWT",
+      "description": "Como usuario cadastrado, quero fazer login e receber um token para autenticar minhas requisicoes.",
+      "acceptanceCriteria": [
+        "Endpoint POST /api/auth/login recebe { email, password }",
+        "Valida a senha comparando com o hash BCrypt armazenado",
+        "Em caso de sucesso, retorna 200 OK com { token, user: { id, name, email }, couple: <resumo ou null> }",
+        "O JWT (usando biblioteca jjwt / io.jsonwebtoken) contem no minimo o sub (id do usuario, UUID) e exp de 7 dias a partir da emissao",
+        "Credenciais invalidas retornam 401 Unauthorized com mensagem generica ('credenciais invalidas'), sem revelar se o e-mail existe",
+        "Teste cobre: login com sucesso, senha errada, e-mail inexistente",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Login endpoint POST /api/auth/login (com.app.auth): LoginRequest/LoginResponse/UserSummary records + InvalidCredentialsException (401, mensagem generica) + AuthExceptionHandler handler. AuthService.login() valida via PasswordEncoder.matches e usa novo JwtService (com.app.security) para emitir o token (subject=UUID do usuario, exp = app.jwt.expiration-days, default 7). Dependencia jjwt (api+impl+jackson 0.12.6) adicionada ao pom.xml; segredo/expiracao configuraveis via app.jwt.secret / app.jwt.expiration-days (envs JWT_SECRET / JWT_EXPIRATION_DAYS). couple no LoginResponse fica sempre null por enquanto (entidade Couple ainda nao existe, sera povoada em US-005/US-006). Testes: AuthServiceTest (login com sucesso, senha errada, email inexistente) + AuthControllerTest (200 sucesso, 401 credenciais invalidas). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
+    },
+    {
+      "id": "US-004",
+      "title": "Configuracao Spring Security + filtro JWT + CORS",
+      "description": "Como desenvolvedor, preciso proteger a API para que apenas requisicoes autenticadas acessem endpoints privados.",
+      "acceptanceCriteria": [
+        "Criar com.app.security com SecurityConfig (Spring Security 6, SecurityFilterChain), substituindo a configuracao temporaria permitAll do Epico 1",
+        "Rotas publicas: POST /api/auth/register, POST /api/auth/login e o endpoint de health. Todas as demais exigem JWT valido",
+        "Criar JwtService (geracao e validacao do token, biblioteca jjwt) usando segredo lido de variavel de ambiente/application.properties (app.jwt.secret), com expiracao configuravel (default 7 dias)",
+        "Criar JwtAuthenticationFilter (OncePerRequestFilter) que le o header Authorization: Bearer <token>, valida e popula o SecurityContext",
+        "Sessao configurada como STATELESS",
+        "CORS habilitado para http://localhost:5173 (origem configuravel por propriedade), permitindo GET/POST/PUT/DELETE e o header Authorization",
+        "Token invalido/expirado/ausente em rota protegida retorna 401 Unauthorized",
+        "Teste cobre: acesso negado sem token, acesso permitido com token valido, token expirado rejeitado",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "SecurityConfig (com.app.security) substituido: JWT stateless (SessionCreationPolicy.STATELESS), CORS via CorsConfigurationSource (origem configuravel por app.cors.allowed-origin, default http://localhost:5173, metodos GET/POST/PUT/DELETE, header Authorization), rotas publicas POST /api/auth/register, POST /api/auth/login e GET /api/health via requestMatchers, demais rotas authenticated(). exceptionHandling().authenticationEntryPoint() responde 401 (em vez do 403 default do Spring Security) para request sem/invalido token. JwtAuthenticationFilter (OncePerRequestFilter, com.app.security) le Authorization: Bearer, usa JwtService.parseSubject e popula SecurityContextHolder com o UUID do usuario como principal; token ausente/invalido/expirado apenas segue sem autenticar (authorizeHttpRequests rejeita depois). Testes: AuthControllerTest atualizado com @MockitoBean JwtService (necessario pois o filtro agora entra no slice @WebMvcTest); novo JwtAuthenticationFilterTest (com.app.security) com um @RestController de teste dedicado cobre acesso negado sem token, acesso permitido com token valido, e token expirado rejeitado (401). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
+    },
+    {
+      "id": "US-005",
+      "title": "Entidade Couple e geracao de invite_code",
+      "description": "Como desenvolvedor, preciso da entidade Couple e da logica de geracao de codigo de convite para vincular duas contas.",
+      "acceptanceCriteria": [
+        "Criar entidade Couple no pacote com.app.couple com campos: id (UUID), user1_id, user2_id (nulo ate o parceiro vincular), invite_code (unico), created_at",
+        "Criar CoupleRepository com findByInviteCode(String code)",
+        "Gerar invite_code alfanumerico de 6 a 8 caracteres, evitando caracteres ambiguos (0/O, 1/l), garantindo unicidade (regenerar em caso de colisao)",
+        "Endpoint POST /api/couple (autenticado) cria um Couple para o usuario atual como user1, gera o invite_code e o retorna",
+        "Regra: um usuario so pode pertencer a um casal. Se ja estiver em um casal, a criacao retorna 409 Conflict",
+        "Endpoint GET /api/couple/me (autenticado) retorna o casal do usuario atual (invite_code e dados do parceiro) ou 404/null se ainda nao houver",
+        "Teste cobre: criacao de casal, unicidade do invite_code, bloqueio de segundo casal",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Entidade Couple (com.app.couple): id (UUID), user1Id, user2Id (nullable), inviteCode (unico), createdAt. CoupleRepository com findByInviteCode/findByUser1IdOrUser2Id/existsByInviteCode. InviteCodeGenerator gera codigo alfanumerico de 6-8 chars evitando 0/O/1/I/L (alfabeto ABCDEFGHJKMNPQRSTUVWXYZ23456789). CoupleService.createCouple valida se o usuario ja pertence a um casal (UserAlreadyInCoupleException, 409 via CoupleExceptionHandler) e regenera o invite_code em caso de colisao. CoupleController: POST /api/couple (autenticado, cria com usuario atual como user1) e GET /api/couple/me (autenticado, retorna CoupleResponse com PartnerSummary resolvido via UserRepository, ou 404 se nao houver casal). Usa @AuthenticationPrincipal UUID diretamente (principal ja e o UUID setado pelo JwtAuthenticationFilter). Nenhuma mudanca necessaria em SecurityConfig - anyRequest().authenticated() ja cobre as novas rotas. Testes: CoupleRepositoryTest (@DataJpaTest), InviteCodeGeneratorTest, CoupleServiceTest (Mockito), CoupleControllerTest (@WebMvcTest + SecurityMockMvcRequestPostProcessors.authentication para simular usuario logado). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
+    },
+    {
+      "id": "US-006",
+      "title": "Endpoint de vinculo via invite_code",
+      "description": "Como usuario, quero inserir o codigo do meu parceiro para nos conectarmos como um casal.",
+      "acceptanceCriteria": [
+        "Endpoint POST /api/couple/join (autenticado) recebe { inviteCode }",
+        "Localiza o Couple pelo invite_code. Se nao existir, retorna 404 Not Found",
+        "Preenche user2_id com o usuario atual e persiste o vinculo",
+        "Usuario nao pode entrar no proprio casal (se ele e o user1) -> 400 Bad Request",
+        "Usuario ja pertence a outro casal -> 409 Conflict",
+        "Casal ja esta completo (user2_id preenchido) -> 409 Conflict",
+        "Em caso de sucesso, retorna 200 OK com o resumo do casal ja vinculado (ambos os usuarios)",
+        "Teste cobre: vinculo com sucesso, codigo inexistente, auto-vinculo, casal cheio, usuario ja pareado",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Endpoint POST /api/couple/join (com.app.couple): JoinCoupleRequest record ({inviteCode}, @NotBlank). CoupleService.joinCouple(userId, inviteCode) checks in order: invite code exists (InviteCodeNotFoundException, 404), self-join (user1Id == userId -> CannotJoinOwnCoupleException, 400), user already in another couple (UserAlreadyInCoupleException, reused from US-005, 409), couple already has user2Id (CoupleAlreadyFullException, 409); on success sets user2Id and saves. CoupleController.join uses @AuthenticationPrincipal UUID + @Valid @RequestBody, returns 200 with the same CoupleResponse shape as GET /api/couple/me (partner resolved via UserRepository). CoupleExceptionHandler extended with handlers for the three new exceptions plus MethodArgumentNotValidException (400, same pattern as AuthExceptionHandler). Tests: CoupleServiceTest (join success, unknown code, self-join, already-paired, couple-full) + CoupleControllerTest (join success, 404/400/409 cases). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
+    },
+    {
+      "id": "US-007",
+      "title": "Configurar Axios com interceptor de JWT",
+      "description": "Como desenvolvedor frontend, preciso de um cliente HTTP que injete o JWT automaticamente em todas as requisicoes.",
+      "acceptanceCriteria": [
+        "Instalar Axios em versao sem vulnerabilidades conhecidas",
+        "Criar instancia central do Axios (src/lib/api.ts) com baseURL vinda de variavel de ambiente (VITE_API_URL)",
+        "Interceptor de request injeta o header Authorization: Bearer <token> quando houver token no estado de autenticacao",
+        "Interceptor de response trata 401 global: limpa a sessao e redireciona para /login",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Instalado axios@1.18.1 (client/package.json, sem vulnerabilidades conhecidas - npm audit limpo). Criado client/src/lib/authToken.ts (getAuthToken/setAuthToken/clearAuthToken via localStorage, chave sessaoADois.token) como fonte unica de verdade do token, para ser reaproveitado pelo useAuthStore em US-008 sem import circular entre a store e o cliente Axios. Criado client/src/lib/api.ts: instancia axios com baseURL de import.meta.env.VITE_API_URL; interceptor de request injeta Authorization: Bearer <token> quando ha token; interceptor de response so limpa a sessao e redireciona para /login em 401 quando a requisicao que falhou tinha enviado Authorization (evita redirecionar/limpar sessao em 401 de login com credenciais invalidas, que e um erro esperado tratado pela tela de login). Adicionado client/src/vite-env.d.ts tipando VITE_API_URL e client/.env.example. .gitignore do client atualizado para ignorar .env/.env.* exceto .env.example. Typecheck (tsc --noEmit) e lint (eslint) passam (o unico erro de lint e pre-existente em src/components/ui/button.tsx, nao relacionado a esta story). 'bun run build' falha neste sandbox por falta do binding nativo do rolldown para linux-arm64 (node_modules so tem binding-darwin-arm64, de uma instalacao bun anterior feita em Mac) - confirmado pre-existente via git stash, nao relacionado a esta mudanca; bun nao esta disponivel neste ambiente entao client/bun.lock nao foi regenerado ao adicionar axios (npm install foi usado so para poder rodar typecheck/lint aqui) - regenerar com 'bun install' em ambiente com bun."
+    },
+    {
+      "id": "US-008",
+      "title": "Store useAuthStore (Zustand)",
+      "description": "Como desenvolvedor frontend, preciso de um estado global de autenticacao para guardar o token e os dados do usuario/casal.",
+      "acceptanceCriteria": [
+        "Criar useAuthStore (Zustand) em src/stores/useAuthStore.ts com estado: token, user, couple, isAuthenticated",
+        "Acoes: login(credentials), register(data), logout(), joinCouple(inviteCode), createCouple(), loadCurrentUser()",
+        "A acao register(data) chama POST /api/auth/register e, em caso de sucesso, chama login automaticamente com as mesmas credenciais, dando a sensacao de login imediato apos o cadastro. Se o login automatico falhar, redireciona para /login",
+        "Token persistido (ex.: localStorage) para sobreviver a refresh da pagina; logout() limpa a persistencia",
+        "Ao iniciar o app, o estado e reidratado a partir do token persistido",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Store useAuthStore (Zustand) em client/src/stores/useAuthStore.ts. Estado: token, user, couple, isAuthenticated. Acoes login/register/logout/joinCouple/createCouple/loadCurrentUser conforme AC. register() chama POST /api/auth/register e depois login() automatico com as mesmas credenciais; se o login automatico falhar, chama logout() e redireciona para /login. Token persistido via authToken.ts (US-007, chave localStorage sessaoADois.token) reaproveitado sem duplicacao. Como nao existe endpoint GET /api/auth/me (ou equivalente) neste epico para reidratar nome/e-mail do usuario a partir so do token, user+couple sao persistidos em localStorage (chave sessaoADois.session) nas acoes que os recebem (login/joinCouple/createCouple); loadCurrentUser() le token+sessao persistidos e re-sincroniza couple via GET /api/couple/me (tratando 404 como 'sem casal ainda'), assumindo isAuthenticated=true a partir do token — se o token estiver invalido/expirado, o interceptor de resposta do Axios (US-007) ja limpa a sessao e redireciona para /login em qualquer chamada subsequente. Instalada dependencia zustand@5.0.14 (npm install; package-lock.json gerado foi removido, projeto usa bun.lock)."
+    },
+    {
+      "id": "US-009",
+      "title": "React Router com rotas protegidas + telas de Auth",
+      "description": "Como usuario, quero telas de Login, Cadastro e insercao de codigo de convite, com protecao de rotas.",
+      "acceptanceCriteria": [
+        "Configurar React Router com rotas: /login, /register, /join (inserir codigo) e as rotas privadas do app (Hub etc.)",
+        "Componente ProtectedRoute redireciona para /login quando isAuthenticated e falso",
+        "Usuario autenticado mas sem casal e redirecionado para /join (inserir codigo ou gerar o proprio)",
+        "Tela de Login: campos e-mail/senha, exibe erro de credenciais invalidas, chama useAuthStore.login",
+        "Tela de Cadastro: campos nome/e-mail/senha, validacao de senha min. 8 caracteres no cliente, exibe erro de e-mail duplicado. Apos o cadastro, o frontend faz login automaticamente (via register do store) sem o usuario digitar as credenciais de novo",
+        "Tela de Codigo de Convite: permite inserir um codigo para se vincular e gerar o proprio codigo para compartilhar",
+        "Apos login/cadastro bem-sucedido com casal ja formado, redireciona ao Hub",
+        "As telas seguem o design do prototipo (Sessao a Dois.dc.html): tema escuro #09090a, acento amarelo #ffcb2b, fontes Bricolage Grotesque (titulos) e DM Sans (corpo)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "React Router (react-router-dom@7) added. client/src/routes/guards.tsx: ProtectedRoute (redirects to /login if !isAuthenticated), PublicOnlyRoute (redirects authenticated users to / or /join depending on couple), RequireCouple (redirects to /join if no couple), RedirectIfCoupled (redirects /join to / once couple exists). App.tsx wires /login, /register, /join, / (Hub placeholder) and a catch-all Navigate to /; calls useAuthStore.loadCurrentUser() once on mount when already authenticated (token persisted from a previous session) to resync couple state. client/src/routes/auth/: AuthLayout.tsx (shared shell: radial-gradient dark bg, logo lockup, glass card, matches docs prototype tokens: bg #09090a, accent #ffcb2b/#ff9e2c, text #f6f4ec/#a6a39a, Bricolage Grotesque + DM Sans via new .font-display/.font-auth-body classes in index.css + Google Fonts link in index.html), LoginPage.tsx, RegisterPage.tsx (client-side min-8-char password check before submit, 409->duplicate e-mail message, 400->generic validation message; calls useAuthStore.register which auto-logs-in per US-008), JoinPage.tsx (tab toggle between 'Tenho um código' (join) and 'Criar meu código' (create), 404/400/409 mapped to specific messages per US-006 API contract, shows InviteCodeTicket.tsx once a couple is created without a partner yet, with a manual 'Já vinculamos, continuar' button that calls loadCurrentUser to re-check - no polling/websocket exists in this epic). InviteCodeTicket.tsx is the signature visual element: a torn-cinema-ticket-stub card (dashed perforation + circular notches) themed around 'two seats, one movie' for the couple/media-tracker concept. Added client/src/components/ui/input.tsx (shadcn-style Input primitive, dark-glass styled) for reuse by future forms. HubPage.tsx is a minimal authenticated placeholder (greets user, shows partner name, logout button) since the real Hub is out of scope for this epic. `npm run typecheck` and `npm run lint` both pass (lint's one error is the pre-existing button.tsx react-refresh warning noted in US-007/US-008, unrelated to this story). Could NOT verify in an actual browser: no browser-automation tool is available in this sandbox, and even `vite dev` (not just `vite build`) fails here with the same pre-existing '@rolldown/binding-linux-arm64-gnu' native-binding error noted in US-007/US-008 (confirmed with `npm run dev`) - a properly provisioned machine must run `bun install` + `bun run dev` (or npm equivalent) and click through /register -> /join -> / and /login -> /join/Hub to confirm the flows visually before merge."
+    }
+  ]
+}

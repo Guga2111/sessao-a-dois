@@ -5,6 +5,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.font-display {
+  font-family: "Bricolage Grotesque", "Instrument Sans Variable", sans-serif;
+}
+
+.font-auth-body {
+  font-family: "DM Sans", "Instrument Sans Variable", sans-serif;
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Instrument Sans Variable', sans-serif;
