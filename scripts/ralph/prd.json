@@ -36,8 +36,8 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado em com.app.media: MediaController (GET /api/media/search), MediaSearchService (usa o RestClient de TmdbConfig contra /search/multi), DTOs raw TmdbMultiSearchResponse/Item (package-private, @JsonProperty p/ snake_case), DTO publico MediaSearchResult, InvalidSearchQueryException + MediaExceptionHandler (400 antes de chamar o TMDB quando q vazio/ausente). Endpoint fica atras de autenticacao (anyRequest().authenticated() do SecurityConfig). Testes: MediaSearchServiceTest (RestClient mockado com RETURNS_DEEP_STUBS - sucesso misto filme+serie filtrando 'person', lista vazia, body null, poster/data ausentes) e MediaControllerTest (@WebMvcTest, sucesso, lista vazia, q ausente/em branco -> 400, sem auth -> 401). Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao."
     },
     {
       "id": "US-003",
