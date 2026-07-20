@@ -1,0 +1,21 @@
+# Build output — rebuilt inside the image, must not enter the build context.
+target/
+
+# Local IDE / tooling artifacts
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Maven wrapper jar (downloaded by the wrapper script; not needed in context)
+.mvn/wrapper/maven-wrapper.jar
+
+# Docs / VCS noise
+HELP.md
+.git/
+.gitignore
+.gitattributes
+Dockerfile
+.dockerignore
