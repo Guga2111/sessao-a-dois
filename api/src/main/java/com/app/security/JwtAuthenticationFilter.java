@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -50,7 +51,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			try {
 				UUID userId = jwtService.parseSubject(token);
 				Authentication authentication = new UsernamePasswordAuthenticationToken(userId, null, List.of());
-				SecurityContextHolder.getContext().setAuthentication(authentication);
+				SecurityContext context = SecurityContextHolder.createEmptyContext();
+				context.setAuthentication(authentication);
+				SecurityContextHolder.setContext(context);
 			} catch (JwtException | IllegalArgumentException e) {
 				SecurityContextHolder.clearContext();
 			}
