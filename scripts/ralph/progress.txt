@@ -4,6 +4,8 @@
 - This sandbox has no JDK/`java`/`mvn` and no network access to Maven Central — `./mvnw` cannot be run here (see api/CLAUDE.md). Implement carefully and double-check imports/APIs by hand; a JDK-enabled environment must verify the build before merge.
 - For repository-level JPA tests, use `@DataJpaTest` with the `com.h2database:h2` dependency added in test scope (api/pom.xml) — Spring Boot auto-swaps in an embedded DB, no extra config needed.
 - `@WebMvcTest` auto-includes `Filter` beans (e.g. `JwtAuthenticationFilter`), so any `@WebMvcTest(...) @Import(SecurityConfig.class)` slice must also `@MockitoBean` every bean that filter depends on (currently `JwtService`), even for controllers unrelated to auth.
+- Frontend (client/): this sandbox has no `bun` binary, only `node`/`npm`. `npm install` works (registry is reachable) and is fine for adding deps/running `tsc --noEmit`/`eslint`, but do NOT commit a generated `package-lock.json` (project uses `bun.lock`) — delete it after installing. `bun.lock` itself can't be regenerated here; note in progress.txt that a bun-enabled environment must run `bun install` to sync it after any `client/package.json` dependency change.
+- Frontend (client/): `vite build` / `bun run build` fails in this Linux sandbox with "Cannot find module '@rolldown/binding-linux-arm64-gnu'" — `node_modules` only has `@rolldown/binding-darwin-arm64` from the original Mac-side `bun install`. This is a pre-existing sandbox limitation, not a real bug; verified via `git stash` that it fails identically on unmodified code. Rely on `tsc --noEmit` + `eslint .` as the quality gates here instead of a full build; a real build must be verified on a properly provisioned machine (or in CI) before merge.
 
 ## 2026-07-19 - US-001
 - Implemented `User` entity (`com.app.user.User`): UUID id, name, email (unique, not null), passwordHash, createdAt (set in constructor).
@@ -75,4 +77,16 @@
   - `CoupleController` didn't have any `@Valid @RequestBody` endpoint before this story, so `CoupleExceptionHandler` needed its own `MethodArgumentNotValidException` handler (copy of `AuthExceptionHandler`'s) — `@RestControllerAdvice(basePackages = "com.app.couple")` only catches exceptions from that package's controllers, it isn't shared with `com.app.auth`'s advice.
   - Epico 2 backend user stories (US-001 through US-006) are now all implemented; remaining stories (US-007 to US-009) are frontend (Axios client, Zustand auth store, React Router + auth screens) — check `client/CLAUDE.md` (if any) and invoke the `frontend-design` skill before touching `client/`, per the root `CLAUDE.md` rule.
   - Still no JDK/`mvn`/network in this sandbox — could not run `./mvnw test`. Re-verify with a real JDK 21 environment before merge.
+---
+
+## 2026-07-20 - US-007
+- Added `client/src/lib/authToken.ts`: `getAuthToken`/`setAuthToken`/`clearAuthToken` wrapping `localStorage` under key `sessaoADois.token` — a dedicated module so the future Zustand `useAuthStore` (US-008) and the Axios client can share the same token source without importing from each other.
+- Added `client/src/lib/api.ts`: central Axios instance (`baseURL: import.meta.env.VITE_API_URL`). Request interceptor adds `Authorization: Bearer <token>` when a token exists. Response interceptor only clears the session + redirects to `/login` on 401 **if the failed request had sent an Authorization header** — this avoids nuking/redirecting on a plain login-with-wrong-password 401 (which is a normal, locally-handled form error, not a session expiry).
+- Added `client/src/vite-env.d.ts` (typed `ImportMetaEnv.VITE_API_URL`) and `client/.env.example`; updated `client/.gitignore` to ignore `.env`/`.env.*` except `.env.example`.
+- Installed `axios@1.18.1` (`npm install`, 0 vulnerabilities per npm audit).
+- Files changed: client/package.json, client/.gitignore, client/.env.example (new), client/src/lib/api.ts (new), client/src/lib/authToken.ts (new), client/src/vite-env.d.ts (new), scripts/ralph/prd.json.
+- **Learnings for future iterations:**
+  - See Codebase Patterns above re: no `bun` in this sandbox and the pre-existing `vite build` rolldown-binding failure — neither is specific to this story.
+  - US-008 (`useAuthStore`) should import `getAuthToken`/`setAuthToken`/`clearAuthToken` from `client/src/lib/authToken.ts` for its persistence rather than rolling its own `localStorage` key, so the Axios client in `api.ts` and the store always agree on where the token lives.
+  - The response interceptor's "only act on 401 if we sent an Authorization header" check is load-bearing: without it, a failed login attempt (public route, no token, backend still returns 401 with a generic "credenciais invalidas" message per US-003) would incorrectly trigger the global session-expiry redirect.
 ---

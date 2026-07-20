@@ -127,8 +127,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Instalado axios@1.18.1 (client/package.json, sem vulnerabilidades conhecidas - npm audit limpo). Criado client/src/lib/authToken.ts (getAuthToken/setAuthToken/clearAuthToken via localStorage, chave sessaoADois.token) como fonte unica de verdade do token, para ser reaproveitado pelo useAuthStore em US-008 sem import circular entre a store e o cliente Axios. Criado client/src/lib/api.ts: instancia axios com baseURL de import.meta.env.VITE_API_URL; interceptor de request injeta Authorization: Bearer <token> quando ha token; interceptor de response so limpa a sessao e redireciona para /login em 401 quando a requisicao que falhou tinha enviado Authorization (evita redirecionar/limpar sessao em 401 de login com credenciais invalidas, que e um erro esperado tratado pela tela de login). Adicionado client/src/vite-env.d.ts tipando VITE_API_URL e client/.env.example. .gitignore do client atualizado para ignorar .env/.env.* exceto .env.example. Typecheck (tsc --noEmit) e lint (eslint) passam (o unico erro de lint e pre-existente em src/components/ui/button.tsx, nao relacionado a esta story). 'bun run build' falha neste sandbox por falta do binding nativo do rolldown para linux-arm64 (node_modules so tem binding-darwin-arm64, de uma instalacao bun anterior feita em Mac) - confirmado pre-existente via git stash, nao relacionado a esta mudanca; bun nao esta disponivel neste ambiente entao client/bun.lock nao foi regenerado ao adicionar axios (npm install foi usado so para poder rodar typecheck/lint aqui) - regenerar com 'bun install' em ambiente com bun."
     },
     {
       "id": "US-008",
