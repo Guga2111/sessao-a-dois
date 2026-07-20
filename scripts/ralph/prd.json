@@ -73,8 +73,8 @@
         "Tests pass"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "SecurityConfig (com.app.security) substituido: JWT stateless (SessionCreationPolicy.STATELESS), CORS via CorsConfigurationSource (origem configuravel por app.cors.allowed-origin, default http://localhost:5173, metodos GET/POST/PUT/DELETE, header Authorization), rotas publicas POST /api/auth/register, POST /api/auth/login e GET /api/health via requestMatchers, demais rotas authenticated(). exceptionHandling().authenticationEntryPoint() responde 401 (em vez do 403 default do Spring Security) para request sem/invalido token. JwtAuthenticationFilter (OncePerRequestFilter, com.app.security) le Authorization: Bearer, usa JwtService.parseSubject e popula SecurityContextHolder com o UUID do usuario como principal; token ausente/invalido/expirado apenas segue sem autenticar (authorizeHttpRequests rejeita depois). Testes: AuthControllerTest atualizado com @MockitoBean JwtService (necessario pois o filtro agora entra no slice @WebMvcTest); novo JwtAuthenticationFilterTest (com.app.security) com um @RestController de teste dedicado cobre acesso negado sem token, acesso permitido com token valido, e token expirado rejeitado (401). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
     },
     {
       "id": "US-005",

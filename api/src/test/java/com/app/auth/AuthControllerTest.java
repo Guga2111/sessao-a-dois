@@ -1,5 +1,6 @@
 package com.app.auth;
 
+import com.app.security.JwtService;
 import com.app.security.SecurityConfig;
 import com.app.user.User;
 
@@ -26,6 +27,9 @@ class AuthControllerTest {
 
 	@MockitoBean
 	private AuthService authService;
+
+	@MockitoBean
+	private JwtService jwtService;
 
 	@Test
 	void registersSuccessfully() throws Exception {
