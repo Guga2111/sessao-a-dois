@@ -35,8 +35,8 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Endpoint POST /api/auth/register (com.app.auth): AuthController + AuthService + RegisterRequest (Bean Validation: name NotBlank, email Email, password min 8) + RegisterResponse (sem token) + EmailAlreadyExistsException (409) + AuthExceptionHandler (@RestControllerAdvice, 409 duplicado e 400 validacao). Senha com BCryptPasswordEncoder (bean ja existia em SecurityConfig). Testes: AuthServiceTest (sucesso, email duplicado) + AuthControllerTest via @WebMvcTest+@Import(SecurityConfig) (201 sucesso, 409 duplicado, 400 senha curta, 400 email invalido). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
     },
     {
       "id": "US-003",

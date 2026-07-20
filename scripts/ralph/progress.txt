@@ -15,3 +15,14 @@
   - `docker-compose-dev.yml` defines the dev Postgres (db=sessao, user=sessao, password=sessao, localhost:5432); `application.properties` already defaults to these via `DB_URL`/`DB_USER`/`DB_PASSWORD` env vars.
   - Next story (US-002, register endpoint) will need a `PasswordEncoder` (`BCryptPasswordEncoder`) bean — none exists yet; SecurityConfig (api/src/main/java/com/app/security/SecurityConfig.java) is still the Epico-1 permit-all placeholder and is explicitly meant to be replaced in US-004 of this epic.
 ---
+
+## 2026-07-20 - US-002
+- Found `com.app.auth` (AuthController, AuthService, RegisterRequest, RegisterResponse, EmailAlreadyExistsException, AuthExceptionHandler) and `AuthServiceTest` already implemented but uncommitted from a prior session; reviewed them against the acceptance criteria and completed the missing piece: a controller-level test for the Bean Validation cases.
+- Added `AuthControllerTest` (`api/src/test/java/com/app/auth/AuthControllerTest.java`), a `@WebMvcTest(AuthController.class)` covering: 201 on success, 409 on duplicate e-mail, 400 on short password, 400 on invalid e-mail.
+- Files changed: api/src/test/java/com/app/auth/AuthControllerTest.java, scripts/ralph/prd.json (also carrying forward the previously-uncommitted api/src/main/java/com/app/auth/**, api/src/test/java/com/app/auth/AuthServiceTest.java, and api/src/main/java/com/app/security/SecurityConfig.java PasswordEncoder bean from the prior session).
+- **Learnings for future iterations:**
+  - This project pins Spring Boot parent `4.1.0`, where `@MockBean`/`org.springframework.boot.test.mock.mockito.MockBean` is gone — use `@MockitoBean` from `org.springframework.test.context.bean.override.mockito.MockitoBean` instead in any new `@WebMvcTest`/`@SpringBootTest`.
+  - `@WebMvcTest` does NOT load unrelated `@Configuration` classes (like `com.app.security.SecurityConfig`) by default, and Spring Security's own test auto-config will 401 unauthenticated requests if no `SecurityFilterChain` bean is present in the slice. Add `@Import(SecurityConfig.class)` to any `@WebMvcTest` that exercises an endpoint, so the slice matches the real runtime security config (permit-all placeholder for now; will still be needed once US-004 adds real auth rules, since public routes like `/api/auth/register` stay permitAll).
+  - `AuthExceptionHandler` is a `@RestControllerAdvice(basePackages = "com.app.auth")`; `@WebMvcTest` auto-detects it without extra wiring.
+  - Still no JDK/`mvn`/network in this sandbox — could not run `./mvnw test`. Re-verify with a real JDK 21 environment before merge.
+---
