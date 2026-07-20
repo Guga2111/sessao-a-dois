@@ -79,7 +79,18 @@ if [ ! -f "$PROGRESS_FILE" ]; then
   echo "---" >> "$PROGRESS_FILE"
 fi
 
+# Use the branch that is currently checked out — never create/switch branches.
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ -z "$GIT_BRANCH" ] || [ "$GIT_BRANCH" = "HEAD" ]; then
+  echo "Error: not on a git branch (detached HEAD or not a repo). Checkout a branch first."
+  exit 1
+fi
+
+# Instruction appended to every prompt so the agent stays on the current branch.
+BRANCH_NOTE=$(printf '\n\n## Current Git Branch (DO NOT CHANGE)\nYou are on branch `%s`. Implement, commit, and stay on THIS branch.\nDo NOT create or switch branches (no `git checkout -b`, `git switch -c`, `git checkout <other>`, or `git branch`).\nIgnore `branchName` in prd.json for switching purposes.\n' "$GIT_BRANCH")
+
 echo "Starting Ralph - Tool: $TOOL - Max iterations: $MAX_ITERATIONS"
+echo "Using current git branch: $GIT_BRANCH (auto branch creation disabled)"
 
 for i in $(seq 1 $MAX_ITERATIONS); do
   echo ""
@@ -87,12 +98,12 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   echo "  Ralph Iteration $i of $MAX_ITERATIONS ($TOOL)"
   echo "==============================================================="
 
-  # Run the selected tool with the ralph prompt
+  # Run the selected tool with the ralph prompt (+ current-branch instruction)
   if [[ "$TOOL" == "amp" ]]; then
-    OUTPUT=$(cat "$SCRIPT_DIR/prompt.md" | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
+    OUTPUT=$( { cat "$SCRIPT_DIR/prompt.md"; printf '%s' "$BRANCH_NOTE"; } | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
   else
     # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
-    OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee /dev/stderr) || true
+    OUTPUT=$( { cat "$SCRIPT_DIR/CLAUDE.md"; printf '%s' "$BRANCH_NOTE"; } | claude --dangerously-skip-permissions --print 2>&1 | tee /dev/stderr) || true
   fi
   
   # Check for completion signal
