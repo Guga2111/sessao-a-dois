@@ -7,6 +7,7 @@ Spring Boot (parent 4.1.0) + Java 21, built with the Maven wrapper `./mvnw`.
 - **Maven `groupId` stays `com.lf`** — this is intentional and separate from the Java package. Do not "align" them.
 - **Package-by-feature** is the target structure: `com.app.user`, `com.app.couple`, `com.app.media`, `com.app.tracking`, `com.app.match`, `com.app.security`, `com.app.websocket` (see `docs/ARCHITECTURE.md`).
 - Testing stack: JUnit 5 + Mockito (+ spring-security-test); Controllers, Services and Repositories require coverage.
+- **`com.app.media` (TMDB integration):** `TmdbConfig` exposes a single `RestClient` bean (`tmdbRestClient`) that fails fast (`IllegalStateException`) if `tmdb.api-key` (env `TMDB_API_KEY`) is blank — the bean is eagerly instantiated, so this happens at context startup. Default `language=pt-BR` is injected on every outgoing request via a `ClientHttpRequestInterceptor` (`TmdbDefaultLanguageInterceptor`) that wraps the request with `HttpRequestWrapper` to rewrite the URI — this is the pattern to follow for any other default query param the TMDB client needs. `src/test/resources/application.properties` sets a fake `tmdb.api-key` so `@SpringBootTest` contexts (e.g. `SessaoADoisApplicationTests`) can boot without a real `TMDB_API_KEY` in the environment.
 
 ## Build / verify
 - `./mvnw -DskipTests package` to compile; `./mvnw test` to run tests.

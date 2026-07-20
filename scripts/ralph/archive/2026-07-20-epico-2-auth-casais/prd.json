@@ -17,8 +17,8 @@
         "Tests pass"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "TmdbConfig (com.app.media) implementado: RestClient bean fail-fast quando TMDB_API_KEY ausente/em branco, Authorization: Bearer <key> como header, language=pt-BR injetado via TmdbDefaultLanguageInterceptor. Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK instalado) - verificar em ambiente com JDK 21 + Maven Central."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-002",
