@@ -1,0 +1,17 @@
+## Codebase Patterns
+- Backend: package-by-feature under `com.app.<feature>` (e.g. `com.app.user`), see docs/ARCHITECTURE.md.
+- `spring.jpa.hibernate.ddl-auto=update` (api/src/main/resources/application.properties) — no manual migrations; entities drive schema creation against the dev PostgreSQL.
+- This sandbox has no JDK/`java`/`mvn` and no network access to Maven Central — `./mvnw` cannot be run here (see api/CLAUDE.md). Implement carefully and double-check imports/APIs by hand; a JDK-enabled environment must verify the build before merge.
+- For repository-level JPA tests, use `@DataJpaTest` with the `com.h2database:h2` dependency added in test scope (api/pom.xml) — Spring Boot auto-swaps in an embedded DB, no extra config needed.
+
+## 2026-07-19 - US-001
+- Implemented `User` entity (`com.app.user.User`): UUID id, name, email (unique, not null), passwordHash, createdAt (set in constructor).
+- Implemented `UserRepository` (`com.app.user.UserRepository`, Spring Data JPA) with `findByEmail` and `existsByEmail`.
+- Added `com.h2database:h2` test-scope dependency to api/pom.xml for `@DataJpaTest`.
+- Added `UserRepositoryTest` (`api/src/test/java/com/app/user/UserRepositoryTest.java`) covering save+findByEmail, existsByEmail, and unique-email constraint violation (`DataIntegrityViolationException` on duplicate email).
+- Files changed: api/pom.xml, api/src/main/java/com/app/user/User.java, api/src/main/java/com/app/user/UserRepository.java, api/src/test/java/com/app/user/UserRepositoryTest.java, scripts/ralph/prd.json.
+- **Learnings for future iterations:**
+  - No JDK is available in this sandbox (`java`, `javac`, `mvn` all missing) and Maven Central is unreachable — could not run `./mvnw test`/`package` to verify, consistent with prior iterations (US-001/US-003/US-004 of Epico 1 hit the same limitation). Re-verify with a proper JDK 21 environment before considering this fully done.
+  - `docker-compose-dev.yml` defines the dev Postgres (db=sessao, user=sessao, password=sessao, localhost:5432); `application.properties` already defaults to these via `DB_URL`/`DB_USER`/`DB_PASSWORD` env vars.
+  - Next story (US-002, register endpoint) will need a `PasswordEncoder` (`BCryptPasswordEncoder`) bean — none exists yet; SecurityConfig (api/src/main/java/com/app/security/SecurityConfig.java) is still the Epico-1 permit-all placeholder and is explicitly meant to be replaced in US-004 of this epic.
+---
