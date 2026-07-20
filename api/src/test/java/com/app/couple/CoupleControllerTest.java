@@ -97,4 +97,75 @@ class CoupleControllerTest {
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
 			.andExpect(status().isNotFound());
 	}
+
+	@Test
+	void joinsCoupleWithValidInviteCode() throws Exception {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234");
+		couple.setUser2Id(user2Id);
+		User partner = new User("Ana", "ana@example.com", "hashed-password");
+		when(coupleService.joinCouple(eq(user2Id), eq("ABC234"))).thenReturn(couple);
+		when(userRepository.findById(eq(user1Id))).thenReturn(Optional.of(partner));
+
+		mockMvc.perform(post("/api/couple/join")
+				.with(authentication(new UsernamePasswordAuthenticationToken(user2Id, null, List.of())))
+				.contentType("application/json")
+				.content("{\"inviteCode\":\"ABC234\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.inviteCode").value("ABC234"))
+			.andExpect(jsonPath("$.partner.name").value("Ana"));
+	}
+
+	@Test
+	void returnsNotFoundForUnknownInviteCode() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.joinCouple(eq(userId), eq("NOPE")))
+			.thenThrow(new InviteCodeNotFoundException());
+
+		mockMvc.perform(post("/api/couple/join")
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType("application/json")
+				.content("{\"inviteCode\":\"NOPE\"}"))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void rejectsSelfJoinWithBadRequest() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.joinCouple(eq(userId), eq("ABC234")))
+			.thenThrow(new CannotJoinOwnCoupleException());
+
+		mockMvc.perform(post("/api/couple/join")
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType("application/json")
+				.content("{\"inviteCode\":\"ABC234\"}"))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void rejectsJoinWhenCoupleAlreadyFull() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.joinCouple(eq(userId), eq("ABC234")))
+			.thenThrow(new CoupleAlreadyFullException());
+
+		mockMvc.perform(post("/api/couple/join")
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType("application/json")
+				.content("{\"inviteCode\":\"ABC234\"}"))
+			.andExpect(status().isConflict());
+	}
+
+	@Test
+	void rejectsJoinWhenUserAlreadyPaired() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.joinCouple(eq(userId), eq("ABC234")))
+			.thenThrow(new UserAlreadyInCoupleException());
+
+		mockMvc.perform(post("/api/couple/join")
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType("application/json")
+				.content("{\"inviteCode\":\"ABC234\"}"))
+			.andExpect(status().isConflict());
+	}
 }

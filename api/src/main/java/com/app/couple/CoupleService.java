@@ -29,6 +29,26 @@ public class CoupleService {
 		return coupleRepository.findByUser1IdOrUser2Id(userId, userId);
 	}
 
+	public Couple joinCouple(UUID userId, String inviteCode) {
+		Couple couple = coupleRepository.findByInviteCode(inviteCode)
+			.orElseThrow(InviteCodeNotFoundException::new);
+
+		if (couple.getUser1Id().equals(userId)) {
+			throw new CannotJoinOwnCoupleException();
+		}
+
+		if (coupleRepository.findByUser1IdOrUser2Id(userId, userId).isPresent()) {
+			throw new UserAlreadyInCoupleException();
+		}
+
+		if (couple.getUser2Id() != null) {
+			throw new CoupleAlreadyFullException();
+		}
+
+		couple.setUser2Id(userId);
+		return coupleRepository.save(couple);
+	}
+
 	private String generateUniqueInviteCode() {
 		String code;
 		do {

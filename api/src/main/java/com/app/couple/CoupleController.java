@@ -3,11 +3,14 @@ package com.app.couple;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,6 +39,13 @@ public class CoupleController {
 		return coupleService.getCurrentCouple(userId)
 			.map(couple -> ResponseEntity.ok(toResponse(couple, userId)))
 			.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@PostMapping("/join")
+	public ResponseEntity<CoupleResponse> join(@AuthenticationPrincipal UUID userId,
+			@Valid @RequestBody JoinCoupleRequest request) {
+		Couple couple = coupleService.joinCouple(userId, request.inviteCode());
+		return ResponseEntity.ok(toResponse(couple, userId));
 	}
 
 	private CoupleResponse toResponse(Couple couple, UUID currentUserId) {

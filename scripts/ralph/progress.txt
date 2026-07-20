@@ -65,3 +65,14 @@
   - `CoupleService` intentionally does not depend on `UserRepository` — partner-name/email resolution is a presentation concern handled in `CoupleController`, keeping the service's job limited to the couple invariants (one-couple-per-user, unique invite code).
   - Still no JDK/`mvn`/network in this sandbox — could not run `./mvnw test`. Re-verify with a real JDK 21 environment before merge.
 ---
+
+## 2026-07-20 - US-006
+- Added POST /api/couple/join (com.app.couple): `JoinCoupleRequest` record + `CoupleService.joinCouple(userId, inviteCode)` implementing the ordered checks (invite code not found -> 404, self-join -> 400, user already paired -> 409, couple already full -> 409) before setting `user2Id` and saving. `CoupleController.join` mirrors the existing `create`/`me` pattern (`@AuthenticationPrincipal UUID`, reuses `toResponse`/`PartnerSummary` resolution via `UserRepository`).
+- Added exceptions `InviteCodeNotFoundException` (404), `CannotJoinOwnCoupleException` (400), `CoupleAlreadyFullException` (409); extended `CoupleExceptionHandler` with handlers for all three plus a `MethodArgumentNotValidException` handler (same shape as `AuthExceptionHandler`, needed now that `CoupleController` has its first `@Valid @RequestBody`).
+- Files changed: api/src/main/java/com/app/couple/{JoinCoupleRequest,InviteCodeNotFoundException,CannotJoinOwnCoupleException,CoupleAlreadyFullException}.java (new), api/src/main/java/com/app/couple/{CoupleService,CoupleController,CoupleExceptionHandler}.java (modified), api/src/test/java/com/app/couple/{CoupleServiceTest,CoupleControllerTest}.java (modified), scripts/ralph/prd.json.
+- **Learnings for future iterations:**
+  - Check order in `joinCouple` matters for correctness, not just readability: self-join must be checked *before* the "already in a couple" check (a user who owns the couple they're trying to join is, by definition, already "in" that couple via `user1Id`, but the spec wants the more specific 400 self-join error, not a generic 409).
+  - `CoupleController` didn't have any `@Valid @RequestBody` endpoint before this story, so `CoupleExceptionHandler` needed its own `MethodArgumentNotValidException` handler (copy of `AuthExceptionHandler`'s) — `@RestControllerAdvice(basePackages = "com.app.couple")` only catches exceptions from that package's controllers, it isn't shared with `com.app.auth`'s advice.
+  - Epico 2 backend user stories (US-001 through US-006) are now all implemented; remaining stories (US-007 to US-009) are frontend (Axios client, Zustand auth store, React Router + auth screens) — check `client/CLAUDE.md` (if any) and invoke the `frontend-design` skill before touching `client/`, per the root `CLAUDE.md` rule.
+  - Still no JDK/`mvn`/network in this sandbox — could not run `./mvnw test`. Re-verify with a real JDK 21 environment before merge.
+---
