@@ -1,5 +1,6 @@
 package com.app.auth;
 
+import com.app.security.JwtService;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
@@ -10,8 +11,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,11 +30,14 @@ class AuthServiceTest {
 	@Mock
 	private PasswordEncoder passwordEncoder;
 
+	@Mock
+	private JwtService jwtService;
+
 	private AuthService authService;
 
 	@Test
 	void registersUserWithHashedPassword() {
-		authService = new AuthService(userRepository, passwordEncoder);
+		authService = new AuthService(userRepository, passwordEncoder, jwtService);
 		var request = new RegisterRequest("Ana", "ana@example.com", "senha1234");
 
 		when(userRepository.existsByEmail("ana@example.com")).thenReturn(false);
@@ -50,7 +57,7 @@ class AuthServiceTest {
 
 	@Test
 	void rejectsDuplicateEmail() {
-		authService = new AuthService(userRepository, passwordEncoder);
+		authService = new AuthService(userRepository, passwordEncoder, jwtService);
 		var request = new RegisterRequest("Ana", "ana@example.com", "senha1234");
 
 		when(userRepository.existsByEmail("ana@example.com")).thenReturn(true);
@@ -60,5 +67,47 @@ class AuthServiceTest {
 
 		verify(userRepository, never()).save(org.mockito.ArgumentMatchers.any());
 		verify(passwordEncoder, never()).encode(anyString());
+	}
+
+	@Test
+	void logsInSuccessfullyAndReturnsToken() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		var request = new LoginRequest("ana@example.com", "senha1234");
+		User user = new User("Ana", "ana@example.com", "hashed-password");
+
+		when(userRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(user));
+		when(passwordEncoder.matches("senha1234", "hashed-password")).thenReturn(true);
+		when(jwtService.generateToken(any())).thenReturn("jwt-token");
+
+		AuthService.LoginResult result = authService.login(request);
+
+		assertThat(result.token()).isEqualTo("jwt-token");
+		assertThat(result.user()).isEqualTo(user);
+	}
+
+	@Test
+	void rejectsLoginWithWrongPassword() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		var request = new LoginRequest("ana@example.com", "wrong-password");
+		User user = new User("Ana", "ana@example.com", "hashed-password");
+
+		when(userRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(user));
+		when(passwordEncoder.matches("wrong-password", "hashed-password")).thenReturn(false);
+
+		assertThatThrownBy(() -> authService.login(request))
+			.isInstanceOf(InvalidCredentialsException.class);
+	}
+
+	@Test
+	void rejectsLoginWithUnknownEmail() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		var request = new LoginRequest("desconhecido@example.com", "senha1234");
+
+		when(userRepository.findByEmail("desconhecido@example.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> authService.login(request))
+			.isInstanceOf(InvalidCredentialsException.class);
+
+		verify(passwordEncoder, never()).matches(anyString(), anyString());
 	}
 }

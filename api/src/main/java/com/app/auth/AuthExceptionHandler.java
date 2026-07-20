@@ -18,6 +18,11 @@ public class AuthExceptionHandler {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
 	}
 
+	@ExceptionHandler(InvalidCredentialsException.class)
+	public ResponseEntity<Map<String, String>> handleInvalidCredentials(InvalidCredentialsException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
+	}
+
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
 		Map<String, String> fieldErrors = new LinkedHashMap<>();

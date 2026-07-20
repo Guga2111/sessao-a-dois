@@ -53,8 +53,8 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Login endpoint POST /api/auth/login (com.app.auth): LoginRequest/LoginResponse/UserSummary records + InvalidCredentialsException (401, mensagem generica) + AuthExceptionHandler handler. AuthService.login() valida via PasswordEncoder.matches e usa novo JwtService (com.app.security) para emitir o token (subject=UUID do usuario, exp = app.jwt.expiration-days, default 7). Dependencia jjwt (api+impl+jackson 0.12.6) adicionada ao pom.xml; segredo/expiracao configuraveis via app.jwt.secret / app.jwt.expiration-days (envs JWT_SECRET / JWT_EXPIRATION_DAYS). couple no LoginResponse fica sempre null por enquanto (entidade Couple ainda nao existe, sera povoada em US-005/US-006). Testes: AuthServiceTest (login com sucesso, senha errada, email inexistente) + AuthControllerTest (200 sucesso, 401 credenciais invalidas). Nao foi possivel rodar ./mvnw neste ambiente (sem JDK/rede)."
     },
     {
       "id": "US-004",

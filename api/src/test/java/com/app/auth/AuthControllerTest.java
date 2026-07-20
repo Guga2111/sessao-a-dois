@@ -76,4 +76,34 @@ class AuthControllerTest {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errors.email").exists());
 	}
+
+	@Test
+	void logsInSuccessfully() throws Exception {
+		User user = new User("Ana", "ana@example.com", "hashed-password");
+		when(authService.login(any(LoginRequest.class)))
+			.thenReturn(new AuthService.LoginResult("jwt-token", user));
+
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com","password":"senha1234"}
+					"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.token").value("jwt-token"))
+			.andExpect(jsonPath("$.user.email").value("ana@example.com"))
+			.andExpect(jsonPath("$.couple").doesNotExist());
+	}
+
+	@Test
+	void rejectsLoginWithInvalidCredentials() throws Exception {
+		when(authService.login(any(LoginRequest.class))).thenThrow(new InvalidCredentialsException());
+
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com","password":"errada"}
+					"""))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.message").value("credenciais invalidas"));
+	}
 }

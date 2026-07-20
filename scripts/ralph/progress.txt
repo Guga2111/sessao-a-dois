@@ -26,3 +26,15 @@
   - `AuthExceptionHandler` is a `@RestControllerAdvice(basePackages = "com.app.auth")`; `@WebMvcTest` auto-detects it without extra wiring.
   - Still no JDK/`mvn`/network in this sandbox — could not run `./mvnw test`. Re-verify with a real JDK 21 environment before merge.
 ---
+
+## 2026-07-19 - US-003
+- Added `JwtService` (`com.app.security.JwtService`) using jjwt 0.12.6 (`jjwt-api`/`jjwt-impl`/`jjwt-jackson`, added to api/pom.xml): `generateToken(UUID)` (subject + issuedAt + expiration) and `parseSubject(String)` (for the future US-004 filter). Secret/expiration read via `@Value` from `app.jwt.secret` / `app.jwt.expiration-days` (application.properties, env-overridable via `JWT_SECRET`/`JWT_EXPIRATION_DAYS`; dev default secret is a placeholder >=32 bytes for HS256).
+- Added POST `/api/auth/login` (`AuthController`): `AuthService.login(LoginRequest)` looks up by email, checks `PasswordEncoder.matches`, throws `InvalidCredentialsException` (401, generic message, same for wrong password and unknown email) otherwise returns `AuthService.LoginResult(token, user)`. Controller wraps that into `LoginResponse(token, UserSummary, couple)`.
+- `LoginResponse.couple` is always `null` for now — the `Couple` entity doesn't exist yet (US-005/US-006 of this epic will populate it). Kept the field as `Object` so it can be swapped for a real `CoupleSummary` type later without changing the response shape.
+- Files changed: api/pom.xml, api/src/main/resources/application.properties, api/src/main/java/com/app/security/JwtService.java (new), api/src/main/java/com/app/auth/{AuthController,AuthService,AuthExceptionHandler}.java, api/src/main/java/com/app/auth/{LoginRequest,LoginResponse,UserSummary,InvalidCredentialsException}.java (new), api/src/test/java/com/app/auth/{AuthServiceTest,AuthControllerTest}.java, scripts/ralph/prd.json.
+- **Learnings for future iterations:**
+  - jjwt 0.12.x API: build a `SecretKey` with `Keys.hmacShaKeyFor(secretBytes)` (needs >=32 bytes for HS256), then `Jwts.builder().subject(...).issuedAt(...).expiration(...).signWith(key).compact()`; parse with `Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload()`. Needs three deps: `jjwt-api` (compile) + `jjwt-impl` + `jjwt-jackson` (both runtime scope).
+  - `AuthService` now takes 3 constructor args (`UserRepository`, `PasswordEncoder`, `JwtService`) — any test/config constructing it directly needs updating (done in `AuthServiceTest`).
+  - US-004 (Spring Security + JWT filter) can reuse `JwtService.parseSubject(token)` directly; it already throws jjwt's runtime exceptions (e.g. `ExpiredJwtException`, `SignatureException`) on invalid/expired tokens, which the filter should catch and turn into 401.
+  - Still no JDK/`mvn`/network in this sandbox — could not run `./mvnw test`. Re-verify with a real JDK 21 environment before merge.
+---
