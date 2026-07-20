@@ -143,8 +143,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Store useAuthStore (Zustand) em client/src/stores/useAuthStore.ts. Estado: token, user, couple, isAuthenticated. Acoes login/register/logout/joinCouple/createCouple/loadCurrentUser conforme AC. register() chama POST /api/auth/register e depois login() automatico com as mesmas credenciais; se o login automatico falhar, chama logout() e redireciona para /login. Token persistido via authToken.ts (US-007, chave localStorage sessaoADois.token) reaproveitado sem duplicacao. Como nao existe endpoint GET /api/auth/me (ou equivalente) neste epico para reidratar nome/e-mail do usuario a partir so do token, user+couple sao persistidos em localStorage (chave sessaoADois.session) nas acoes que os recebem (login/joinCouple/createCouple); loadCurrentUser() le token+sessao persistidos e re-sincroniza couple via GET /api/couple/me (tratando 404 como 'sem casal ainda'), assumindo isAuthenticated=true a partir do token — se o token estiver invalido/expirado, o interceptor de resposta do Axios (US-007) ja limpa a sessao e redireciona para /login em qualquer chamada subsequente. Instalada dependencia zustand@5.0.14 (npm install; package-lock.json gerado foi removido, projeto usa bun.lock)."
     },
     {
       "id": "US-009",
