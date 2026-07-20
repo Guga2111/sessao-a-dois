@@ -1,20 +1,69 @@
-import { Button } from "@/components/ui/button"
+import { useEffect } from "react"
+import { Navigate, Route, Routes } from "react-router-dom"
+
+import { HubPage } from "@/routes/HubPage"
+import { JoinPage } from "@/routes/auth/JoinPage"
+import { LoginPage } from "@/routes/auth/LoginPage"
+import { RegisterPage } from "@/routes/auth/RegisterPage"
+import {
+  ProtectedRoute,
+  PublicOnlyRoute,
+  RedirectIfCoupled,
+  RequireCouple,
+} from "@/routes/guards"
+import { useAuthStore } from "@/stores/useAuthStore"
 
 export function App() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void loadCurrentUser()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicOnlyRoute>
+            <LoginPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicOnlyRoute>
+            <RegisterPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/join"
+        element={
+          <ProtectedRoute>
+            <RedirectIfCoupled>
+              <JoinPage />
+            </RedirectIfCoupled>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <RequireCouple>
+              <HubPage />
+            </RequireCouple>
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
