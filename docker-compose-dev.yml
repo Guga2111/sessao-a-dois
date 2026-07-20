@@ -1,4 +1,4 @@
-# Ambiente de desenvolvimento local: PostgreSQL + PgAdmin.
+# Ambiente de desenvolvimento local: PostgreSQL + PgAdmin + API.
 # Suba com: docker compose -f docker-compose-dev.yml up -d
 # Imagens escolhidas por terem suporte nativo a ARM64 (Apple Silicon) e x86_64.
 #
@@ -36,6 +36,23 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
       - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./api
+    container_name: sessao-api
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/sessao
+      DB_USER: sessao
+      DB_PASSWORD: sessao
+      JWT_SECRET: dev-only-secret-please-override-in-prod-32bytes+
+      CORS_ALLOWED_ORIGIN: http://localhost:5173
+    ports:
+      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
