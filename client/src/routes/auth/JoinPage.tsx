@@ -24,6 +24,7 @@ export function JoinPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
+  const [notLinkedYet, setNotLinkedYet] = useState(false)
 
   async function handleJoin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -76,8 +77,13 @@ export function JoinPage() {
 
   async function handleCheckLinked() {
     setIsChecking(true)
+    setNotLinkedYet(false)
     try {
       await loadCurrentUser()
+      const updatedCouple = useAuthStore.getState().couple
+      if (!updatedCouple?.partner) {
+        setNotLinkedYet(true)
+      }
     } finally {
       setIsChecking(false)
     }
@@ -92,6 +98,14 @@ export function JoinPage() {
       >
         <div className="flex flex-col gap-5">
           <InviteCodeTicket code={couple.inviteCode} />
+          {notLinkedYet ? (
+            <p
+              role="alert"
+              className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b] text-center"
+            >
+              Seu par ainda não entrou. Aguarde e tente novamente.
+            </p>
+          ) : null}
           <Button
             type="button"
             variant="outline"

@@ -18,7 +18,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const couple = useAuthStore((state) => state.couple)
 
   if (isAuthenticated) {
-    return <Navigate to={couple ? "/" : "/join"} replace />
+    return <Navigate to={couple?.partner ? "/" : "/join"} replace />
   }
 
   return children
@@ -27,7 +27,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
 export function RequireCouple({ children }: { children: ReactNode }) {
   const couple = useAuthStore((state) => state.couple)
 
-  if (!couple) {
+  if (!couple?.partner) {
     return <Navigate to="/join" replace />
   }
 
@@ -37,7 +37,7 @@ export function RequireCouple({ children }: { children: ReactNode }) {
 export function RedirectIfCoupled({ children }: { children: ReactNode }) {
   const couple = useAuthStore((state) => state.couple)
 
-  if (couple) {
+  if (couple?.partner) {
     return <Navigate to="/" replace />
   }
 
