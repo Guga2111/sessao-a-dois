@@ -1,78 +1,152 @@
 {
   "project": "Sessao a Dois - Couple Media Tracker",
-  "branchName": "ralph/epico-3-integracao-tmdb",
-  "description": "Epico 3: Integracao TMDB (Dominio Media/BFF) - backend atua como proxy seguro para a API do TMDB, ocultando a API Key e padronizando respostas em pt-BR, com endpoints de busca e detalhes (com onde assistir)",
+  "branchName": "ralph/epico-4-tracking-de-midia",
+  "description": "Epico 4: Tracking de Midia (Core App) — o casal pode adicionar filmes e series a uma lista compartilhada, registrar avaliacoes individuais (nota 1-5 e opiniao textual), mudar o status de um titulo (WATCHING, WANT_TO_SEE, WATCHED) e visualizar tudo no HubScreen com tres secoes.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Configurar RestClient para o TMDB",
-      "description": "Como desenvolvedor, preciso de um RestClient configurado centralmente para chamar a API do TMDB, para que todas as integracoes futuras reutilizem a mesma configuracao (base URL, autenticacao, idioma padrao).",
+      "title": "Criar entidades JPA MediaTrack e UserReview com migracoes",
+      "description": "Como desenvolvedor, preciso das tabelas media_track e user_review no banco para persistir o tracking de midia do casal.",
       "acceptanceCriteria": [
-        "RestClient (Spring 3.2+) configurado como @Bean em uma classe de configuracao dentro de com.app.media",
-        "Base URL do TMDB (https://api.themoviedb.org/3) e a API Key sao lidos de variaveis de ambiente/application.properties (ex.: TMDB_API_KEY), nunca hardcoded no codigo",
-        "Todo request enviado ao TMDB inclui language=pt-BR como parametro padrao, sem precisar ser passado manualmente em cada chamada",
-        "A API Key e enviada via header de autenticacao do TMDB, nunca exposta em logs",
-        "Se TMDB_API_KEY nao estiver configurada, a aplicacao falha ao subir (fail-fast) com mensagem clara",
-        "Typecheck passes",
-        "Tests pass"
+        "Criar entidade JPA MediaTrack em com.app.tracking com campos: id (UUID @GeneratedValue), couple_id (FK para couples, @ManyToOne para Couple), tmdb_id (Long), media_type (enum MOVIE/TV — reusing com.app.media.MediaType), status (enum MediaStatus: WATCHING, WANT_TO_SEE, WATCHED — definir em com.app.tracking), watched_date (LocalDate nullable), runtime (Integer nullable, minutos — apenas filmes), created_at (LocalDateTime @CreationTimestamp)",
+        "Criar entidade JPA UserReview em com.app.tracking com campos: id (UUID @GeneratedValue), media_track (@ManyToOne MediaTrack, FK media_track_id), user (@ManyToOne User, FK user_id), rating (Integer nullable, 1-5), opinion (String @Column(columnDefinition='TEXT') nullable)",
+        "MediaTrack tem @OneToMany(mappedBy='mediaTrack', cascade=ALL, orphanRemoval=true) para List<UserReview>",
+        "Constraint unica na tabela user_review: @UniqueConstraint(columnNames={'media_track_id','user_id'}) — um usuario tem no maximo uma review por titulo",
+        "spring.jpa.hibernate.ddl-auto deve ser 'update' (ou equivalente) para que o schema seja criado/atualizado automaticamente ao subir a aplicacao",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "TmdbConfig (com.app.media) implementado: RestClient bean fail-fast quando TMDB_API_KEY ausente/em branco, Authorization: Bearer <key> como header, language=pt-BR injetado via TmdbDefaultLanguageInterceptor. Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK instalado) - verificar em ambiente com JDK 21 + Maven Central."
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Endpoint de busca combinada de filmes e series",
-      "description": "Como usuario do app, quero pesquisar por um titulo (filme ou serie) e ver os dois tipos misturados nos resultados, para nao precisar saber previamente se e um filme ou uma serie.",
+      "title": "Implementar MediaTrackRepository e MediaTrackService",
+      "description": "Como desenvolvedor, preciso da camada de acesso a dados e regras de negocio para MediaTrack no pacote com.app.tracking.",
       "acceptanceCriteria": [
-        "Endpoint GET /api/media/search?q={termo} implementado em com.app.media, usando o RestClient da US-001",
-        "Internamente, chama o endpoint /search/multi do TMDB",
-        "Resposta e um DTO simplificado proprio (nao o JSON bruto do TMDB), contendo por item: tmdbId, mediaType (MOVIE|TV), title, year, posterUrl (URL completa), overview, voteAverage",
-        "Itens do TMDB que nao sejam filme nem serie (ex.: person) sao filtrados e nao aparecem na resposta",
-        "Se q estiver vazio ou ausente, retorna 400 Bad Request com mensagem clara, sem chamar o TMDB",
-        "Retorna lista vazia (200 OK com []) quando o TMDB nao encontra resultados - isso nao e um erro",
-        "Testes unitarios (JUnit 5 + Mockito, TMDB mockado) cobrem: sucesso com resultados mistos (filme + serie), lista vazia, e parametro q invalido",
-        "Typecheck passes",
-        "Tests pass"
+        "MediaTrackRepository estende JpaRepository<MediaTrack, UUID> com metodo findByCoupleIdAndStatus(UUID coupleId, MediaStatus status) e findByCoupleId(UUID coupleId)",
+        "DTO CreateMediaTrackRequest com campos: tmdbId (Long), mediaType (MediaType), status (MediaStatus), watchedDate (LocalDate nullable), runtime (Integer nullable), rating (Integer nullable), opinion (String nullable)",
+        "DTO MediaTrackResponse com campos: id (UUID), tmdbId, mediaType, status, watchedDate, runtime, createdAt, e lista reviews de ReviewDto(userId UUID, userName String, rating Integer nullable, opinion String nullable) — sempre dois slots, null se o usuario ainda nao avaliou",
+        "MediaTrackService implementa: addTrack(UUID coupleId, UUID userId, CreateMediaTrackRequest) cria MediaTrack + UserReview inicial para o usuario que adicionou; listByStatus(UUID coupleId, MediaStatus status nullable) retorna lista de MediaTrackResponse (status null = retorna todos); updateStatus(UUID trackId, UUID coupleId, MediaStatus newStatus, LocalDate watchedDate) muda status e watched_date validando pertencimento ao casal; deleteTrack(UUID trackId, UUID coupleId) remove o track (cascade deleta reviews) validando pertencimento",
+        "Lancar ResourceNotFoundException (404) se o track nao existir ou nao pertencer ao casal",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Implementado em com.app.media: MediaController (GET /api/media/search), MediaSearchService (usa o RestClient de TmdbConfig contra /search/multi), DTOs raw TmdbMultiSearchResponse/Item (package-private, @JsonProperty p/ snake_case), DTO publico MediaSearchResult, InvalidSearchQueryException + MediaExceptionHandler (400 antes de chamar o TMDB quando q vazio/ausente). Endpoint fica atras de autenticacao (anyRequest().authenticated() do SecurityConfig). Testes: MediaSearchServiceTest (RestClient mockado com RETURNS_DEEP_STUBS - sucesso misto filme+serie filtrando 'person', lista vazia, body null, poster/data ausentes) e MediaControllerTest (@WebMvcTest, sucesso, lista vazia, q ausente/em branco -> 400, sem auth -> 401). Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Endpoint de detalhes do titulo com onde assistir",
-      "description": "Como usuario do app, quero ver os detalhes completos de um filme/serie (sinopse, generos, nota do TMDB, streamings disponiveis), para decidir se quero assistir e onde.",
+      "title": "Implementar UserReviewRepository e UserReviewService",
+      "description": "Como desenvolvedor, preciso gerenciar a avaliacao individual de cada membro do casal para um titulo especifico.",
       "acceptanceCriteria": [
-        "Endpoint GET /api/media/{mediaType}/{tmdbId} (mediaType = movie ou tv) implementado em com.app.media",
-        "Internamente, chama GET /{mediaType}/{tmdbId}?append_to_response=watch/providers no TMDB em uma unica chamada HTTP",
-        "Resposta e um DTO simplificado contendo: tmdbId, mediaType, title, year, posterUrl, overview, genres (nomes em pt-BR), voteAverage, runtime (apenas para filmes, em minutos), e watchProviders (lista com name e logoUrl dos servicos de streaming disponiveis na regiao BR)",
-        "Se o TMDB nao tiver dados de watch/providers para o Brasil, watchProviders retorna lista vazia (nao e erro)",
-        "Se o tmdbId nao existir no TMDB, retorna 404 Not Found com mensagem clara",
-        "Se mediaType for diferente de movie/tv, retorna 400 Bad Request antes de chamar o TMDB",
-        "Testes unitarios (JUnit 5 + Mockito, TMDB mockado) cobrem: sucesso com watch/providers presente, sucesso sem watch/providers (BR vazio), tmdbId inexistente (404), e mediaType invalido (400)",
-        "Typecheck passes",
-        "Tests pass"
+        "UserReviewRepository estende JpaRepository<UserReview, UUID> com metodo findByMediaTrackIdAndUserId(UUID trackId, UUID userId)",
+        "DTO UpsertReviewRequest com campos: rating (Integer nullable, 1-5), opinion (String nullable)",
+        "UserReviewService implementa upsertReview(UUID trackId, UUID userId, UUID coupleId, UpsertReviewRequest): busca UserReview existente pelo (trackId, userId); se nao existir, cria nova; se existir, atualiza rating e opinion; retorna o MediaTrackResponse atualizado",
+        "Se o MediaTrack nao existir, lancar ResourceNotFoundException (404); se existir mas nao pertencer ao casal do usuario, lancar 403 (AccessDeniedException ou ResponseStatusException com FORBIDDEN)",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "MediaDetailsService (com.app.media) chama GET /{mediaType}/{tmdbId}?append_to_response=watch/providers no tmdbRestClient (US-001) em uma unica chamada. DTOs raw TmdbMediaDetailsResponse/TmdbGenre/TmdbWatchProvidersResponse/TmdbWatchProviderCountry/TmdbWatchProviderEntry mapeiam o JSON do TMDB (snake_case via @JsonProperty, incluindo a chave composta 'watch/providers'); DTO publico MediaDetails(tmdbId, mediaType, title, year, posterUrl, overview, genres, voteAverage, runtime, watchProviders) e WatchProvider(name, logoUrl). watchProviders filtra a regiao BR (flatrate) e retorna lista vazia se ausente. MediaType ganhou fromPathValue(String) (lanca InvalidMediaTypeException -> 400 via MediaExceptionHandler, antes de chamar o TMDB) usado pelo novo endpoint GET /api/media/{mediaType}/{tmdbId} em MediaController. HttpClientErrorException.NotFound do RestClient e traduzido para MediaNotFoundException -> 404 via MediaExceptionHandler. Testes: MediaDetailsServiceTest (sucesso filme com watch/providers, sucesso serie sem runtime e sem watch/providers no BR, 404 quando TMDB retorna NotFound) e novos testes em MediaControllerTest (sucesso autenticado, mediaType invalido -> 400, tmdbId inexistente -> 404, sem auth -> 401). Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao seguindo o padrao de MediaSearchService/MediaSearchServiceTest da US-002."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Tratamento de falhas do TMDB (resiliencia)",
-      "description": "Como usuario do app, quero receber uma mensagem de erro compreensivel (nao uma tela quebrada) quando o TMDB estiver indisponivel, para entender que e um problema temporario e nao um bug do app.",
+      "title": "Criar endpoints REST do modulo de tracking",
+      "description": "Como frontend, preciso de endpoints autenticados para listar, adicionar, mudar status, avaliar e remover titulos da lista do casal.",
       "acceptanceCriteria": [
-        "Um @RestControllerAdvice (ou equivalente) em com.app.media captura excecoes de chamada ao TMDB (timeout, erro de conexao, resposta 4xx/5xx do TMDB) originadas nos endpoints das US-002 e US-003",
-        "Quando o TMDB retorna erro ou esta inacessivel, o backend responde 502 Bad Gateway com corpo JSON contendo mensagem generica (ex.: 'Nao foi possivel buscar dados no momento. Tente novamente mais tarde.'), sem vazar stacktrace, URL do TMDB ou a API Key",
-        "Erros do TMDB sao logados no backend (nivel ERROR, incluindo status code e endpoint chamado) para diagnostico, mas a API Key nunca aparece no log",
-        "Testes unitarios (JUnit 5 + Mockito) simulam timeout/erro 5xx do TMDB nos services de busca e detalhes, e verificam que o endpoint responde 502 com a mensagem esperada, sem vazar a API Key",
+        "MediaTrackController em com.app.tracking com base path /api/tracking",
+        "GET /api/tracking?status={STATUS} — retorna List<MediaTrackResponse> filtrada por status; sem parametro, retorna todos. O couple_id e extraido do usuario autenticado via SecurityContext, nunca do request body",
+        "POST /api/tracking — body: CreateMediaTrackRequest; cria MediaTrack + UserReview inicial; retorna 201 com MediaTrackResponse",
+        "PATCH /api/tracking/{id}/status — body: {status, watchedDate?}; atualiza status do track; retorna 200 com MediaTrackResponse",
+        "DELETE /api/tracking/{id} — remove o track; retorna 204 No Content",
+        "PUT /api/tracking/{id}/review — body: UpsertReviewRequest; cria ou atualiza a review do usuario logado; retorna 200 com MediaTrackResponse",
+        "Todos os endpoints retornam 401 se JWT ausente/invalido (herdado do SecurityConfig existente)",
+        "TrackingExceptionHandler (@RestControllerAdvice basePackages=com.app.tracking) mapeia ResourceNotFoundException para 404 e AccessDeniedException para 403 com corpo JSON {message: ...}",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Escrever testes unitarios para a camada de tracking",
+      "description": "Como desenvolvedor, preciso de cobertura de testes nos Services e no Controller do modulo de tracking.",
+      "acceptanceCriteria": [
+        "MediaTrackServiceTest (JUnit 5 + Mockito): addTrack cria track e review inicial corretamente; updateStatus lanca ResourceNotFoundException ao tentar atualizar track de outro casal; deleteTrack remove corretamente e lanca excecao se nao encontrado",
+        "UserReviewServiceTest: upsertReview cria review quando nao existe; upsertReview atualiza review existente sem criar duplicata; upsertReview lanca 403 quando track pertence a outro casal",
+        "MediaTrackControllerTest (@WebMvcTest + MockMvc): GET /api/tracking?status=WATCHING retorna 200 com lista; POST /api/tracking sem JWT retorna 401; DELETE /api/tracking/{id} de outro casal retorna 404 ou 403",
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 4,
-      "passes": true,
-      "notes": "Novo TmdbUnavailableException (com.app.media) representa falhas de chamada ao TMDB nao tratadas especificamente (5xx, 4xx != 404, timeout/erro de conexao). MediaSearchService.search() e MediaDetailsService.getDetails() agora envolvem a chamada ao tmdbRestClient em try/catch(RestClientResponseException | ResourceAccessException) e relancam TmdbUnavailableException(endpoint, causa) - em MediaDetailsService o catch de HttpClientErrorException.NotFound (404 -> MediaNotFoundException) continua antes do catch generico, entao 404 nao vira 502. MediaExceptionHandler ganhou handler para TmdbUnavailableException: loga em ERROR (ex.getMessage() com o endpoint chamado + causa, nunca a API key - que so existe no header Authorization, nunca na URI/mensagem de excecao) e responde 502 Bad Gateway com {\"message\": \"Nao foi possivel buscar dados no momento. Tente novamente mais tarde.\"}, sem stacktrace/URL do TMDB/API key no corpo. Testes: MediaSearchServiceTest e MediaDetailsServiceTest ganharam casos para HttpServerErrorException (5xx) e ResourceAccessException (timeout) -> TmdbUnavailableException com a causa original preservada; MediaControllerTest ganhou dois testes (search e details) verificando 502 com a mensagem generica quando o service lanca TmdbUnavailableException. Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao seguindo o padrao das stories anteriores."
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Desenvolver componente MediaCard.tsx",
+      "description": "Como usuario, quero cards visuais que mostrem as informacoes do titulo e as avaliacoes dos dois membros do casal.",
+      "acceptanceCriteria": [
+        "Componente client/src/components/MediaCard.tsx aceita props: track (MediaTrackResponse com tmdbId, mediaType, status, watchedDate, reviews[]), myUserId (string para identificar qual review e minha), onStatusChange? (callback ao clicar em Marcar como visto), onClick? (callback ao clicar no card)",
+        "Area de poster: gradiente hsl((tmdbId % 360), 42%, 24%) para hsl((tmdbId % 360), 46%, 11%), aspect-ratio 3/4, badge de genero no canto superior esquerdo (texto vindo do track ou placeholder), border-radius: 18px",
+        "Cards com status WATCHED exibem icone de check verde (#3ddc97) no canto superior direito do poster",
+        "Dados exibidos no corpo: titulo (tmdbId como placeholder enquanto nao ha dados TMDB em cache), badges de tipo (Filme/Serie) em amarelo, data assistida se houver",
+        "Avaliacao: se ao menos um usuario tiver rating na review, exibir estrelas. Se dois usuarios tiverem review, exibir as duas lado a lado com o nome de cada um",
+        "Opiniao: exibir opiniao do usuario logado em card com fundo rgba(255,203,43,.09) e borda rgba(255,203,43,.18). Se parceiro tambem tiver opiniao, exibir em card com fundo rgba(255,255,255,.04)",
+        "Cards com status WANT_TO_SEE: nao exibem avaliacao, exibem botao Marcar como visto que chama onStatusChange",
+        "Hover: transition transform .18s ease, translateY(-4px), borda amarela para WATCHING/WANT_TO_SEE, borda verde para WATCHED",
+        "Design segue prototipo: fonte DM Sans, superficie #161513, borda rgba(255,255,255,.07)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Desenvolver componente TitleModal.tsx para adicao de titulo",
+      "description": "Como usuario, quero um modal para buscar e adicionar um titulo a lista do casal, informando minha nota e status.",
+      "acceptanceCriteria": [
+        "Componente client/src/components/TitleModal.tsx aceita props: open (boolean), onClose () => void, onSuccess (track: MediaTrackResponse) => void",
+        "Campo de busca chama GET /api/media/search?q=... com debounce de 400ms e exibe dropdown com resultados (titulo, ano, tipo). Ao selecionar um resultado, chama GET /api/media/{mediaType}/{tmdbId} para obter o runtime",
+        "Tres pills de status: Assistindo, Queremos Ver, Ja Vimos — apenas um selecionado por vez (padrao: Queremos Ver)",
+        "Picker de 5 estrelas para nota do usuario logado (estrelas preenchidas em #ffb443 ate a nota, vazias em rgba(255,255,255,.18)). Rating e opcional",
+        "Campo de data assistida (input type=date) visivel apenas quando status = WATCHED, obrigatorio neste caso",
+        "Textarea para opiniao do usuario logado (opcional, placeholder em pt-BR)",
+        "Botao Salvar Titulo chama POST /api/tracking e invoca onSuccess(response) ao sucesso. Durante requisicao: texto muda para Salvando..., botao desabilitado",
+        "Toast ou mensagem de erro inline visivel se a requisicao falhar",
+        "Ao fechar (Cancelar ou clique fora), todos os campos sao resetados",
+        "Design segue prototipo: fundo modal #161513, backdrop rgba(8,7,11,.72) blur(8px), inputs borda rgba(255,255,255,.12), foco borda #ffcb2b com glow, botao primario #ffcb2b cor #111, border-radius modal 22px, animacao sdPop ao abrir",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Desenvolver tela HubScreen.tsx com as tres listas",
+      "description": "Como usuario, quero ver os titulos do casal organizados em Assistindo Atualmente, Queremos Ver e Ja Vimos, com possibilidade de adicionar novos titulos.",
+      "acceptanceCriteria": [
+        "Tela client/src/screens/HubScreen.tsx renderizada na rota / (ou /hub) apos autenticacao",
+        "Ao montar, busca GET /api/tracking (sem filtro de status, retornando todos) e organiza os tracks em tres grupos por status localmente no estado do componente",
+        "Secao Assistindo Atualmente (indicador laranja #ff9e2c) renderiza MediaCard para cada track com status WATCHING",
+        "Secao Queremos Ver (indicador amarelo #ffcb2b) renderiza MediaCard para cada track com status WANT_TO_SEE. Ao clicar em Marcar como visto no card, chama PATCH /api/tracking/{id}/status com {status: WATCHED, watchedDate: hoje} e recarrega a lista",
+        "Secao Ja Vimos (indicador verde #3ddc97) renderiza MediaCard para cada track com status WATCHED",
+        "Cada secao exibe contador de itens em badge cinza. Secoes vazias exibem mensagem de estado vazio",
+        "Estado de loading: placeholder/skeleton enquanto os tracks carregam",
+        "Header da pagina com titulo O que estamos vendo, subtitulo e botao Adicionar Titulo que abre TitleModal. FAB fixo no canto inferior direito tambem abre TitleModal. Ao salvar no modal (onSuccess), recarrega os tracks",
+        "Layout segue prototipo: max-width 1240px, grid de cards auto-fill minmax(250px, 1fr), fundo radial-gradient escuro, fontes Bricolage Grotesque (titulos de secao) e DM Sans (corpo)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
     }
   ]
 }
