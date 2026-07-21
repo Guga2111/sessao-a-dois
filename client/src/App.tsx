@@ -1,7 +1,6 @@
 import { useEffect } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
 
-import { HubPage } from "@/routes/HubPage"
 import { JoinPage } from "@/routes/auth/JoinPage"
 import { LoginPage } from "@/routes/auth/LoginPage"
 import { RegisterPage } from "@/routes/auth/RegisterPage"
@@ -11,6 +10,7 @@ import {
   RedirectIfCoupled,
   RequireCouple,
 } from "@/routes/guards"
+import { HubScreen } from "@/screens/HubScreen"
 import { useAuthStore } from "@/stores/useAuthStore"
 
 export function App() {
@@ -57,7 +57,7 @@ export function App() {
         element={
           <ProtectedRoute>
             <RequireCouple>
-              <HubPage />
+              <HubScreen />
             </RequireCouple>
           </ProtectedRoute>
         }
