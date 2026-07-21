@@ -51,6 +51,10 @@ services:
       DB_PASSWORD: sessao
       JWT_SECRET: dev-only-secret-please-override-in-prod-32bytes+
       CORS_ALLOWED_ORIGIN: http://localhost:5173
+      # TMDB_API_KEY: obrigatoria (com.app.media.TmdbConfig falha ao subir sem
+      # ela). Lida do .env na raiz do repo (docker compose carrega .env
+      # automaticamente) ou de uma env var exportada no shell. Veja .env.example.
+      TMDB_API_KEY: ${TMDB_API_KEY:?defina TMDB_API_KEY no .env ou no ambiente - veja .env.example}
     ports:
       - "8080:8080"
     depends_on:
