@@ -55,8 +55,8 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "MediaDetailsService (com.app.media) chama GET /{mediaType}/{tmdbId}?append_to_response=watch/providers no tmdbRestClient (US-001) em uma unica chamada. DTOs raw TmdbMediaDetailsResponse/TmdbGenre/TmdbWatchProvidersResponse/TmdbWatchProviderCountry/TmdbWatchProviderEntry mapeiam o JSON do TMDB (snake_case via @JsonProperty, incluindo a chave composta 'watch/providers'); DTO publico MediaDetails(tmdbId, mediaType, title, year, posterUrl, overview, genres, voteAverage, runtime, watchProviders) e WatchProvider(name, logoUrl). watchProviders filtra a regiao BR (flatrate) e retorna lista vazia se ausente. MediaType ganhou fromPathValue(String) (lanca InvalidMediaTypeException -> 400 via MediaExceptionHandler, antes de chamar o TMDB) usado pelo novo endpoint GET /api/media/{mediaType}/{tmdbId} em MediaController. HttpClientErrorException.NotFound do RestClient e traduzido para MediaNotFoundException -> 404 via MediaExceptionHandler. Testes: MediaDetailsServiceTest (sucesso filme com watch/providers, sucesso serie sem runtime e sem watch/providers no BR, 404 quando TMDB retorna NotFound) e novos testes em MediaControllerTest (sucesso autenticado, mediaType invalido -> 400, tmdbId inexistente -> 404, sem auth -> 401). Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao seguindo o padrao de MediaSearchService/MediaSearchServiceTest da US-002."
     },
     {
       "id": "US-004",

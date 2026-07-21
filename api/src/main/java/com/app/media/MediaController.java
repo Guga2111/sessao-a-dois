@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,8 +16,11 @@ public class MediaController {
 
 	private final MediaSearchService mediaSearchService;
 
-	public MediaController(MediaSearchService mediaSearchService) {
+	private final MediaDetailsService mediaDetailsService;
+
+	public MediaController(MediaSearchService mediaSearchService, MediaDetailsService mediaDetailsService) {
 		this.mediaSearchService = mediaSearchService;
+		this.mediaDetailsService = mediaDetailsService;
 	}
 
 	@GetMapping("/search")
@@ -26,5 +30,11 @@ public class MediaController {
 		}
 
 		return ResponseEntity.ok(mediaSearchService.search(q));
+	}
+
+	@GetMapping("/{mediaType}/{tmdbId}")
+	public ResponseEntity<MediaDetails> details(@PathVariable String mediaType, @PathVariable long tmdbId) {
+		MediaType type = MediaType.fromPathValue(mediaType);
+		return ResponseEntity.ok(mediaDetailsService.getDetails(type, tmdbId));
 	}
 }

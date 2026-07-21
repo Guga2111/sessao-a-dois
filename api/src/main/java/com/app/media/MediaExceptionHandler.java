@@ -14,4 +14,14 @@ public class MediaExceptionHandler {
 	public ResponseEntity<Map<String, String>> handleInvalidSearchQuery(InvalidSearchQueryException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
 	}
+
+	@ExceptionHandler(InvalidMediaTypeException.class)
+	public ResponseEntity<Map<String, String>> handleInvalidMediaType(InvalidMediaTypeException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+	}
+
+	@ExceptionHandler(MediaNotFoundException.class)
+	public ResponseEntity<Map<String, String>> handleMediaNotFound(MediaNotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+	}
 }

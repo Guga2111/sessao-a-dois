@@ -99,12 +99,11 @@ If no browser tools are available, note in your progress report that manual brow
 
 ## Stop Condition
 
-After completing a user story, check if ALL stories have `passes: true`.
+After completing a user story, check if ALL stories in prd.json have `passes: true`.
 
-If ALL stories are complete and passing, reply with:
-<promise>COMPLETE</promise>
+If ALL stories are complete and passing, your entire final message must be exactly the literal text `<promise>COMPLETE</promise>` and nothing else.
 
-If there are still stories with `passes: false`, end your response normally (another iteration will pick up the next story).
+If any story still has `passes: false`, do NOT write that literal string anywhere in your response — not in explanations, summaries, or quoted instructions — even to say it doesn't apply yet. The caller detects completion by scanning your raw output for that exact substring, so writing it in any context (including "I will not emit COMPLETE since...") is treated as a false completion signal. Just end your response normally describing what you did and which story is next.
 
 ## Important
 

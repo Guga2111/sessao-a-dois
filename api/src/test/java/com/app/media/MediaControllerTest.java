@@ -31,6 +31,9 @@ class MediaControllerTest {
 	private MediaSearchService mediaSearchService;
 
 	@MockitoBean
+	private MediaDetailsService mediaDetailsService;
+
+	@MockitoBean
 	private JwtService jwtService;
 
 	private static UsernamePasswordAuthenticationToken authenticatedUser() {
@@ -79,6 +82,45 @@ class MediaControllerTest {
 	@Test
 	void search_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(get("/api/media/search").param("q", "matrix"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void details_returnsMediaDetailsForAuthenticatedUser() throws Exception {
+		MediaDetails details = new MediaDetails(
+			603, MediaType.MOVIE, "Matrix", 1999, "https://image.tmdb.org/t/p/w500/poster.jpg",
+			"overview", List.of("Acao"), 8.2, 136,
+			List.of(new WatchProvider("Netflix", "https://image.tmdb.org/t/p/w92/netflix.jpg")));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603)).thenReturn(details);
+
+		mockMvc.perform(get("/api/media/movie/603").with(authentication(authenticatedUser())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.tmdbId").value(603))
+			.andExpect(jsonPath("$.mediaType").value("MOVIE"))
+			.andExpect(jsonPath("$.title").value("Matrix"))
+			.andExpect(jsonPath("$.watchProviders[0].name").value("Netflix"));
+	}
+
+	@Test
+	void details_rejectsInvalidMediaTypeWithBadRequest() throws Exception {
+		mockMvc.perform(get("/api/media/song/603").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").exists());
+	}
+
+	@Test
+	void details_returnsNotFoundWhenTmdbIdDoesNotExist() throws Exception {
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 999999999))
+			.thenThrow(new MediaNotFoundException(MediaType.MOVIE, 999999999));
+
+		mockMvc.perform(get("/api/media/movie/999999999").with(authentication(authenticatedUser())))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").exists());
+	}
+
+	@Test
+	void details_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/media/movie/603"))
 			.andExpect(status().isUnauthorized());
 	}
 }
