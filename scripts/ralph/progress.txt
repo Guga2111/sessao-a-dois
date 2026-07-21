@@ -11,6 +11,7 @@ Started: Mon Jul 21 00:00:00 PDT 2026
 - com.app.media.MediaType enum (MOVIE, TV) already exists from Épico 3 — reuse it in com.app.tracking entities; do not redefine it.
 - This codebase's existing entities (User, Couple) store raw UUID FK fields, not JPA relations — com.app.tracking.MediaTrack/UserReview are the first to use @ManyToOne/@OneToMany; follow that relation-based style within com.app.tracking since the PRD calls for it there specifically.
 - spring.jpa.hibernate.ddl-auto=update was already set in application.properties before Épico 4 — no change needed for new entities to get their tables created.
+- MediaTrackResponse.reviews always has exactly 2 slots (one per couple member), built from Couple.user1Id/user2Id, NOT from however many UserReview rows exist — MediaTrackService.toResponse() (package-visible, reused by UserReviewService in US-003) looks up each member's User by id for userName and matches an existing UserReview by user id for rating/opinion (null if absent).
 
 ## [2026-07-21] - US-001
 - Implemented MediaStatus enum (WATCHING, WANT_TO_SEE, WATCHED), MediaTrack entity, and UserReview entity in com.app.tracking.
@@ -20,4 +21,16 @@ Started: Mon Jul 21 00:00:00 PDT 2026
   - UserReview has @ManyToOne to MediaTrack (media_track_id) and @ManyToOne to User (user_id), plus a @UniqueConstraint(media_track_id, user_id) so each user has at most one review per track.
   - Could not run ./mvnw (no JDK/Maven in this sandbox, no Maven Central access) — reviewed entity code carefully by hand against existing entity conventions (Couple.java, User.java) instead.
   - Next: US-002 needs MediaTrackRepository + MediaTrackService with CreateMediaTrackRequest/MediaTrackResponse DTOs and a ResourceNotFoundException (doesn't exist yet in com.app.tracking — will need to create it, following the pattern of exceptions in com.app.couple/com.app.auth mapped via a package-scoped @RestControllerAdvice).
+---
+
+## [2026-07-21] - US-002
+- Implemented MediaTrackRepository, MediaTrackService, CreateMediaTrackRequest, MediaTrackResponse, ReviewDto, and ResourceNotFoundException in com.app.tracking.
+- Files changed: api/src/main/java/com/app/tracking/MediaTrackRepository.java, MediaTrackService.java, CreateMediaTrackRequest.java, MediaTrackResponse.java, ReviewDto.java, ResourceNotFoundException.java
+- **Learnings for future iterations:**
+  - MediaTrackService constructor takes MediaTrackRepository + CoupleRepository + UserRepository (needs Couple/User entities to build MediaTrack/UserReview and to resolve member names for ReviewDto).
+  - addTrack() adds the initial UserReview directly to track.getReviews() before save() — cascade=ALL on MediaTrack.reviews persists it without a separate UserReviewRepository call.
+  - updateStatus/deleteTrack share a private findOwnedTrack(trackId, coupleId) helper that throws ResourceNotFoundException both when the track is missing AND when it belongs to a different couple (same message/status in both cases, so a caller can't distinguish "doesn't exist" from "not yours").
+  - toResponse(MediaTrack) is package-private (not private) so UserReviewService (US-003) can reuse it after upserting a review, per the pattern noted in Codebase Patterns above.
+  - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw compile` fails on the wget for the wrapper's own maven-3.9.16 download) — reviewed by hand against MediaTrack/UserReview/Couple/User/CoupleService/CoupleController for signature and convention consistency.
+  - Next: US-003 needs UserReviewRepository + UserReviewService.upsertReview(trackId, userId, coupleId, UpsertReviewRequest) — must check track ownership like findOwnedTrack does, but throw 403 (not 404) when the track exists but belongs to another couple, per that story's acceptance criteria (differs from US-002's findOwnedTrack, which returns 404 for both cases — do not reuse it as-is for US-003's ownership check).
 ---
