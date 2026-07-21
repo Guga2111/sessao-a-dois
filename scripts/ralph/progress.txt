@@ -12,6 +12,9 @@ Started: Mon Jul 21 00:00:00 PDT 2026
 - This codebase's existing entities (User, Couple) store raw UUID FK fields, not JPA relations — com.app.tracking.MediaTrack/UserReview are the first to use @ManyToOne/@OneToMany; follow that relation-based style within com.app.tracking since the PRD calls for it there specifically.
 - spring.jpa.hibernate.ddl-auto=update was already set in application.properties before Épico 4 — no change needed for new entities to get their tables created.
 - MediaTrackResponse.reviews always has exactly 2 slots (one per couple member), built from Couple.user1Id/user2Id, NOT from however many UserReview rows exist — MediaTrackService.toResponse() (package-visible, reused by UserReviewService in US-003) looks up each member's User by id for userName and matches an existing UserReview by user id for rating/opinion (null if absent).
+- Frontend design tokens for this app come from the approved prototype at `docs/design/claude-design-project/Sessao a Dois.dc.html` (referenced by docs/ARCHITECTURE.md as the source to fragment into React components) - reuse its literal colors/spacing (surface #161513, border rgba(255,255,255,.07), accent #ffcb2b, WATCHING #ff9e2c, WATCHED #3ddc97) instead of inventing new tokens, and prefer arbitrary Tailwind values (bg-[#161513]) over the shadcn theme vars, matching the existing style in client/src/routes/HubPage.tsx.
+- No backend DTO types exist yet on the frontend - created client/src/types/tracking.ts mirroring MediaTrackResponse/ReviewDto/MediaType/MediaStatus from the Epico 4 backend DTOs; future tracking frontend stories (US-007, US-008) should import from there rather than redeclaring.
+- This sandbox's npm run build fails at the vite build step with Cannot find module '@rolldown/binding-linux-arm64-gnu' (missing native binary for this platform) - environment limitation, not a code issue. npm run typecheck (tsc -b / tsc --noEmit) and npm run lint both work fine and are sufficient quality gates here; no MCP browser tooling is configured either, so UI stories can only be verified by hand-reviewing the component against the prototype markup.
 
 ## [2026-07-21] - US-001
 - Implemented MediaStatus enum (WATCHING, WANT_TO_SEE, WATCHED), MediaTrack entity, and UserReview entity in com.app.tracking.
@@ -67,4 +70,18 @@ Started: Mon Jul 21 00:00:00 PDT 2026
   - `@WebMvcTest(SomeController.class)` auto-registers same-package `@RestControllerAdvice` beans (e.g. `TrackingExceptionHandler`) without an explicit `@Import` — confirmed by mirroring `CoupleControllerTest`'s working pattern; only `SecurityConfig` needs an explicit `@Import` for the JWT filter chain to apply.
   - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw -v` fails fetching the wrapper's own Maven zip) — all three test files were reviewed by hand against MediaTrackService/UserReviewService/MediaTrackController/CoupleServiceTest/CoupleControllerTest/MediaControllerTest for signature, DTO field-order, and convention consistency; no automated compile/test run was possible.
   - Next: US-006 is a frontend story (MediaCard.tsx) — must invoke the `frontend-design` skill before implementing, per CLAUDE.md, and verify in-browser with the dev-browser skill if available.
+---
+
+## [2026-07-21] - US-006
+- Implemented MediaCard.tsx and a shared client/src/types/tracking.ts (MediaType, MediaStatus, ReviewDto, MediaTrackResponse) matching the backend tracking DTOs.
+- Files changed: client/src/components/MediaCard.tsx, client/src/types/tracking.ts
+- **Learnings for future iterations:**
+  - Invoked the frontend-design skill per CLAUDE.md before building; since the PRD/prototype already pin down exact colors, fonts, and layout for this card (docs/design/.../Sessao a Dois.dc.html lines ~87-114), the right move was to port that literal markup/styling into Tailwind rather than freelance a new look.
+  - MediaCard takes track (MediaTrackResponse), myUserId, onStatusChange?, onClick? — ratings/opinions are derived by matching review.userId against myUserId (no separate "isMine" flag from the backend).
+  - WANT_TO_SEE cards intentionally suppress the rating/opinion blocks (per US-006 acceptance criteria) even if reviews array has ratings — showRatings is gated on status !== WANT_TO_SEE.
+  - The "Marcar como visto" button calls event.stopPropagation() before onStatusChange so it doesn't also trigger the card's onClick.
+  - No genre data exists in MediaTrackResponse yet (no TMDB cache per US-002/US-004 DTOs) — the genre badge slot from the prototype was intentionally left off; only the Filme/Série type badge (which the DTO does support via mediaType) is rendered. If a future story adds genre to the DTO, wire it into the top-left poster badge like the prototype's {{ m.genre }}.
+  - `npm run build` fails in this sandbox at the vite/rolldown step (missing `@rolldown/binding-linux-arm64-gnu` native binary) — this is a pre-existing environment limitation, confirmed by the error occurring after tsc succeeds and being unrelated to any file this story touched. Used `npm run typecheck` + `npm run lint` as the quality gate instead; both pass on the new files (one pre-existing lint error in ui/button.tsx is unrelated/untouched).
+  - No MCP browser tooling is available in this sandbox — could not do a live in-browser check per the "Verify in browser using dev-browser skill" acceptance criterion; verified by hand against the prototype markup and existing HubPage.tsx conventions instead.
+  - Next: US-007 (TitleModal.tsx) — will need GET /api/media/search and GET /api/media/{mediaType}/{tmdbId} endpoints (should already exist from Épico 3) and can reuse client/src/types/tracking.ts for the CreateMediaTrackRequest shape/MediaTrackResponse return type.
 ---
