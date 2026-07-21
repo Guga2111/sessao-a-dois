@@ -57,3 +57,14 @@ Started: Mon Jul 21 00:00:00 PDT 2026
   - Still no JDK/Maven/Maven Central in this sandbox — reviewed by hand against CoupleController/MediaController/SecurityConfig for signature and convention consistency.
   - Next: US-005 needs unit tests for MediaTrackService, UserReviewService, and a @WebMvcTest for MediaTrackController (mocking MediaTrackService/UserReviewService/CoupleService, using spring-security-test's @WithMockUser or a manual Authentication for the @AuthenticationPrincipal UUID). No test infra exists yet under src/test/java/com/app/tracking/.
 ---
+
+## [2026-07-21] - US-005
+- Implemented MediaTrackServiceTest, UserReviewServiceTest (JUnit 5 + Mockito), and MediaTrackControllerTest (@WebMvcTest + MockMvc) in com.app.tracking.
+- Files changed: api/src/test/java/com/app/tracking/MediaTrackServiceTest.java, UserReviewServiceTest.java, MediaTrackControllerTest.java
+- **Learnings for future iterations:**
+  - `Couple`/`User` entities have `@GeneratedValue` ids with no setter — when a unit test needs a non-null id (e.g. to make `findOwnedTrack`'s `track.getCouple().getId().equals(coupleId)` check pass, or to make `MediaTrackService.toReviewDto`'s `review.getUser().getId().equals(memberId)` not NPE), construct the entity normally then set the id with `org.springframework.test.util.ReflectionTestUtils.setField(entity, "id", someUuid)`. Forgetting this on a `User` passed into `MediaTrackService.addTrack` causes a real `NullPointerException` inside `toResponse`/`toReviewDto`, not a clean assertion failure — the plain "new User(...)" has a null id by default.
+  - `UserReviewService.upsertReview`'s update-existing-review branch mutates the review already returned by `userReviewRepository.findByMediaTrackIdAndUserId` in place and does NOT touch `track.getReviews()` — only the create-new-review branch appends to that in-memory list (matches the earlier US-003 learning). Tests asserting on `track.getReviews()` size must account for this asymmetry.
+  - `@WebMvcTest(SomeController.class)` auto-registers same-package `@RestControllerAdvice` beans (e.g. `TrackingExceptionHandler`) without an explicit `@Import` — confirmed by mirroring `CoupleControllerTest`'s working pattern; only `SecurityConfig` needs an explicit `@Import` for the JWT filter chain to apply.
+  - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw -v` fails fetching the wrapper's own Maven zip) — all three test files were reviewed by hand against MediaTrackService/UserReviewService/MediaTrackController/CoupleServiceTest/CoupleControllerTest/MediaControllerTest for signature, DTO field-order, and convention consistency; no automated compile/test run was possible.
+  - Next: US-006 is a frontend story (MediaCard.tsx) — must invoke the `frontend-design` skill before implementing, per CLAUDE.md, and verify in-browser with the dev-browser skill if available.
+---
