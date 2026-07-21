@@ -85,3 +85,14 @@ Started: Mon Jul 21 00:00:00 PDT 2026
   - No MCP browser tooling is available in this sandbox — could not do a live in-browser check per the "Verify in browser using dev-browser skill" acceptance criterion; verified by hand against the prototype markup and existing HubPage.tsx conventions instead.
   - Next: US-007 (TitleModal.tsx) — will need GET /api/media/search and GET /api/media/{mediaType}/{tmdbId} endpoints (should already exist from Épico 3) and can reuse client/src/types/tracking.ts for the CreateMediaTrackRequest shape/MediaTrackResponse return type.
 ---
+
+## [2026-07-21] - US-007
+- Implemented TitleModal.tsx (search with debounce, status pills, star picker, conditional watched-date field, opinion textarea, save/cancel) and a new client/src/types/media.ts (MediaSearchResult, MediaDetails) mirroring com.app.media's DTOs.
+- Files changed: client/src/components/TitleModal.tsx, client/src/types/media.ts, scripts/ralph/prd.json
+- **Learnings for future iterations:**
+  - Invoked frontend-design skill per CLAUDE.md; since the prototype (docs/design/.../Sessao a Dois.dc.html lines ~347-408) and the US-006 precedent already pin down the exact visual language, the skill's own guidance ("where the brief pins down a visual direction, follow it exactly") pointed at porting the literal markup/colors again rather than freelancing a new look — consistent with MediaCard.tsx's approach.
+  - `MediaType.fromPathValue` on the backend is case-insensitive, so the frontend can call `GET /api/media/{mediaType.toLowerCase()}/{tmdbId}` (e.g. `movie`/`tv`) directly from the `MediaSearchResult.mediaType` enum value ("MOVIE"/"TV") without a separate mapping table.
+  - `react-hooks`'s `set-state-in-effect` lint rule flags any direct/synchronous `setState` call in an effect body, including ones guarded by an early-return branch — the fix is to do all `setState` calls inside the `setTimeout`/promise callback (async, not synchronous-in-effect) and handle the "clear results when query is emptied" case in the input's `onChange` handler instead of a second effect branch.
+  - Tailwind v4's arbitrary z-index values still need bracket syntax (`z-[60]`), there's no built-in `z-60` in the default scale (only 0/10/20/30/40/50) — caught by visual review, not by typecheck/lint, since it's just a class string.
+  - Next: US-008 (HubScreen.tsx) will import and wire up both MediaCard.tsx and TitleModal.tsx — TitleModal's `onSuccess(track: MediaTrackResponse)` callback is the hook HubScreen should use to append the new track to local state and close the modal; call `GET /api/tracking` (no status filter) to (re)populate the three status groups.
+---

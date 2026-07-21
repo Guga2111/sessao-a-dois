@@ -1,0 +1,17 @@
+import type { MediaType } from "@/types/tracking"
+
+export interface MediaSearchResult {
+  tmdbId: number
+  mediaType: MediaType
+  title: string
+  year: number | null
+  posterUrl: string | null
+  overview: string | null
+  voteAverage: number | null
+}
+
+export interface MediaDetails extends MediaSearchResult {
+  genres: string[]
+  runtime: number | null
+  watchProviders: { name: string; logoUrl: string }[]
+}
