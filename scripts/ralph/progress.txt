@@ -45,3 +45,15 @@ Started: Mon Jul 21 00:00:00 PDT 2026
   - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw compile` fails fetching the wrapper's own Maven zip) — reviewed by hand against MediaTrackService/UserReview/MediaTrack for signature and convention consistency.
   - Next: US-004 needs MediaTrackController (`/api/tracking`) wiring these two services together, plus a `TrackingExceptionHandler` (`@RestControllerAdvice(basePackages = "com.app.tracking")`) mapping `ResourceNotFoundException` → 404 and `AccessDeniedException` → 403 with a `{message: ...}` body — follow `com.app.auth.AuthExceptionHandler`'s shape. `couple_id` for the controller must come from SecurityContext → UserDetails → User → couple.id, never the request body (see Codebase Patterns).
 ---
+
+## [2026-07-21] - US-004
+- Implemented MediaTrackController (GET/POST /api/tracking, PATCH /{id}/status, DELETE /{id}, PUT /{id}/review), UpdateStatusRequest DTO, and TrackingExceptionHandler in com.app.tracking.
+- Files changed: api/src/main/java/com/app/tracking/MediaTrackController.java, UpdateStatusRequest.java, TrackingExceptionHandler.java
+- **Learnings for future iterations:**
+  - There's no dedicated "get couple id for authenticated user" helper anywhere yet — the controller resolves it itself via `coupleService.getCurrentCouple(userId).orElseThrow(...)` (CoupleService already existed from Épico 2, no changes needed there). This is the pattern to reuse if another future controller needs couple_id from the SecurityContext.
+  - The security principal is a raw `UUID` (see JwtAuthenticationFilter: `new UsernamePasswordAuthenticationToken(userId, null, ...)`), so controllers just declare `@AuthenticationPrincipal UUID userId` directly — no UserDetails/User lookup needed unless the User entity itself is required (as MediaTrackService/UserReviewService do internally).
+  - `@RequestParam(required = false) MediaStatus status` on the GET works out of the box — Spring binds the enum from the query string and leaves it null when absent, which matches `MediaTrackService.listByStatus`'s existing null-means-all handling.
+  - TrackingExceptionHandler mirrors AuthExceptionHandler/CoupleExceptionHandler exactly (Map.of("message", ...) bodies, MethodArgumentNotValidException → 400 with field errors) but adds an AccessDeniedException → 403 handler, since US-003's UserReviewService throws that for cross-couple review attempts.
+  - Still no JDK/Maven/Maven Central in this sandbox — reviewed by hand against CoupleController/MediaController/SecurityConfig for signature and convention consistency.
+  - Next: US-005 needs unit tests for MediaTrackService, UserReviewService, and a @WebMvcTest for MediaTrackController (mocking MediaTrackService/UserReviewService/CoupleService, using spring-security-test's @WithMockUser or a manual Authentication for the @AuthenticationPrincipal UUID). No test infra exists yet under src/test/java/com/app/tracking/.
+---
