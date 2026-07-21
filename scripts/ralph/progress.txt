@@ -4,7 +4,7 @@ Started: Mon Jul 20 14:32:55 PDT 2026
 
 ## Codebase Patterns
 - Backend package-by-feature under `com.app.<feature>` (see docs/ARCHITECTURE.md); exception handlers use `@RestControllerAdvice(basePackages = "com.app.<feature>")` returning `Map<String,String>`/`Map<String,Object>` bodies (see com.app.auth.AuthExceptionHandler).
-- `src/test/resources/application.properties` overrides properties for `@SpringBootTest` contexts (e.g. supplies a fake `tmdb.api-key` so TmdbConfig's fail-fast bean doesn't block context startup in tests).
+- `src/test/resources/application.properties` REPLACES `src/main/resources/application.properties` entirely for `@SpringBootTest` (Spring Boot loads only one `application.properties` per classpath root, and test-classes wins) — it does NOT layer on top. It must redeclare every property any eagerly-instantiated bean needs (currently `tmdb.api-key` for `TmdbConfig`, `app.jwt.secret` for `JwtService`), or full-context tests like `SessaoADoisApplicationTests.contextLoads` break with an unresolved placeholder. Adding a new required property to main `application.properties` means mirroring it here too.
 - This sandbox has no JDK/Maven installed and no Maven Central access (`./mvnw` wrapper download fails offline) - `./mvnw test`/`package` cannot be executed here; code must be reviewed carefully by hand. This matches the note already in api/CLAUDE.md.
 
 ## 2026-07-20 - US-001
