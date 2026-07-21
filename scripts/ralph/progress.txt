@@ -34,3 +34,14 @@ Started: Mon Jul 21 00:00:00 PDT 2026
   - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw compile` fails on the wget for the wrapper's own maven-3.9.16 download) — reviewed by hand against MediaTrack/UserReview/Couple/User/CoupleService/CoupleController for signature and convention consistency.
   - Next: US-003 needs UserReviewRepository + UserReviewService.upsertReview(trackId, userId, coupleId, UpsertReviewRequest) — must check track ownership like findOwnedTrack does, but throw 403 (not 404) when the track exists but belongs to another couple, per that story's acceptance criteria (differs from US-002's findOwnedTrack, which returns 404 for both cases — do not reuse it as-is for US-003's ownership check).
 ---
+
+## [2026-07-21] - US-003
+- Implemented UserReviewRepository, UpsertReviewRequest, and UserReviewService.upsertReview in com.app.tracking.
+- Files changed: api/src/main/java/com/app/tracking/UserReviewRepository.java, UpsertReviewRequest.java, UserReviewService.java
+- **Learnings for future iterations:**
+  - UserReviewService.upsertReview does NOT reuse MediaTrackService.findOwnedTrack (that helper 404s on cross-couple access); it inlines its own ownership check that throws `org.springframework.security.access.AccessDeniedException` (403) instead, per this story's differing acceptance criteria.
+  - When creating a brand-new UserReview mid-request, it must be manually appended to the already-loaded `track.getReviews()` list after `userReviewRepository.save(review)` — the lazy `@OneToMany` collection on the in-memory `MediaTrack` instance won't pick up the new row on its own within the same persistence context, and `MediaTrackService.toResponse()` reads from that in-memory list.
+  - `spring-boot-starter-security` (hence `org.springframework.security.access.AccessDeniedException`) is already a pom.xml dependency — no new dependency needed for the 403 case.
+  - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw compile` fails fetching the wrapper's own Maven zip) — reviewed by hand against MediaTrackService/UserReview/MediaTrack for signature and convention consistency.
+  - Next: US-004 needs MediaTrackController (`/api/tracking`) wiring these two services together, plus a `TrackingExceptionHandler` (`@RestControllerAdvice(basePackages = "com.app.tracking")`) mapping `ResourceNotFoundException` → 404 and `AccessDeniedException` → 403 with a `{message: ...}` body — follow `com.app.auth.AuthExceptionHandler`'s shape. `couple_id` for the controller must come from SecurityContext → UserDetails → User → couple.id, never the request body (see Codebase Patterns).
+---
