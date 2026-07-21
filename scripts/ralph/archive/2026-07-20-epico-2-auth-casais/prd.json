@@ -17,8 +17,8 @@
         "Tests pass"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "TmdbConfig (com.app.media) implementado: RestClient bean fail-fast quando TMDB_API_KEY ausente/em branco, Authorization: Bearer <key> como header, language=pt-BR injetado via TmdbDefaultLanguageInterceptor. Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK instalado) - verificar em ambiente com JDK 21 + Maven Central."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-002",
@@ -36,8 +36,8 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Implementado em com.app.media: MediaController (GET /api/media/search), MediaSearchService (usa o RestClient de TmdbConfig contra /search/multi), DTOs raw TmdbMultiSearchResponse/Item (package-private, @JsonProperty p/ snake_case), DTO publico MediaSearchResult, InvalidSearchQueryException + MediaExceptionHandler (400 antes de chamar o TMDB quando q vazio/ausente). Endpoint fica atras de autenticacao (anyRequest().authenticated() do SecurityConfig). Testes: MediaSearchServiceTest (RestClient mockado com RETURNS_DEEP_STUBS - sucesso misto filme+serie filtrando 'person', lista vazia, body null, poster/data ausentes) e MediaControllerTest (@WebMvcTest, sucesso, lista vazia, q ausente/em branco -> 400, sem auth -> 401). Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
@@ -55,8 +55,8 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "MediaDetailsService (com.app.media) chama GET /{mediaType}/{tmdbId}?append_to_response=watch/providers no tmdbRestClient (US-001) em uma unica chamada. DTOs raw TmdbMediaDetailsResponse/TmdbGenre/TmdbWatchProvidersResponse/TmdbWatchProviderCountry/TmdbWatchProviderEntry mapeiam o JSON do TMDB (snake_case via @JsonProperty, incluindo a chave composta 'watch/providers'); DTO publico MediaDetails(tmdbId, mediaType, title, year, posterUrl, overview, genres, voteAverage, runtime, watchProviders) e WatchProvider(name, logoUrl). watchProviders filtra a regiao BR (flatrate) e retorna lista vazia se ausente. MediaType ganhou fromPathValue(String) (lanca InvalidMediaTypeException -> 400 via MediaExceptionHandler, antes de chamar o TMDB) usado pelo novo endpoint GET /api/media/{mediaType}/{tmdbId} em MediaController. HttpClientErrorException.NotFound do RestClient e traduzido para MediaNotFoundException -> 404 via MediaExceptionHandler. Testes: MediaDetailsServiceTest (sucesso filme com watch/providers, sucesso serie sem runtime e sem watch/providers no BR, 404 quando TMDB retorna NotFound) e novos testes em MediaControllerTest (sucesso autenticado, mediaType invalido -> 400, tmdbId inexistente -> 404, sem auth -> 401). Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao seguindo o padrao de MediaSearchService/MediaSearchServiceTest da US-002."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
@@ -71,8 +71,8 @@
         "Tests pass"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Novo TmdbUnavailableException (com.app.media) representa falhas de chamada ao TMDB nao tratadas especificamente (5xx, 4xx != 404, timeout/erro de conexao). MediaSearchService.search() e MediaDetailsService.getDetails() agora envolvem a chamada ao tmdbRestClient em try/catch(RestClientResponseException | ResourceAccessException) e relancam TmdbUnavailableException(endpoint, causa) - em MediaDetailsService o catch de HttpClientErrorException.NotFound (404 -> MediaNotFoundException) continua antes do catch generico, entao 404 nao vira 502. MediaExceptionHandler ganhou handler para TmdbUnavailableException: loga em ERROR (ex.getMessage() com o endpoint chamado + causa, nunca a API key - que so existe no header Authorization, nunca na URI/mensagem de excecao) e responde 502 Bad Gateway com {\"message\": \"Nao foi possivel buscar dados no momento. Tente novamente mais tarde.\"}, sem stacktrace/URL do TMDB/API key no corpo. Testes: MediaSearchServiceTest e MediaDetailsServiceTest ganharam casos para HttpServerErrorException (5xx) e ResourceAccessException (timeout) -> TmdbUnavailableException com a causa original preservada; MediaControllerTest ganhou dois testes (search e details) verificando 502 com a mensagem generica quando o service lanca TmdbUnavailableException. Nao foi possivel rodar ./mvnw test neste sandbox (sem JDK/rede) - codigo revisado a mao seguindo o padrao das stories anteriores."
+      "passes": false,
+      "notes": ""
     }
   ]
 }

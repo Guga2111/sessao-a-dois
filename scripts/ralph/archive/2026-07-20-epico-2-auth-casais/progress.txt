@@ -1,0 +1,15 @@
+# Ralph Progress Log
+Started: 2026-07-20
+
+## Codebase Patterns
+- Backend: package-by-feature under `com.app.<feature>` (e.g. `com.app.user`), see docs/ARCHITECTURE.md.
+- `spring.jpa.hibernate.ddl-auto=update` (api/src/main/resources/application.properties) — no manual migrations; entities drive schema creation against the dev PostgreSQL.
+- This sandbox has no JDK/`java`/`mvn` and no network access to Maven Central — `./mvnw` cannot be run here (see api/CLAUDE.md). Implement carefully and double-check imports/APIs by hand; a JDK-enabled environment must verify the build before merge.
+- For repository-level JPA tests, use `@DataJpaTest` with the `com.h2database:h2` dependency added in test scope (api/pom.xml) — Spring Boot auto-swaps in an embedded DB, no extra config needed.
+- `@WebMvcTest` auto-includes `Filter` beans (e.g. `JwtAuthenticationFilter`), so any `@WebMvcTest(...) @Import(SecurityConfig.class)` slice must also `@MockitoBean` every bean that filter depends on (currently `JwtService`), even for controllers unrelated to auth.
+- This project pins Spring Boot parent `4.1.0`, where `@MockBean` is gone — use `@MockitoBean` from `org.springframework.test.context.bean.override.mockito.MockitoBean` instead in any new `@WebMvcTest`/`@SpringBootTest`.
+- Frontend (client/): this sandbox has no `bun` binary, only `node`/`npm`. `npm install` works (registry is reachable) and is fine for adding deps/running `tsc --noEmit`/`eslint`, but do NOT commit a generated `package-lock.json` (project uses `bun.lock`) — delete it after installing. `bun.lock` itself can't be regenerated here; note in progress.txt that a bun-enabled environment must run `bun install` to sync it after any `client/package.json` dependency change.
+- Frontend (client/): `vite build` / `bun run build` fails in this Linux sandbox with "Cannot find module '@rolldown/binding-linux-arm64-gnu'" — `node_modules` only has `@rolldown/binding-darwin-arm64` from the original Mac-side `bun install`. This is a pre-existing sandbox limitation, not a real bug. Rely on `tsc --noEmit` + `eslint .` as the quality gates here instead of a full build.
+- Epico 2 (auth/couple, US-001 to US-009) is complete — see `archive/2026-07-20-epico-2-auth-casais/` for its full prd.json and progress.txt if you need prior context (e.g. how `SecurityConfig`, `JwtAuthenticationFilter`, or `com.app.couple` were built).
+- Epico 3 (this run) is backend-only (`com.app.media`) — TMDB integration. No `client/` changes expected; the `frontend-design` skill / root CLAUDE.md frontend rule does not apply to these stories.
+---

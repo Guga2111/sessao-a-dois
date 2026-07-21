@@ -106,12 +106,21 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     OUTPUT=$( { cat "$SCRIPT_DIR/CLAUDE.md"; printf '%s' "$BRANCH_NOTE"; } | claude --dangerously-skip-permissions --print 2>&1 | tee /dev/stderr) || true
   fi
   
-  # Check for completion signal
-  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+  # Check for completion. The model's own "<promise>COMPLETE</promise>" text is
+  # NOT authoritative: it can appear in free-text output even when the agent is
+  # explaining/declining the stop condition (e.g. quoting the instruction while
+  # saying it does NOT apply yet), which previously caused false-positive early
+  # exits. prd.json (via jq) is the source of truth for whether all stories pass.
+  REMAINING=$(jq '[.userStories[] | select(.passes != true)] | length' "$PRD_FILE" 2>/dev/null || echo "")
+  if [ "$REMAINING" = "0" ]; then
     echo ""
-    echo "Ralph completed all tasks!"
+    echo "Ralph completed all tasks! (verified via prd.json: all stories passes=true)"
     echo "Completed at iteration $i of $MAX_ITERATIONS"
     exit 0
+  fi
+  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>" && [ -n "$REMAINING" ]; then
+    echo ""
+    echo "Note: model emitted the COMPLETE signal, but $REMAINING stor$([ "$REMAINING" = "1" ] && echo y || echo ies) in prd.json still have passes=false — ignoring the signal and continuing."
   fi
   
   echo "Iteration $i complete. Continuing..."
