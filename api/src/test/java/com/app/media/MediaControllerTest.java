@@ -123,4 +123,23 @@ class MediaControllerTest {
 		mockMvc.perform(get("/api/media/movie/603"))
 			.andExpect(status().isUnauthorized());
 	}
+
+	@Test
+	void search_returnsBadGatewayWhenTmdbIsUnavailable() throws Exception {
+		when(mediaSearchService.search("matrix")).thenThrow(new TmdbUnavailableException("/search/multi", new RuntimeException("boom")));
+
+		mockMvc.perform(get("/api/media/search").param("q", "matrix").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.message").value("Nao foi possivel buscar dados no momento. Tente novamente mais tarde."));
+	}
+
+	@Test
+	void details_returnsBadGatewayWhenTmdbIsUnavailable() throws Exception {
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603))
+			.thenThrow(new TmdbUnavailableException("/movie/603", new RuntimeException("boom")));
+
+		mockMvc.perform(get("/api/media/movie/603").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.message").value("Nao foi possivel buscar dados no momento. Tente novamente mais tarde."));
+	}
 }

@@ -1,12 +1,18 @@
 package com.app.media;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -86,5 +92,36 @@ class MediaSearchServiceTest {
 		assertThat(results).hasSize(1);
 		assertThat(results.get(0).posterUrl()).isNull();
 		assertThat(results.get(0).year()).isNull();
+	}
+
+	@Test
+	void search_throwsTmdbUnavailableWhenTmdbReturnsServerError() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		HttpServerErrorException serverError = HttpServerErrorException.create(
+			HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", HttpHeaders.EMPTY, new byte[0], StandardCharsets.UTF_8);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
+			.thenThrow(serverError);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+
+		assertThatThrownBy(() -> service.search("matrix"))
+			.isInstanceOf(TmdbUnavailableException.class)
+			.hasCauseInstanceOf(HttpServerErrorException.class);
+	}
+
+	@Test
+	void search_throwsTmdbUnavailableWhenTmdbTimesOut() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		ResourceAccessException timeout = new ResourceAccessException("timeout");
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
+			.thenThrow(timeout);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+
+		assertThatThrownBy(() -> service.search("matrix"))
+			.isInstanceOf(TmdbUnavailableException.class)
+			.hasCause(timeout);
 	}
 }

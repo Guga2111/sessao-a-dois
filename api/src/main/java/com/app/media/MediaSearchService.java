@@ -3,12 +3,16 @@ package com.app.media;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Service
 public class MediaSearchService {
 
 	private static final String POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500";
+
+	private static final String SEARCH_ENDPOINT = "/search/multi";
 
 	private final RestClient tmdbRestClient;
 
@@ -17,10 +21,16 @@ public class MediaSearchService {
 	}
 
 	public List<MediaSearchResult> search(String query) {
-		TmdbMultiSearchResponse response = tmdbRestClient.get()
-			.uri(uriBuilder -> uriBuilder.path("/search/multi").queryParam("query", query).build())
-			.retrieve()
-			.body(TmdbMultiSearchResponse.class);
+		TmdbMultiSearchResponse response;
+		try {
+			response = tmdbRestClient.get()
+				.uri(uriBuilder -> uriBuilder.path(SEARCH_ENDPOINT).queryParam("query", query).build())
+				.retrieve()
+				.body(TmdbMultiSearchResponse.class);
+		}
+		catch (RestClientResponseException | ResourceAccessException ex) {
+			throw new TmdbUnavailableException(SEARCH_ENDPOINT, ex);
+		}
 
 		if (response == null || response.results() == null) {
 			return List.of();

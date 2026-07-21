@@ -4,7 +4,9 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Service
 public class MediaDetailsService {
@@ -22,6 +24,7 @@ public class MediaDetailsService {
 	}
 
 	public MediaDetails getDetails(MediaType mediaType, long tmdbId) {
+		String endpoint = "/" + mediaType.tmdbPath() + "/" + tmdbId;
 		TmdbMediaDetailsResponse response;
 		try {
 			response = tmdbRestClient.get()
@@ -34,6 +37,9 @@ public class MediaDetailsService {
 		}
 		catch (HttpClientErrorException.NotFound ex) {
 			throw new MediaNotFoundException(mediaType, tmdbId);
+		}
+		catch (RestClientResponseException | ResourceAccessException ex) {
+			throw new TmdbUnavailableException(endpoint, ex);
 		}
 
 		if (response == null) {

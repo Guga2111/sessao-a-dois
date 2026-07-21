@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,5 +87,36 @@ class MediaDetailsServiceTest {
 
 		assertThatThrownBy(() -> service.getDetails(MediaType.MOVIE, 999999999))
 			.isInstanceOf(MediaNotFoundException.class);
+	}
+
+	@Test
+	void getDetails_throwsTmdbUnavailableWhenTmdbReturnsServerError() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		HttpServerErrorException serverError = HttpServerErrorException.create(
+			HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", HttpHeaders.EMPTY, new byte[0], StandardCharsets.UTF_8);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMediaDetailsResponse.class))
+			.thenThrow(serverError);
+
+		MediaDetailsService service = new MediaDetailsService(restClient);
+
+		assertThatThrownBy(() -> service.getDetails(MediaType.MOVIE, 603))
+			.isInstanceOf(TmdbUnavailableException.class)
+			.hasCauseInstanceOf(HttpServerErrorException.class);
+	}
+
+	@Test
+	void getDetails_throwsTmdbUnavailableWhenTmdbTimesOut() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		ResourceAccessException timeout = new ResourceAccessException("timeout");
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMediaDetailsResponse.class))
+			.thenThrow(timeout);
+
+		MediaDetailsService service = new MediaDetailsService(restClient);
+
+		assertThatThrownBy(() -> service.getDetails(MediaType.MOVIE, 603))
+			.isInstanceOf(TmdbUnavailableException.class)
+			.hasCause(timeout);
 	}
 }
