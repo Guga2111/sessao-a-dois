@@ -11,6 +11,7 @@ import {
   RedirectIfCoupled,
   RequireCouple,
 } from "@/routes/guards"
+import { DashboardScreen } from "@/screens/DashboardScreen"
 import { HubScreen } from "@/screens/HubScreen"
 import { MatchScreen } from "@/screens/MatchScreen"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -86,6 +87,16 @@ export function App() {
             <ProtectedRoute>
               <RequireCouple>
                 <MatchScreen />
+              </RequireCouple>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <RequireCouple>
+                <DashboardScreen />
               </RequireCouple>
             </ProtectedRoute>
           }

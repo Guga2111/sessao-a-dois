@@ -3,6 +3,8 @@
 - `SecurityConfig` (com.app.security) applies `anyRequest().authenticated()` to everything not explicitly `permitAll()`'d.
 - This sandbox has no JDK/Maven and no Maven Central access (`./mvnw` fails trying to download the wrapper distribution, and there is no `java`/`mvn` binary either) — backend changes here can only be reviewed by careful manual reading, not compiled/tested locally. Flag this explicitly in each backend story's progress entry rather than claiming "tests pass".
 - `MediaDetails.genreIds()` carries raw TMDB genre ids (separate from `genres()`, the pt-BR names) for any feature that needs to persist/aggregate by genre id without re-parsing TMDB responses.
+- This sandbox also can't run the frontend dev server/build (`npm run dev` / `vite build` fail with a `rolldown` native-binding resolution error, npm optional-deps + a shadowing empty `node_modules/rolldown/node_modules/@rolldown/` dir) and has no browser automation tool (no `chromium-cli`, no Playwright browsers installed) — frontend changes can only be verified with `npx tsc --noEmit`/`npx tsc -b` and `npx eslint <changed files>` from `client/`, not a live browser check. Flag this explicitly rather than claiming a browser check happened. See `client/CLAUDE.md` for what was tried.
+- New screens go in `client/src/screens/*.tsx`, wired into `client/src/App.tsx` routes and `client/src/components/Header.tsx`'s `NAV_ITEMS`; follow `HubScreen.tsx`'s pattern (Tailwind arbitrary-value colors matching the prototype exactly, `font-display`/`font-auth-body` classes, loading skeletons + empty-state messaging, `api.get<T>(...)` from `lib/api.ts`). Backend DTO shapes are hand-mirrored as TS interfaces under `client/src/types/*.ts` (no codegen) — keep them in sync manually when backend records change.
 
 ## 2026-07-22 - US-001
 - Persisted TMDB genre ids on `MediaTrack` so future dashboard stats can aggregate by genre without extra TMDB calls.
@@ -63,4 +65,19 @@
   - Inherits `anyRequest().authenticated()` from `SecurityConfig` like every other endpoint in this controller — no `permitAll()` needed for the 401 behavior.
   - Reused `@WebMvcTest(MediaTrackController.class)` + `@Import(SecurityConfig.class)` pattern already in `MediaTrackControllerTest`; only had to add a new `@MockitoBean` for `StatsService` alongside the existing ones.
   - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
+---
+
+## 2026-07-22 - US-005
+- Added `DashboardScreen.tsx` rendering the 4 KPI cards (Tempo juntos, Filmes vs Séries, Gênero favorito, Total assistido) fed by `GET /api/tracking/stats` (US-004), matching the prototype's dashboard KPI row pixel-for-pixel (colors/spacing from `docs/design/claude-design-project/Sessao a Dois.dc.html` lines 199-233) and HubScreen's established Tailwind arbitrary-value conventions.
+- Files changed:
+  - `client/src/types/stats.ts` (new): TS mirror of the backend `StatsResponse`/`GenreStat`/`MonthlyStat` records.
+  - `client/src/screens/DashboardScreen.tsx` (new): fetches stats on mount, renders loading skeletons, an empty-state message when `totalTitles === 0` (or the fetch fails, since `stats` stays `null`), and the 4 KPI cards otherwise. `favoriteGenre`/second-place genre derived from `topGenres[0]`/`topGenres[1]`.
+  - `client/src/App.tsx`: added `/dashboard` route wrapped in `ProtectedRoute` + `RequireCouple` (same guard pattern as `/match`).
+  - `client/src/components/Header.tsx`: added "Dashboard" to `NAV_ITEMS`.
+  - `client/CLAUDE.md` (new): documented the frontend conventions and the sandbox's broken Vite dev server / missing browser tooling (see Codebase Patterns above).
+  - `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - Charts (bar chart, donut, genre bars from US-006) are NOT yet in `DashboardScreen.tsx` — this story only covers the KPI row per its acceptance criteria; US-006 should extend the same file/screen, reusing `stats.monthlySeries`/`stats.topGenres`/`stats.moviePercentage`/`stats.tvPercentage` already fetched here.
+  - Verification for this story was `npx tsc --noEmit`, `npx tsc -b` (production build typecheck), and `npx eslint` on the changed files only (the full `npx eslint .` has 3 pre-existing failures in `MediaDetailModal.tsx`, `WatchModal.tsx`, `components/ui/button.tsx` unrelated to this change — don't mistake those for something this story broke). Could NOT get a live browser render: `npm run dev` fails on a `rolldown` native-binding resolution bug (see `client/CLAUDE.md`), and there's no `chromium-cli`/Playwright browser available in this sandbox to drive one even if the dev server worked. Manual browser verification is needed before this is fully trusted.
+  - If a future iteration manages to fix the `npm run dev` binding issue, it'd be worth re-verifying US-001 through US-005 in a real browser too, since none of them have had one yet.
 ---
