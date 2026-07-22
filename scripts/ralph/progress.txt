@@ -60,3 +60,14 @@ Started: Wed Jul 22 03:31:26 PDT 2026
   - `couple` is fetched lazily inside `like()`: it's only loaded from `coupleRepository` if this is the user's first like OR if a match is detected and no couple was fetched yet (duplicate-like-then-match path) — don't reintroduce an unconditional `coupleRepository.findById` at the top of the method, it would break the existing `like_duplicateLikeFromSameUserDoesNotPersistAgain` test's `verify(coupleRepository, never()).findById(...)` expectation for the *no-match* case.
   - US-005 (dedicated match-domain test suite) should build on the coverage added here — `MatchServiceTest` already has match-detection-creates-track/event and duplicate-track-prevention cases; still needed per the story: an explicit already-tracked-title-rejected case exists, but Controller/Repository-level Mockito coverage should be reviewed for completeness against the PRD's acceptance criteria.
 ---
+
+## 2026-07-22 - US-005
+- Added the missing Repository-level Mockito/Spring-slice test for the `com.app.match` domain; Service and Controller coverage already existed from US-003/US-004 and already satisfied all four PRD scenario criteria (first-like-no-match, partner-like-triggers-match+track+event, already-tracked-rejected, duplicate-like-idempotent).
+- Files changed:
+  - `api/src/test/java/com/app/match/MatchLikeRepositoryTest.java` (new): `@DataJpaTest` (H2, mirrors `com.app.couple.CoupleRepositoryTest`'s pattern exactly) covering `MatchLikeRepository`: `findByCoupleIdAndUserIdAndTmdbId` finds only the exact owner/couple/title match; `findFirstByCoupleIdAndTmdbIdAndUserIdNot` finds the partner's like (not the caller's own) in both directions, and is empty when only the caller has liked; the `(couple_id, user_id, tmdb_id)` unique constraint throws `DataIntegrityViolationException` on a duplicate save+flush.
+  - `scripts/ralph/prd.json`: `US-005.passes` set to `true`.
+- **Learnings for future iterations:**
+  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw test`; hand-verified against `CoupleRepositoryTest` line-by-line (same `@DataJpaTest`/H2 setup, same assertion style). A maintainer with a working JDK should run `./mvnw test` before merging.
+  - When a story's acceptance criteria list test *scenarios* that were already implicitly covered by a prior story's Service/Controller tests, check what's actually still missing (here: only the Repository slice) rather than re-writing duplicate scenario tests — `com.app.match` package coverage per `docs/ARCHITECTURE.md`/`api/CLAUDE.md` requires Controller+Service+Repository, and Repository was the only gap.
+  - US-006 onward move to the frontend (`client/`) — per `CLAUDE.md`, any work under `client/` must invoke the `frontend-design` skill before implementing, and `docs/` (including the design HTML/JS prototype) must be read first.
+---
