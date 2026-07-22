@@ -10,6 +10,7 @@ public record MediaDetails(
 		String posterUrl,
 		String overview,
 		List<String> genres,
+		List<Integer> genreIds,
 		Double voteAverage,
 		Integer runtime,
 		List<WatchProvider> watchProviders) {

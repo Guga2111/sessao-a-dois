@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -96,7 +97,7 @@ class MatchServiceTest {
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 603L, userId))
 			.thenReturn(Optional.of(partnerLike));
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
-			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null, null, null, null));
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null, List.of(28), null, null, null));
 
 		LikeResponse response = matchService.like(coupleId, userId, request);
 
@@ -107,6 +108,7 @@ class MatchServiceTest {
 		verify(mediaTrackRepository, times(1)).save(trackCaptor.capture());
 		assertThat(trackCaptor.getValue().getStatus()).isEqualTo(MediaStatus.WANT_TO_SEE);
 		assertThat(trackCaptor.getValue().getTmdbId()).isEqualTo(603L);
+		assertThat(trackCaptor.getValue().getGenreIds()).containsExactly(28);
 
 		ArgumentCaptor<MatchEvent> eventCaptor = ArgumentCaptor.forClass(MatchEvent.class);
 		verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/couple/" + coupleId + "/match"),

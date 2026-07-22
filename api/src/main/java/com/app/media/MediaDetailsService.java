@@ -57,6 +57,9 @@ public class MediaDetailsService {
 		List<String> genres = response.genres() == null
 			? List.of()
 			: response.genres().stream().map(TmdbGenre::name).toList();
+		List<Integer> genreIds = response.genres() == null
+			? List.of()
+			: response.genres().stream().map(genre -> (int) genre.id()).toList();
 
 		return new MediaDetails(
 			response.id(),
@@ -66,6 +69,7 @@ public class MediaDetailsService {
 			response.posterPath() != null ? POSTER_BASE_URL + response.posterPath() : null,
 			response.overview(),
 			genres,
+			genreIds,
 			response.voteAverage(),
 			isMovie ? response.runtime() : null,
 			extractWatchProviders(response.watchProviders()));

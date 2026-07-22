@@ -46,6 +46,7 @@ class MediaDetailsServiceTest {
 		assertThat(details.posterUrl()).isEqualTo("https://image.tmdb.org/t/p/w500/poster-matrix.jpg");
 		assertThat(details.overview()).isEqualTo("Um hacker descobre a verdade.");
 		assertThat(details.genres()).containsExactly("Acao");
+		assertThat(details.genreIds()).containsExactly(28);
 		assertThat(details.voteAverage()).isEqualTo(8.2);
 		assertThat(details.runtime()).isEqualTo(136);
 		assertThat(details.watchProviders()).hasSize(1);

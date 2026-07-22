@@ -4,7 +4,9 @@ import com.app.couple.Couple;
 import com.app.media.MediaType;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -52,6 +54,11 @@ public class MediaTrack {
 
 	@Column
 	private Integer runtime;
+
+	@ElementCollection
+	@CollectionTable(name = "media_track_genre", joinColumns = @JoinColumn(name = "media_track_id"))
+	@Column(name = "genre_id")
+	private List<Integer> genreIds = new ArrayList<>();
 
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
@@ -108,6 +115,14 @@ public class MediaTrack {
 
 	public void setRuntime(Integer runtime) {
 		this.runtime = runtime;
+	}
+
+	public List<Integer> getGenreIds() {
+		return genreIds;
+	}
+
+	public void setGenreIds(List<Integer> genreIds) {
+		this.genreIds = genreIds == null ? new ArrayList<>() : genreIds;
 	}
 
 	public LocalDateTime getCreatedAt() {

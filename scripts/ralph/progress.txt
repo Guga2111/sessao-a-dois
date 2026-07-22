@@ -1,115 +1,22 @@
-# Ralph Progress Log
-Started: Wed Jul 22 03:31:26 PDT 2026
----
-
 ## Codebase Patterns
 - Backend package-by-feature under `com.app.*` (see `api/CLAUDE.md`); new features get their own package (e.g. `com.app.websocket`, `com.app.match`).
-- `SecurityConfig` (com.app.security) applies `anyRequest().authenticated()` to everything not explicitly `permitAll()`'d — any new public-ish endpoint (including non-REST ones like the STOMP handshake `/ws/**`) needs an explicit `requestMatchers(...).permitAll()` entry, then do its own auth inside (e.g. a `HandshakeInterceptor` reading a JWT).
-- Browser WebSocket/SockJS handshakes cannot set the `Authorization` header, so JWT for `/ws` is passed as a `?token=` query param and validated in a `HandshakeInterceptor` (`com.app.websocket.JwtHandshakeInterceptor`), not via the existing `JwtAuthenticationFilter`.
-- This sandbox has no JDK/Maven and no Maven Central access (`./mvnw` fails trying to download the wrapper distribution) — backend changes here can only be reviewed by careful manual reading, not compiled/tested locally. Flag this explicitly in each backend story's progress entry rather than claiming "tests pass".
+- `SecurityConfig` (com.app.security) applies `anyRequest().authenticated()` to everything not explicitly `permitAll()`'d.
+- This sandbox has no JDK/Maven and no Maven Central access (`./mvnw` fails trying to download the wrapper distribution, and there is no `java`/`mvn` binary either) — backend changes here can only be reviewed by careful manual reading, not compiled/tested locally. Flag this explicitly in each backend story's progress entry rather than claiming "tests pass".
+- `MediaDetails.genreIds()` carries raw TMDB genre ids (separate from `genres()`, the pt-BR names) for any feature that needs to persist/aggregate by genre id without re-parsing TMDB responses.
 
 ## 2026-07-22 - US-001
-- Implemented STOMP WebSocket config for real-time Match events.
+- Persisted TMDB genre ids on `MediaTrack` so future dashboard stats can aggregate by genre without extra TMDB calls.
 - Files changed:
-  - `api/src/main/java/com/app/websocket/WebSocketConfig.java` (new): `@EnableWebSocketMessageBroker`, registers `/ws` endpoint with SockJS fallback + `JwtHandshakeInterceptor`, simple broker on `/topic`, app prefix `/app`.
-  - `api/src/main/java/com/app/websocket/JwtHandshakeInterceptor.java` (new): validates JWT passed as `?token=` query param on the handshake via the existing `JwtService`; rejects (401, handshake refused) when missing/invalid; stores `userId` in session attributes for later use.
-  - `api/src/main/java/com/app/security/SecurityConfig.java`: added `requestMatchers("/ws/**").permitAll()` so the handshake reaches the interceptor instead of being blocked by the standard `Authorization`-header JWT filter.
-- `spring-boot-starter-websocket` was already in `pom.xml`, no dependency changes needed.
+  - `api/src/main/java/com/app/media/MediaDetails.java`: added `List<Integer> genreIds` component (alongside existing `List<String> genres` names).
+  - `api/src/main/java/com/app/media/MediaDetailsService.java`: populates `genreIds` from `TmdbGenre.id()` in `toMediaDetails`.
+  - `api/src/main/java/com/app/tracking/MediaTrack.java`: new `genreIds` field via `@ElementCollection` + `@CollectionTable(name = "media_track_genre")`, defaults to empty list, `setGenreIds` never stores null.
+  - `api/src/main/java/com/app/tracking/MediaTrackService.java`: now depends on `MediaDetailsService`; `addTrack` calls a new `fetchGenreIds` helper that wraps `mediaDetailsService.getDetails(...)` in `catch (RuntimeException)` so a TMDB failure never blocks track creation (falls back to empty list).
+  - `api/src/main/java/com/app/match/MatchService.java`: `createMatch` now fetches `MediaDetails` once (title + genreIds) and sets `genreIds` on the new `MediaTrack` before saving, instead of only fetching the title after saving.
+  - Tests updated/added: `MediaDetailsServiceTest` (asserts `genreIds`), `MediaTrackServiceTest` (new `MediaDetailsService` mock, asserts genre ids persisted on save, new test for TMDB failure -> empty genre list), `MatchServiceTest` (asserts `genreIds` on the captured `MediaTrack`), `MediaControllerTest` (updated `MediaDetails` constructor call site).
+  - `api/CLAUDE.md`: documented the `genreIds` plumbing and the "enrich from TMDB but don't block persistence" pattern.
 - **Learnings for future iterations:**
-  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw compile`/`test` to verify. Code was hand-verified against Spring's `WebSocketMessageBrokerConfigurer`/`HandshakeInterceptor` APIs; a maintainer with a working JDK should run `./mvnw test` before merging/deploying.
-  - `com.app.match` package (US-002+) will need a `MatchService` that, on detecting a match, publishes to `/topic/couple/{couple_id}/match` via `SimpMessagingTemplate` (auto-configured once `@EnableWebSocketMessageBroker` is present).
----
-
-## 2026-07-22 - US-002
-- Implemented the `MatchLike` entity and its repository under the new `com.app.match` package.
-- Files changed:
-  - `api/src/main/java/com/app/match/MatchLike.java` (new): fields `id`, `couple` (ManyToOne to `Couple`), `userId`, `tmdbId`, `mediaType` (enum, reuses `com.app.media.MediaType`), `createdAt` (`@CreationTimestamp`). Unique constraint on `(couple_id, user_id, tmdb_id)` mirrors the `UserReview` pattern in `com.app.tracking`.
-  - `api/src/main/java/com/app/match/MatchLikeRepository.java` (new): `findByCoupleIdAndUserIdAndTmdbId` (idempotency check for US-003) and `findFirstByCoupleIdAndTmdbIdAndUserIdNot` (the "has the partner already liked this title" check needed for US-004's match detection).
-- No explicit migration file was needed: this project has no Flyway/Liquibase, `spring.jpa.hibernate.ddl-auto=update` (see `api/src/main/resources/application.properties`) generates the `match_like` table from the entity automatically on next boot.
-- **Learnings for future iterations:**
-  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw compile` to verify; hand-verified against the existing `MediaTrack`/`UserReview` entity patterns (same package, same annotations, same style). A maintainer with a working JDK should run `./mvnw -DskipTests package` before merging.
-  - This project has no migration tool (no Flyway/Liquibase directory under `api/src/main/resources`) — "migration/DDL applied" for entity-only stories just means Hibernate's `ddl-auto=update` will create the table; don't go looking for a `db/migration` folder that doesn't exist.
-  - US-003 (like endpoint) will need: reject 409 if a `MediaTrack` already exists for that `(couple_id, tmdb_id)` (use `MediaTrackRepository.findByCoupleId` + filter, or add a dedicated `existsByCoupleIdAndTmdbId` method), and idempotently no-op if `MatchLikeRepository.findByCoupleIdAndUserIdAndTmdbId` already returns a row for that user.
----
-
-## 2026-07-22 - US-003
-- Implemented `POST /api/match/like` endpoint: registers a Like for the authenticated user's couple and reports whether it resulted in a Match.
-- Files changed:
-  - `api/src/main/java/com/app/match/LikeRequest.java` (new): record `tmdbId`/`mediaType`, both `@NotNull`.
-  - `api/src/main/java/com/app/match/LikeResponse.java` (new): record `matched` (boolean).
-  - `api/src/main/java/com/app/match/TitleAlreadyTrackedException.java` (new): 409 case when the couple already has the title in `MediaTrack`.
-  - `api/src/main/java/com/app/match/MatchExceptionHandler.java` (new): `@RestControllerAdvice(basePackages = "com.app.match")` mapping `TitleAlreadyTrackedException`→409, `ResourceNotFoundException`→404 (imported from `com.app.tracking`, since `com.app.tracking.TrackingExceptionHandler`'s advice is scoped to `com.app.tracking` controllers only and does NOT catch exceptions thrown from `com.app.match` controllers), and `MethodArgumentNotValidException`→400.
-  - `api/src/main/java/com/app/match/MatchService.java` (new): `like(coupleId, userId, request)` — 409s via `MediaTrackRepository.existsByCoupleIdAndTmdbId` (new repository method) if already tracked; idempotently skips persisting if `MatchLikeRepository.findByCoupleIdAndUserIdAndTmdbId` already has a row for this user; always recomputes `matched` from `MatchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot`. Does NOT create the `MediaTrack`/emit the STOMP event yet — that's US-004.
-  - `api/src/main/java/com/app/match/MatchController.java` (new): resolves `coupleId` via `CoupleService.getCurrentCouple(userId)` (same pattern as `MediaTrackController`), delegates to `MatchService`.
-  - `api/src/main/java/com/app/tracking/MediaTrackRepository.java`: added `existsByCoupleIdAndTmdbId(UUID, Long)`.
-  - `api/src/test/java/com/app/match/MatchServiceTest.java`, `api/src/test/java/com/app/match/MatchControllerTest.java` (new): Mockito unit tests covering first-like/no-match, partner-already-liked/match, already-tracked 409, duplicate-like-from-same-user idempotency, couple-not-found, and the controller's auth/404/409/200 paths (`@WebMvcTest` + `@Import(SecurityConfig.class)`, mirroring `MediaTrackControllerTest`).
-- **Learnings for future iterations:**
-  - **`@RestControllerAdvice(basePackages = "...")` is scoped by the *controller's* package, not the exception's origin package.** If a controller in package X throws an exception class defined in package Y, and Y's own `@RestControllerAdvice` is `basePackages`-scoped to Y, that advice will NOT catch the exception when thrown from X's controller — you get an unhandled 500 instead of the expected status. Either scope the advice more broadly, or (as done here) add a handler for the shared exception type in X's own advice too.
-  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw test`; hand-verified against `MediaTrackController`/`MediaTrackService`/`MediaTrackControllerTest`/`MediaTrackServiceTest` patterns line-by-line. A maintainer with a working JDK should run `./mvnw test` before merging.
-  - US-004 will build directly on `MatchService.like(...)`: when `matched` becomes true, it additionally needs to create the `MediaTrack` (status `WANT_TO_SEE`, reusing `MediaTrackRepository`/the couple already fetched) and publish to `/topic/couple/{couple_id}/match` via `SimpMessagingTemplate`, all inside one `@Transactional` method — the current `like()` method is a natural place to extend, not a new one.
----
-
-## 2026-07-22 - US-004
-- Extended `MatchService.like(...)` so that a detected Match creates the `MediaTrack` (status `WANT_TO_SEE`) and publishes a STOMP event to `/topic/couple/{couple_id}/match`, all inside one `@Transactional` method (no new service/endpoint).
-- Files changed:
-  - `api/src/main/java/com/app/match/MatchEvent.java` (new): record `(tmdbId, title, mediaType)` — the STOMP payload.
-  - `api/src/main/java/com/app/match/MatchService.java`: added `MediaDetailsService` (from `com.app.media`, already built in Epico 3) and `SimpMessagingTemplate` (auto-configured by `WebSocketConfig`'s `@EnableWebSocketMessageBroker`) as constructor deps; `like(...)` is now `@Transactional`. After computing `matched`, if true it re-checks `mediaTrackRepository.existsByCoupleIdAndTmdbId` (guards against creating a duplicate `MediaTrack` if a previous call already handled the match) before calling private `createMatch(couple, request)`, which saves the `MediaTrack`, calls `mediaDetailsService.getDetails(mediaType, tmdbId)` to get the title (the `LikeRequest` only carries `tmdbId`/`mediaType`, not a title), and does `messagingTemplate.convertAndSend("/topic/couple/" + couple.getId() + "/match", event)`.
-  - `api/src/test/java/com/app/match/MatchServiceTest.java`: added `MediaDetailsService`/`SimpMessagingTemplate` mocks to the constructor call; extended `like_partnerAlreadyLikedResultsInMatch` to assert the saved `MediaTrack` (status/tmdbId) and the published `MatchEvent` (topic + title) via `ArgumentCaptor`; added `like_doesNotCreateDuplicateMediaTrackWhenAlreadyMatched` (matched=true but track already exists elsewhere → no second save/publish).
-- **Learnings for future iterations:**
-  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw test`; hand-verified against existing constructor-injection/Mockito patterns in this file and `MediaDetailsServiceTest`. A maintainer with a working JDK should run `./mvnw test` before merging.
-  - `couple` is fetched lazily inside `like()`: it's only loaded from `coupleRepository` if this is the user's first like OR if a match is detected and no couple was fetched yet (duplicate-like-then-match path) — don't reintroduce an unconditional `coupleRepository.findById` at the top of the method, it would break the existing `like_duplicateLikeFromSameUserDoesNotPersistAgain` test's `verify(coupleRepository, never()).findById(...)` expectation for the *no-match* case.
-  - US-005 (dedicated match-domain test suite) should build on the coverage added here — `MatchServiceTest` already has match-detection-creates-track/event and duplicate-track-prevention cases; still needed per the story: an explicit already-tracked-title-rejected case exists, but Controller/Repository-level Mockito coverage should be reviewed for completeness against the PRD's acceptance criteria.
----
-
-## 2026-07-22 - US-005
-- Added the missing Repository-level Mockito/Spring-slice test for the `com.app.match` domain; Service and Controller coverage already existed from US-003/US-004 and already satisfied all four PRD scenario criteria (first-like-no-match, partner-like-triggers-match+track+event, already-tracked-rejected, duplicate-like-idempotent).
-- Files changed:
-  - `api/src/test/java/com/app/match/MatchLikeRepositoryTest.java` (new): `@DataJpaTest` (H2, mirrors `com.app.couple.CoupleRepositoryTest`'s pattern exactly) covering `MatchLikeRepository`: `findByCoupleIdAndUserIdAndTmdbId` finds only the exact owner/couple/title match; `findFirstByCoupleIdAndTmdbIdAndUserIdNot` finds the partner's like (not the caller's own) in both directions, and is empty when only the caller has liked; the `(couple_id, user_id, tmdb_id)` unique constraint throws `DataIntegrityViolationException` on a duplicate save+flush.
-  - `scripts/ralph/prd.json`: `US-005.passes` set to `true`.
-- **Learnings for future iterations:**
-  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw test`; hand-verified against `CoupleRepositoryTest` line-by-line (same `@DataJpaTest`/H2 setup, same assertion style). A maintainer with a working JDK should run `./mvnw test` before merging.
-  - When a story's acceptance criteria list test *scenarios* that were already implicitly covered by a prior story's Service/Controller tests, check what's actually still missing (here: only the Repository slice) rather than re-writing duplicate scenario tests — `com.app.match` package coverage per `docs/ARCHITECTURE.md`/`api/CLAUDE.md` requires Controller+Service+Repository, and Repository was the only gap.
-  - US-006 onward move to the frontend (`client/`) — per `CLAUDE.md`, any work under `client/` must invoke the `frontend-design` skill before implementing, and `docs/` (including the design HTML/JS prototype) must be read first.
----
-
-## 2026-07-22 - US-006
-- Implemented `useMatchStore` (Zustand) managing the STOMP/SockJS connection for real-time Match notifications; no new UI, so the `frontend-design` skill did not apply (it's scoped to visual/UI stories per US-007/US-008).
-- Files changed:
-  - `client/src/stores/useMatchStore.ts` (new): `connect(coupleId)` builds a `@stomp/stompjs` `Client` with `webSocketFactory: () => new SockJS(\`${VITE_API_URL}/ws?token=${jwt}\`)` (JWT read via existing `getAuthToken()` from `com.app.websocket.JwtHandshakeInterceptor`'s `?token=` query-param handshake, per US-001's learnings); on `onConnect` subscribes to `/topic/couple/{coupleId}/match` and on message sets `matchData` + `matchOpen = true`. `disconnect()` unsubscribes and deactivates the client, clearing state (no-op safe to call repeatedly/when never connected). `closeMatch()` resets `matchOpen`/`matchData` for the modal (US-008) to call.
-  - `client/src/App.tsx`: added an effect that calls `connect(coupleId)` when `isAuthenticated && couple?.partner` (i.e. "entered the logged area", mirroring `RequireCouple`'s condition in `routes/guards.tsx`), else `disconnect()`; effect cleanup also calls `disconnect()` so unmount never leaks a connection.
-  - `client/src/stores/useAuthStore.ts`: `logout()` now calls `useMatchStore.getState().disconnect()` first, so logging out always tears down the socket even if `App`'s effect hasn't re-run yet.
-  - `client/package.json`/`client/package-lock.json`: no dependency changes needed — `@stomp/stompjs`, `sockjs-client`, `@types/sockjs-client` were already present (pre-existing uncommitted `package.json` diff from before this session); `package-lock.json` was untracked and is now added since it pins those versions.
-- Verified with `npx tsc -b` (passes) and `npx eslint src/stores/useMatchStore.ts src/stores/useAuthStore.ts src/App.tsx` (clean). Full-repo `npx eslint .` has 3 pre-existing failures in `MediaDetailModal.tsx`, `WatchModal.tsx`, and `ui/button.tsx` (react-hooks `set-state-in-effect` and `react-refresh/only-export-components`) — confirmed via `git diff --stat` that none of those files were touched this iteration, so they predate this story and are out of scope.
-- No frontend test runner is configured in this repo (`package.json` scripts are only `dev`/`build`/`lint`) — "Tests pass" isn't an applicable gate for `client/` stories; typecheck + lint are the quality bar here.
-- **Learnings for future iterations:**
-  - There is no dedicated "logged-in shell" component yet — `App.tsx`'s top-level effect (gated on `isAuthenticated && couple?.partner`, same condition as `routes/guards.tsx`'s `RequireCouple`) is the natural place to drive session-wide side effects like the match socket. If a real app shell/layout is introduced later, move the connect/disconnect effect there instead of `App.tsx`.
-  - `useMatchStore.connect()` is guarded by `if (get().client) return` so calling it repeatedly (e.g. from a re-running effect) is idempotent; don't add extra guards elsewhere for that.
-  - US-007 (`MatchScreen.tsx`) and US-008 (match celebration modal) are genuine UI stories — read `docs/design/claude-design-project/Sessao a Dois.dc.html` for the MATCH screen/celebration markup and invoke the `frontend-design` skill before implementing either. US-008's modal should read `matchOpen`/`matchData` off `useMatchStore` and call `closeMatch()` to dismiss.
----
-
-## 2026-07-22 - US-007
-- Implemented `MatchScreen.tsx`: search (debounced, same 400ms pattern as `TitleModal.tsx`) against `GET /api/media/search`, results rendered as cards (poster/gradient placeholder + type badge, same visual language as `MediaCard.tsx`) each with a "Curtir" button calling `POST /api/match/like`. The static `.dc.html` prototype's MATCH screen is a swipe-card concept that doesn't match this story's actual acceptance criteria (search + like, not swipe) — followed the AC and reused the search/result-list pattern from `TitleModal.tsx` instead of the swipe UI.
-- Files changed:
-  - `client/src/screens/MatchScreen.tsx` (new): loads `GET /api/tracking` once on mount to build a `Set<"mediaType-tmdbId">` of already-tracked titles (couple-wide, not just this user); a title in that set renders its Like button disabled with "Já na lista". Per-result like state (`idle|loading|liked|matched|error`) is tracked in a `Record<key, LikeState>` keyed the same way; a successful `matched: true` response adds the key to the tracked set (since US-004 already created the `MediaTrack` for it) and shows "É um match!" instead of a generic "Curtido".
-  - `client/src/components/Header.tsx` (new): the `Header.tsx` component named in `docs/ARCHITECTURE.md`'s frontend mapping — sticky nav bar (logo + "Hub Principal"/"Match ♥" `NavLink`s with active-state highlight), reused by both `HubScreen` and the new `MatchScreen` since neither screen was reachable from the other before this story.
-  - `client/src/App.tsx`: added `/match` route (`ProtectedRoute` + `RequireCouple`, same guard stack as `/`).
-  - `client/src/screens/HubScreen.tsx`: added `<Header />` above `<main>` (previously had no nav at all).
-- Verified with `npx tsc -b` (passes) and `npx eslint src/screens/MatchScreen.tsx src/components/Header.tsx src/screens/HubScreen.tsx src/App.tsx` (clean, after fixing a `react-hooks/set-state-in-effect` violation — see learnings).
-- **Learnings for future iterations:**
-  - **This sandbox cannot run the Vite dev server at all**, not just "no browser tools": `client/node_modules` was installed on a macOS host and ships the `darwin-arm64` `@rolldown/binding-*` native module, but the sandbox is Linux arm64, so `vite`/`npx vite` crashes immediately with `Cannot find module './rolldown-binding.linux-arm64-gnu.node'`. There's no `bun` binary here either to reinstall correctly. This is an environment limitation, not a code issue — future frontend stories in this sandbox should rely on `tsc -b` + `eslint` as the quality gate and explicitly flag "browser verification not possible here" rather than trying repeatedly to start the dev server.
-  - **`react-hooks/set-state-in-effect` (the ESLint rule, not just a lint style nit) rejects calling `setState` synchronously in an effect body**, including in an early-return branch guarding a debounced-search effect (e.g. `if (!query.trim()) { setResults([]); return }` inside a `useEffect`). Fix: move that reset into the event handler that produces the empty value (here, the search input's `onChange`) instead of reacting to it in the effect. `TitleModal.tsx` already avoids this by never resetting state in its search effect's early-return branch — worth mirroring that shape for any new debounced-search UI in this codebase.
-  - There was no `Header.tsx`/cross-screen nav in the app at all before this story (each screen was an island reachable only by direct route). `docs/ARCHITECTURE.md` already names `Header.tsx` as a planned component — it's now built and used by both `HubScreen`/`MatchScreen`; a future `DashboardScreen.tsx` (Epico 6) should add its own `NavLink` to `Header.tsx`'s `NAV_ITEMS` rather than duplicating the nav bar.
-  - US-008 (match celebration modal) can now be wired at the `App.tsx` level (reading `matchOpen`/`matchData` off `useMatchStore`, same store already connected in `App.tsx`'s effect) so it overlays regardless of which screen (`HubScreen`/`MatchScreen`) the user is on when a match event arrives.
----
-
-## 2026-07-22 - US-008
-- Implemented `MatchCelebrationModal.tsx`, rendered globally (in `App.tsx`, as a sibling of `<Routes>`) so it overlays regardless of which screen (`HubScreen`/`MatchScreen`) is active when a match event arrives via `useMatchStore`.
-- Files changed:
-  - `client/src/components/MatchCelebrationModal.tsx` (new): reads `matchOpen`/`matchData` off `useMatchStore`, renders `null` when closed. Follows the `WatchModal.tsx` overlay pattern (`fixed inset-0` backdrop + `animate-in zoom-in-95` card, backdrop-click-to-close via `onClick`/`stopPropagation`) rather than the prototype's swipe-card shape — same visual tokens as `docs/design/claude-design-project/Sessao a Dois.dc.html`'s MATCH CELEBRATION block (lines 410-425): gradient `#251e0c`→`#161513` card, `rgba(255,158,44,.35)` border, "É um Match!" gradient-text label, 💜 emoji, "🔔 Notificação enviada para os dois" line, `#ffcb2b` primary "Continuar" button. "Ver na lista" calls `useNavigate()` to `/` (the Hub) then closes the modal; "Continuar" just calls `closeMatch()`.
-  - `client/src/App.tsx`: wrapped the existing `<Routes>` in a fragment alongside the new `<MatchCelebrationModal />` so it's mounted once at the app root (not per-route).
-- Verified with `npx tsc -b` (passes) and `npx eslint src/App.tsx src/components/MatchCelebrationModal.tsx` (clean, after `npx prettier --write` reformatted both files' JSX indentation/class ordering).
-- Per the established sandbox limitation (see Codebase Patterns / US-007 learnings), the Vite dev server cannot run here (Linux arm64 vs. macOS-installed `@rolldown/binding-*` native module) — browser verification of the modal was not possible in this environment; a maintainer should manually trigger a match (two likes on the same title from both couple accounts) and confirm the modal renders/dismisses correctly.
-- **Learnings for future iterations:**
-  - This was the last story in the PRD (Epico 5) — all 8 user stories now have `passes: true`.
-  - `MatchCelebrationModal` is mounted at the `App.tsx` root level (sibling of `<Routes>`, inside the Router), not per-screen — any future global overlay (toasts, other cross-cutting modals) should follow the same placement rather than being duplicated into each screen.
+  - `MediaDetails` is a record — any new component requires updating every `new MediaDetails(...)` call site (found via `grep -rn "MediaDetails(" src/`); there were 3 (2 tests, 1 prod).
+  - Schema for the new `media_track_genre` collection table relies on `spring.jpa.hibernate.ddl-auto=update` per the PRD, no manual migration was added — verify this property is actually set in `application.properties` before US-002 writes queries against `media_track_genre`.
+  - Genre-name resolution (TMDB id -> pt-BR name) is explicitly deferred to US-003's static map; this story only stores raw ids.
+  - Could not run `./mvnw test` / compile in this sandbox (no JDK, no Maven Central access) — changes were verified by careful manual review only. Run `./mvnw test` in a proper environment before considering this story fully verified.
 ---
