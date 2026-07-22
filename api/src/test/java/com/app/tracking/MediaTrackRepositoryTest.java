@@ -67,6 +67,33 @@ class MediaTrackRepositoryTest {
 	}
 
 	@Test
+	void sumRuntimeForMonthOnlyCountsWatchedMoviesInThatMonthAndYear() {
+		Couple couple = persistedCouple();
+		int year = LocalDate.now().getYear();
+		watchedTrack(couple, MediaType.MOVIE, 120, LocalDate.of(year, Month.JUNE, 10), List.of());
+		watchedTrack(couple, MediaType.MOVIE, 90, LocalDate.of(year, Month.JUNE, 20), List.of());
+		watchedTrack(couple, MediaType.MOVIE, 100, LocalDate.of(year, Month.JULY, 1), List.of());
+		watchedTrack(couple, MediaType.MOVIE, 100, LocalDate.of(year - 1, Month.JUNE, 1), List.of());
+		watchedTrack(couple, MediaType.TV, 45, LocalDate.of(year, Month.JUNE, 10), List.of());
+
+		int total = mediaTrackRepository.sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth(
+				couple.getId(), MediaStatus.WATCHED, MediaType.MOVIE, 6, year);
+
+		assertThat(total).isEqualTo(210);
+	}
+
+	@Test
+	void sumRuntimeForMonthReturnsZeroWhenNoMatchingTracks() {
+		Couple couple = persistedCouple();
+		int year = LocalDate.now().getYear();
+
+		int total = mediaTrackRepository.sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth(
+				couple.getId(), MediaStatus.WATCHED, MediaType.MOVIE, 6, year);
+
+		assertThat(total).isZero();
+	}
+
+	@Test
 	void countByCoupleIdAndStatusAndMediaTypeCountsMoviesAndSeriesSeparately() {
 		Couple couple = persistedCouple();
 		watchedTrack(couple, MediaType.MOVIE, 120, LocalDate.now(), List.of());

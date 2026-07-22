@@ -24,6 +24,13 @@ public interface MediaTrackRepository extends JpaRepository<MediaTrack, UUID> {
 	int sumRuntimeByCoupleIdAndStatusAndMediaType(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status, @Param("mediaType") MediaType mediaType);
 
+	@Query("SELECT COALESCE(SUM(mt.runtime), 0) FROM MediaTrack mt "
+		+ "WHERE mt.couple.id = :coupleId AND mt.status = :status AND mt.mediaType = :mediaType "
+		+ "AND EXTRACT(MONTH FROM mt.watchedDate) = :month AND EXTRACT(YEAR FROM mt.watchedDate) = :year")
+	int sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth(@Param("coupleId") UUID coupleId,
+			@Param("status") MediaStatus status, @Param("mediaType") MediaType mediaType,
+			@Param("month") int month, @Param("year") int year);
+
 	@Query("SELECT EXTRACT(MONTH FROM mt.watchedDate) AS month, COUNT(mt) AS total FROM MediaTrack mt "
 		+ "WHERE mt.couple.id = :coupleId AND mt.status = :status AND EXTRACT(YEAR FROM mt.watchedDate) = :year "
 		+ "GROUP BY EXTRACT(MONTH FROM mt.watchedDate)")

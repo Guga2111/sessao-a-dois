@@ -34,3 +34,20 @@
   - Interface projections (`MonthlyCount`, `GenreCount`) are nested inside their owning repository interface; Spring Data binds getter names to the JPQL `SELECT ... AS alias` names, so keep alias and getter names in sync if either changes.
   - Still no JDK/Maven Central in this sandbox (`./mvnw -v` fails downloading the wrapper distribution) — same limitation as US-001, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
 ---
+
+## 2026-07-22 - US-003
+- Added `StatsService` that combines the US-002 aggregation queries into a single `StatsResponse` DTO for the future dashboard endpoint (US-004).
+- Files changed:
+  - `api/src/main/java/com/app/tracking/MediaTrackRepository.java`: added `sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth` (`@Query`, same `COALESCE(SUM(...),0)` + `EXTRACT` pattern as the existing runtime/monthly queries, scoped by couple/status/mediaType/month/year) — needed because no existing US-002 query covered "movie minutes watched in the current month".
+  - `api/src/main/java/com/app/tracking/GenreNames.java` (new): package-private static `Map<Integer, String>` merging TMDB movie + tv genre id -> pt-BR name lists (hardcoded, no TMDB call); `nameFor(Integer)` returns `null` for unknown ids.
+  - `api/src/main/java/com/app/tracking/GenreStat.java`, `MonthlyStat.java`, `StatsResponse.java` (new records): DTO shapes for top genres, the 12-month series, and the full stats payload.
+  - `api/src/main/java/com/app/tracking/StatsService.java` (new): `getStats(coupleId)` calls the repository aggregates, computes movie hours/minutes (total + current month), movie-vs-tv counts/percentages, average rating (1 decimal, defaults to `0.0` when the repo returns `null`), top-5 genres with percentages + favorite genre (highest count, `null` when no genres), and a zero-filled 12-month series for the current year.
+  - `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java`: added tests for the new `sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth` query (correct month/year scoping + zero when no matches).
+  - `api/src/test/java/com/app/tracking/StatsServiceTest.java` (new, Mockito): covers the full-data case (percentages, rounding, top genres sorted by count, unmapped genre id dropped, zero-filled monthly series) and the empty-state case (couple with no watched titles -> all zeros/empty lists/null favorite genre, no exception on `null` average rating).
+  - `api/CLAUDE.md`: documented the `StatsService` composition pattern, the `GenreNames` map, the shared `round1` rounding helper, and the zero-filled 12-month series convention.
+- **Learnings for future iterations:**
+  - `StatsService` intentionally only calls existing repository aggregate queries (no direct entity fetches) — if US-004/US-005/US-006 need a new stat, add the aggregate to `MediaTrackRepository`/`UserReviewRepository` first, following the `COALESCE`/`EXTRACT`/nested-projection-interface pattern, then wire it into `StatsService`.
+  - Genre resolution silently drops any `genre_id` not in `GenreNames` (per the PRD's "ids sem nome correspondente sao ignorados") — this means `topGenres`/`favoriteGenre` percentages are computed only over the *named* genre occurrences, not the raw total including unknown ids.
+  - `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` returning `null` (documented in the US-002 progress entry) is handled here by mapping `null` -> `0.0` in `StatsService`, matching the PRD's "estado vazio" requirement.
+  - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
+---
