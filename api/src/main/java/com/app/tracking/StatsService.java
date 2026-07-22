@@ -69,8 +69,8 @@ public class StatsService {
 
 	private List<GenreStat> buildTopGenres(List<MediaTrackRepository.GenreCount> genreCounts) {
 		List<Map.Entry<String, Long>> named = genreCounts.stream()
+			.filter(gc -> GenreNames.nameFor(gc.getGenreId()) != null)
 			.map(gc -> Map.entry(GenreNames.nameFor(gc.getGenreId()), gc.getTotal()))
-			.filter(entry -> entry.getKey() != null)
 			.toList();
 
 		long total = named.stream().mapToLong(Map.Entry::getValue).sum();
