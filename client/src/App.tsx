@@ -11,6 +11,7 @@ import {
   RequireCouple,
 } from "@/routes/guards"
 import { HubScreen } from "@/screens/HubScreen"
+import { MatchScreen } from "@/screens/MatchScreen"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useMatchStore } from "@/stores/useMatchStore"
 
@@ -73,6 +74,16 @@ export function App() {
           <ProtectedRoute>
             <RequireCouple>
               <HubScreen />
+            </RequireCouple>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/match"
+        element={
+          <ProtectedRoute>
+            <RequireCouple>
+              <MatchScreen />
             </RequireCouple>
           </ProtectedRoute>
         }
