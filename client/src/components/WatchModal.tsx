@@ -22,6 +22,7 @@ export function WatchModal({ track, onClose, onSuccess }: WatchModalProps) {
       setRating(0)
       setOpinion("")
       setError(null)
+      setSaving(false)
     }
   }, [track])
 
