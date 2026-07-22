@@ -223,74 +223,74 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
           </button>
         </div>
 
-        <div className="flex max-h-[calc(90vh-180px)] flex-col gap-5 overflow-y-auto p-6 pt-5.5">
-          <div ref={searchBoxRef}>
-            <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
-              Buscar título
-            </label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-[#a6a39a]" />
-              <input
-                value={query}
-                onChange={(event) => {
-                  const value = event.target.value
-                  setState((s) => ({
-                    ...s,
-                    query: value,
-                    selected: null,
-                    runtime: null,
-                    results: value.trim() ? s.results : [],
-                    searching: value.trim() ? s.searching : false,
-                    searchOpen: value.trim() ? s.searchOpen : false,
-                  }))
-                }}
-                onFocus={() =>
-                  setState((s) => ({
-                    ...s,
-                    searchOpen: s.results.length > 0 && !s.selected,
-                  }))
-                }
-                placeholder="Ex.: Coração de Vidro, Fronteira Norte…"
-                className="w-full rounded-xl border border-white/10 bg-[#201e18] py-3.5 pr-3.5 pl-10 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
-              />
-              {searching && (
-                <Loader2 className="absolute top-1/2 right-3.5 size-4 -translate-y-1/2 animate-spin text-[#a6a39a]" />
-              )}
+        <div className="px-6 pt-5.5" ref={searchBoxRef}>
+          <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+            Buscar título
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-[#a6a39a]" />
+            <input
+              value={query}
+              onChange={(event) => {
+                const value = event.target.value
+                setState((s) => ({
+                  ...s,
+                  query: value,
+                  selected: null,
+                  runtime: null,
+                  results: value.trim() ? s.results : [],
+                  searching: value.trim() ? s.searching : false,
+                  searchOpen: value.trim() ? s.searchOpen : false,
+                }))
+              }}
+              onFocus={() =>
+                setState((s) => ({
+                  ...s,
+                  searchOpen: s.results.length > 0 && !s.selected,
+                }))
+              }
+              placeholder="Ex.: Coração de Vidro, Fronteira Norte…"
+              className="w-full rounded-xl border border-white/10 bg-[#201e18] py-3.5 pr-3.5 pl-10 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+            />
+            {searching && (
+              <Loader2 className="absolute top-1/2 right-3.5 size-4 -translate-y-1/2 animate-spin text-[#a6a39a]" />
+            )}
 
-              {searchOpen && results.length > 0 && (
-                <div className="absolute top-[calc(100%+6px)] left-0 z-10 max-h-64 w-full overflow-auto rounded-xl border border-white/10 bg-[#201e18] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,.5)]">
-                  {results.map((result) => (
-                    <button
-                      key={`${result.mediaType}-${result.tmdbId}`}
-                      type="button"
-                      onClick={() => selectResult(result)}
-                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-white/[0.06]"
-                    >
-                      <span className="truncate font-medium">
-                        {result.title}
-                      </span>
-                      <span className="flex-none text-xs text-[#a6a39a]">
-                        {result.year ?? "—"} · {TYPE_LABEL[result.mediaType]}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {selected && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-[#a6a39a]">
-                Selecionado: <span className="text-[#ffdd7a]">{selected.title}</span>
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="cursor-pointer underline decoration-dotted hover:text-white"
-                >
-                  trocar
-                </button>
+            {searchOpen && results.length > 0 && (
+              <div className="absolute top-[calc(100%+6px)] left-0 z-10 max-h-64 w-full overflow-auto rounded-xl border border-white/10 bg-[#201e18] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,.5)]">
+                {results.map((result) => (
+                  <button
+                    key={`${result.mediaType}-${result.tmdbId}`}
+                    type="button"
+                    onClick={() => selectResult(result)}
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-white/[0.06]"
+                  >
+                    <span className="truncate font-medium">
+                      {result.title}
+                    </span>
+                    <span className="flex-none text-xs text-[#a6a39a]">
+                      {result.year ?? "—"} · {TYPE_LABEL[result.mediaType]}
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
+          {selected && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-[#a6a39a]">
+              Selecionado: <span className="text-[#ffdd7a]">{selected.title}</span>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="cursor-pointer underline decoration-dotted hover:text-white"
+              >
+                trocar
+              </button>
+            </div>
+          )}
+        </div>
 
+        <div className="flex max-h-[calc(90vh-280px)] flex-col gap-5 overflow-y-auto px-6 pb-2 pt-5">
           <div>
             <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
               Status
