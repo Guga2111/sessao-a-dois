@@ -19,3 +19,15 @@ Started: Wed Jul 22 03:31:26 PDT 2026
   - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw compile`/`test` to verify. Code was hand-verified against Spring's `WebSocketMessageBrokerConfigurer`/`HandshakeInterceptor` APIs; a maintainer with a working JDK should run `./mvnw test` before merging/deploying.
   - `com.app.match` package (US-002+) will need a `MatchService` that, on detecting a match, publishes to `/topic/couple/{couple_id}/match` via `SimpMessagingTemplate` (auto-configured once `@EnableWebSocketMessageBroker` is present).
 ---
+
+## 2026-07-22 - US-002
+- Implemented the `MatchLike` entity and its repository under the new `com.app.match` package.
+- Files changed:
+  - `api/src/main/java/com/app/match/MatchLike.java` (new): fields `id`, `couple` (ManyToOne to `Couple`), `userId`, `tmdbId`, `mediaType` (enum, reuses `com.app.media.MediaType`), `createdAt` (`@CreationTimestamp`). Unique constraint on `(couple_id, user_id, tmdb_id)` mirrors the `UserReview` pattern in `com.app.tracking`.
+  - `api/src/main/java/com/app/match/MatchLikeRepository.java` (new): `findByCoupleIdAndUserIdAndTmdbId` (idempotency check for US-003) and `findFirstByCoupleIdAndTmdbIdAndUserIdNot` (the "has the partner already liked this title" check needed for US-004's match detection).
+- No explicit migration file was needed: this project has no Flyway/Liquibase, `spring.jpa.hibernate.ddl-auto=update` (see `api/src/main/resources/application.properties`) generates the `match_like` table from the entity automatically on next boot.
+- **Learnings for future iterations:**
+  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw compile` to verify; hand-verified against the existing `MediaTrack`/`UserReview` entity patterns (same package, same annotations, same style). A maintainer with a working JDK should run `./mvnw -DskipTests package` before merging.
+  - This project has no migration tool (no Flyway/Liquibase directory under `api/src/main/resources`) — "migration/DDL applied" for entity-only stories just means Hibernate's `ddl-auto=update` will create the table; don't go looking for a `db/migration` folder that doesn't exist.
+  - US-003 (like endpoint) will need: reject 409 if a `MediaTrack` already exists for that `(couple_id, tmdb_id)` (use `MediaTrackRepository.findByCoupleId` + filter, or add a dedicated `existsByCoupleIdAndTmdbId` method), and idempotently no-op if `MatchLikeRepository.findByCoupleIdAndUserIdAndTmdbId` already returns a row for that user.
+---
