@@ -1,109 +1,21 @@
 # Ralph Progress Log
-Started: Mon Jul 21 00:00:00 PDT 2026
+Started: Wed Jul 22 03:31:26 PDT 2026
 ---
 
 ## Codebase Patterns
-- Backend package-by-feature under `com.app.<feature>` (see docs/ARCHITECTURE.md); exception handlers use `@RestControllerAdvice(basePackages = "com.app.<feature>")` returning `Map<String,String>`/`Map<String,Object>` bodies (see com.app.auth.AuthExceptionHandler).
-- `src/test/resources/application.properties` REPLACES `src/main/resources/application.properties` entirely for `@SpringBootTest` — it does NOT layer on top. It must redeclare every property any eagerly-instantiated bean needs (`tmdb.api-key` for TmdbConfig, `app.jwt.secret` for JwtService, `app.jwt.expiration-days` for JwtService). Adding a new required property to main application.properties means mirroring it in the test one too.
-- This sandbox has no JDK/Maven installed and no Maven Central access — `./mvnw test`/`package` cannot be executed; code must be reviewed carefully by hand.
-- `couple_id` must always be extracted from the authenticated user's context (SecurityContext → UserDetails → User entity → couple.id), never from the request body, to prevent cross-couple data access.
-- All tracking endpoints require JWT (anyRequest().authenticated() in SecurityConfig) — no explicit permitAll needed for /api/tracking/**.
-- com.app.media.MediaType enum (MOVIE, TV) already exists from Épico 3 — reuse it in com.app.tracking entities; do not redefine it.
-- This codebase's existing entities (User, Couple) store raw UUID FK fields, not JPA relations — com.app.tracking.MediaTrack/UserReview are the first to use @ManyToOne/@OneToMany; follow that relation-based style within com.app.tracking since the PRD calls for it there specifically.
-- spring.jpa.hibernate.ddl-auto=update was already set in application.properties before Épico 4 — no change needed for new entities to get their tables created.
-- MediaTrackResponse.reviews always has exactly 2 slots (one per couple member), built from Couple.user1Id/user2Id, NOT from however many UserReview rows exist — MediaTrackService.toResponse() (package-visible, reused by UserReviewService in US-003) looks up each member's User by id for userName and matches an existing UserReview by user id for rating/opinion (null if absent).
-- Frontend design tokens for this app come from the approved prototype at `docs/design/claude-design-project/Sessao a Dois.dc.html` (referenced by docs/ARCHITECTURE.md as the source to fragment into React components) - reuse its literal colors/spacing (surface #161513, border rgba(255,255,255,.07), accent #ffcb2b, WATCHING #ff9e2c, WATCHED #3ddc97) instead of inventing new tokens, and prefer arbitrary Tailwind values (bg-[#161513]) over the shadcn theme vars, matching the existing style in client/src/routes/HubPage.tsx.
-- No backend DTO types exist yet on the frontend - created client/src/types/tracking.ts mirroring MediaTrackResponse/ReviewDto/MediaType/MediaStatus from the Epico 4 backend DTOs; future tracking frontend stories (US-007, US-008) should import from there rather than redeclaring.
-- This sandbox's npm run build fails at the vite build step with Cannot find module '@rolldown/binding-linux-arm64-gnu' (missing native binary for this platform) - environment limitation, not a code issue. npm run typecheck (tsc -b / tsc --noEmit) and npm run lint both work fine and are sufficient quality gates here; no MCP browser tooling is configured either, so UI stories can only be verified by hand-reviewing the component against the prototype markup.
+- Backend package-by-feature under `com.app.*` (see `api/CLAUDE.md`); new features get their own package (e.g. `com.app.websocket`, `com.app.match`).
+- `SecurityConfig` (com.app.security) applies `anyRequest().authenticated()` to everything not explicitly `permitAll()`'d — any new public-ish endpoint (including non-REST ones like the STOMP handshake `/ws/**`) needs an explicit `requestMatchers(...).permitAll()` entry, then do its own auth inside (e.g. a `HandshakeInterceptor` reading a JWT).
+- Browser WebSocket/SockJS handshakes cannot set the `Authorization` header, so JWT for `/ws` is passed as a `?token=` query param and validated in a `HandshakeInterceptor` (`com.app.websocket.JwtHandshakeInterceptor`), not via the existing `JwtAuthenticationFilter`.
+- This sandbox has no JDK/Maven and no Maven Central access (`./mvnw` fails trying to download the wrapper distribution) — backend changes here can only be reviewed by careful manual reading, not compiled/tested locally. Flag this explicitly in each backend story's progress entry rather than claiming "tests pass".
 
-## [2026-07-21] - US-001
-- Implemented MediaStatus enum (WATCHING, WANT_TO_SEE, WATCHED), MediaTrack entity, and UserReview entity in com.app.tracking.
-- Files changed: api/src/main/java/com/app/tracking/MediaStatus.java, MediaTrack.java, UserReview.java
+## 2026-07-22 - US-001
+- Implemented STOMP WebSocket config for real-time Match events.
+- Files changed:
+  - `api/src/main/java/com/app/websocket/WebSocketConfig.java` (new): `@EnableWebSocketMessageBroker`, registers `/ws` endpoint with SockJS fallback + `JwtHandshakeInterceptor`, simple broker on `/topic`, app prefix `/app`.
+  - `api/src/main/java/com/app/websocket/JwtHandshakeInterceptor.java` (new): validates JWT passed as `?token=` query param on the handshake via the existing `JwtService`; rejects (401, handshake refused) when missing/invalid; stores `userId` in session attributes for later use.
+  - `api/src/main/java/com/app/security/SecurityConfig.java`: added `requestMatchers("/ws/**").permitAll()` so the handshake reaches the interceptor instead of being blocked by the standard `Authorization`-header JWT filter.
+- `spring-boot-starter-websocket` was already in `pom.xml`, no dependency changes needed.
 - **Learnings for future iterations:**
-  - MediaTrack has @ManyToOne to Couple (couple_id) and @OneToMany(mappedBy="mediaTrack", cascade=ALL, orphanRemoval=true) to List<UserReview>.
-  - UserReview has @ManyToOne to MediaTrack (media_track_id) and @ManyToOne to User (user_id), plus a @UniqueConstraint(media_track_id, user_id) so each user has at most one review per track.
-  - Could not run ./mvnw (no JDK/Maven in this sandbox, no Maven Central access) — reviewed entity code carefully by hand against existing entity conventions (Couple.java, User.java) instead.
-  - Next: US-002 needs MediaTrackRepository + MediaTrackService with CreateMediaTrackRequest/MediaTrackResponse DTOs and a ResourceNotFoundException (doesn't exist yet in com.app.tracking — will need to create it, following the pattern of exceptions in com.app.couple/com.app.auth mapped via a package-scoped @RestControllerAdvice).
----
-
-## [2026-07-21] - US-002
-- Implemented MediaTrackRepository, MediaTrackService, CreateMediaTrackRequest, MediaTrackResponse, ReviewDto, and ResourceNotFoundException in com.app.tracking.
-- Files changed: api/src/main/java/com/app/tracking/MediaTrackRepository.java, MediaTrackService.java, CreateMediaTrackRequest.java, MediaTrackResponse.java, ReviewDto.java, ResourceNotFoundException.java
-- **Learnings for future iterations:**
-  - MediaTrackService constructor takes MediaTrackRepository + CoupleRepository + UserRepository (needs Couple/User entities to build MediaTrack/UserReview and to resolve member names for ReviewDto).
-  - addTrack() adds the initial UserReview directly to track.getReviews() before save() — cascade=ALL on MediaTrack.reviews persists it without a separate UserReviewRepository call.
-  - updateStatus/deleteTrack share a private findOwnedTrack(trackId, coupleId) helper that throws ResourceNotFoundException both when the track is missing AND when it belongs to a different couple (same message/status in both cases, so a caller can't distinguish "doesn't exist" from "not yours").
-  - toResponse(MediaTrack) is package-private (not private) so UserReviewService (US-003) can reuse it after upserting a review, per the pattern noted in Codebase Patterns above.
-  - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw compile` fails on the wget for the wrapper's own maven-3.9.16 download) — reviewed by hand against MediaTrack/UserReview/Couple/User/CoupleService/CoupleController for signature and convention consistency.
-  - Next: US-003 needs UserReviewRepository + UserReviewService.upsertReview(trackId, userId, coupleId, UpsertReviewRequest) — must check track ownership like findOwnedTrack does, but throw 403 (not 404) when the track exists but belongs to another couple, per that story's acceptance criteria (differs from US-002's findOwnedTrack, which returns 404 for both cases — do not reuse it as-is for US-003's ownership check).
----
-
-## [2026-07-21] - US-003
-- Implemented UserReviewRepository, UpsertReviewRequest, and UserReviewService.upsertReview in com.app.tracking.
-- Files changed: api/src/main/java/com/app/tracking/UserReviewRepository.java, UpsertReviewRequest.java, UserReviewService.java
-- **Learnings for future iterations:**
-  - UserReviewService.upsertReview does NOT reuse MediaTrackService.findOwnedTrack (that helper 404s on cross-couple access); it inlines its own ownership check that throws `org.springframework.security.access.AccessDeniedException` (403) instead, per this story's differing acceptance criteria.
-  - When creating a brand-new UserReview mid-request, it must be manually appended to the already-loaded `track.getReviews()` list after `userReviewRepository.save(review)` — the lazy `@OneToMany` collection on the in-memory `MediaTrack` instance won't pick up the new row on its own within the same persistence context, and `MediaTrackService.toResponse()` reads from that in-memory list.
-  - `spring-boot-starter-security` (hence `org.springframework.security.access.AccessDeniedException`) is already a pom.xml dependency — no new dependency needed for the 403 case.
-  - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw compile` fails fetching the wrapper's own Maven zip) — reviewed by hand against MediaTrackService/UserReview/MediaTrack for signature and convention consistency.
-  - Next: US-004 needs MediaTrackController (`/api/tracking`) wiring these two services together, plus a `TrackingExceptionHandler` (`@RestControllerAdvice(basePackages = "com.app.tracking")`) mapping `ResourceNotFoundException` → 404 and `AccessDeniedException` → 403 with a `{message: ...}` body — follow `com.app.auth.AuthExceptionHandler`'s shape. `couple_id` for the controller must come from SecurityContext → UserDetails → User → couple.id, never the request body (see Codebase Patterns).
----
-
-## [2026-07-21] - US-004
-- Implemented MediaTrackController (GET/POST /api/tracking, PATCH /{id}/status, DELETE /{id}, PUT /{id}/review), UpdateStatusRequest DTO, and TrackingExceptionHandler in com.app.tracking.
-- Files changed: api/src/main/java/com/app/tracking/MediaTrackController.java, UpdateStatusRequest.java, TrackingExceptionHandler.java
-- **Learnings for future iterations:**
-  - There's no dedicated "get couple id for authenticated user" helper anywhere yet — the controller resolves it itself via `coupleService.getCurrentCouple(userId).orElseThrow(...)` (CoupleService already existed from Épico 2, no changes needed there). This is the pattern to reuse if another future controller needs couple_id from the SecurityContext.
-  - The security principal is a raw `UUID` (see JwtAuthenticationFilter: `new UsernamePasswordAuthenticationToken(userId, null, ...)`), so controllers just declare `@AuthenticationPrincipal UUID userId` directly — no UserDetails/User lookup needed unless the User entity itself is required (as MediaTrackService/UserReviewService do internally).
-  - `@RequestParam(required = false) MediaStatus status` on the GET works out of the box — Spring binds the enum from the query string and leaves it null when absent, which matches `MediaTrackService.listByStatus`'s existing null-means-all handling.
-  - TrackingExceptionHandler mirrors AuthExceptionHandler/CoupleExceptionHandler exactly (Map.of("message", ...) bodies, MethodArgumentNotValidException → 400 with field errors) but adds an AccessDeniedException → 403 handler, since US-003's UserReviewService throws that for cross-couple review attempts.
-  - Still no JDK/Maven/Maven Central in this sandbox — reviewed by hand against CoupleController/MediaController/SecurityConfig for signature and convention consistency.
-  - Next: US-005 needs unit tests for MediaTrackService, UserReviewService, and a @WebMvcTest for MediaTrackController (mocking MediaTrackService/UserReviewService/CoupleService, using spring-security-test's @WithMockUser or a manual Authentication for the @AuthenticationPrincipal UUID). No test infra exists yet under src/test/java/com/app/tracking/.
----
-
-## [2026-07-21] - US-005
-- Implemented MediaTrackServiceTest, UserReviewServiceTest (JUnit 5 + Mockito), and MediaTrackControllerTest (@WebMvcTest + MockMvc) in com.app.tracking.
-- Files changed: api/src/test/java/com/app/tracking/MediaTrackServiceTest.java, UserReviewServiceTest.java, MediaTrackControllerTest.java
-- **Learnings for future iterations:**
-  - `Couple`/`User` entities have `@GeneratedValue` ids with no setter — when a unit test needs a non-null id (e.g. to make `findOwnedTrack`'s `track.getCouple().getId().equals(coupleId)` check pass, or to make `MediaTrackService.toReviewDto`'s `review.getUser().getId().equals(memberId)` not NPE), construct the entity normally then set the id with `org.springframework.test.util.ReflectionTestUtils.setField(entity, "id", someUuid)`. Forgetting this on a `User` passed into `MediaTrackService.addTrack` causes a real `NullPointerException` inside `toResponse`/`toReviewDto`, not a clean assertion failure — the plain "new User(...)" has a null id by default.
-  - `UserReviewService.upsertReview`'s update-existing-review branch mutates the review already returned by `userReviewRepository.findByMediaTrackIdAndUserId` in place and does NOT touch `track.getReviews()` — only the create-new-review branch appends to that in-memory list (matches the earlier US-003 learning). Tests asserting on `track.getReviews()` size must account for this asymmetry.
-  - `@WebMvcTest(SomeController.class)` auto-registers same-package `@RestControllerAdvice` beans (e.g. `TrackingExceptionHandler`) without an explicit `@Import` — confirmed by mirroring `CoupleControllerTest`'s working pattern; only `SecurityConfig` needs an explicit `@Import` for the JWT filter chain to apply.
-  - Still no JDK/Maven/Maven Central in this sandbox (`./mvnw -v` fails fetching the wrapper's own Maven zip) — all three test files were reviewed by hand against MediaTrackService/UserReviewService/MediaTrackController/CoupleServiceTest/CoupleControllerTest/MediaControllerTest for signature, DTO field-order, and convention consistency; no automated compile/test run was possible.
-  - Next: US-006 is a frontend story (MediaCard.tsx) — must invoke the `frontend-design` skill before implementing, per CLAUDE.md, and verify in-browser with the dev-browser skill if available.
----
-
-## [2026-07-21] - US-006
-- Implemented MediaCard.tsx and a shared client/src/types/tracking.ts (MediaType, MediaStatus, ReviewDto, MediaTrackResponse) matching the backend tracking DTOs.
-- Files changed: client/src/components/MediaCard.tsx, client/src/types/tracking.ts
-- **Learnings for future iterations:**
-  - Invoked the frontend-design skill per CLAUDE.md before building; since the PRD/prototype already pin down exact colors, fonts, and layout for this card (docs/design/.../Sessao a Dois.dc.html lines ~87-114), the right move was to port that literal markup/styling into Tailwind rather than freelance a new look.
-  - MediaCard takes track (MediaTrackResponse), myUserId, onStatusChange?, onClick? — ratings/opinions are derived by matching review.userId against myUserId (no separate "isMine" flag from the backend).
-  - WANT_TO_SEE cards intentionally suppress the rating/opinion blocks (per US-006 acceptance criteria) even if reviews array has ratings — showRatings is gated on status !== WANT_TO_SEE.
-  - The "Marcar como visto" button calls event.stopPropagation() before onStatusChange so it doesn't also trigger the card's onClick.
-  - No genre data exists in MediaTrackResponse yet (no TMDB cache per US-002/US-004 DTOs) — the genre badge slot from the prototype was intentionally left off; only the Filme/Série type badge (which the DTO does support via mediaType) is rendered. If a future story adds genre to the DTO, wire it into the top-left poster badge like the prototype's {{ m.genre }}.
-  - `npm run build` fails in this sandbox at the vite/rolldown step (missing `@rolldown/binding-linux-arm64-gnu` native binary) — this is a pre-existing environment limitation, confirmed by the error occurring after tsc succeeds and being unrelated to any file this story touched. Used `npm run typecheck` + `npm run lint` as the quality gate instead; both pass on the new files (one pre-existing lint error in ui/button.tsx is unrelated/untouched).
-  - No MCP browser tooling is available in this sandbox — could not do a live in-browser check per the "Verify in browser using dev-browser skill" acceptance criterion; verified by hand against the prototype markup and existing HubPage.tsx conventions instead.
-  - Next: US-007 (TitleModal.tsx) — will need GET /api/media/search and GET /api/media/{mediaType}/{tmdbId} endpoints (should already exist from Épico 3) and can reuse client/src/types/tracking.ts for the CreateMediaTrackRequest shape/MediaTrackResponse return type.
----
-
-## [2026-07-21] - US-007
-- Implemented TitleModal.tsx (search with debounce, status pills, star picker, conditional watched-date field, opinion textarea, save/cancel) and a new client/src/types/media.ts (MediaSearchResult, MediaDetails) mirroring com.app.media's DTOs.
-- Files changed: client/src/components/TitleModal.tsx, client/src/types/media.ts, scripts/ralph/prd.json
-- **Learnings for future iterations:**
-  - Invoked frontend-design skill per CLAUDE.md; since the prototype (docs/design/.../Sessao a Dois.dc.html lines ~347-408) and the US-006 precedent already pin down the exact visual language, the skill's own guidance ("where the brief pins down a visual direction, follow it exactly") pointed at porting the literal markup/colors again rather than freelancing a new look — consistent with MediaCard.tsx's approach.
-  - `MediaType.fromPathValue` on the backend is case-insensitive, so the frontend can call `GET /api/media/{mediaType.toLowerCase()}/{tmdbId}` (e.g. `movie`/`tv`) directly from the `MediaSearchResult.mediaType` enum value ("MOVIE"/"TV") without a separate mapping table.
-  - `react-hooks`'s `set-state-in-effect` lint rule flags any direct/synchronous `setState` call in an effect body, including ones guarded by an early-return branch — the fix is to do all `setState` calls inside the `setTimeout`/promise callback (async, not synchronous-in-effect) and handle the "clear results when query is emptied" case in the input's `onChange` handler instead of a second effect branch.
-  - Tailwind v4's arbitrary z-index values still need bracket syntax (`z-[60]`), there's no built-in `z-60` in the default scale (only 0/10/20/30/40/50) — caught by visual review, not by typecheck/lint, since it's just a class string.
-  - Next: US-008 (HubScreen.tsx) will import and wire up both MediaCard.tsx and TitleModal.tsx — TitleModal's `onSuccess(track: MediaTrackResponse)` callback is the hook HubScreen should use to append the new track to local state and close the modal; call `GET /api/tracking` (no status filter) to (re)populate the three status groups.
----
-
-## [2026-07-21] - US-008
-- Implemented client/src/screens/HubScreen.tsx (header, three status sections with dot indicators/count badges/empty states/skeleton loading, "Adicionar Título" button + FAB both opening TitleModal), wired it into App.tsx at "/", and deleted the now-superseded placeholder client/src/routes/HubPage.tsx.
-- Files changed: client/src/screens/HubScreen.tsx (new), client/src/App.tsx, client/src/routes/HubPage.tsx (deleted), scripts/ralph/prd.json
-- **Learnings for future iterations:**
-  - react-hooks's `set-state-in-effect` rule (same one hit in US-007) also flags an effect that calls a `useCallback`-wrapped async helper function which itself calls `setState` synchronously before its first `await` — wrapping the call in `void` doesn't help, since the rule traces into the called function. Fix: inline the fetch's `.then()/.finally()` promise chain directly in the `useEffect` body (setState calls only happen inside the async callbacks, i.e. after a real await/microtask boundary) instead of routing the initial mount fetch through a shared `loadTracks` helper. The shared helper (used for post-action refetches, which are NOT inside an effect) is fine to keep calling `setLoading(true)` synchronously.
-  - Tailwind v4's dynamic spacing scale (driven by a single `--spacing` var) accepts arbitrary quarter-rem multiples directly as class names without brackets — `p-4.5`, `gap-5.5`, `size-15`, `size-8.5` (already used in TitleModal.tsx) all work out of the box; this is different from v3's fixed scale. Z-index still has no such dynamic scale (`z-35` is invalid; use `z-[35]`), confirming the earlier `z-[60]` learning from US-007 generalizes to all z-index values, not just 60.
-  - HubScreen resolves `myUserId` for `MediaCard` from `useAuthStore().user.id` and organizes the flat `GET /api/tracking` response into three groups client-side by filtering on `track.status`, per the acceptance criteria (no per-status API calls needed since the backend already returns everything when `status` is omitted).
-  - All 8 stories in scripts/ralph/prd.json now have `passes: true` — Épico 4 (Tracking de Mídia) is complete.
-  - Still no JDK/Maven/Maven Central and no MCP browser tooling in this sandbox — verified this story by hand against the prototype markup (docs/design/.../Sessao a Dois.dc.html lines 63-196) and `npm run typecheck`/`npm run lint` (both clean save the pre-existing unrelated `ui/button.tsx` react-refresh error).
+  - No JDK/Maven in this sandbox (see Codebase Patterns) — could not run `./mvnw compile`/`test` to verify. Code was hand-verified against Spring's `WebSocketMessageBrokerConfigurer`/`HandshakeInterceptor` APIs; a maintainer with a working JDK should run `./mvnw test` before merging/deploying.
+  - `com.app.match` package (US-002+) will need a `MatchService` that, on detecting a match, publishes to `/topic/couple/{couple_id}/match` via `SimpMessagingTemplate` (auto-configured once `@EnableWebSocketMessageBroker` is present).
 ---
