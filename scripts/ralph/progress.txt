@@ -20,3 +20,17 @@
   - Genre-name resolution (TMDB id -> pt-BR name) is explicitly deferred to US-003's static map; this story only stores raw ids.
   - Could not run `./mvnw test` / compile in this sandbox (no JDK, no Maven Central access) — changes were verified by careful manual review only. Run `./mvnw test` in a proper environment before considering this story fully verified.
 ---
+
+## 2026-07-22 - US-002
+- Added scoped aggregation queries needed by the future StatsService/dashboard: watched-movie runtime sum, watched-count by media type, watched-count grouped by month (current year), watched genre-id occurrence counts, and couple's average review rating over watched tracks.
+- Files changed:
+  - `api/src/main/java/com/app/tracking/MediaTrackRepository.java`: added `countByCoupleIdAndStatusAndMediaType` (derived query), `sumRuntimeByCoupleIdAndStatusAndMediaType` (`@Query`, `COALESCE(SUM(...),0)`), `countByCoupleIdAndStatusGroupedByMonth` (`@Query`, `EXTRACT(MONTH/YEAR FROM ...)`, returns `List<MonthlyCount>`), `countGenreOccurrencesByCoupleIdAndStatus` (`@Query` joining the `genreIds` element collection, returns `List<GenreCount>`). `MonthlyCount`/`GenreCount` are small nested interface projections.
+  - `api/src/main/java/com/app/tracking/UserReviewRepository.java`: added `findAverageRatingByCoupleIdAndMediaTrackStatus` (`@Query`, `AVG(ur.rating)` joined through `ur.mediaTrack.couple.id` and `ur.mediaTrack.status`); returns `null` (boxed `Double`) when there are no matching reviews — StatsService (US-003) must handle that null as "no data" rather than NPE.
+  - `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java` (new, `@DataJpaTest`): covers all four new `MediaTrackRepository` queries, including a "does not leak other couple's data" test and a "returns zero/empty when no data" test per query.
+  - `api/src/test/java/com/app/tracking/UserReviewRepositoryTest.java` (new, `@DataJpaTest`): covers average rating happy path (only WATCHED tracks counted), null-when-no-reviews, and no-leak-across-couples.
+  - `api/CLAUDE.md`: documented the aggregation-query pattern (scope by `couple.id`, nested interface projections bound by JPQL alias, `COALESCE` for possibly-empty `SUM`, portable `EXTRACT` instead of native SQL or HQL `month()/year()`).
+- **Learnings for future iterations:**
+  - `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` returns `null` (not `0.0`) when the couple has no WATCHED reviews — US-003's StatsService must treat `null` as the empty state, not treat it as a rating of zero.
+  - Interface projections (`MonthlyCount`, `GenreCount`) are nested inside their owning repository interface; Spring Data binds getter names to the JPQL `SELECT ... AS alias` names, so keep alias and getter names in sync if either changes.
+  - Still no JDK/Maven Central in this sandbox (`./mvnw -v` fails downloading the wrapper distribution) — same limitation as US-001, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
+---
