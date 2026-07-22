@@ -191,7 +191,6 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
   return (
     <Dialog
       open={open}
-      modal={false}
       onOpenChange={(isOpen) => {
         if (!isOpen) handleClose()
       }}
