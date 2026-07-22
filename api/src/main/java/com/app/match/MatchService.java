@@ -2,6 +2,7 @@ package com.app.match;
 
 import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
+import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.tracking.MediaStatus;
 import com.app.tracking.MediaTrack;
@@ -64,11 +65,13 @@ public class MatchService {
 	}
 
 	private void createMatch(Couple couple, LikeRequest request) {
+		MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
+
 		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), MediaStatus.WANT_TO_SEE);
+		track.setGenreIds(details.genreIds());
 		mediaTrackRepository.save(track);
 
-		String title = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId()).title();
-		MatchEvent event = new MatchEvent(request.tmdbId(), title, request.mediaType());
+		MatchEvent event = new MatchEvent(request.tmdbId(), details.title(), request.mediaType());
 		messagingTemplate.convertAndSend("/topic/couple/" + couple.getId() + "/match", event);
 	}
 }

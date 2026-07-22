@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -29,12 +30,23 @@ public class MediaTrackController {
 	private final MediaTrackService mediaTrackService;
 	private final UserReviewService userReviewService;
 	private final CoupleService coupleService;
+	private final StatsService statsService;
 
 	public MediaTrackController(MediaTrackService mediaTrackService, UserReviewService userReviewService,
-			CoupleService coupleService) {
+			CoupleService coupleService, StatsService statsService) {
 		this.mediaTrackService = mediaTrackService;
 		this.userReviewService = userReviewService;
 		this.coupleService = coupleService;
+		this.statsService = statsService;
+	}
+
+	@GetMapping("/stats")
+	public ResponseEntity<StatsResponse> stats(@AuthenticationPrincipal UUID userId) {
+		Optional<Couple> couple = coupleService.getCurrentCouple(userId);
+		StatsResponse response = couple.isPresent()
+			? statsService.getStats(couple.get().getId())
+			: statsService.emptyStats();
+		return ResponseEntity.ok(response);
 	}
 
 	@GetMapping

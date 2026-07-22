@@ -89,7 +89,7 @@ class MediaControllerTest {
 	void details_returnsMediaDetailsForAuthenticatedUser() throws Exception {
 		MediaDetails details = new MediaDetails(
 			603, MediaType.MOVIE, "Matrix", 1999, "https://image.tmdb.org/t/p/w500/poster.jpg",
-			"overview", List.of("Acao"), 8.2, 136,
+			"overview", List.of("Acao"), List.of(28), 8.2, 136,
 			List.of(new WatchProvider("Netflix", "https://image.tmdb.org/t/p/w92/netflix.jpg")));
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603)).thenReturn(details);
 

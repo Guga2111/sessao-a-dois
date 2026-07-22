@@ -2,9 +2,13 @@ package com.app.tracking;
 
 import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
+import com.app.media.MediaDetailsService;
+import com.app.media.MediaType;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -16,15 +20,19 @@ import java.util.UUID;
 @Service
 public class MediaTrackService {
 
+	private static final Logger log = LoggerFactory.getLogger(MediaTrackService.class);
+
 	private final MediaTrackRepository mediaTrackRepository;
 	private final CoupleRepository coupleRepository;
 	private final UserRepository userRepository;
+	private final MediaDetailsService mediaDetailsService;
 
 	public MediaTrackService(MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
-			UserRepository userRepository) {
+			UserRepository userRepository, MediaDetailsService mediaDetailsService) {
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.coupleRepository = coupleRepository;
 		this.userRepository = userRepository;
+		this.mediaDetailsService = mediaDetailsService;
 	}
 
 	public MediaTrackResponse addTrack(UUID coupleId, UUID userId, CreateMediaTrackRequest request) {
@@ -42,6 +50,7 @@ public class MediaTrackService {
 		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), request.status());
 		track.setWatchedDate(request.watchedDate());
 		track.setRuntime(request.runtime());
+		track.setGenreIds(fetchGenreIds(request.mediaType(), request.tmdbId()));
 
 		UserReview review = new UserReview(track, user, request.rating(), request.opinion());
 		track.getReviews().add(review);
@@ -83,6 +92,17 @@ public class MediaTrackService {
 	public void deleteTrack(UUID trackId, UUID coupleId) {
 		MediaTrack track = findOwnedTrack(trackId, coupleId);
 		mediaTrackRepository.delete(track);
+	}
+
+	private List<Integer> fetchGenreIds(MediaType mediaType, Long tmdbId) {
+		try {
+			List<Integer> genreIds = mediaDetailsService.getDetails(mediaType, tmdbId).genreIds();
+			return genreIds == null ? List.of() : genreIds;
+		}
+		catch (RuntimeException ex) {
+			log.warn("Nao foi possivel obter os generos do titulo {} no TMDB: {}", tmdbId, ex.getMessage());
+			return List.of();
+		}
 	}
 
 	private MediaTrack findOwnedTrack(UUID trackId, UUID coupleId) {

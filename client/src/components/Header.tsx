@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 const NAV_ITEMS = [
   { to: "/", label: "Hub Principal" },
   { to: "/match", label: "Match ♥" },
+  { to: "/dashboard", label: "Dashboard" },
 ]
 
 export function Header() {

@@ -47,6 +47,9 @@ class MediaTrackControllerTest {
 	private CoupleService coupleService;
 
 	@MockitoBean
+	private StatsService statsService;
+
+	@MockitoBean
 	private JwtService jwtService;
 
 	private static UsernamePasswordAuthenticationToken authenticatedUser(UUID userId) {
@@ -120,5 +123,43 @@ class MediaTrackControllerTest {
 	void delete_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(delete("/api/tracking/" + UUID.randomUUID()))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void stats_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/tracking/stats"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void stats_returnsStatsForAuthenticatedUserCouple() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		StatsResponse response = new StatsResponse(
+			10, 30, 2, 5, 3, 62.5, 37.5, 8, 4.5, "Acao",
+			List.of(new GenreStat("Acao", 5, 100.0)),
+			List.of(new MonthlyStat(1, 2L)));
+		when(statsService.getStats(coupleId)).thenReturn(response);
+
+		mockMvc.perform(get("/api/tracking/stats")
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.totalWatchedHours").value(10))
+			.andExpect(jsonPath("$.favoriteGenre").value("Acao"));
+	}
+
+	@Test
+	void stats_returnsEmptyStateWhenUserHasNoCouple() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+		StatsResponse empty = new StatsResponse(0, 0, 0, 0, 0, 0.0, 0.0, 0, 0.0, null, List.of(), List.of());
+		when(statsService.emptyStats()).thenReturn(empty);
+
+		mockMvc.perform(get("/api/tracking/stats")
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.totalTitles").value(0))
+			.andExpect(jsonPath("$.favoriteGenre").value(org.hamcrest.Matchers.nullValue()));
 	}
 }

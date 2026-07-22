@@ -2,6 +2,8 @@ package com.app.tracking;
 
 import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
+import com.app.media.MediaDetails;
+import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
 import com.app.user.User;
 import com.app.user.UserRepository;
@@ -9,10 +11,12 @@ import com.app.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,11 +39,15 @@ class MediaTrackServiceTest {
 	@Mock
 	private UserRepository userRepository;
 
+	@Mock
+	private MediaDetailsService mediaDetailsService;
+
 	private MediaTrackService mediaTrackService;
 
 	@BeforeEach
 	void setUp() {
-		mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleRepository, userRepository);
+		mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleRepository, userRepository,
+				mediaDetailsService);
 	}
 
 	private Couple coupleWithMembers(UUID user1Id, UUID user2Id) {
@@ -60,7 +68,11 @@ class MediaTrackServiceTest {
 
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
 		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
-		when(mediaTrackRepository.save(any(MediaTrack.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null,
+					List.of(28, 12), null, 136, null));
+		ArgumentCaptor<MediaTrack> trackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
+		when(mediaTrackRepository.save(trackCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
 		MediaTrackResponse response = mediaTrackService.addTrack(coupleId, userId, request);
 
@@ -75,6 +87,30 @@ class MediaTrackServiceTest {
 				assertThat(review.rating()).isNull();
 				assertThat(review.opinion()).isNull();
 			});
+		assertThat(trackCaptor.getValue().getGenreIds()).containsExactly(28, 12);
+	}
+
+	@Test
+	void addTrackSavesEmptyGenresWhenTmdbFails() {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
+		User user = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user, "id", userId);
+		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
+			603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, null);
+
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
+		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenThrow(new RuntimeException("TMDB indisponivel"));
+		ArgumentCaptor<MediaTrack> trackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
+		when(mediaTrackRepository.save(trackCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		MediaTrackResponse response = mediaTrackService.addTrack(coupleId, userId, request);
+
+		assertThat(response.tmdbId()).isEqualTo(603L);
+		assertThat(trackCaptor.getValue().getGenreIds()).isEmpty();
 	}
 
 	@Test
