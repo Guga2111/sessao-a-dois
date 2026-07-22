@@ -13,7 +13,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -57,7 +56,7 @@ class MediaTrackServiceTest {
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
 		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
-			603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, 5, "Otimo filme");
+			603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, null);
 
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
 		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
@@ -73,8 +72,8 @@ class MediaTrackServiceTest {
 		assertThat(response.reviews())
 			.anySatisfy(review -> {
 				assertThat(review.userId()).isEqualTo(userId);
-				assertThat(review.rating()).isEqualTo(5);
-				assertThat(review.opinion()).isEqualTo("Otimo filme");
+				assertThat(review.rating()).isNull();
+				assertThat(review.opinion()).isNull();
 			});
 	}
 
@@ -92,27 +91,32 @@ class MediaTrackServiceTest {
 	}
 
 	@Test
-	void updateStatusThrowsResourceNotFoundWhenTrackBelongsToAnotherCouple() {
+	void markAsWatchedThrowsResourceNotFoundWhenTrackBelongsToAnotherCouple() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
 		UUID otherCoupleUser = UUID.randomUUID();
 		Couple otherCouple = coupleWithMembers(otherCoupleUser, UUID.randomUUID());
+		ReflectionTestUtils.setField(otherCouple, "id", UUID.randomUUID());
 		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		WatchRequest request = new WatchRequest(5, "Otimo");
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 
-		assertThatThrownBy(() -> mediaTrackService.updateStatus(trackId, coupleId, MediaStatus.WATCHED, LocalDate.now()))
+		assertThatThrownBy(() -> mediaTrackService.markAsWatched(trackId, coupleId, userId, request))
 			.isInstanceOf(ResourceNotFoundException.class);
 	}
 
 	@Test
-	void updateStatusThrowsResourceNotFoundWhenTrackDoesNotExist() {
+	void markAsWatchedThrowsResourceNotFoundWhenTrackDoesNotExist() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		WatchRequest request = new WatchRequest(5, "Otimo");
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> mediaTrackService.updateStatus(trackId, coupleId, MediaStatus.WATCHED, LocalDate.now()))
+		assertThatThrownBy(() -> mediaTrackService.markAsWatched(trackId, coupleId, userId, request))
 			.isInstanceOf(ResourceNotFoundException.class);
 	}
 

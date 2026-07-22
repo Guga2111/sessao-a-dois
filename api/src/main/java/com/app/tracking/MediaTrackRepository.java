@@ -10,4 +10,6 @@ public interface MediaTrackRepository extends JpaRepository<MediaTrack, UUID> {
 	List<MediaTrack> findByCoupleIdAndStatus(UUID coupleId, MediaStatus status);
 
 	List<MediaTrack> findByCoupleId(UUID coupleId);
+
+	boolean existsByCoupleIdAndTmdbId(UUID coupleId, Long tmdbId);
 }

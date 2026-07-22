@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { Header } from "@/components/Header"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
 import { TitleModal } from "@/components/TitleModal"
@@ -98,6 +99,7 @@ export function HubScreen() {
           "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), #09090a",
       }}
     >
+      <Header />
       <main className="mx-auto max-w-[1240px] px-5 pt-10 pb-32 sm:px-8 sm:pt-11">
         <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
           <div>

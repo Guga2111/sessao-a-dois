@@ -41,6 +41,7 @@ public class SecurityConfig {
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+				.requestMatchers("/ws/**").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(ex -> ex.authenticationEntryPoint(
 				(request, response, authException) -> response.sendError(HttpStatus.UNAUTHORIZED.value())))

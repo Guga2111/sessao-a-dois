@@ -3,6 +3,7 @@ import { create } from "zustand"
 
 import { api } from "@/lib/api"
 import { clearAuthToken, getAuthToken, setAuthToken } from "@/lib/authToken"
+import { useMatchStore } from "@/stores/useMatchStore"
 
 const SESSION_STORAGE_KEY = "sessaoADois.session"
 
@@ -116,6 +117,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
+    useMatchStore.getState().disconnect()
     clearAuthToken()
     clearPersistedSession()
     set({ token: null, user: null, couple: null, isAuthenticated: false })
