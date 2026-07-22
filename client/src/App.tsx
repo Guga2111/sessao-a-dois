@@ -12,10 +12,15 @@ import {
 } from "@/routes/guards"
 import { HubScreen } from "@/screens/HubScreen"
 import { useAuthStore } from "@/stores/useAuthStore"
+import { useMatchStore } from "@/stores/useMatchStore"
 
 export function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser)
+  const coupleId = useAuthStore((state) => state.couple?.id)
+  const hasPartner = useAuthStore((state) => Boolean(state.couple?.partner))
+  const connect = useMatchStore((state) => state.connect)
+  const disconnect = useMatchStore((state) => state.disconnect)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -23,6 +28,16 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (isAuthenticated && hasPartner && coupleId) {
+      connect(coupleId)
+    } else {
+      disconnect()
+    }
+
+    return () => disconnect()
+  }, [isAuthenticated, hasPartner, coupleId, connect, disconnect])
 
   return (
     <Routes>
