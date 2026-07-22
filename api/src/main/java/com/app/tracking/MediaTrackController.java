@@ -52,13 +52,11 @@ public class MediaTrackController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
-	@PatchMapping("/{id}/status")
-	public ResponseEntity<MediaTrackResponse> updateStatus(@AuthenticationPrincipal UUID userId,
-			@PathVariable UUID id, @Valid @RequestBody UpdateStatusRequest request) {
+	@PatchMapping("/{id}/watch")
+	public ResponseEntity<MediaTrackResponse> markAsWatched(@AuthenticationPrincipal UUID userId,
+			@PathVariable UUID id, @Valid @RequestBody WatchRequest request) {
 		UUID coupleId = currentCoupleId(userId);
-		MediaTrackResponse response = mediaTrackService.updateStatus(id, coupleId, request.status(),
-			request.watchedDate());
-		return ResponseEntity.ok(response);
+		return ResponseEntity.ok(mediaTrackService.markAsWatched(id, coupleId, userId, request));
 	}
 
 	@DeleteMapping("/{id}")

@@ -1,6 +1,10 @@
+import { useEffect, useState } from "react"
+
 import { Check, Clock3 } from "lucide-react"
 
+import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import type { MediaDetails } from "@/types/media"
 import type { MediaTrackResponse } from "@/types/tracking"
 
 interface MediaCardProps {
@@ -28,10 +32,11 @@ function formatWatchedDate(watchedDate: string | null): string | null {
 }
 
 function Stars({ rating }: { rating: number }) {
+  const filled = Math.round(rating)
   return (
-    <span className="text-sm tracking-[1px] text-[#ffb443]" aria-hidden>
-      {"★★★★★".slice(0, rating)}
-      <span className="text-white/15">{"★★★★★".slice(rating)}</span>
+    <span className="text-sm tracking-[1px]" aria-hidden>
+      <span className="text-[#ffb443]">{"★".repeat(filled)}</span>
+      <span className="text-white/15">{"★".repeat(5 - filled)}</span>
     </span>
   )
 }
@@ -42,6 +47,17 @@ export function MediaCard({
   onStatusChange,
   onClick,
 }: MediaCardProps) {
+  const [details, setDetails] = useState<MediaDetails | null>(null)
+
+  useEffect(() => {
+    api
+      .get<MediaDetails>(
+        `/api/media/${track.mediaType.toLowerCase()}/${track.tmdbId}`
+      )
+      .then((res) => setDetails(res.data))
+      .catch(() => {})
+  }, [track.tmdbId, track.mediaType])
+
   const hue = track.tmdbId % 360
   const watchedLabel = formatWatchedDate(track.watchedDate)
 
@@ -53,6 +69,10 @@ export function MediaCard({
     (review) => review.rating !== null && review.rating !== undefined
   )
   const showRatings = track.status !== "WANT_TO_SEE" && ratedReviews.length > 0
+  const coupleAvg =
+    ratedReviews.length > 0
+      ? ratedReviews.reduce((sum, r) => sum + r.rating!, 0) / ratedReviews.length
+      : null
 
   return (
     <div
@@ -68,13 +88,21 @@ export function MediaCard({
           background: `linear-gradient(160deg, hsl(${hue} 42% 24%), hsl(${hue} 46% 11%))`,
         }}
       >
-        <div
-          className="absolute inset-0 opacity-100"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 8px, transparent 8px 16px)",
-          }}
-        />
+        {details?.posterUrl ? (
+          <img
+            src={details.posterUrl}
+            alt={details.title}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="absolute inset-0 opacity-100"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 8px, transparent 8px 16px)",
+            }}
+          />
+        )}
         <div className="absolute top-2.5 left-2.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
           {TYPE_LABEL[track.mediaType]}
         </div>
@@ -83,71 +111,77 @@ export function MediaCard({
             <Check className="size-3.5" strokeWidth={3} />
           </div>
         )}
-        {track.status === "WANT_TO_SEE" && (
+        {track.status === "WANT_TO_SEE" && !details?.posterUrl && (
           <div className="absolute inset-0 grid place-items-center text-[34px] opacity-50">
             🍿
           </div>
         )}
       </div>
 
-      <div className="p-3.5">
+      <div className="p-4">
+        {/* Título + ano */}
         <div className="flex items-baseline justify-between gap-2">
-          <div className="text-[15px] leading-tight font-bold">
-            Título #{track.tmdbId}
+          <div className="truncate text-[15px] font-bold leading-tight">
+            {details?.title ?? `Título #${track.tmdbId}`}
           </div>
+          {details?.year && (
+            <span className="flex-none text-[13px] text-[#a6a39a]">
+              {details.year}
+            </span>
+          )}
         </div>
 
+        {/* Tipo + providers */}
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <span className="rounded-md border border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] px-2.5 py-0.5 text-[11px] font-semibold text-[#ffdd7a]">
             {TYPE_LABEL[track.mediaType]}
           </span>
+          {details?.watchProviders?.slice(0, 2).map((provider) => (
+            <span
+              key={provider.name}
+              className="flex items-center gap-1.5 rounded-md border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-2.5 py-0.5 text-[11px] text-[#d6d2c8]"
+            >
+              {provider.logoUrl ? (
+                <img
+                  src={provider.logoUrl}
+                  alt=""
+                  className="size-3 rounded-[3px] object-cover"
+                />
+              ) : (
+                <span className="size-1.5 rounded-full bg-[#ff4040]" />
+              )}
+              {provider.name}
+            </span>
+          ))}
         </div>
 
-        {showRatings && (
-          <div className="mt-2.5">
-            {ratedReviews.length === 2 ? (
-              <div className="flex items-center gap-4">
-                {ratedReviews.map((review) => (
-                  <div key={review.userId} className="flex flex-col gap-1">
-                    <span className="text-[11px] text-[#a6a39a]">
-                      {review.userId === myUserId ? "Você" : review.userName}
-                    </span>
-                    <Stars rating={review.rating!} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Stars rating={ratedReviews[0].rating!} />
-                <span className="text-xs text-[#a6a39a]">
-                  {ratedReviews[0].rating},0
-                </span>
-              </div>
-            )}
+        {/* Estrelas + média */}
+        {showRatings && coupleAvg !== null && (
+          <div className="mt-2.5 flex items-center gap-2">
+            <Stars rating={coupleAvg} />
+            <span className="text-[13px] text-[#a6a39a]">
+              {coupleAvg.toFixed(1).replace(".", ",")}
+            </span>
           </div>
         )}
 
+        {/* Data */}
         {watchedLabel && (
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-[#a6a39a]">
-            <Clock3 className="size-3.5 opacity-70" />
+          <div className="mt-2 flex items-center gap-1.5 text-[12px] text-[#a6a39a]">
+            <Clock3 className="size-3.5 opacity-60" />
             Assistido em {watchedLabel}
           </div>
         )}
 
-        {myReview?.opinion && (
-          <div className="mt-2.5 rounded-[10px] border border-[rgba(255,203,43,.18)] bg-[rgba(255,203,43,.09)] px-2.5 py-2 text-[12.5px] leading-snug text-[#d9d4e6] italic">
-            <span className="font-bold text-[#ffcb2b] not-italic">“</span>
-            {myReview.opinion}
+        {/* Opinião */}
+        {(myReview?.opinion || partnerReview?.opinion) && (
+          <div className="mt-2.5 rounded-[10px] border border-[rgba(255,203,43,.18)] bg-[rgba(255,203,43,.07)] px-3 py-2.5 text-[12.5px] leading-snug text-[#d9d4e6] italic">
+            <span className="font-bold text-[#ffcb2b] not-italic">"</span>
+            {myReview?.opinion ?? partnerReview?.opinion}
           </div>
         )}
 
-        {partnerReview?.opinion && (
-          <div className="mt-2.5 rounded-[10px] border border-[rgba(255,255,255,.08)] bg-[rgba(255,255,255,.04)] px-2.5 py-2 text-[12.5px] leading-snug text-[#d8d3c5] italic">
-            <span className="font-bold text-[#ffcb2b] not-italic">“</span>
-            {partnerReview.opinion}
-          </div>
-        )}
-
+        {/* CTA */}
         {track.status === "WANT_TO_SEE" && (
           <button
             type="button"

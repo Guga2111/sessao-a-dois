@@ -80,6 +80,6 @@ Este backlog divide a arquitetura e as regras de negocio em epicos e tarefas inc
 - [ ] **Task 7.1 (Backend):** Finalizar e validar cobertura de testes unitarios para Services e Controllers.
 - [ ] **Task 7.2 (Infra):** Criar `docker-compose-prod.yml` com rede isolada, banco de dados persistente (volumes) e API.
 - [ ] **Task 7.3 (Frontend):** Ajustar variaveis de ambiente de producao (URLs base) e build otimizado (`bun run build`).
-- [ ] **Task 7.4 (Infra):** Configurar Nginx como reverse proxy com SSL (Certbot/Let's Encrypt) para o dominio `sessao.luisgosampaio.com`.
+- [ ] **Task 7.4 (Infra):** Configurar Nginx como reverse proxy com SSL (Certbot/Let's Encrypt) para o dominio `sessaoadois.luisgosampaio.com`.
 - [ ] **Task 7.5 (Infra):** Criar script de deploy (SCP do build frontend para VPS, docker compose up para backend).
 - [ ] **Task 7.6 (Infra):** Configurar `.env` na VPS para gerenciar chaves secretas (DB credentials, JWT secret, TMDB API Key).

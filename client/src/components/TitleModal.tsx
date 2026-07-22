@@ -2,6 +2,12 @@ import { isAxiosError } from "axios"
 import { Loader2, Search, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { MediaSearchResult } from "@/types/media"
@@ -75,17 +81,6 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
   }
 
   useEffect(() => {
-    if (!open) return
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") handleClose()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  useEffect(() => {
     if (!open || selected || !query.trim()) return
 
     let cancelled = false
@@ -128,8 +123,6 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
     document.addEventListener("pointerdown", onPointerDown)
     return () => document.removeEventListener("pointerdown", onPointerDown)
   }, [])
-
-  if (!open) return null
 
   const selectResult = async (result: MediaSearchResult) => {
     setState((s) => ({
@@ -196,19 +189,27 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
   }
 
   return (
-    <div
-      onClick={handleClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(8,7,11,.72)] p-5 backdrop-blur-md"
+    <Dialog
+      open={open}
+      modal={false}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) handleClose()
+      }}
     >
-      <div
-        onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[92vh] w-full max-w-[520px] overflow-auto rounded-[22px] border border-white/10 bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200"
+      <DialogContent
+        showCloseButton={false}
+        className="w-full max-w-[520px] gap-0 overflow-visible rounded-[22px] border border-white/10 bg-[#161513] p-0 text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:max-w-[520px]"
       >
-        <div className="flex items-start justify-between gap-4 p-6 pb-0">
+        <DialogTitle className="sr-only">Adicionar Título</DialogTitle>
+        <DialogDescription className="sr-only">
+          Registre um filme ou série na lista de vocês.
+        </DialogDescription>
+
+        <div className="flex flex-row items-start justify-between gap-4 p-6 pb-0">
           <div>
-            <h2 className="font-display text-[22px] font-bold tracking-tight">
+            <p className="font-display text-[22px] font-bold tracking-tight text-[#f6f4ec]">
               Adicionar Título
-            </h2>
+            </p>
             <p className="mt-1.5 text-[13.5px] text-[#a6a39a]">
               Registre um filme ou série na lista de vocês.
             </p>
@@ -223,7 +224,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
           </button>
         </div>
 
-        <div className="flex flex-col gap-5 p-6 pt-5.5">
+        <div className="flex max-h-[calc(90vh-180px)] flex-col gap-5 overflow-y-auto p-6 pt-5.5">
           <div ref={searchBoxRef}>
             <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
               Buscar título
@@ -303,7 +304,12 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                     key={option.value}
                     type="button"
                     onClick={() =>
-                      setState((s) => ({ ...s, status: option.value }))
+                      setState((s) => ({
+                        ...s,
+                        status: option.value,
+                        rating: option.value !== "WATCHED" ? 0 : s.rating,
+                        opinion: option.value !== "WATCHED" ? "" : s.opinion,
+                      }))
                     }
                     className={cn(
                       "cursor-pointer rounded-[10px] border px-4 py-2 text-sm font-semibold transition-colors",
@@ -319,94 +325,95 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
-                Nota do casal
-              </label>
-              <div className="flex h-11 items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() =>
-                      setState((s) => ({
-                        ...s,
-                        rating: s.rating === star ? 0 : star,
-                      }))
-                    }
-                    aria-label={`${star} estrelas`}
-                    className="cursor-pointer bg-transparent px-0.5 text-[26px] leading-none"
-                    style={{
-                      color: star <= rating ? "#ffb443" : "rgba(255,255,255,.18)",
-                    }}
-                  >
-                    ★
-                  </button>
-                ))}
+          {status === "WATCHED" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+                  Nota do casal
+                </label>
+                <div className="flex h-11 items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() =>
+                        setState((s) => ({
+                          ...s,
+                          rating: s.rating === star ? 0 : star,
+                        }))
+                      }
+                      aria-label={`${star} estrelas`}
+                      className="cursor-pointer bg-transparent px-0.5 text-[26px] leading-none"
+                      style={{
+                        color: star <= rating ? "#ffb443" : "rgba(255,255,255,.18)",
+                      }}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {status === "WATCHED" && (
               <div>
                 <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
                   Data assistida
                 </label>
                 <input
                   type="date"
-                  required
                   value={watchedDate}
                   onChange={(event) =>
                     setState((s) => ({ ...s, watchedDate: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3 text-sm text-[#f6f4ec] outline-none transition-shadow [color-scheme:dark] focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+                  className="w-full rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)] [color-scheme:dark]"
                 />
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div>
-            <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
-              Opinião do casal{" "}
-              <span className="font-normal text-[#a6a39a]">(opcional)</span>
-            </label>
-            <textarea
-              rows={3}
-              value={opinion}
-              onChange={(event) =>
-                setState((s) => ({ ...s, opinion: event.target.value }))
-              }
-              placeholder="O que vocês acharam? Alguma cena inesquecível?"
-              className="w-full resize-y rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3.5 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
-            />
-          </div>
+          {status === "WATCHED" && (
+            <div>
+              <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+                Opinião do casal{" "}
+                <span className="font-normal text-[#a6a39a]">(opcional)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={opinion}
+                onChange={(event) =>
+                  setState((s) => ({ ...s, opinion: event.target.value }))
+                }
+                placeholder="O que vocês acharam? Alguma cena inesquecível?"
+                className="w-full resize-y rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3.5 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+              />
+            </div>
+          )}
 
           {error && (
             <p className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3.5 py-2.5 text-[13px] text-[#ffb3b3]">
               {error}
             </p>
           )}
-
-          <div className="flex gap-3 pt-0.5">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={saving}
-              className="flex-1 cursor-pointer rounded-xl border border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-[1.4] cursor-pointer rounded-xl border-none bg-[#ffcb2b] py-3.5 text-sm font-bold text-[#111] shadow-[0_8px_22px_rgba(255,203,43,.35)] transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? "Salvando…" : "Salvar Título"}
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
+
+        <div className="flex gap-3 p-6 pt-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={saving}
+            className="flex-1 cursor-pointer rounded-xl border border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-[1.4] cursor-pointer rounded-xl border-none bg-[#ffcb2b] py-3.5 text-sm font-bold text-[#111] shadow-[0_8px_22px_rgba(255,203,43,.35)] transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? "Salvando…" : "Salvar Título"}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

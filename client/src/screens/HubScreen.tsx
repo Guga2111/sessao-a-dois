@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { MediaCard } from "@/components/MediaCard"
+import { MediaDetailModal } from "@/components/MediaDetailModal"
 import { TitleModal } from "@/components/TitleModal"
+import { WatchModal } from "@/components/WatchModal"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { MediaStatus, MediaTrackResponse } from "@/types/tracking"
@@ -51,6 +53,8 @@ export function HubScreen() {
   const [tracks, setTracks] = useState<MediaTrackResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [detailTrack, setDetailTrack] = useState<MediaTrackResponse | null>(null)
+  const [watchTrack, setWatchTrack] = useState<MediaTrackResponse | null>(null)
 
   const loadTracks = useCallback(() => {
     setLoading(true)
@@ -74,14 +78,6 @@ export function HubScreen() {
         setLoading(false)
       })
   }, [])
-
-  const handleStatusChange = async (track: MediaTrackResponse) => {
-    await api.patch(`/api/tracking/${track.id}/status`, {
-      status: "WATCHED",
-      watchedDate: new Date().toISOString().slice(0, 10),
-    })
-    void loadTracks()
-  }
 
   const handleModalSuccess = () => {
     setModalOpen(false)
@@ -161,7 +157,8 @@ export function HubScreen() {
                       key={track.id}
                       track={track}
                       myUserId={user?.id ?? ""}
-                      onStatusChange={handleStatusChange}
+                      onStatusChange={setWatchTrack}
+                      onClick={setDetailTrack}
                     />
                   ))}
                 </div>
@@ -184,6 +181,25 @@ export function HubScreen() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSuccess={handleModalSuccess}
+      />
+
+      <MediaDetailModal
+        track={detailTrack}
+        myUserId={user?.id ?? ""}
+        onClose={() => setDetailTrack(null)}
+        onStatusChange={(t) => {
+          setDetailTrack(null)
+          setWatchTrack(t)
+        }}
+      />
+
+      <WatchModal
+        track={watchTrack}
+        onClose={() => setWatchTrack(null)}
+        onSuccess={() => {
+          setWatchTrack(null)
+          void loadTracks()
+        }}
       />
     </div>
   )

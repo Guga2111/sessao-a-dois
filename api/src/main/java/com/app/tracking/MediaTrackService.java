@@ -28,6 +28,12 @@ public class MediaTrackService {
 	}
 
 	public MediaTrackResponse addTrack(UUID coupleId, UUID userId, CreateMediaTrackRequest request) {
+		if (request.status() != MediaStatus.WATCHED
+				&& (request.rating() != null
+					|| (request.opinion() != null && !request.opinion().isBlank()))) {
+			throw new IllegalArgumentException("rating e opinion so podem ser enviados com status WATCHED");
+		}
+
 		Couple couple = coupleRepository.findById(coupleId)
 			.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 		User user = userRepository.findById(userId)
@@ -52,10 +58,25 @@ public class MediaTrackService {
 		return tracks.stream().map(this::toResponse).toList();
 	}
 
-	public MediaTrackResponse updateStatus(UUID trackId, UUID coupleId, MediaStatus newStatus, LocalDate watchedDate) {
+	public MediaTrackResponse markAsWatched(UUID trackId, UUID coupleId, UUID userId, WatchRequest request) {
 		MediaTrack track = findOwnedTrack(trackId, coupleId);
-		track.setStatus(newStatus);
-		track.setWatchedDate(watchedDate);
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> new ResourceNotFoundException("usuario nao encontrado"));
+
+		track.setStatus(MediaStatus.WATCHED);
+		track.setWatchedDate(LocalDate.now());
+
+		track.getReviews().stream()
+			.filter(r -> r.getUser().getId().equals(userId))
+			.findFirst()
+			.ifPresentOrElse(
+				r -> {
+					r.setRating(request.rating());
+					r.setOpinion(request.opinion());
+				},
+				() -> track.getReviews().add(new UserReview(track, user, request.rating(), request.opinion()))
+			);
+
 		return toResponse(mediaTrackRepository.save(track));
 	}
 
