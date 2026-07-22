@@ -2,7 +2,171 @@ import { useEffect, useState } from "react"
 
 import { Header } from "@/components/Header"
 import { api } from "@/lib/api"
-import type { StatsResponse } from "@/types/stats"
+import type { MonthlyStatDto, StatsResponse } from "@/types/stats"
+
+const MONTH_LABELS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+]
+
+function ChartCard({
+  title,
+  className,
+  children,
+}: {
+  title: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      className={`rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] p-6 ${className ?? ""}`}
+    >
+      <h3 className="font-display m-0 text-[17px]">{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+function MonthlyBarsChart({ monthlySeries }: { monthlySeries: MonthlyStatDto[] }) {
+  const maxCount = Math.max(...monthlySeries.map((m) => m.count), 1)
+  const hasData = monthlySeries.some((m) => m.count > 0)
+
+  return (
+    <ChartCard title="Títulos por mês" className="min-w-0">
+      <div className="mb-5.5 mt-0 flex items-center justify-between">
+        <span className="sr-only">Títulos por mês</span>
+        <span className="ml-auto text-[12px] text-[#a6a39a]">
+          {new Date().getFullYear()}
+        </span>
+      </div>
+      {hasData ? (
+        <div className="flex h-[200px] items-end gap-2 pt-2.5 sm:gap-3 md:gap-5">
+          {monthlySeries.map((m) => (
+            <div
+              key={m.month}
+              className="flex h-full flex-1 flex-col items-center justify-end gap-2.5"
+            >
+              <span className="text-[12px] text-[#a6a39a]">{m.count}</span>
+              <div
+                className="w-full rounded-t-[8px] rounded-b-[3px] bg-[#ffcb2b]"
+                style={{ height: `${Math.max((m.count / maxCount) * 100, 2)}%` }}
+              />
+              <span className="text-[12px] text-[#a6a39a]">
+                {MONTH_LABELS[m.month - 1]}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex h-[200px] items-center justify-center text-sm text-[#a6a39a]">
+          Nenhum título assistido este ano ainda.
+        </div>
+      )}
+    </ChartCard>
+  )
+}
+
+function MovieTvDonutChart({
+  movieCount,
+  tvCount,
+  moviePercentage,
+  tvPercentage,
+  totalTitles,
+}: {
+  movieCount: number
+  tvCount: number
+  moviePercentage: number
+  tvPercentage: number
+  totalTitles: number
+}) {
+  return (
+    <ChartCard title="Filmes vs Séries" className="flex flex-col">
+      <div className="mt-4.5 flex flex-1 items-center gap-5">
+        <div
+          className="relative h-[130px] w-[130px] flex-none rounded-full"
+          style={{
+            background: `conic-gradient(#ffcb2b 0 ${moviePercentage}%, #ff9e2c ${moviePercentage}% 100%)`,
+          }}
+        >
+          <div className="absolute inset-4 grid place-items-center rounded-full bg-[#161513] text-center">
+            <div>
+              <div className="font-display text-[22px] font-bold">
+                {totalTitles}
+              </div>
+              <div className="text-[10px] text-[#a6a39a]">títulos</div>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3.5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="h-[11px] w-[11px] rounded-[3px] bg-[#ffcb2b]" />
+              <span className="text-[13px] font-semibold">Filmes</span>
+            </div>
+            <div className="ml-[19px] text-[12px] text-[#a6a39a]">
+              {movieCount} · {Math.round(moviePercentage)}%
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="h-[11px] w-[11px] rounded-[3px] bg-[#ff9e2c]" />
+              <span className="text-[13px] font-semibold">Séries</span>
+            </div>
+            <div className="ml-[19px] text-[12px] text-[#a6a39a]">
+              {tvCount} · {Math.round(tvPercentage)}%
+            </div>
+          </div>
+        </div>
+      </div>
+    </ChartCard>
+  )
+}
+
+function GenreBarsChart({
+  topGenres,
+}: {
+  topGenres: StatsResponse["topGenres"]
+}) {
+  return (
+    <ChartCard title="Gêneros mais assistidos">
+      {topGenres.length > 0 ? (
+        <div className="mt-5 flex flex-col gap-4">
+          {topGenres.slice(0, 5).map((genre) => (
+            <div key={genre.name}>
+              <div className="mb-1.5 flex justify-between text-[13px]">
+                <span className="font-semibold">{genre.name}</span>
+                <span className="text-[#a6a39a]">
+                  {Math.round(genre.percentage)}%
+                </span>
+              </div>
+              <div className="h-[9px] rounded-[20px] bg-white/[0.06]">
+                <div
+                  className="h-full rounded-[20px] bg-[#ffcb2b]"
+                  style={{ width: `${genre.percentage}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-5 text-sm text-[#a6a39a]">
+          Sem dados de gênero suficientes ainda.
+        </div>
+      )}
+    </ChartCard>
+  )
+}
 
 function KpiCard({
   icon,
@@ -149,6 +313,23 @@ export function DashboardScreen() {
               </>
             )}
           </div>
+        )}
+
+        {!isEmpty && !loading && stats && (
+          <>
+            <div className="mb-4.5 grid grid-cols-1 gap-4.5 lg:grid-cols-[1.6fr_1fr]">
+              <MonthlyBarsChart monthlySeries={stats.monthlySeries} />
+              <MovieTvDonutChart
+                movieCount={stats.movieCount}
+                tvCount={stats.tvCount}
+                moviePercentage={stats.moviePercentage}
+                tvPercentage={stats.tvPercentage}
+                totalTitles={stats.totalTitles}
+              />
+            </div>
+
+            <GenreBarsChart topGenres={stats.topGenres} />
+          </>
         )}
       </main>
     </div>
