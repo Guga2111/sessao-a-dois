@@ -23,6 +23,10 @@ public class StatsService {
 		this.userReviewRepository = userReviewRepository;
 	}
 
+	public StatsResponse emptyStats() {
+		return new StatsResponse(0, 0, 0, 0, 0, 0.0, 0.0, 0, 0.0, null, List.of(), buildMonthlySeries(List.of()));
+	}
+
 	public StatsResponse getStats(UUID coupleId) {
 		LocalDate today = LocalDate.now();
 

@@ -51,3 +51,16 @@
   - `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` returning `null` (documented in the US-002 progress entry) is handled here by mapping `null` -> `0.0` in `StatsService`, matching the PRD's "estado vazio" requirement.
   - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
 ---
+
+## 2026-07-22 - US-004
+- Added `GET /api/tracking/stats`, exposing US-003's `StatsService` to the frontend, with an explicit empty-state branch for users with no couple yet (distinct from a couple with no watched titles, which `StatsService.getStats` already zeroes out).
+- Files changed:
+  - `api/src/main/java/com/app/tracking/StatsService.java`: added `emptyStats()` — builds the same zero/empty `StatsResponse` shape as the "couple with no watched titles" case, for use when the authenticated user has no couple at all.
+  - `api/src/main/java/com/app/tracking/MediaTrackController.java`: injected `StatsService`; added `GET /stats` mapped under `/api/tracking` (so `/api/tracking/stats`). Looks up the couple via `coupleService.getCurrentCouple(userId)` directly (NOT the existing `currentCoupleId` helper, which throws 404 when there's no couple) and returns `statsService.getStats(coupleId)` when present or `statsService.emptyStats()` otherwise — always 200.
+  - `api/src/test/java/com/app/tracking/MediaTrackControllerTest.java`: added `StatsService` `@MockitoBean`, and three tests — 401 without auth, 200 with stats payload for a user with a couple, and 200 with the empty-state payload (mocking `statsService.emptyStats()`) for a user with no couple; null field assertions use `jsonPath(...).value(nullValue())` not `doesNotExist()`, since Jackson serializes `null` fields as JSON `null` by default (present in the doc, so `doesNotExist()` would fail).
+  - `api/CLAUDE.md`: documented that the stats endpoint intentionally bypasses `currentCoupleId` and the `emptyStats()` vs `getStats()` distinction.
+- **Learnings for future iterations:**
+  - Inherits `anyRequest().authenticated()` from `SecurityConfig` like every other endpoint in this controller — no `permitAll()` needed for the 401 behavior.
+  - Reused `@WebMvcTest(MediaTrackController.class)` + `@Import(SecurityConfig.class)` pattern already in `MediaTrackControllerTest`; only had to add a new `@MockitoBean` for `StatsService` alongside the existing ones.
+  - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
+---
