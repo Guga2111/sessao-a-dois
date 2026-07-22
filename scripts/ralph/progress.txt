@@ -101,3 +101,15 @@ Started: Wed Jul 22 03:31:26 PDT 2026
   - There was no `Header.tsx`/cross-screen nav in the app at all before this story (each screen was an island reachable only by direct route). `docs/ARCHITECTURE.md` already names `Header.tsx` as a planned component — it's now built and used by both `HubScreen`/`MatchScreen`; a future `DashboardScreen.tsx` (Epico 6) should add its own `NavLink` to `Header.tsx`'s `NAV_ITEMS` rather than duplicating the nav bar.
   - US-008 (match celebration modal) can now be wired at the `App.tsx` level (reading `matchOpen`/`matchData` off `useMatchStore`, same store already connected in `App.tsx`'s effect) so it overlays regardless of which screen (`HubScreen`/`MatchScreen`) the user is on when a match event arrives.
 ---
+
+## 2026-07-22 - US-008
+- Implemented `MatchCelebrationModal.tsx`, rendered globally (in `App.tsx`, as a sibling of `<Routes>`) so it overlays regardless of which screen (`HubScreen`/`MatchScreen`) is active when a match event arrives via `useMatchStore`.
+- Files changed:
+  - `client/src/components/MatchCelebrationModal.tsx` (new): reads `matchOpen`/`matchData` off `useMatchStore`, renders `null` when closed. Follows the `WatchModal.tsx` overlay pattern (`fixed inset-0` backdrop + `animate-in zoom-in-95` card, backdrop-click-to-close via `onClick`/`stopPropagation`) rather than the prototype's swipe-card shape — same visual tokens as `docs/design/claude-design-project/Sessao a Dois.dc.html`'s MATCH CELEBRATION block (lines 410-425): gradient `#251e0c`→`#161513` card, `rgba(255,158,44,.35)` border, "É um Match!" gradient-text label, 💜 emoji, "🔔 Notificação enviada para os dois" line, `#ffcb2b` primary "Continuar" button. "Ver na lista" calls `useNavigate()` to `/` (the Hub) then closes the modal; "Continuar" just calls `closeMatch()`.
+  - `client/src/App.tsx`: wrapped the existing `<Routes>` in a fragment alongside the new `<MatchCelebrationModal />` so it's mounted once at the app root (not per-route).
+- Verified with `npx tsc -b` (passes) and `npx eslint src/App.tsx src/components/MatchCelebrationModal.tsx` (clean, after `npx prettier --write` reformatted both files' JSX indentation/class ordering).
+- Per the established sandbox limitation (see Codebase Patterns / US-007 learnings), the Vite dev server cannot run here (Linux arm64 vs. macOS-installed `@rolldown/binding-*` native module) — browser verification of the modal was not possible in this environment; a maintainer should manually trigger a match (two likes on the same title from both couple accounts) and confirm the modal renders/dismisses correctly.
+- **Learnings for future iterations:**
+  - This was the last story in the PRD (Epico 5) — all 8 user stories now have `passes: true`.
+  - `MatchCelebrationModal` is mounted at the `App.tsx` root level (sibling of `<Routes>`, inside the Router), not per-screen — any future global overlay (toasts, other cross-cutting modals) should follow the same placement rather than being duplicated into each screen.
+---

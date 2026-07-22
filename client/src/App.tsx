@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
 
+import { MatchCelebrationModal } from "@/components/MatchCelebrationModal"
 import { JoinPage } from "@/routes/auth/JoinPage"
 import { LoginPage } from "@/routes/auth/LoginPage"
 import { RegisterPage } from "@/routes/auth/RegisterPage"
@@ -41,55 +42,58 @@ export function App() {
   }, [isAuthenticated, hasPartner, coupleId, connect, disconnect])
 
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          <PublicOnlyRoute>
-            <LoginPage />
-          </PublicOnlyRoute>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicOnlyRoute>
-            <RegisterPage />
-          </PublicOnlyRoute>
-        }
-      />
-      <Route
-        path="/join"
-        element={
-          <ProtectedRoute>
-            <RedirectIfCoupled>
-              <JoinPage />
-            </RedirectIfCoupled>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <RequireCouple>
-              <HubScreen />
-            </RequireCouple>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/match"
-        element={
-          <ProtectedRoute>
-            <RequireCouple>
-              <MatchScreen />
-            </RequireCouple>
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <PublicOnlyRoute>
+              <LoginPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicOnlyRoute>
+              <RegisterPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/join"
+          element={
+            <ProtectedRoute>
+              <RedirectIfCoupled>
+                <JoinPage />
+              </RedirectIfCoupled>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <RequireCouple>
+                <HubScreen />
+              </RequireCouple>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/match"
+          element={
+            <ProtectedRoute>
+              <RequireCouple>
+                <MatchScreen />
+              </RequireCouple>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <MatchCelebrationModal />
+    </>
   )
 }
 
