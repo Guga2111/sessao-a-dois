@@ -1,5 +1,7 @@
 import { useNavigate } from "react-router-dom"
 
+import { Bell } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { useMatchStore } from "@/stores/useMatchStore"
 
@@ -36,8 +38,8 @@ export function MatchCelebrationModal() {
           Vocês dois curtiram este título! Ele foi adicionado automaticamente à
           lista <b className="text-[#ffe08a]">Queremos Ver</b>.
         </p>
-        <div className="mt-4.5 mb-6 flex items-center justify-center gap-2 text-[12.5px] text-[#3ddc97]">
-          <span>🔔</span> Notificação enviada para os dois
+        <div className="mt-4.5 mb-6 flex items-center justify-center gap-2 text-[12.5px] text-muted-foreground">
+          <Bell className="size-3.5" /> Notificação enviada para os dois
         </div>
         <div className="flex gap-3">
           <Button
