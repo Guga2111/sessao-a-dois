@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { DeleteTrackDialog } from "@/components/DeleteTrackDialog"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
+import { ReviewModal } from "@/components/ReviewModal"
 import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -83,6 +84,7 @@ export function HubScreen() {
   const [detailTrack, setDetailTrack] = useState<MediaTrackResponse | null>(null)
   const [watchTrack, setWatchTrack] = useState<MediaTrackResponse | null>(null)
   const [deleteTrack, setDeleteTrack] = useState<MediaTrackResponse | null>(null)
+  const [reviewTrack, setReviewTrack] = useState<MediaTrackResponse | null>(null)
   const [openSections, setOpenSections] = useState<Record<MediaStatus, boolean>>({
     WATCHING: true,
     WANT_TO_SEE: true,
@@ -223,6 +225,7 @@ export function HubScreen() {
                           myUserId={user?.id ?? ""}
                           onStatusChange={setWatchTrack}
                           onStartWatching={reloadAllFirstPages}
+                          onReview={setReviewTrack}
                           onClick={setDetailTrack}
                           onDelete={setDeleteTrack}
                         />
@@ -279,6 +282,24 @@ export function HubScreen() {
         onSuccess={() => {
           setWatchTrack(null)
           reloadAllFirstPages()
+        }}
+      />
+
+      <ReviewModal
+        track={reviewTrack}
+        myUserId={user?.id ?? ""}
+        onClose={() => setReviewTrack(null)}
+        onSuccess={(updated) => {
+          setReviewTrack(null)
+          setSections((prev) => ({
+            ...prev,
+            [updated.status]: {
+              ...prev[updated.status],
+              items: prev[updated.status].items.map((t) =>
+                t.id === updated.id ? updated : t
+              ),
+            },
+          }))
         }}
       />
 

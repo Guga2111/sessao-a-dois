@@ -14,6 +14,7 @@ interface MediaCardProps {
   myUserId: string
   onStatusChange?: (track: MediaTrackResponse) => void
   onStartWatching?: (track: MediaTrackResponse) => void
+  onReview?: (track: MediaTrackResponse) => void
   onClick?: (track: MediaTrackResponse) => void
   onDelete?: (track: MediaTrackResponse) => void
 }
@@ -50,6 +51,7 @@ export function MediaCard({
   myUserId,
   onStatusChange,
   onStartWatching,
+  onReview,
   onClick,
   onDelete,
 }: MediaCardProps) {
@@ -253,6 +255,20 @@ export function MediaCard({
               className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
             >
               Marcar como assistido
+            </Button>
+          </div>
+        )}
+        {track.status === "WATCHED" && (
+          <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+            <Button
+              variant="outline"
+              onClick={(event) => {
+                event.stopPropagation()
+                onReview?.(track)
+              }}
+              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+            >
+              Reavaliar
             </Button>
           </div>
         )}
