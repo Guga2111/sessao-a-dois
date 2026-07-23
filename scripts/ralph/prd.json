@@ -59,8 +59,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added LoadMoreSentinel component (IntersectionObserver, threshold 0.5) rendered as last flex child only when `useIsMobile()` is true and `hasMore`; flags read from a ref synced in an effect so the observer (created once per section, keyed by status) always sees fresh hasMore/loadingMore without re-registering. Extra SkeletonCard renders at carousel end while loadingMore (shared by both mobile auto-load and desktop button). 'Carregar mais' button now hidden on mobile via `hidden md:flex`. handleLoadMore made a stable useCallback (reads current page via a sectionsRef synced in an effect) so the sentinel's observer isn't torn down/recreated every render."
     },
     {
       "id": "US-004",

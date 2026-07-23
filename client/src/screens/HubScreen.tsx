@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ChevronDown } from "lucide-react"
 
@@ -12,6 +12,7 @@ import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api } from "@/lib/api"
+import { useIsMobile } from "@/lib/useIsMobile"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { MediaStatus, MediaTrackResponse, PagedMediaTrackResponse } from "@/types/tracking"
 
@@ -77,8 +78,52 @@ function SkeletonCard() {
   )
 }
 
+interface LoadMoreSentinelProps {
+  status: MediaStatus
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: (status: MediaStatus) => void
+}
+
+/** Invisible sentinel appended after the last mobile carousel card; triggers
+ *  `onLoadMore` via IntersectionObserver instead of a "load more" tap. Only
+ *  ever mounted on mobile (see call site), so the observer never registers
+ *  on desktop. Flags are read from a ref synced in an effect rather than the
+ *  closure so the observer callback (created once per `status`) always sees
+ *  the latest `hasMore`/`loadingMore` without needing to be recreated. */
+function LoadMoreSentinel({ status, hasMore, loadingMore, onLoadMore }: LoadMoreSentinelProps) {
+  const flagsRef = useRef({ hasMore, loadingMore })
+  useEffect(() => {
+    flagsRef.current = { hasMore, loadingMore }
+  })
+
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      observerRef.current?.disconnect()
+      observerRef.current = null
+      if (!node) return
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const flags = flagsRef.current
+          if (entries[0]?.isIntersecting && flags.hasMore && !flags.loadingMore) {
+            onLoadMore(status)
+          }
+        },
+        { threshold: 0.5 }
+      )
+      observer.observe(node)
+      observerRef.current = observer
+    },
+    [status, onLoadMore]
+  )
+
+  return <div ref={sentinelRef} aria-hidden="true" className="w-px shrink-0" />
+}
+
 export function HubScreen() {
   const user = useAuthStore((state) => state.user)
+  const isMobile = useIsMobile()
   const [sections, setSections] = useState<Record<MediaStatus, SectionState>>(emptySections)
   const [modalOpen, setModalOpen] = useState(false)
   const [detailTrack, setDetailTrack] = useState<MediaTrackResponse | null>(null)
@@ -125,14 +170,22 @@ export function HubScreen() {
     reloadAllFirstPages()
   }, [reloadAllFirstPages])
 
-  const handleLoadMore = (status: MediaStatus) => {
-    const current = sections[status]
-    setSections((prev) => ({
-      ...prev,
-      [status]: { ...prev[status], loadingMore: true },
-    }))
-    void fetchSectionPage(status, current.page + 1)
-  }
+  const sectionsRef = useRef(sections)
+  useEffect(() => {
+    sectionsRef.current = sections
+  }, [sections])
+
+  const handleLoadMore = useCallback(
+    (status: MediaStatus) => {
+      const current = sectionsRef.current[status]
+      setSections((prev) => ({
+        ...prev,
+        [status]: { ...prev[status], loadingMore: true },
+      }))
+      void fetchSectionPage(status, current.page + 1)
+    },
+    [fetchSectionPage]
+  )
 
   const handleModalSuccess = () => {
     setModalOpen(false)
@@ -234,9 +287,18 @@ export function HubScreen() {
                           />
                         </div>
                       ))}
+                      {loadingMore && <SkeletonCard />}
+                      {isMobile && hasMore && (
+                        <LoadMoreSentinel
+                          status={section.status}
+                          hasMore={hasMore}
+                          loadingMore={loadingMore}
+                          onLoadMore={handleLoadMore}
+                        />
+                      )}
                     </div>
                     {hasMore && (
-                      <div className="mt-6 flex justify-center">
+                      <div className="mt-6 hidden justify-center md:flex">
                         <Button
                           type="button"
                           onClick={() => handleLoadMore(section.status)}
