@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { MediaSearchResult } from "@/types/media"
@@ -257,22 +258,24 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
             )}
 
             {searchOpen && results.length > 0 && (
-              <div className="absolute top-[calc(100%+6px)] left-0 z-10 max-h-64 w-full overflow-auto rounded-xl border border-white/10 bg-[#201e18] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,.5)]">
-                {results.map((result) => (
-                  <button
-                    key={`${result.mediaType}-${result.tmdbId}`}
-                    type="button"
-                    onClick={() => selectResult(result)}
-                    className="flex w-full cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-white/[0.06]"
-                  >
-                    <span className="truncate font-medium">
-                      {result.title}
-                    </span>
-                    <span className="flex-none text-xs text-[#a6a39a]">
-                      {result.year ?? "—"} · {TYPE_LABEL[result.mediaType]}
-                    </span>
-                  </button>
-                ))}
+              <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-[#201e18] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,.5)]">
+                <ScrollArea className="h-full max-h-64 [&_[data-slot=scroll-area-viewport]]:max-h-64">
+                  {results.map((result) => (
+                    <button
+                      key={`${result.mediaType}-${result.tmdbId}`}
+                      type="button"
+                      onClick={() => selectResult(result)}
+                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-white/[0.06]"
+                    >
+                      <span className="truncate font-medium">
+                        {result.title}
+                      </span>
+                      <span className="flex-none text-xs text-[#a6a39a]">
+                        {result.year ?? "—"} · {TYPE_LABEL[result.mediaType]}
+                      </span>
+                    </button>
+                  ))}
+                </ScrollArea>
               </div>
             )}
           </div>
