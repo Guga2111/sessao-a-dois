@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { Button } from "@/components/ui/button"
+import { DeleteTrackDialog } from "@/components/DeleteTrackDialog"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
 import { TitleModal } from "@/components/TitleModal"
@@ -60,6 +61,7 @@ export function HubScreen() {
   const [modalOpen, setModalOpen] = useState(false)
   const [detailTrack, setDetailTrack] = useState<MediaTrackResponse | null>(null)
   const [watchTrack, setWatchTrack] = useState<MediaTrackResponse | null>(null)
+  const [deleteTrack, setDeleteTrack] = useState<MediaTrackResponse | null>(null)
   const [openSections, setOpenSections] = useState<Record<MediaStatus, boolean>>({
     WATCHING: true,
     WANT_TO_SEE: true,
@@ -181,6 +183,7 @@ export function HubScreen() {
                         myUserId={user?.id ?? ""}
                         onStatusChange={setWatchTrack}
                         onClick={setDetailTrack}
+                        onDelete={setDeleteTrack}
                       />
                     ))}
                   </div>
@@ -222,6 +225,15 @@ export function HubScreen() {
         onSuccess={() => {
           setWatchTrack(null)
           void loadTracks()
+        }}
+      />
+
+      <DeleteTrackDialog
+        track={deleteTrack}
+        onClose={() => setDeleteTrack(null)}
+        onSuccess={(track) => {
+          setDeleteTrack(null)
+          setTracks((prev) => prev.filter((t) => t.id !== track.id))
         }}
       />
     </div>
