@@ -89,7 +89,7 @@ function SuggestionsTab() {
   return (
     <>
       <div className="flex flex-col items-center">
-        <div className="w-full max-w-[340px]">
+        <div className="w-full max-w-[280px]">
           <div
             className="cursor-pointer overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-[#161513] transition-shadow hover:shadow-[0_0_0_2px_rgba(255,203,43,.25)]"
             onClick={() => setDetailItem(current)}
