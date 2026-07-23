@@ -113,3 +113,14 @@
   - US-009 (.env.example) must document the NEW prod var names this compose introduced: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, API_PORT, plus JWT_SECRET, CORS_ALLOWED_ORIGIN, TMDB_API_KEY and the domain. The current .env.example only lists TMDB_API_KEY.
   - The real `.env` at repo root currently holds a real TMDB token and is git-ignored (`.gitignore`: `.env`, `.env.*`, `!.env.example`) — US-009 just needs to confirm/extend that and add placeholders, not touch the real secret.
 ---
+
+## 2026-07-23 - US-009
+- Expanded root `.env.example` to document ALL variables (was TMDB_API_KEY only) with placeholder values (no real secrets): POSTGRES_DB/USER/PASSWORD, JWT_SECRET, JWT_EXPIRATION_DAYS (optional, default 7), CORS_ALLOWED_ORIGIN, DOMAIN, TMDB_API_KEY, API_PORT. Grouped and commented so it covers both dev and prod compose usage.
+- `.gitignore` already satisfied every AC and was left unchanged: `.env` / `.env.*` / `!.env.example`. Verified with `git check-ignore`: `.env` IGNORED, `.env.production` IGNORED, `client/.env.production` IGNORED, `client/.env.local` IGNORED; `.env.example` and `client/.env.example` remain tracked (re-included by `!.env.example` for the root; client one is not matched at that path).
+- Confirmed no real secret is in any versioned file: `git ls-files | xargs grep` for the real TMDB token prefix (`eyJhbGciOiJIUzI1NiJ9`) returns nothing — the real token lives only in the git-ignored `.env`.
+- Files changed: `.env.example`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - `.env.*` in `.gitignore` matches by basename at ANY depth, so `client/.env.production` is already ignored without a client-specific rule; the `!.env.example` negation only re-includes the root `.env.example` (path-anchored to repo root), while `client/.env.example` is tracked simply because nothing ignores that exact path.
+  - US-010 needs `client/.env.production` with `VITE_API_URL=https://sessaoadois.luisgosampaio.com` (pure host, no `/api`, no port) — that file will be git-ignored (`.env.*`), which is fine; it's a build-time local file. `client/.env.example` currently still points at `http://localhost:8080`.
+  - Verification of `git check-ignore` / grep is runnable in this sandbox (unlike JDK/Docker steps); this story had no deferred checks.
+---

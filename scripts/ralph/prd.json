@@ -126,7 +126,7 @@
         "grep confirma que nenhum segredo real foi commitado nos arquivos versionados"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
