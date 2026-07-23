@@ -43,6 +43,20 @@
   - Still no JDK / Maven Central in this sandbox — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5+Mockito mirroring the existing file (ArgumentCaptor + ReflectionTestUtils couple id).
 ---
 
+## 2026-07-22 - US-005
+- Reinforced TMDB media-service coverage for US-005. `MediaSearchServiceTest` and `MediaDetailsServiceTest` (from Epic 3) already satisfied all three AC: mocked `RestClient` (no external call), valid parsing of search + details, and 5xx/timeout handled as `TmdbUnavailableException`. Added the genuinely missing branches instead of duplicating:
+  - `MediaSearchServiceTest.search_returnsEmptyListWhenResultsFieldIsNull` — `TmdbMultiSearchResponse(null)` hits the `response.results() == null` guard (only `response == null` and empty-list were covered).
+  - `MediaDetailsServiceTest.getDetails_throwsNotFoundWhenTmdbBodyIsNull` — null body → `MediaNotFoundException` via the `response == null` guard (previously only the HTTP 404 path was tested).
+  - `getDetails_returnsEmptyGenresWhenTmdbGenresAreNull` — `genres()==null` → empty `genres()`/`genreIds()`.
+  - `getDetails_returnsEmptyWatchProvidersWhenAppendMissing` — `watch/providers` absent (null) → empty providers.
+  - `getDetails_returnsEmptyWatchProvidersWhenBrazilHasNoFlatrate` — BR present but `flatrate()==null` → empty providers.
+- Files changed: `api/src/test/java/com/app/media/MediaSearchServiceTest.java`, `api/src/test/java/com/app/media/MediaDetailsServiceTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - `TmdbMediaDetailsResponse` is an 11-arg record: `(long id, String title, String name, release_date, first_air_date, poster_path, overview, List<TmdbGenre> genres, vote_average, Integer runtime, watch/providers)`. `title` vs `name` are separate positional args (movie uses `title`, TV uses `name`); `watchProviders` is the LAST arg and may be null when `append_to_response=watch/providers` returns nothing.
+  - `MediaDetailsService` has two independent null-guards worth covering separately: null HTTP body → `MediaNotFoundException` (distinct from the 404 `HttpClientErrorException.NotFound` path), and null `genres`/`watchProviders`/`flatrate` → empty lists (never NPE).
+  - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5+Mockito with `mock(RestClient.class, RETURNS_DEEP_STUBS)`, mirroring the existing files exactly.
+---
+
 ## 2026-07-22 - US-003
 - Filled tracking-service coverage gaps for US-003. `MediaTrackServiceTest` and `UserReviewServiceTest` already existed (from Epic 4) covering create, delete, upsert-review (create/update/independent per user), and not-found/forbidden errors. Added the genuinely missing cases:
   - `listByStatusReturnsIndependentReviewsForBothMembers` — `listByStatus(coupleId, null)` returns both members' reviews with independent rating/opinion/name (the "listar retornando reviews dos dois usuarios" AC).

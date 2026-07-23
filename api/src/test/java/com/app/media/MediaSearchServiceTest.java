@@ -79,6 +79,17 @@ class MediaSearchServiceTest {
 	}
 
 	@Test
+	void search_returnsEmptyListWhenResultsFieldIsNull() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
+			.thenReturn(new TmdbMultiSearchResponse(null));
+
+		MediaSearchService service = new MediaSearchService(restClient);
+
+		assertThat(service.search("resposta-sem-results")).isEmpty();
+	}
+
+	@Test
 	void search_handlesMissingPosterAndReleaseDateGracefully() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		TmdbMultiSearchItem movieWithoutExtras = new TmdbMultiSearchItem(
