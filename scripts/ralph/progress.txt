@@ -1,95 +1,171 @@
 ## Codebase Patterns
-- Backend package-by-feature under `com.app.*` (see `api/CLAUDE.md`); new features get their own package (e.g. `com.app.websocket`, `com.app.match`).
-- `SecurityConfig` (com.app.security) applies `anyRequest().authenticated()` to everything not explicitly `permitAll()`'d.
-- This sandbox has no JDK/Maven and no Maven Central access (`./mvnw` fails trying to download the wrapper distribution, and there is no `java`/`mvn` binary either) — backend changes here can only be reviewed by careful manual reading, not compiled/tested locally. Flag this explicitly in each backend story's progress entry rather than claiming "tests pass".
-- `MediaDetails.genreIds()` carries raw TMDB genre ids (separate from `genres()`, the pt-BR names) for any feature that needs to persist/aggregate by genre id without re-parsing TMDB responses.
-- This sandbox also can't run the frontend dev server/build (`npm run dev` / `vite build` fail with a `rolldown` native-binding resolution error, npm optional-deps + a shadowing empty `node_modules/rolldown/node_modules/@rolldown/` dir) and has no browser automation tool (no `chromium-cli`, no Playwright browsers installed) — frontend changes can only be verified with `npx tsc --noEmit`/`npx tsc -b` and `npx eslint <changed files>` from `client/`, not a live browser check. Flag this explicitly rather than claiming a browser check happened. See `client/CLAUDE.md` for what was tried.
-- New screens go in `client/src/screens/*.tsx`, wired into `client/src/App.tsx` routes and `client/src/components/Header.tsx`'s `NAV_ITEMS`; follow `HubScreen.tsx`'s pattern (Tailwind arbitrary-value colors matching the prototype exactly, `font-display`/`font-auth-body` classes, loading skeletons + empty-state messaging, `api.get<T>(...)` from `lib/api.ts`). Backend DTO shapes are hand-mirrored as TS interfaces under `client/src/types/*.ts` (no codegen) — keep them in sync manually when backend records change.
+- No JDK 21 / Maven Central in this sandbox: `java` is absent and `./mvnw` cannot download Maven. Backend build/test (`./mvnw test`) can only be verified on a machine with JDK 21 + Maven Central access. Make correct changes and note verification is deferred.
+- Base Java package is `com.app`; Maven `groupId` stays `com.lf` (intentional). See api/CLAUDE.md.
+- Test `src/test/resources/application.properties` REPLACES the main one for `@SpringBootTest` — redeclare every required property (`tmdb.api-key`, `app.jwt.secret`).
+- Unit-test the shared TMDB `RestClient` with `Mockito.mock(RestClient.class, RETURNS_DEEP_STUBS)` and stub the terminal `.body(Type.class)`.
+- Entities with `@GeneratedValue` ids have no id setter; use `ReflectionTestUtils.setField(entity, "id", uuid)` in unit tests.
+- No `docker`/`docker compose` binary in this sandbox either — `docker compose ... config` validation is DEFERRED to a Docker host. Env var names the API expects (from `api/src/main/resources/application.properties`): `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_DAYS`, `CORS_ALLOWED_ORIGIN`, `TMDB_BASE_URL`, `TMDB_API_KEY`. Spring Boot server port is the default `8080` inside the container (not overridden), so host publishes `${API_PORT:-8085}:8080`.
+- Compose healthcheck gotcha: to reference a container-side env var inside a `CMD-SHELL` healthcheck, escape with `$$` (e.g. `pg_isready -U $${POSTGRES_USER}`) so compose does not interpolate it at parse time. `eclipse-temurin:21-jre` (Ubuntu base) has `bash`, so `bash -c 'echo > /dev/tcp/127.0.0.1/8080'` is a dependency-free TCP healthcheck (no Actuator/curl needed).
+- Frontend `vite build` in this sandbox CAN run after installing the missing native bindings for THIS arch (linux-arm64-gnu) as `--no-save` (all in ONE `npm i` — a second install dedupes/wipes the first): `npm i lightningcss-linux-arm64-gnu@<lightningcss ver> @rolldown/binding-linux-arm64-gnu@<rolldown ver> @tailwindcss/oxide-linux-arm64-gnu@<oxide ver> --no-save` (read each version from `node_modules/<pkg>/package.json`). Then `npx vite build` succeeds. `npx tsc --noEmit` / `tsc -b` and `eslint` always work. No `bun` binary — use `npx`. (Supersedes the older client/CLAUDE.md note that the build could not run.)
+- Vite bakes `import.meta.env.VITE_*` at build time from `client/.env.production` (git-ignored via `.env.*`). After a prod build, `sockjs-client` still embeds harmless `http://localhost` / `http://localhost:80` fallback strings in the bundle (library internals, used only if `window.location` is unavailable) — the real check is that the dev API port (`8080`/`8085`) is ABSENT and the prod host IS present.
 
 ## 2026-07-22 - US-001
-- Persisted TMDB genre ids on `MediaTrack` so future dashboard stats can aggregate by genre without extra TMDB calls.
-- Files changed:
-  - `api/src/main/java/com/app/media/MediaDetails.java`: added `List<Integer> genreIds` component (alongside existing `List<String> genres` names).
-  - `api/src/main/java/com/app/media/MediaDetailsService.java`: populates `genreIds` from `TmdbGenre.id()` in `toMediaDetails`.
-  - `api/src/main/java/com/app/tracking/MediaTrack.java`: new `genreIds` field via `@ElementCollection` + `@CollectionTable(name = "media_track_genre")`, defaults to empty list, `setGenreIds` never stores null.
-  - `api/src/main/java/com/app/tracking/MediaTrackService.java`: now depends on `MediaDetailsService`; `addTrack` calls a new `fetchGenreIds` helper that wraps `mediaDetailsService.getDetails(...)` in `catch (RuntimeException)` so a TMDB failure never blocks track creation (falls back to empty list).
-  - `api/src/main/java/com/app/match/MatchService.java`: `createMatch` now fetches `MediaDetails` once (title + genreIds) and sets `genreIds` on the new `MediaTrack` before saving, instead of only fetching the title after saving.
-  - Tests updated/added: `MediaDetailsServiceTest` (asserts `genreIds`), `MediaTrackServiceTest` (new `MediaDetailsService` mock, asserts genre ids persisted on save, new test for TMDB failure -> empty genre list), `MatchServiceTest` (asserts `genreIds` on the captured `MediaTrack`), `MediaControllerTest` (updated `MediaDetails` constructor call site).
-  - `api/CLAUDE.md`: documented the `genreIds` plumbing and the "enrich from TMDB but don't block persistence" pattern.
+- Added `jacoco-maven-plugin` (0.8.13, supports Java 21) to `api/pom.xml` build/plugins.
+  - `prepare-agent` execution (default binds to `initialize`, runs before `test`).
+  - `report` execution bound explicitly to the `test` phase → outputs default `target/site/jacoco/index.html`.
+- Files changed: `api/pom.xml`, `scripts/ralph/prd.json`.
 - **Learnings for future iterations:**
-  - `MediaDetails` is a record — any new component requires updating every `new MediaDetails(...)` call site (found via `grep -rn "MediaDetails(" src/`); there were 3 (2 tests, 1 prod).
-  - Schema for the new `media_track_genre` collection table relies on `spring.jpa.hibernate.ddl-auto=update` per the PRD, no manual migration was added — verify this property is actually set in `application.properties` before US-002 writes queries against `media_track_genre`.
-  - Genre-name resolution (TMDB id -> pt-BR name) is explicitly deferred to US-003's static map; this story only stores raw ids.
-  - Could not run `./mvnw test` / compile in this sandbox (no JDK, no Maven Central access) — changes were verified by careful manual review only. Run `./mvnw test` in a proper environment before considering this story fully verified.
+  - This sandbox has NO JDK and NO Maven Central access, so `./mvnw test` cannot be run/verified here. The pom change is standard and syntactically valid; running `mvn test` must happen in a CI/dev env with JDK 21. Future backend test stories (US-002..US-007) face the same constraint — write correct tests but flag that green-check verification is deferred to a JDK env.
+  - JaCoCo 0.8.13 is the version chosen for Java 21 compatibility.
 ---
 
 ## 2026-07-22 - US-002
-- Added scoped aggregation queries needed by the future StatsService/dashboard: watched-movie runtime sum, watched-count by media type, watched-count grouped by month (current year), watched genre-id occurrence counts, and couple's average review rating over watched tracks.
-- Files changed:
-  - `api/src/main/java/com/app/tracking/MediaTrackRepository.java`: added `countByCoupleIdAndStatusAndMediaType` (derived query), `sumRuntimeByCoupleIdAndStatusAndMediaType` (`@Query`, `COALESCE(SUM(...),0)`), `countByCoupleIdAndStatusGroupedByMonth` (`@Query`, `EXTRACT(MONTH/YEAR FROM ...)`, returns `List<MonthlyCount>`), `countGenreOccurrencesByCoupleIdAndStatus` (`@Query` joining the `genreIds` element collection, returns `List<GenreCount>`). `MonthlyCount`/`GenreCount` are small nested interface projections.
-  - `api/src/main/java/com/app/tracking/UserReviewRepository.java`: added `findAverageRatingByCoupleIdAndMediaTrackStatus` (`@Query`, `AVG(ur.rating)` joined through `ur.mediaTrack.couple.id` and `ur.mediaTrack.status`); returns `null` (boxed `Double`) when there are no matching reviews — StatsService (US-003) must handle that null as "no data" rather than NPE.
-  - `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java` (new, `@DataJpaTest`): covers all four new `MediaTrackRepository` queries, including a "does not leak other couple's data" test and a "returns zero/empty when no data" test per query.
-  - `api/src/test/java/com/app/tracking/UserReviewRepositoryTest.java` (new, `@DataJpaTest`): covers average rating happy path (only WATCHED tracks counted), null-when-no-reviews, and no-leak-across-couples.
-  - `api/CLAUDE.md`: documented the aggregation-query pattern (scope by `couple.id`, nested interface projections bound by JPQL alias, `COALESCE` for possibly-empty `SUM`, portable `EXTRACT` instead of native SQL or HQL `month()/year()`).
+- Verified/completed unit-test coverage for the user-registration and couple services.
+  - There is NO `UserService` in this codebase: user registration + duplicate-email handling live in `com.app.auth.AuthService`, already fully covered by `AuthServiceTest` (register happy path, duplicate email, plus login cases).
+  - `CoupleServiceTest` already covered invite_code generation (happy + collision regen), join success, unknown invite code, self-join, already-paired, and couple-full errors.
+  - Added one genuine coverage gap: `returnsEmptyWhenUserHasNoCouple` for `CoupleService.getCurrentCouple` (only the "present" branch was tested before).
+- Files changed: `api/src/test/java/com/app/couple/CoupleServiceTest.java`, `scripts/ralph/prd.json`.
 - **Learnings for future iterations:**
-  - `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` returns `null` (not `0.0`) when the couple has no WATCHED reviews — US-003's StatsService must treat `null` as the empty state, not treat it as a rating of zero.
-  - Interface projections (`MonthlyCount`, `GenreCount`) are nested inside their owning repository interface; Spring Data binds getter names to the JPQL `SELECT ... AS alias` names, so keep alias and getter names in sync if either changes.
-  - Still no JDK/Maven Central in this sandbox (`./mvnw -v` fails downloading the wrapper distribution) — same limitation as US-001, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
----
-
-## 2026-07-22 - US-003
-- Added `StatsService` that combines the US-002 aggregation queries into a single `StatsResponse` DTO for the future dashboard endpoint (US-004).
-- Files changed:
-  - `api/src/main/java/com/app/tracking/MediaTrackRepository.java`: added `sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth` (`@Query`, same `COALESCE(SUM(...),0)` + `EXTRACT` pattern as the existing runtime/monthly queries, scoped by couple/status/mediaType/month/year) — needed because no existing US-002 query covered "movie minutes watched in the current month".
-  - `api/src/main/java/com/app/tracking/GenreNames.java` (new): package-private static `Map<Integer, String>` merging TMDB movie + tv genre id -> pt-BR name lists (hardcoded, no TMDB call); `nameFor(Integer)` returns `null` for unknown ids.
-  - `api/src/main/java/com/app/tracking/GenreStat.java`, `MonthlyStat.java`, `StatsResponse.java` (new records): DTO shapes for top genres, the 12-month series, and the full stats payload.
-  - `api/src/main/java/com/app/tracking/StatsService.java` (new): `getStats(coupleId)` calls the repository aggregates, computes movie hours/minutes (total + current month), movie-vs-tv counts/percentages, average rating (1 decimal, defaults to `0.0` when the repo returns `null`), top-5 genres with percentages + favorite genre (highest count, `null` when no genres), and a zero-filled 12-month series for the current year.
-  - `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java`: added tests for the new `sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth` query (correct month/year scoping + zero when no matches).
-  - `api/src/test/java/com/app/tracking/StatsServiceTest.java` (new, Mockito): covers the full-data case (percentages, rounding, top genres sorted by count, unmapped genre id dropped, zero-filled monthly series) and the empty-state case (couple with no watched titles -> all zeros/empty lists/null favorite genre, no exception on `null` average rating).
-  - `api/CLAUDE.md`: documented the `StatsService` composition pattern, the `GenreNames` map, the shared `round1` rounding helper, and the zero-filled 12-month series convention.
-- **Learnings for future iterations:**
-  - `StatsService` intentionally only calls existing repository aggregate queries (no direct entity fetches) — if US-004/US-005/US-006 need a new stat, add the aggregate to `MediaTrackRepository`/`UserReviewRepository` first, following the `COALESCE`/`EXTRACT`/nested-projection-interface pattern, then wire it into `StatsService`.
-  - Genre resolution silently drops any `genre_id` not in `GenreNames` (per the PRD's "ids sem nome correspondente sao ignorados") — this means `topGenres`/`favoriteGenre` percentages are computed only over the *named* genre occurrences, not the raw total including unknown ids.
-  - `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` returning `null` (documented in the US-002 progress entry) is handled here by mapping `null` -> `0.0` in `StatsService`, matching the PRD's "estado vazio" requirement.
-  - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
+  - "UserService" in the PRD maps to `AuthService` — registration is in the auth feature package, not a `user` service. `com.app.user` only has the `User` entity + `UserRepository`.
+  - All AC for US-002 were already satisfied by prior epics' tests; the story was closed by filling the one missing branch rather than duplicating existing tests.
+  - No JDK / Maven Central in this sandbox (`java`/`mvn` absent, `./mvnw` cannot download) — `mvn test` verification is DEFERRED to a JDK 21 env. The added test is standard JUnit5+Mockito and mirrors the existing patterns in the same file.
 ---
 
 ## 2026-07-22 - US-004
-- Added `GET /api/tracking/stats`, exposing US-003's `StatsService` to the frontend, with an explicit empty-state branch for users with no couple yet (distinct from a couple with no watched titles, which `StatsService.getStats` already zeroes out).
-- Files changed:
-  - `api/src/main/java/com/app/tracking/StatsService.java`: added `emptyStats()` — builds the same zero/empty `StatsResponse` shape as the "couple with no watched titles" case, for use when the authenticated user has no couple at all.
-  - `api/src/main/java/com/app/tracking/MediaTrackController.java`: injected `StatsService`; added `GET /stats` mapped under `/api/tracking` (so `/api/tracking/stats`). Looks up the couple via `coupleService.getCurrentCouple(userId)` directly (NOT the existing `currentCoupleId` helper, which throws 404 when there's no couple) and returns `statsService.getStats(coupleId)` when present or `statsService.emptyStats()` otherwise — always 200.
-  - `api/src/test/java/com/app/tracking/MediaTrackControllerTest.java`: added `StatsService` `@MockitoBean`, and three tests — 401 without auth, 200 with stats payload for a user with a couple, and 200 with the empty-state payload (mocking `statsService.emptyStats()`) for a user with no couple; null field assertions use `jsonPath(...).value(nullValue())` not `doesNotExist()`, since Jackson serializes `null` fields as JSON `null` by default (present in the doc, so `doesNotExist()` would fail).
-  - `api/CLAUDE.md`: documented that the stats endpoint intentionally bypasses `currentCoupleId` and the `emptyStats()` vs `getStats()` distinction.
+- Reinforced `MatchServiceTest` coverage for US-004. All three AC were already satisfied by prior Epic-5 tests:
+  - AC1 (like persists MatchLike): `like_firstLikeIsPersistedAndDoesNotMatch`.
+  - AC2 (partner already liked → MediaTrack WANT_TO_SEE + `messagingTemplate.convertAndSend` to `/topic/couple/{id}/match`): `like_partnerAlreadyLikedResultsInMatch`.
+  - AC3 (duplicate like handled without error): `like_duplicateLikeFromSameUserDoesNotPersistAgain`.
+  - Extra existing edges: title already tracked, no duplicate track when already matched, couple-not-found.
+- Added the two genuinely missing cases instead of duplicating:
+  - `like_persistedMatchLikeCapturesUserTitleAndMediaType` — captures the saved `MatchLike` and asserts `userId`/`tmdbId`/`mediaType`/`couple.id` (nothing previously verified the persisted MatchLike's field values).
+  - `like_matchEventForTvSeriesCarriesMediaTypeAndTitle` — TV-type match path: asserts the auto-created `MediaTrack.mediaType`/`genreIds` and that `MatchEvent.mediaType()` is `TV` (only MOVIE was exercised before).
+- Files changed: `api/src/test/java/com/app/match/MatchServiceTest.java`, `scripts/ralph/prd.json`.
 - **Learnings for future iterations:**
-  - Inherits `anyRequest().authenticated()` from `SecurityConfig` like every other endpoint in this controller — no `permitAll()` needed for the 401 behavior.
-  - Reused `@WebMvcTest(MediaTrackController.class)` + `@Import(SecurityConfig.class)` pattern already in `MediaTrackControllerTest`; only had to add a new `@MockitoBean` for `StatsService` alongside the existing ones.
-  - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
+  - `MediaDetails` is an 11-arg record: `(tmdbId, mediaType, title, year, ?, ?, ?, genreIds(List<Integer>), ?, ?, ?)` — genreIds is the 8th positional arg. `MatchService.createMatch` copies `details.genreIds()` onto the new `MediaTrack` (via `setGenreIds`), so a match test must stub `mediaDetailsService.getDetails(type, id)` with a real genre list to assert enrichment.
+  - `MatchEvent` record is `(long tmdbId, String title, MediaType mediaType)` — carries mediaType, so both MOVIE and TV paths are worth asserting.
+  - Still no JDK / Maven Central in this sandbox — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5+Mockito mirroring the existing file (ArgumentCaptor + ReflectionTestUtils couple id).
 ---
 
 ## 2026-07-22 - US-005
-- Added `DashboardScreen.tsx` rendering the 4 KPI cards (Tempo juntos, Filmes vs Séries, Gênero favorito, Total assistido) fed by `GET /api/tracking/stats` (US-004), matching the prototype's dashboard KPI row pixel-for-pixel (colors/spacing from `docs/design/claude-design-project/Sessao a Dois.dc.html` lines 199-233) and HubScreen's established Tailwind arbitrary-value conventions.
-- Files changed:
-  - `client/src/types/stats.ts` (new): TS mirror of the backend `StatsResponse`/`GenreStat`/`MonthlyStat` records.
-  - `client/src/screens/DashboardScreen.tsx` (new): fetches stats on mount, renders loading skeletons, an empty-state message when `totalTitles === 0` (or the fetch fails, since `stats` stays `null`), and the 4 KPI cards otherwise. `favoriteGenre`/second-place genre derived from `topGenres[0]`/`topGenres[1]`.
-  - `client/src/App.tsx`: added `/dashboard` route wrapped in `ProtectedRoute` + `RequireCouple` (same guard pattern as `/match`).
-  - `client/src/components/Header.tsx`: added "Dashboard" to `NAV_ITEMS`.
-  - `client/CLAUDE.md` (new): documented the frontend conventions and the sandbox's broken Vite dev server / missing browser tooling (see Codebase Patterns above).
-  - `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Reinforced TMDB media-service coverage for US-005. `MediaSearchServiceTest` and `MediaDetailsServiceTest` (from Epic 3) already satisfied all three AC: mocked `RestClient` (no external call), valid parsing of search + details, and 5xx/timeout handled as `TmdbUnavailableException`. Added the genuinely missing branches instead of duplicating:
+  - `MediaSearchServiceTest.search_returnsEmptyListWhenResultsFieldIsNull` — `TmdbMultiSearchResponse(null)` hits the `response.results() == null` guard (only `response == null` and empty-list were covered).
+  - `MediaDetailsServiceTest.getDetails_throwsNotFoundWhenTmdbBodyIsNull` — null body → `MediaNotFoundException` via the `response == null` guard (previously only the HTTP 404 path was tested).
+  - `getDetails_returnsEmptyGenresWhenTmdbGenresAreNull` — `genres()==null` → empty `genres()`/`genreIds()`.
+  - `getDetails_returnsEmptyWatchProvidersWhenAppendMissing` — `watch/providers` absent (null) → empty providers.
+  - `getDetails_returnsEmptyWatchProvidersWhenBrazilHasNoFlatrate` — BR present but `flatrate()==null` → empty providers.
+- Files changed: `api/src/test/java/com/app/media/MediaSearchServiceTest.java`, `api/src/test/java/com/app/media/MediaDetailsServiceTest.java`, `scripts/ralph/prd.json`.
 - **Learnings for future iterations:**
-  - Charts (bar chart, donut, genre bars from US-006) are NOT yet in `DashboardScreen.tsx` — this story only covers the KPI row per its acceptance criteria; US-006 should extend the same file/screen, reusing `stats.monthlySeries`/`stats.topGenres`/`stats.moviePercentage`/`stats.tvPercentage` already fetched here.
-  - Verification for this story was `npx tsc --noEmit`, `npx tsc -b` (production build typecheck), and `npx eslint` on the changed files only (the full `npx eslint .` has 3 pre-existing failures in `MediaDetailModal.tsx`, `WatchModal.tsx`, `components/ui/button.tsx` unrelated to this change — don't mistake those for something this story broke). Could NOT get a live browser render: `npm run dev` fails on a `rolldown` native-binding resolution bug (see `client/CLAUDE.md`), and there's no `chromium-cli`/Playwright browser available in this sandbox to drive one even if the dev server worked. Manual browser verification is needed before this is fully trusted.
-  - If a future iteration manages to fix the `npm run dev` binding issue, it'd be worth re-verifying US-001 through US-005 in a real browser too, since none of them have had one yet.
+  - `TmdbMediaDetailsResponse` is an 11-arg record: `(long id, String title, String name, release_date, first_air_date, poster_path, overview, List<TmdbGenre> genres, vote_average, Integer runtime, watch/providers)`. `title` vs `name` are separate positional args (movie uses `title`, TV uses `name`); `watchProviders` is the LAST arg and may be null when `append_to_response=watch/providers` returns nothing.
+  - `MediaDetailsService` has two independent null-guards worth covering separately: null HTTP body → `MediaNotFoundException` (distinct from the 404 `HttpClientErrorException.NotFound` path), and null `genres`/`watchProviders`/`flatrate` → empty lists (never NPE).
+  - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5+Mockito with `mock(RestClient.class, RETURNS_DEEP_STUBS)`, mirroring the existing files exactly.
+---
+
+## 2026-07-22 - US-003
+- Filled tracking-service coverage gaps for US-003. `MediaTrackServiceTest` and `UserReviewServiceTest` already existed (from Epic 4) covering create, delete, upsert-review (create/update/independent per user), and not-found/forbidden errors. Added the genuinely missing cases:
+  - `listByStatusReturnsIndependentReviewsForBothMembers` — `listByStatus(coupleId, null)` returns both members' reviews with independent rating/opinion/name (the "listar retornando reviews dos dois usuarios" AC).
+  - `listByStatusFiltersByStatusWhenProvided` — non-null status routes to `findByCoupleIdAndStatus` (verifies `findByCoupleId` is never called).
+  - `markAsWatchedUpdatesStatusAndExistingReview` and `markAsWatchedAddsReviewWhenUserHasNone` — the "atualizar status" happy paths (only error cases existed before): status → WATCHED, watchedDate → today, review updated-in-place vs newly added.
+  - `addTrackRejectsRatingWhenStatusIsNotWatched` — rating/opinion only allowed with WATCHED (border case).
+- Files changed: `api/src/test/java/com/app/tracking/MediaTrackServiceTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - `CreateMediaTrackRequest` field order is `(tmdbId, mediaType, status, watchedDate, runtime, rating, opinion)` — rating is the 6th arg, NOT the 4th (easy to swap with `watchedDate`/`runtime` and get a silent type mismatch or wrong-slot value). Confirm the record order before constructing it in tests.
+  - `MediaTrackService.toResponse` builds one `ReviewDto` per couple member (user1 + user2 if present) and calls `userRepository.findById(memberId)` for each to resolve the display name — any `listByStatus`/response test must stub `userRepository.findById` for every member id, not just the acting user. Reviews are matched to members by `review.getUser().getId()`, so test users need ids via `ReflectionTestUtils.setField(user, "id", uuid)`.
+  - `markAsWatched` always calls `userRepository.findById(userId)` (even when the user already has a review), so stub it in both the update-existing and add-new paths.
+  - Still no JDK / Maven Central in this sandbox — `mvn test` verification DEFERRED to a JDK 21 env. Tests are standard JUnit5+Mockito mirroring the existing file.
 ---
 
 ## 2026-07-22 - US-006
-- Added the three dashboard charts (monthly bar chart, movie-vs-tv donut, top-5 genre bars) to `DashboardScreen.tsx`, reusing `stats.monthlySeries`/`stats.topGenres`/`stats.moviePercentage`/`stats.tvPercentage` already fetched by US-005 — no new API call needed.
-- Files changed:
-  - `client/src/screens/DashboardScreen.tsx`: added `MONTH_LABELS` (pt-BR month abbreviations), a shared `ChartCard` wrapper, and three chart components (`MonthlyBarsChart`, `MovieTvDonutChart`, `GenreBarsChart`), matching the prototype markup/colors/spacing exactly (`docs/design/claude-design-project/Sessao a Dois.dc.html` lines 235-280): bar heights proportional to `count/max(count)` with `#ffcb2b` fill, donut built with `conic-gradient(#ffcb2b 0 {moviePercentage}%, #ff9e2c {moviePercentage}% 100%)` and an inset circle showing `totalTitles`, genre rows as `%`-width bars over a `rgba(255,255,255,.06)` track. Each chart has its own empty-state message (no titles this year / no genre data) independent of the screen-level `isEmpty` state (which already covers "couple has zero watched titles total").
-  - `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Reinforced controller/web-layer (MockMvc) coverage for US-006. All 5 controllers already had `@WebMvcTest` test classes from prior epics (AuthControllerTest, CoupleControllerTest, MatchControllerTest, MediaControllerTest, MediaTrackControllerTest) covering success + 400/401/404/409/502 and the "protected endpoint returns 401 without JWT" requirement. Filled the genuine gaps instead of duplicating:
+  - MediaTrackControllerTest: the `PATCH /{id}/watch` (markAsWatched) and `PUT /{id}/review` (upsertReview) endpoints had ZERO web-layer coverage. Added markAsWatched happy path (200), 401 (no auth), 404 (ResourceNotFoundException), 400 (invalid rating > 5 via bean validation); upsertReview happy path (200), 401, 403 (AccessDeniedException → 403 via TrackingExceptionHandler), 400 (invalid rating < 1). Also added create 400 for missing @NotNull fields (tmdbId/mediaType) and create 400 for rating-without-WATCHED (service IllegalArgumentException → 400).
+  - MatchControllerTest: added `like_rejectsMissingFieldsWithBadRequest` (empty body → 400 with errors.tmdbId/errors.mediaType) — the MethodArgumentNotValidException path in MatchExceptionHandler was untested (only 200/401/404/409 existed).
+- Files changed: `api/src/test/java/com/app/tracking/MediaTrackControllerTest.java`, `api/src/test/java/com/app/match/MatchControllerTest.java`, `scripts/ralph/prd.json`.
 - **Learnings for future iterations:**
-  - No charting library was added — everything is plain Tailwind divs/conic-gradient, consistent with the PRD's "sem biblioteca de charts externa" requirement and with how the prototype itself is built (inline styles/CSS, no canvas/SVG chart lib).
-  - Bar height uses `Math.max((m.count / maxCount) * 100, 2)` so a month with 0 titles still renders a sliver instead of disappearing entirely; `maxCount` itself is floored at 1 to avoid division by zero when `monthlySeries` is all zeros (but not empty).
-  - Verified with `npx tsc --noEmit`, `npx tsc -b`, and `npx eslint src/screens/DashboardScreen.tsx` from `client/` — all clean, no new errors. `npm run dev` still fails in this sandbox, now with `Cannot find module '../lightningcss.linux-arm64-gnu.node'` (a different native-binding gap than the previously-documented `rolldown` one, same underlying class of problem: optional native deps not resolving under this sandbox's npm/arch). No browser automation tool available either, so this story's "Verify in browser using dev-browser skill" acceptance criterion could NOT be executed — flagging explicitly rather than claiming it was checked.
-  - This was the last story in the Epico 6 PRD (`scripts/ralph/prd.json`) — all six user stories (US-001 through US-006) now have `passes: true`.
+  - `MediaTrackController` has 5 endpoints, not 3: `GET /api/tracking` (list), `POST` (create), `PATCH /{id}/watch` (markAsWatched), `PUT /{id}/review` (upsertReview), `DELETE /{id}`, plus `GET /stats`. The two mutation endpoints (watch/review) were the coverage blind spot.
+  - Error → HTTP status mapping is per-feature via `@RestControllerAdvice(basePackages=...)`: `TrackingExceptionHandler` maps ResourceNotFoundException→404, AccessDeniedException→403, IllegalArgumentException→400, MethodArgumentNotValidException→400 (body `{message:"dados invalidos", errors:{field:msg}}`). `MatchExceptionHandler` mirrors the validation shape and maps TitleAlreadyTrackedException→409.
+  - `markAsWatched` service signature is `(trackId, coupleId, userId, WatchRequest)`; `upsertReview` is `(trackId, userId, coupleId, UpsertReviewRequest)` — the middle two args are swapped between the two, easy to get wrong when stubbing.
+  - Bean validation (`@Valid @RequestBody`) runs BEFORE the controller body, so a 400-validation test must NOT stub `coupleService.getCurrentCouple` (that call is never reached). `@MockitoBean` is lenient (no strict-stubbing failure), but leaving unused stubs is misleading — omit them.
+  - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard `@WebMvcTest` + `@Import(SecurityConfig.class)` + `SecurityMockMvcRequestPostProcessors.authentication(...)`, mirroring the existing files exactly.
+---
+
+## 2026-07-22 - US-007
+- Reinforced @DataJpaTest coverage for the dashboard stats/aggregation queries. All three AC-named queries were already covered by prior epics: `sumRuntimeByCoupleIdAndStatusAndMediaType` (total de horas de filmes), `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` (media de notas), `countGenreOccurrencesByCoupleIdAndStatus` (generos mais vistos), plus the month-grouped series. Filled the genuine gaps instead of duplicating:
+  - `MediaTrackRepositoryTest.sumRuntimeIgnoresNullRuntimesButStillSumsTheRest` — a WATCHED movie with null runtime mixed with non-null ones: SQL SUM skips the null and COALESCE only kicks in for the all-null case (previously only "all rows have runtime" and "no rows" were tested).
+  - `countGenreOccurrencesExcludesNonWatchedTracks` — genre occurrences from WANT_TO_SEE/WATCHING tracks must NOT be counted (status scoping of the genre join was untested; all prior genre rows were WATCHED).
+  - `countByCoupleIdAndStatusGroupedByMonthExcludesOtherStatuses` — month grouping ignores non-WATCHED tracks in the same month/year (only cross-year and cross-couple exclusion were tested before).
+  - `UserReviewRepositoryTest.averageRatingIncludesBothMembersIndependentReviewsOfTheSameTrack` — the "media de notas por usuario" AC: two members each review the SAME watched track (5 and 3), both count → avg 4.0 (prior tests only had one review per track).
+- Refactored `MediaTrackRepositoryTest` to add a `trackWithStatus(...)` helper; `watchedTrack(...)` now delegates to it so non-WATCHED tracks can be persisted for the status-scoping tests.
+- Files changed: `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java`, `api/src/test/java/com/app/tracking/UserReviewRepositoryTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - The stats queries have TWO layers of tests: unit (`StatsServiceTest`, mocks the repos + asserts DTO composition/rounding/zero-fill) and integration (`MediaTrackRepositoryTest`/`UserReviewRepositoryTest`, real H2 via @DataJpaTest). US-007 is the @DataJpaTest layer; the mock layer already existed.
+  - The genre aggregate joins `mt.genreIds` (an @ElementCollection → `media_track_genre` table). Status/couple filters live on the parent `MediaTrack`, so status scoping is a real branch worth asserting on the join query, not just on the flat count queries.
+  - `MediaTrack` has no public status setter used in tests here; construct with the desired status via `new MediaTrack(couple, tmdbId, mediaType, status)` — the ctor takes status as the 4th arg. `System.nanoTime()` is the existing convention for unique per-track tmdbId in these repo tests.
+  - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent, `./mvnw` cannot download Maven) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5 + @DataJpaTest + AssertJ (`singleElement()`, `isCloseTo(..., within(...))`) mirroring the existing files exactly.
+---
+
+## 2026-07-22 - US-008
+- Created `docker-compose-prod.yml` at repo root (production compose for the VPS).
+  - Services: `db` (postgres:17-alpine) and `api` (built from ./api).
+  - `db`: named volume `postgres-data-prod` for persistence; port NOT published to the host; only on the internal network. `restart: always`. Healthcheck `pg_isready` (uses `$${POSTGRES_USER}`/`$${POSTGRES_DB}` so compose doesn't interpolate at parse time).
+  - `api`: `restart: always`; publishes `${API_PORT:-8085}:8080` on host (configurable); `depends_on: db condition: service_healthy`; TCP healthcheck via bash `/dev/tcp` (no Actuator). Env vars mirror the dev compose but ALL sensitive values come from `${...}` with `:?` fail-fast (no hardcode): POSTGRES_DB/USER/PASSWORD, JWT_SECRET, CORS_ALLOWED_ORIGIN, TMDB_API_KEY. DB_URL points at service `db` (jdbc:postgresql://db:5432/${POSTGRES_DB}).
+  - Dedicated internal bridge network `sessao-internal`; both services attached.
+- Files changed: `docker-compose-prod.yml` (new), `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - No docker binary in this sandbox, so `docker compose -f docker-compose-prod.yml config` could not be run here — validation DEFERRED to a Docker host. The file follows the dev compose's proven shape, so risk is low.
+  - US-009 (.env.example) must document the NEW prod var names this compose introduced: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, API_PORT, plus JWT_SECRET, CORS_ALLOWED_ORIGIN, TMDB_API_KEY and the domain. The current .env.example only lists TMDB_API_KEY.
+  - The real `.env` at repo root currently holds a real TMDB token and is git-ignored (`.gitignore`: `.env`, `.env.*`, `!.env.example`) — US-009 just needs to confirm/extend that and add placeholders, not touch the real secret.
+---
+
+## 2026-07-23 - US-009
+- Expanded root `.env.example` to document ALL variables (was TMDB_API_KEY only) with placeholder values (no real secrets): POSTGRES_DB/USER/PASSWORD, JWT_SECRET, JWT_EXPIRATION_DAYS (optional, default 7), CORS_ALLOWED_ORIGIN, DOMAIN, TMDB_API_KEY, API_PORT. Grouped and commented so it covers both dev and prod compose usage.
+- `.gitignore` already satisfied every AC and was left unchanged: `.env` / `.env.*` / `!.env.example`. Verified with `git check-ignore`: `.env` IGNORED, `.env.production` IGNORED, `client/.env.production` IGNORED, `client/.env.local` IGNORED; `.env.example` and `client/.env.example` remain tracked (re-included by `!.env.example` for the root; client one is not matched at that path).
+- Confirmed no real secret is in any versioned file: `git ls-files | xargs grep` for the real TMDB token prefix (`eyJhbGciOiJIUzI1NiJ9`) returns nothing — the real token lives only in the git-ignored `.env`.
+- Files changed: `.env.example`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - `.env.*` in `.gitignore` matches by basename at ANY depth, so `client/.env.production` is already ignored without a client-specific rule; the `!.env.example` negation only re-includes the root `.env.example` (path-anchored to repo root), while `client/.env.example` is tracked simply because nothing ignores that exact path.
+  - US-010 needs `client/.env.production` with `VITE_API_URL=https://sessaoadois.luisgosampaio.com` (pure host, no `/api`, no port) — that file will be git-ignored (`.env.*`), which is fine; it's a build-time local file. `client/.env.example` currently still points at `http://localhost:8080`.
+  - Verification of `git check-ignore` / grep is runnable in this sandbox (unlike JDK/Docker steps); this story had no deferred checks.
+---
+
+## 2026-07-23 - US-010
+- Configured the frontend production API base URL for the deploy build.
+  - Created `client/.env.production` with `VITE_API_URL=https://sessaoadois.luisgosampaio.com` (pure host, no `/api`, no port) — axios prepends `/api/...` and SockJS appends `/ws`, so the base must be the bare host. This file is git-ignored (`.env.*`), so it is a build-time local file (confirmed with `git check-ignore .env.production`).
+  - Documented the prod value in the TRACKED `client/.env.example` (dev line kept, prod line commented) so the git-ignored `.env.production` value is discoverable for future builders/deploys.
+- Verification (all RAN in-sandbox this time):
+  - `npx tsc --noEmit` → exit 0 (typecheck passes).
+  - `npx vite build` → SUCCESS after installing the arch native bindings `--no-save` (lightningcss + rolldown + @tailwindcss/oxide, linux-arm64-gnu) in a single `npm i`. Output: `dist/` (index.html + assets). This supersedes the client/CLAUDE.md claim that the build can't run here.
+  - Bundle grep: prod host `sessaoadois.luisgosampaio.com` PRESENT in `dist/assets/index-*.js`; dev API port `8080`/`8085` ABSENT (grep returns nothing). The only `localhost` strings are sockjs-client library fallbacks (`http://localhost`, `http://localhost:80`), not the configured API URL — AC intent (no dev API endpoint) satisfied.
+- Files changed (tracked): `client/.env.example`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`. (`client/.env.production` and `client/dist/` are git-ignored and not committed.)
+- **Learnings for future iterations:**
+  - The vite build DOES run in this sandbox once the three linux-arm64-gnu native bindings are installed together — see the new Codebase Patterns bullet. Don't blindly trust the older "build can't run" note in client/CLAUDE.md.
+  - `client/.gitignore` ignores `dist` and `.env.*` (with `!.env.example`), so a frontend prod-config story's real committed delta is just `.env.example` + the ralph bookkeeping files; the `.env.production` artifact lives only on the build machine (produced by the deploy in US-012).
+  - US-011 (Nginx conf) and US-012 (deploy.sh) are the remaining stories; both are pure artifacts (config file / shell script) with manual VPS execution deferred — no build/runtime verification blocked in-sandbox beyond `bash -n` syntax check for US-012.
+
+## 2026-07-23 - US-011
+- Adicionada a config do server block do Nginx versionada em `deploy/nginx/sessaoadois.luisgosampaio.com.conf` (novo diretorio `deploy/nginx/`).
+  - `server_name sessaoadois.luisgosampaio.com`; `root /var/www/sessaoadois`; `index index.html`.
+  - `location /` com fallback SPA `try_files $uri $uri/ /index.html`.
+  - `location /api/` com `proxy_pass http://localhost:8085` SEM barra final (preserva o prefixo /api dos controllers Spring) + headers X-Forwarded-*.
+  - `location /ws/` com `proxy_pass http://localhost:8085/ws/`, `proxy_http_version 1.1`, headers Upgrade/Connection e `proxy_read_timeout`/`proxy_send_timeout` 3600.
+  - Cabecalho do arquivo documenta os passos manuais na VPS: copiar para sites-available, symlink em sites-enabled, `nginx -t`, reload e `sudo certbot --nginx -d sessaoadois.luisgosampaio.com`.
+- Files changed: `deploy/nginx/sessaoadois.luisgosampaio.com.conf` (novo), `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - A API em producao e publicada em `localhost:8085` no host da VPS (docker-compose-prod.yml: `${API_PORT:-8085}:8080`), entao os `proxy_pass` do Nginx apontam para 8085, nao 8080.
+  - Regra chave do proxy: `/api/` SEM barra final no `proxy_pass` (preserva `/api`), enquanto `/ws/` COM `/ws/` final. Confundir isso quebra o roteamento dos controllers ou do handshake SockJS.
+  - Este e um artefato de config puro; nao ha verificacao runtime possivel no sandbox (Nginx nao instalado). O bloco 443/SSL e o redirect 80->443 sao adicionados pelo certbot na VPS, entao o arquivo versionado so define o server block :80.
+  - Story restante: US-012 (scripts/deploy.sh) — artefato shell verificavel apenas com `bash -n`.
+---
+
+## 2026-07-23 - US-012
+- Criado `scripts/deploy.sh`: script unico de deploy de producao com `set -euo pipefail`.
+  - Ordem exata das etapas: [1/3] `bun run build` em `client/` -> [2/3] SCP de `client/dist/.` para `${SSH_USER}@${SSH_HOST}:${REMOTE_WEB_ROOT}/` -> [3/3] SSH rodando `cd ${REMOTE_APP_DIR} && docker compose -f docker-compose-prod.yml up -d --build`.
+  - `SSH_HOST`/`SSH_USER` obrigatorias (fail-fast via `: "${VAR:?...}"`); `SSH_PORT` (default 22), `REMOTE_APP_DIR` (default ~/sessao-a-dois) e `REMOTE_WEB_ROOT` (default /var/www/sessaoadois) com defaults. Nenhum valor hardcoded — o script carrega o `.env` da raiz (git-ignorado) com `set -a; source; set +a` sem sobrescrever o ambiente ja exportado.
+  - Cabecalho documenta pre-requisitos (chave SSH sem senha, `bun` local, repo+`.env`+docker na VPS, web root gravavel) e uso.
+  - `chmod +x` aplicado.
+- Verificacao: `bash -n scripts/deploy.sh` -> SYNTAX OK. shellcheck nao instalado no sandbox (pulado). A execucao real do deploy depende de acesso a VPS e NAO e feita pelo Ralph (artefato = script parametrizado).
+- Files changed: `scripts/deploy.sh` (novo), `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - `REMOTE_WEB_ROOT` default `/var/www/sessaoadois` casa com o `root` do server block em `deploy/nginx/` e com o passo 3 documentado la ("client/dist -> /var/www/sessaoadois. Veja scripts/deploy.sh"). Mantenha os tres em sincronia se o caminho mudar.
+  - O `~` em `REMOTE_APP_DIR` so expande no shell REMOTO (passado unquoted em `cd ${REMOTE_APP_DIR}` dentro do comando ssh); nao tente expandir localmente.
+  - Ultima story do Epico 7; todas as demais ja estavam verdes. Verificacoes de JDK/Docker/Nginx permanecem DEFERRED a ambientes reais (sandbox nao tem esses binarios); aqui so o `bash -n` era executavel e passou.
 ---

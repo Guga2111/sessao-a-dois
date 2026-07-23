@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -124,6 +126,134 @@ class MediaTrackServiceTest {
 
 		assertThatThrownBy(() -> mediaTrackService.addTrack(coupleId, userId, request))
 			.isInstanceOf(ResourceNotFoundException.class);
+	}
+
+	@Test
+	void listByStatusReturnsIndependentReviewsForBothMembers() {
+		UUID coupleId = UUID.randomUUID();
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = coupleWithMembers(user1Id, user2Id);
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+
+		User user1 = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user1, "id", user1Id);
+		User user2 = new User("Bob", "bob@example.com", "hash");
+		ReflectionTestUtils.setField(user2, "id", user2Id);
+
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
+		track.getReviews().add(new UserReview(track, user1, 5, "Ana adorou"));
+		track.getReviews().add(new UserReview(track, user2, 2, "Bob nem tanto"));
+
+		when(mediaTrackRepository.findByCoupleId(coupleId)).thenReturn(List.of(track));
+		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
+		when(userRepository.findById(user2Id)).thenReturn(Optional.of(user2));
+
+		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, null);
+
+		assertThat(responses).hasSize(1);
+		List<ReviewDto> reviews = responses.get(0).reviews();
+		assertThat(reviews).hasSize(2);
+		assertThat(reviews)
+			.anySatisfy(review -> {
+				assertThat(review.userId()).isEqualTo(user1Id);
+				assertThat(review.userName()).isEqualTo("Ana");
+				assertThat(review.rating()).isEqualTo(5);
+				assertThat(review.opinion()).isEqualTo("Ana adorou");
+			})
+			.anySatisfy(review -> {
+				assertThat(review.userId()).isEqualTo(user2Id);
+				assertThat(review.userName()).isEqualTo("Bob");
+				assertThat(review.rating()).isEqualTo(2);
+				assertThat(review.opinion()).isEqualTo("Bob nem tanto");
+			});
+	}
+
+	@Test
+	void listByStatusFiltersByStatusWhenProvided() {
+		UUID coupleId = UUID.randomUUID();
+		UUID user1Id = UUID.randomUUID();
+		Couple couple = coupleWithMembers(user1Id, null);
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user1 = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user1, "id", user1Id);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+
+		when(mediaTrackRepository.findByCoupleIdAndStatus(coupleId, MediaStatus.WANT_TO_SEE))
+			.thenReturn(List.of(track));
+		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
+
+		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, MediaStatus.WANT_TO_SEE);
+
+		assertThat(responses).hasSize(1);
+		assertThat(responses.get(0).status()).isEqualTo(MediaStatus.WANT_TO_SEE);
+		assertThat(responses.get(0).reviews()).hasSize(1);
+		verify(mediaTrackRepository, never()).findByCoupleId(any(UUID.class));
+	}
+
+	@Test
+	void markAsWatchedUpdatesStatusAndExistingReview() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user, "id", userId);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		track.getReviews().add(new UserReview(track, user, 2, "Regular"));
+		WatchRequest request = new WatchRequest(5, "Melhorou muito");
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(mediaTrackRepository.save(any(MediaTrack.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		MediaTrackResponse response = mediaTrackService.markAsWatched(trackId, coupleId, userId, request);
+
+		assertThat(response.status()).isEqualTo(MediaStatus.WATCHED);
+		assertThat(response.watchedDate()).isEqualTo(LocalDate.now());
+		assertThat(track.getStatus()).isEqualTo(MediaStatus.WATCHED);
+		assertThat(track.getReviews()).hasSize(1);
+		assertThat(track.getReviews().get(0).getRating()).isEqualTo(5);
+		assertThat(track.getReviews().get(0).getOpinion()).isEqualTo("Melhorou muito");
+	}
+
+	@Test
+	void markAsWatchedAddsReviewWhenUserHasNone() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user, "id", userId);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		WatchRequest request = new WatchRequest(4, "Curti");
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(mediaTrackRepository.save(any(MediaTrack.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		mediaTrackService.markAsWatched(trackId, coupleId, userId, request);
+
+		assertThat(track.getStatus()).isEqualTo(MediaStatus.WATCHED);
+		assertThat(track.getReviews()).hasSize(1);
+		assertThat(track.getReviews().get(0).getUser().getId()).isEqualTo(userId);
+		assertThat(track.getReviews().get(0).getRating()).isEqualTo(4);
+		assertThat(track.getReviews().get(0).getOpinion()).isEqualTo("Curti");
+	}
+
+	@Test
+	void addTrackRejectsRatingWhenStatusIsNotWatched() {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
+			603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, 5, null);
+
+		assertThatThrownBy(() -> mediaTrackService.addTrack(coupleId, userId, request))
+			.isInstanceOf(IllegalArgumentException.class);
+
+		verify(mediaTrackRepository, never()).save(any());
 	}
 
 	@Test

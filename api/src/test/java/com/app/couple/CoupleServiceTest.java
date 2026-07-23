@@ -83,6 +83,14 @@ class CoupleServiceTest {
 	}
 
 	@Test
+	void returnsEmptyWhenUserHasNoCouple() {
+		UUID userId = UUID.randomUUID();
+		when(coupleRepository.findByUser1IdOrUser2Id(userId, userId)).thenReturn(Optional.empty());
+
+		assertThat(coupleService.getCurrentCouple(userId)).isEmpty();
+	}
+
+	@Test
 	void joinsCoupleWithValidInviteCode() {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();

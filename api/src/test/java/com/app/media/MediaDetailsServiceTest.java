@@ -76,6 +76,71 @@ class MediaDetailsServiceTest {
 	}
 
 	@Test
+	void getDetails_throwsNotFoundWhenTmdbBodyIsNull() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMediaDetailsResponse.class))
+			.thenReturn(null);
+
+		MediaDetailsService service = new MediaDetailsService(restClient);
+
+		assertThatThrownBy(() -> service.getDetails(MediaType.MOVIE, 603))
+			.isInstanceOf(MediaNotFoundException.class);
+	}
+
+	@Test
+	void getDetails_returnsEmptyGenresWhenTmdbGenresAreNull() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		TmdbMediaDetailsResponse response = new TmdbMediaDetailsResponse(
+			603, "Matrix", null, "1999-03-30", null, "/poster-matrix.jpg", "Um hacker descobre a verdade.",
+			null, 8.2, 136, new TmdbWatchProvidersResponse(Map.of()));
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMediaDetailsResponse.class))
+			.thenReturn(response);
+
+		MediaDetailsService service = new MediaDetailsService(restClient);
+		MediaDetails details = service.getDetails(MediaType.MOVIE, 603);
+
+		assertThat(details.genres()).isEmpty();
+		assertThat(details.genreIds()).isEmpty();
+	}
+
+	@Test
+	void getDetails_returnsEmptyWatchProvidersWhenAppendMissing() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		TmdbGenre action = new TmdbGenre(28, "Acao");
+		TmdbMediaDetailsResponse response = new TmdbMediaDetailsResponse(
+			603, "Matrix", null, "1999-03-30", null, "/poster-matrix.jpg", "Um hacker descobre a verdade.",
+			List.of(action), 8.2, 136, null);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMediaDetailsResponse.class))
+			.thenReturn(response);
+
+		MediaDetailsService service = new MediaDetailsService(restClient);
+		MediaDetails details = service.getDetails(MediaType.MOVIE, 603);
+
+		assertThat(details.watchProviders()).isEmpty();
+	}
+
+	@Test
+	void getDetails_returnsEmptyWatchProvidersWhenBrazilHasNoFlatrate() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		TmdbGenre action = new TmdbGenre(28, "Acao");
+		TmdbWatchProviderCountry brazilWithoutFlatrate = new TmdbWatchProviderCountry(null);
+		TmdbWatchProvidersResponse watchProviders = new TmdbWatchProvidersResponse(Map.of("BR", brazilWithoutFlatrate));
+		TmdbMediaDetailsResponse response = new TmdbMediaDetailsResponse(
+			603, "Matrix", null, "1999-03-30", null, "/poster-matrix.jpg", "Um hacker descobre a verdade.",
+			List.of(action), 8.2, 136, watchProviders);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMediaDetailsResponse.class))
+			.thenReturn(response);
+
+		MediaDetailsService service = new MediaDetailsService(restClient);
+		MediaDetails details = service.getDetails(MediaType.MOVIE, 603);
+
+		assertThat(details.watchProviders()).isEmpty();
+	}
+
+	@Test
 	void getDetails_throwsNotFoundWhenTmdbIdDoesNotExist() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		HttpClientErrorException notFound = HttpClientErrorException.create(

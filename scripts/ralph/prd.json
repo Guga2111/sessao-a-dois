@@ -1,110 +1,177 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/epico-6-dashboard-analitico",
-  "description": "Epico 6 - Dashboard Analitico: gera estatisticas de consumo do casal (tempo juntos, filmes vs series, generos favoritos, evolucao mensal e nota media) via endpoint GET /api/tracking/stats e renderiza a DashboardScreen fiel ao prototipo. Estatisticas consideram apenas titulos WATCHED; horas somam apenas filmes.",
+  "branchName": "ralph/epico-7-refinamento-e-deploy",
+  "description": "Epico 7 - Refinamento e Deploy: reforco de cobertura de testes do backend e artefatos de producao (docker-compose-prod, config Nginx, script de deploy, gestao de segredos) para publicar em sessaoadois.luisgosampaio.com. Passos que exigem acesso a VPS (symlink Nginx, certbot, execucao do deploy) sao manuais e ficam documentados nos artefatos.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Persistir generos do titulo no MediaTrack",
-      "description": "Como desenvolvedor, preciso armazenar os genre_ids de cada titulo ao adiciona-lo, para que as estatisticas de genero possam ser calculadas sem depender de chamadas externas a cada carregamento do dashboard.",
+      "title": "Configurar JaCoCo no build Maven",
+      "description": "Como desenvolvedor, quero JaCoCo configurado para medir cobertura de testes a cada build.",
       "acceptanceCriteria": [
-        "Adicionar campo genreIds ao MediaTrack (lista de Integer via @ElementCollection em tabela media_track_genre); schema criado automaticamente por spring.jpa.hibernate.ddl-auto=update, sem migration manual",
-        "Ao criar um MediaTrack (fluxo de tracking e fluxo de match), buscar os genre_ids do titulo no TMDB via com.app.media e persisti-los",
-        "Se o TMDB nao retornar generos, salvar o titulo com lista de generos vazia sem bloquear a criacao",
-        "runtime continua sendo persistido apenas para filmes (comportamento atual mantido)",
-        "Testes unitarios cobrindo a persistencia dos genreIds na criacao",
-        "Tests pass",
-        "Typecheck passes"
+        "Adicionar jacoco-maven-plugin em api/pom.xml com goals prepare-agent e report ligados a fase test",
+        "Rodar `mvn test` em api/ gera relatorio em api/target/site/jacoco/index.html",
+        "`mvn test` passa (testes existentes verdes)"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Implemented; could not run ./mvnw test in this sandbox (no JDK/Maven Central) — verified by manual review only."
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Consultas de agregacao no repositorio",
-      "description": "Como desenvolvedor, preciso de consultas JPA/SQL que agreguem os dados do casal, para que o service monte as estatisticas de forma eficiente.",
+      "title": "Testes unitarios dos services user e couple",
+      "description": "Como desenvolvedor, quero testes para UserService e CoupleService cobrindo happy path e erros.",
       "acceptanceCriteria": [
-        "Consulta: soma de runtime dos titulos WATCHED do tipo MOVIE do casal (total de minutos assistidos)",
-        "Consulta: contagem de titulos WATCHED por media_type (filmes vs series)",
-        "Consulta: contagem de titulos WATCHED agrupada por mes do watched_date para o ano corrente",
-        "Consulta: contagem de ocorrencias por genre_id entre os titulos WATCHED do casal",
-        "Consulta: nota media do casal = media de rating de todas as UserReview vinculadas a MediaTrack WATCHED do casal",
-        "Todas as consultas sao escopadas por couple_id (nunca vazam dados de outro casal)",
-        "Testes de repositorio (@DataJpaTest) validando cada consulta",
-        "Tests pass",
-        "Typecheck passes"
+        "UserService: teste de registro (happy path) e ao menos um caso de erro (ex.: email duplicado)",
+        "CoupleService: teste de geracao de invite_code, join com sucesso e erro de invite_code invalido/ja usado",
+        "Testes usam JUnit 5 + Mockito, sem banco real",
+        "`mvn test` passa"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Implemented; could not run ./mvnw test in this sandbox (no JDK/Maven Central) — verified by manual review only."
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "StatsService monta o DTO de estatisticas",
-      "description": "Como desenvolvedor, preciso de um service que combine as consultas em um objeto de resposta pronto para o frontend, incluindo os nomes dos generos em pt-BR.",
+      "title": "Testes unitarios do service de tracking",
+      "description": "Como desenvolvedor, quero testes para o service de MediaTrack/UserReview cobrindo CRUD e reviews individuais.",
       "acceptanceCriteria": [
-        "StatsService calcula: tempo total (horas + minutos) de filmes, total de horas de filmes assistidos no mes corrente, contagem/percentual de filmes vs series, total de titulos, nota media do casal (1 casa decimal)",
-        "Resolve genre_id para nome em pt-BR usando um mapa estatico embutido no backend (Map<Integer,String> com generos de filmes e series do TMDB); sem chamadas externas; IDs sem nome correspondente sao ignorados",
-        "Retorna genero favorito (mais frequente) e a lista dos top 5 generos com percentual",
-        "Retorna serie mensal de titulos por mes do ano corrente",
-        "Casal sem titulos WATCHED retorna zeros/listas vazias sem erro (estado vazio)",
-        "Testes unitarios com Mockito cobrindo casos com e sem dados",
-        "Tests pass",
-        "Typecheck passes"
+        "Testes cobrem criar MediaTrack, listar (retornando reviews dos dois usuarios), atualizar status e deletar",
+        "UserReview: rating (1-5) e opinion armazenados de forma independente por usuario",
+        "Ao menos um caso de erro/borda (ex.: track inexistente, rating invalido)",
+        "`mvn test` passa"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Implemented; could not run ./mvnw test in this sandbox (no JDK/Maven Central) — verified by manual review only."
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Endpoint GET /api/tracking/stats",
-      "description": "Como usuario autenticado, quero acessar as estatisticas do meu casal por uma requisicao, para que o dashboard possa exibi-las.",
+      "title": "Testes unitarios do service de match",
+      "description": "Como desenvolvedor, quero testes para MatchService cobrindo like e criacao automatica de match.",
       "acceptanceCriteria": [
-        "GET /api/tracking/stats retorna 200 com o DTO de estatisticas do casal do usuario autenticado (couple derivado do JWT, nao de parametro)",
-        "Rota exige autenticacao (401 sem token valido)",
-        "Usuario sem casal vinculado recebe 200 com estado vazio (zeros/listas vazias)",
-        "Teste de controller (@WebMvcTest/MockMvc) cobrindo sucesso e acesso nao autenticado",
-        "Tests pass",
-        "Typecheck passes"
+        "Teste: registrar um like persiste MatchLike",
+        "Teste: quando o parceiro ja curtiu o mesmo tmdb_id, cria MediaTrack com status WANT_TO_SEE e chama messagingTemplate.convertAndSend para /topic/couple/{id}/match",
+        "Teste: like duplicado tratado sem erro",
+        "`mvn test` passa"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Implemented; could not run ./mvnw test in this sandbox (no JDK/Maven Central) — verified by manual review only."
+      "notes": "Ja existe api/src/test/java/com/app/match/MatchServiceTest.java; complementar cobrindo os casos faltantes em vez de duplicar."
     },
     {
       "id": "US-005",
-      "title": "DashboardScreen - KPIs",
-      "description": "Como usuario, quero ver os indicadores principais do casal (tempo juntos, filmes vs series, genero favorito, total assistido) para ter um panorama rapido.",
+      "title": "Testes unitarios do service de media (TMDB) com Mockito",
+      "description": "Como desenvolvedor, quero testes que simulem respostas do TMDB para garantir resiliencia.",
       "acceptanceCriteria": [
-        "DashboardScreen.tsx busca GET /api/tracking/stats via Axios com JWT ao montar",
-        "Renderiza os 4 cards de KPI conforme o prototipo: Tempo juntos (horas+minutos + delta do mes), Filmes vs Series (% + barra + contagens), Genero favorito, Total assistido (n de titulos + nota media do casal)",
-        "Estados de carregamento e vazio tratados sem quebrar quando nao ha dados",
-        "Segue a skill frontend-design e o estilo visual do prototipo (cards #161513, acentos #ffcb2b/#ff9e2c, tipografia Bricolage Grotesque)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Testes mockam o RestClient/respostas do TMDB (sem chamada externa real)",
+        "Cobrir parsing de resposta valida de busca e de detalhes",
+        "Cobrir falha/timeout do TMDB (erro tratado sem quebrar a aplicacao)",
+        "`mvn test` passa"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Implemented DashboardScreen.tsx with the 4 KPI cards + /dashboard route + nav link. tsc/eslint pass. Could not run the Vite dev server in this sandbox (broken rolldown native binding, unrelated to this change) or the backend (no JDK) to do a live browser check — see progress.txt."
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "DashboardScreen - Graficos",
-      "description": "Como usuario, quero ver os graficos de titulos por mes, filmes vs series (donut) e generos mais assistidos, para entender minha evolucao e preferencias.",
+      "title": "Testes de controllers com MockMvc",
+      "description": "Como desenvolvedor, quero testes de camada web validando status HTTP de sucesso e erro.",
       "acceptanceCriteria": [
-        "Grafico de barras 'Titulos por mes' alimentado pela serie mensal do backend (altura das barras proporcional aos valores)",
-        "Donut 'Filmes vs Series' refletindo os percentuais reais via conic-gradient com legenda de contagens/percentual",
-        "Barras de 'Generos mais assistidos' (top 5) com percentuais reais",
-        "Todos os graficos usam Tailwind CSS conforme o design original, sem biblioteca de charts externa",
-        "Estado vazio tratado (mensagem quando nao ha titulos assistidos)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Testes MockMvc para AuthController, CoupleController, MediaTrackController, MatchController e MediaController",
+        "Asserir codigos de sucesso e de erro (400/401/404) conforme aplicavel",
+        "Endpoints protegidos retornam 401 sem JWT valido",
+        "`mvn test` passa"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Implemented monthly bar chart, movie/tv donut, and top-5 genre bars in DashboardScreen.tsx with Tailwind only (no chart library). tsc/eslint pass. Could not run the Vite dev server (broken lightningcss native binding in this sandbox) or a browser to verify visually."
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Testes de repository das queries de estatisticas",
+      "description": "Como desenvolvedor, quero testes das queries customizadas usadas pelo dashboard.",
+      "acceptanceCriteria": [
+        "@DataJpaTest cobrindo as queries de stats (total de horas de filmes, media de notas por usuario, generos mais vistos)",
+        "Popular dados de teste e asserir os resultados das queries",
+        "`mvn test` passa"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Criar docker-compose-prod.yml",
+      "description": "Como responsavel pelo deploy, quero um compose de producao com api e db em rede isolada e dados persistentes.",
+      "acceptanceCriteria": [
+        "docker-compose-prod.yml na raiz define servicos api (Spring Boot) e db (PostgreSQL)",
+        "Volume nomeado persiste dados do Postgres; porta do db NAO publicada no host",
+        "Rede interna dedicada; ambos os servicos com restart: always",
+        "Segredos via variaveis ${...} (sem hardcode); api publica a porta 8085 no host (configuravel via env)",
+        "depends_on com healthcheck simples (TCP/porta ou endpoint HTTP existente, sem Spring Boot Actuator)",
+        "`docker compose -f docker-compose-prod.yml config` valida sem erros"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Adicionar .env.example e ignorar segredos no git",
+      "description": "Como responsavel pela seguranca, quero documentar as variaveis sem expor segredos reais.",
+      "acceptanceCriteria": [
+        ".env.example na raiz documenta todas as variaveis (credenciais do DB, JWT_SECRET, TMDB_API_KEY, porta da API, dominio) com valores placeholder (sem valores reais)",
+        ".gitignore exclui .env (e client/.env.production se aplicavel)",
+        "`git check-ignore .env` confirma que esta ignorado",
+        "grep confirma que nenhum segredo real foi commitado nos arquivos versionados"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Configurar env de producao do frontend",
+      "description": "Como desenvolvedor, quero o build de producao apontando para o dominio correto da API.",
+      "acceptanceCriteria": [
+        "client/.env.production define VITE_API_URL=https://sessaoadois.luisgosampaio.com (host puro, sem /api e sem porta)",
+        "`bun run build` em client/ conclui sem erros",
+        "grep confirma que nao ha localhost nem porta de dev no bundle client/dist",
+        "Typecheck passa"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "As chamadas axios ja incluem o prefixo /api/... e o SockJS usa ${VITE_API_URL}/ws; por isso a base e o host puro."
+    },
+    {
+      "id": "US-011",
+      "title": "Adicionar config Nginx do site ao repo",
+      "description": "Como responsavel pelo deploy, quero o server block do Nginx versionado para aplicar na VPS.",
+      "acceptanceCriteria": [
+        "Arquivo deploy/nginx/sessaoadois.luisgosampaio.com.conf commitado no repo",
+        "server_name sessaoadois.luisgosampaio.com; root /var/www/sessaoadois; fallback SPA try_files $uri $uri/ /index.html",
+        "location /api/ com proxy_pass http://localhost:8085 SEM barra final (preserva o prefixo /api dos controllers)",
+        "location /ws/ com proxy_pass http://localhost:8085/ws/, proxy_http_version 1.1, headers Upgrade/Connection e proxy_read_timeout/send_timeout 3600",
+        "Comentario no arquivo documentando os passos manuais na VPS: symlink em sites-enabled, `nginx -t`, reload e `sudo certbot --nginx -d sessaoadois.luisgosampaio.com`"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Passo manual na VPS (symlink + certbot) nao pode ser executado pelo Ralph; o artefato e o arquivo de config + instrucoes. Certbot adiciona o bloco 443/SSL e o redirect 80->443."
+    },
+    {
+      "id": "US-012",
+      "title": "Criar script de deploy",
+      "description": "Como responsavel pelo deploy, quero um script unico que faca build, envie por SCP e suba o backend via SSH.",
+      "acceptanceCriteria": [
+        "scripts/deploy.sh executa em ordem: `bun run build` -> SCP do dist para a VPS -> SSH rodando `docker compose -f docker-compose-prod.yml up -d --build`",
+        "Usa `set -euo pipefail`; falha explicita (exit != 0) se qualquer etapa falhar",
+        "SSH_HOST, SSH_USER, SSH_PORT e caminhos remotos lidos de variaveis de ambiente/.env, sem valores hardcoded",
+        "Cabecalho do script documenta pre-requisitos (chave SSH, .env na VPS) e uso",
+        "`bash -n scripts/deploy.sh` (checagem de sintaxe) passa"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "A execucao real do deploy depende de acesso a VPS e nao e feita pelo Ralph; o artefato e o script parametrizado."
     }
   ]
 }

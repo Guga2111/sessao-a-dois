@@ -17,7 +17,7 @@ Este backlog divide a arquitetura e as regras de negocio em epicos e tarefas inc
 | 8 | Opinion | Separada por usuario |
 | 9 | Fonte do Match | Pesquisa manual do usuario + like |
 | 10 | Destino do Match | Vai direto para lista "Queremos Ver" |
-| 11 | Deploy frontend | SCP para VPS + Nginx como reverse proxy (sessao.luisgosampaio.com) |
+| 11 | Deploy frontend | SCP para VPS + Nginx como reverse proxy (sessaoadois.luisgosampaio.com) |
 | 12 | SSL/HTTPS | Sim, incluir configuracao |
 | 13 | Ordem de execucao | Sequencial (Epico 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7) |
 
@@ -75,7 +75,7 @@ Este backlog divide a arquitetura e as regras de negocio em epicos e tarefas inc
 - [ ] **Task 6.3 (Frontend):** Desenvolver `DashboardScreen.tsx` integrando os dados e construindo os graficos/barras com Tailwind CSS (conforme design original).
 
 ## Epico 7: Refinamento e Deploy (Hostinger VPS)
-**Objetivo:** Preparar a aplicacao para producao. Frontend servido via Nginx como reverse proxy no dominio sessao.luisgosampaio.com.
+**Objetivo:** Preparar a aplicacao para producao. Frontend servido via Nginx como reverse proxy no dominio sessaoadois.luisgosampaio.com.
 
 - [ ] **Task 7.1 (Backend):** Finalizar e validar cobertura de testes unitarios para Services e Controllers.
 - [ ] **Task 7.2 (Infra):** Criar `docker-compose-prod.yml` com rede isolada, banco de dados persistente (volumes) e API.

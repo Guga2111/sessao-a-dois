@@ -61,6 +61,20 @@ class UserReviewRepositoryTest {
 	}
 
 	@Test
+	void averageRatingIncludesBothMembersIndependentReviewsOfTheSameTrack() {
+		Couple couple = persistedCouple();
+		MediaTrack watched = persistedTrack(couple, MediaStatus.WATCHED);
+
+		userReviewRepository.save(new UserReview(watched, persistedUser(), 5, "amei"));
+		userReviewRepository.save(new UserReview(watched, persistedUser(), 3, "gostei"));
+
+		Double average = userReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus(
+				couple.getId(), MediaStatus.WATCHED);
+
+		assertThat(average).isCloseTo(4.0, within(0.001));
+	}
+
+	@Test
 	void averageRatingIsNullWhenCoupleHasNoWatchedReviews() {
 		Couple couple = persistedCouple();
 
