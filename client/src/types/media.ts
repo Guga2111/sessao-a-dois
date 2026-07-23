@@ -15,3 +15,10 @@ export interface MediaDetails extends MediaSearchResult {
   runtime: number | null
   watchProviders: { name: string; logoUrl: string }[]
 }
+
+export interface PendingMatch {
+  tmdbId: number
+  mediaType: MediaType
+  title: string
+  posterUrl: string | null
+}

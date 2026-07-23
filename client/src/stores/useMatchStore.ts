@@ -2,7 +2,9 @@ import { Client, type StompSubscription } from "@stomp/stompjs"
 import SockJS from "sockjs-client"
 import { create } from "zustand"
 
+import { api } from "@/lib/api"
 import { getAuthToken } from "@/lib/authToken"
+import type { PendingMatch } from "@/types/media"
 
 export type MediaType = "MOVIE" | "TV"
 
@@ -18,9 +20,13 @@ interface MatchState {
   connected: boolean
   matchOpen: boolean
   matchData: MatchEvent | null
+  pendingQueue: PendingMatch[]
+  pendingLoading: boolean
   connect: (coupleId: string) => void
   disconnect: () => void
   closeMatch: () => void
+  fetchPending: () => Promise<void>
+  removePending: (tmdbId: number) => void
 }
 
 export const useMatchStore = create<MatchState>((set, get) => ({
@@ -29,6 +35,8 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   connected: false,
   matchOpen: false,
   matchData: null,
+  pendingQueue: [],
+  pendingLoading: false,
 
   connect: (coupleId) => {
     if (get().client) {
@@ -72,5 +80,23 @@ export const useMatchStore = create<MatchState>((set, get) => ({
 
   closeMatch: () => {
     set({ matchOpen: false, matchData: null })
+  },
+
+  fetchPending: async () => {
+    set({ pendingLoading: true })
+    try {
+      const response = await api.get<PendingMatch[]>("/api/match/pending")
+      set({ pendingQueue: response.data })
+    } catch {
+      set({ pendingQueue: [] })
+    } finally {
+      set({ pendingLoading: false })
+    }
+  },
+
+  removePending: (tmdbId) => {
+    set((state) => ({
+      pendingQueue: state.pendingQueue.filter((p) => p.tmdbId !== tmdbId),
+    }))
   },
 }))
