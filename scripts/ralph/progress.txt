@@ -26,3 +26,17 @@
   - All AC for US-002 were already satisfied by prior epics' tests; the story was closed by filling the one missing branch rather than duplicating existing tests.
   - No JDK / Maven Central in this sandbox (`java`/`mvn` absent, `./mvnw` cannot download) — `mvn test` verification is DEFERRED to a JDK 21 env. The added test is standard JUnit5+Mockito and mirrors the existing patterns in the same file.
 ---
+
+## 2026-07-22 - US-003
+- Filled tracking-service coverage gaps for US-003. `MediaTrackServiceTest` and `UserReviewServiceTest` already existed (from Epic 4) covering create, delete, upsert-review (create/update/independent per user), and not-found/forbidden errors. Added the genuinely missing cases:
+  - `listByStatusReturnsIndependentReviewsForBothMembers` — `listByStatus(coupleId, null)` returns both members' reviews with independent rating/opinion/name (the "listar retornando reviews dos dois usuarios" AC).
+  - `listByStatusFiltersByStatusWhenProvided` — non-null status routes to `findByCoupleIdAndStatus` (verifies `findByCoupleId` is never called).
+  - `markAsWatchedUpdatesStatusAndExistingReview` and `markAsWatchedAddsReviewWhenUserHasNone` — the "atualizar status" happy paths (only error cases existed before): status → WATCHED, watchedDate → today, review updated-in-place vs newly added.
+  - `addTrackRejectsRatingWhenStatusIsNotWatched` — rating/opinion only allowed with WATCHED (border case).
+- Files changed: `api/src/test/java/com/app/tracking/MediaTrackServiceTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - `CreateMediaTrackRequest` field order is `(tmdbId, mediaType, status, watchedDate, runtime, rating, opinion)` — rating is the 6th arg, NOT the 4th (easy to swap with `watchedDate`/`runtime` and get a silent type mismatch or wrong-slot value). Confirm the record order before constructing it in tests.
+  - `MediaTrackService.toResponse` builds one `ReviewDto` per couple member (user1 + user2 if present) and calls `userRepository.findById(memberId)` for each to resolve the display name — any `listByStatus`/response test must stub `userRepository.findById` for every member id, not just the acting user. Reviews are matched to members by `review.getUser().getId()`, so test users need ids via `ReflectionTestUtils.setField(user, "id", uuid)`.
+  - `markAsWatched` always calls `userRepository.findById(userId)` (even when the user already has a review), so stub it in both the update-existing and add-new paths.
+  - Still no JDK / Maven Central in this sandbox — `mvn test` verification DEFERRED to a JDK 21 env. Tests are standard JUnit5+Mockito mirroring the existing file.
+---
