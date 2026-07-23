@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 
+import { isAxiosError } from "axios"
 import { Check, Clock3, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ interface MediaCardProps {
   track: MediaTrackResponse
   myUserId: string
   onStatusChange?: (track: MediaTrackResponse) => void
+  onStartWatching?: (track: MediaTrackResponse) => void
   onClick?: (track: MediaTrackResponse) => void
   onDelete?: (track: MediaTrackResponse) => void
 }
@@ -46,11 +48,13 @@ function Stars({ rating }: { rating: number }) {
 export function MediaCard({
   track,
   myUserId,
-  onStatusChange,
+  onStartWatching,
   onClick,
   onDelete,
 }: MediaCardProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
+  const [startingWatch, setStartingWatch] = useState(false)
+  const [startWatchError, setStartWatchError] = useState<string | null>(null)
 
   useEffect(() => {
     api
@@ -72,6 +76,24 @@ export function MediaCard({
     (review) => review.rating !== null && review.rating !== undefined
   )
   const showRatings = track.status !== "WANT_TO_SEE" && ratedReviews.length > 0
+
+  const handleStartWatching = async () => {
+    setStartingWatch(true)
+    setStartWatchError(null)
+    try {
+      const response = await api.patch<MediaTrackResponse>(
+        `/api/tracking/${track.id}/status`,
+        { status: "WATCHING" }
+      )
+      onStartWatching?.(response.data)
+    } catch (caught) {
+      const message =
+        (isAxiosError(caught) && caught.response?.data?.message) ||
+        "Não foi possível iniciar. Tente novamente."
+      setStartWatchError(message)
+      setStartingWatch(false)
+    }
+  }
   const coupleAvg =
     ratedReviews.length > 0
       ? ratedReviews.reduce((sum, r) => sum + r.rating!, 0) / ratedReviews.length
@@ -205,14 +227,18 @@ export function MediaCard({
           <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
             <Button
               variant="outline"
+              disabled={startingWatch}
               onClick={(event) => {
                 event.stopPropagation()
-                onStatusChange?.(track)
+                void handleStartWatching()
               }}
-              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Marcar como visto
+              {startingWatch ? "Iniciando…" : "Começar a assistir"}
             </Button>
+            {startWatchError && (
+              <p className="mt-2 text-[12px] text-[#ffb3b3]">{startWatchError}</p>
+            )}
           </div>
         )}
       </div>

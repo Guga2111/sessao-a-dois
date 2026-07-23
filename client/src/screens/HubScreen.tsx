@@ -222,6 +222,7 @@ export function HubScreen() {
                           track={track}
                           myUserId={user?.id ?? ""}
                           onStatusChange={setWatchTrack}
+                          onStartWatching={reloadAllFirstPages}
                           onClick={setDetailTrack}
                           onDelete={setDeleteTrack}
                         />
