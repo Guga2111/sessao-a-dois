@@ -40,8 +40,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Carousel implemented with a single set of Tailwind classes toggled via `md:` breakpoint (flex+snap+overflow-x-auto on mobile, grid on desktop) rather than a separate JS-driven layout — matches the acceptance criteria's CSS values exactly (72vw card width, 20vw right padding, hidden scrollbar via new `.no-scrollbar` utility in index.css)."
     },
     {
       "id": "US-003",

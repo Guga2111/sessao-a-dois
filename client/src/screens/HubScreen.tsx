@@ -67,7 +67,7 @@ function emptySections(): Record<MediaStatus, SectionState> {
 
 function SkeletonCard() {
   return (
-    <div className="overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513]">
+    <div className="min-w-[72vw] max-w-[72vw] shrink-0 overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] md:min-w-0 md:max-w-none md:shrink">
       <div className="aspect-[3/4] animate-pulse bg-white/[0.04]" />
       <div className="space-y-2.5 p-3.5">
         <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/[0.06]" />
@@ -205,7 +205,7 @@ export function HubScreen() {
 
               <CollapsibleContent>
                 {loading ? (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+                  <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
                     <SkeletonCard />
                     <SkeletonCard />
                     <SkeletonCard />
@@ -217,18 +217,22 @@ export function HubScreen() {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+                    <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
                       {items.map((track) => (
-                        <MediaCard
+                        <div
                           key={track.id}
-                          track={track}
-                          myUserId={user?.id ?? ""}
-                          onStatusChange={setWatchTrack}
-                          onStartWatching={reloadAllFirstPages}
-                          onReview={setReviewTrack}
-                          onClick={setDetailTrack}
-                          onDelete={setDeleteTrack}
-                        />
+                          className="min-w-[72vw] max-w-[72vw] shrink-0 [scroll-snap-align:start] md:min-w-0 md:max-w-none md:shrink md:[scroll-snap-align:none]"
+                        >
+                          <MediaCard
+                            track={track}
+                            myUserId={user?.id ?? ""}
+                            onStatusChange={setWatchTrack}
+                            onStartWatching={reloadAllFirstPages}
+                            onReview={setReviewTrack}
+                            onClick={setDetailTrack}
+                            onDelete={setDeleteTrack}
+                          />
+                        </div>
                       ))}
                     </div>
                     {hasMore && (
