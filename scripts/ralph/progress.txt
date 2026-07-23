@@ -2,6 +2,9 @@
 - MediaTrack -> UserReview is already `@OneToMany(mappedBy = "mediaTrack", cascade = CascadeType.ALL, orphanRemoval = true)` (api/src/main/java/com/app/tracking/MediaTrack.java), so `MediaTrackRepository.delete(track)` already cascades review deletion with no orphan rows. No new repository/service code was needed for cascade delete, only test coverage.
 - MediaTrackService.findOwnedTrack(trackId, coupleId) is the shared ownership-check helper (throws generic `ResourceNotFoundException("titulo nao encontrado")` for both "does not exist" and "belongs to another couple") - reuse this pattern for any new endpoint that must be couple-scoped rather than writing a new lookup.
 - This sandbox has no JDK/Maven available (`./mvnw` fails: no `java`, no cached Maven distribution, no network to Maven Central) - `./mvnw test` could not be executed here. Changes were verified by careful manual review only. Flag this to a human or run in an environment with JDK 21 + Maven Central access before merging.
+- To split one `GET` endpoint into an "old shape" vs "new shape" response depending on an optional query param, use `@GetMapping(params = "!status")` / `@GetMapping(params = "status")` on two separate handler methods instead of branching return type inside one method (Spring dispatches by presence of the param, and each method keeps a single concrete `ResponseEntity<T>` type). `MediaTrackController.list`/`listByStatus` (GET /api/tracking) is the example.
+- For paginated repository queries, add a second finder overload alongside the existing unpaged one (`findByCoupleIdAndStatus(UUID, MediaStatus)` unpaged vs `findByCoupleIdAndStatusOrderByCreatedAtDesc(UUID, MediaStatus, Pageable)` paged) rather than changing the existing method's signature - Spring Data resolves by parameter list, so both can coexist and old callers are untouched. Clamp caller-supplied `page`/`size` server-side in the service (`Math.max(page, 0)`, `Math.min(Math.max(size, 1), MAX_PAGE_SIZE)`) before building the `Pageable`, never trust them raw.
+- `@DataJpaTest` repository tests that assert ordering by a Hibernate `@CreationTimestamp` column need a real time gap between inserts (`mediaTrackRepository.flush()` then `Thread.sleep(5)` between each `save`) - otherwise multiple rows saved in the same test can get identical timestamps and the sort order becomes flaky.
 
 ## 2026-07-23 - US-001
 - Added test coverage confirming DELETE /api/tracking/{id}: returns 204 on success (own track), cascades UserReview deletion for both couple members with no orphan rows, and returns 404 with generic message for a nonexistent id or a track owned by another couple. No production code changes were required - cascade behavior already existed via `CascadeType.ALL` + `orphanRemoval = true` on `MediaTrack.reviews`, and `MediaTrackController.delete` + `MediaTrackService.deleteTrack`/`findOwnedTrack` already implemented the 204/404 contract.
@@ -12,4 +15,20 @@
 - **Learnings for future iterations:**
   - `MediaTrackRepositoryTest` is a `@DataJpaTest` with real `MediaTrackRepository`/`CoupleRepository` beans; adding `UserRepository` and `UserReviewRepository` as additional `@Autowired` fields was enough to test cross-entity persistence/cascade behavior - no extra test config needed.
   - Could not run `./mvnw test` in this environment (no JDK, no Maven Central access) - next iteration should verify with a real build before considering US-001 fully green in CI, per api/CLAUDE.md's documented limitation.
+---
+
+## 2026-07-23 - US-002
+- Added pagination support to GET /api/tracking. When `status` is present, the endpoint now accepts optional `page`/`size` (defaults 0/20, size capped server-side at 50) and returns a Spring Data `Page<MediaTrackResponse>` (content + totalElements + totalPages + number + size), ordered by createdAt desc via a new `findByCoupleIdAndStatusOrderByCreatedAtDesc` repository method. The no-status call (`GET /api/tracking`) is untouched and still returns the plain unpaged `MediaTrackResponse[]` used by DashboardScreen/MatchScreen.
+- Files changed:
+  - api/src/main/java/com/app/tracking/MediaTrackController.java - split the single `list` handler into two `@GetMapping` methods distinguished by `params = "!status"` / `params = "status"`, the latter taking page/size
+  - api/src/main/java/com/app/tracking/MediaTrackService.java - added `listByStatusPaged(coupleId, status, page, size)` and `MAX_PAGE_SIZE = 50`
+  - api/src/main/java/com/app/tracking/MediaTrackRepository.java - added `findByCoupleIdAndStatusOrderByCreatedAtDesc(UUID, MediaStatus, Pageable)` alongside the existing unpaged finder
+  - api/src/test/java/com/app/tracking/MediaTrackControllerTest.java - updated the old status test to hit the unpaged path, added paged-default/paged-custom/unauthenticated tests
+  - api/src/test/java/com/app/tracking/MediaTrackServiceTest.java - added tests for page mapping, size clamping to 50, and negative page defaulting to 0
+  - api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java - added first-page/second-page/scoping tests for the new paginated finder
+  - client/src/types/tracking.ts - added `PagedMediaTrackResponse` type documenting the `Page<T>` JSON shape returned when `status` is passed
+- **Learnings for future iterations:**
+  - See Codebase Patterns above for the `@GetMapping(params=...)` split-endpoint technique and the `@CreationTimestamp` ordering test gotcha.
+  - Could not run `./mvnw test` in this sandbox (no JDK, no Maven Central access) - verified by manual review only, per api/CLAUDE.md's documented limitation. Next iteration (or a human) should run a real build before merging.
+  - US-005 (Hub pagination UI) will be the one that actually wires HubScreen.tsx to call `GET /api/tracking?status=...&page=...&size=20` and consume `PagedMediaTrackResponse` - this story only touched the backend + shared type.
 ---

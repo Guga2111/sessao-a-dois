@@ -9,6 +9,9 @@ import com.app.user.UserRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -21,6 +24,9 @@ import java.util.UUID;
 public class MediaTrackService {
 
 	private static final Logger log = LoggerFactory.getLogger(MediaTrackService.class);
+
+	/** Server-side ceiling for {@code size}, regardless of what the caller requests. */
+	static final int MAX_PAGE_SIZE = 50;
 
 	private final MediaTrackRepository mediaTrackRepository;
 	private final CoupleRepository coupleRepository;
@@ -65,6 +71,20 @@ public class MediaTrackService {
 			: mediaTrackRepository.findByCoupleIdAndStatus(coupleId, status);
 
 		return tracks.stream().map(this::toResponse).toList();
+	}
+
+	/**
+	 * Paginated variant used when the caller filters by status. Response shape is Spring Data's
+	 * standard {@code Page} JSON: {@code content} (the page items), {@code totalElements} (total
+	 * for the status), plus {@code totalPages}, {@code number}, {@code size}, etc.
+	 */
+	public Page<MediaTrackResponse> listByStatusPaged(UUID coupleId, MediaStatus status, int page, int size) {
+		int safePage = Math.max(page, 0);
+		int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+		Pageable pageable = PageRequest.of(safePage, safeSize);
+
+		return mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(coupleId, status, pageable)
+			.map(this::toResponse);
 	}
 
 	public MediaTrackResponse markAsWatched(UUID trackId, UUID coupleId, UUID userId, WatchRequest request) {

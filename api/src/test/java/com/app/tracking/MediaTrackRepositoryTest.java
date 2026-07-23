@@ -9,6 +9,8 @@ import com.app.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -229,6 +231,60 @@ class MediaTrackRepositoryTest {
 				couple.getId(), MediaStatus.WATCHED, LocalDate.now().getYear())).isEmpty();
 		assertThat(mediaTrackRepository.countGenreOccurrencesByCoupleIdAndStatus(
 				couple.getId(), MediaStatus.WATCHED)).isEmpty();
+	}
+
+	@Test
+	void findByCoupleIdAndStatusOrderByCreatedAtDescReturnsFirstPageOrderedNewestFirst() throws InterruptedException {
+		Couple couple = persistedCouple();
+		MediaTrack first = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		MediaTrack second = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		MediaTrack third = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+
+		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(0, 2));
+
+		assertThat(page.getTotalElements()).isEqualTo(3);
+		assertThat(page.getTotalPages()).isEqualTo(2);
+		assertThat(page.getContent()).extracting(MediaTrack::getId)
+				.containsExactly(third.getId(), second.getId());
+	}
+
+	@Test
+	void findByCoupleIdAndStatusOrderByCreatedAtDescReturnsSecondPage() throws InterruptedException {
+		Couple couple = persistedCouple();
+		MediaTrack first = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		MediaTrack second = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+
+		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(1, 2));
+
+		assertThat(page.getTotalElements()).isEqualTo(3);
+		assertThat(page.getContent()).extracting(MediaTrack::getId).containsExactly(first.getId());
+	}
+
+	@Test
+	void findByCoupleIdAndStatusOrderByCreatedAtDescIsScopedByStatusAndCouple() {
+		Couple couple = persistedCouple();
+		Couple otherCouple = persistedCouple();
+		trackWithStatus(couple, MediaStatus.WATCHING, MediaType.MOVIE, null, null, List.of());
+		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		trackWithStatus(otherCouple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+
+		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(0, 20));
+
+		assertThat(page.getTotalElements()).isEqualTo(1);
 	}
 
 	@Test

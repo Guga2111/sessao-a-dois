@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -66,19 +69,58 @@ class MediaTrackControllerTest {
 	}
 
 	@Test
-	void list_returnsTracksFilteredByStatusForAuthenticatedUser() throws Exception {
+	void list_withoutStatusReturnsUnpagedArray() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse track = new MediaTrackResponse(
 			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
-		when(mediaTrackService.listByStatus(coupleId, MediaStatus.WATCHING)).thenReturn(List.of(track));
+		when(mediaTrackService.listByStatus(coupleId, null)).thenReturn(List.of(track));
 
-		mockMvc.perform(get("/api/tracking").param("status", "WATCHING")
+		mockMvc.perform(get("/api/tracking")
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].tmdbId").value(603))
 			.andExpect(jsonPath("$[0].status").value("WATCHING"));
+	}
+
+	@Test
+	void listByStatus_returnsPagedResultWithDefaultPageAndSize() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		MediaTrackResponse track = new MediaTrackResponse(
+			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+		Page<MediaTrackResponse> page = new PageImpl<>(List.of(track), PageRequest.of(0, 20), 1);
+		when(mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHING, 0, 20)).thenReturn(page);
+
+		mockMvc.perform(get("/api/tracking").param("status", "WATCHING")
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.content[0].tmdbId").value(603))
+			.andExpect(jsonPath("$.totalElements").value(1));
+	}
+
+	@Test
+	void listByStatus_forwardsCustomPageAndSize() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		Page<MediaTrackResponse> page = new PageImpl<>(List.of(), PageRequest.of(2, 10), 25);
+		when(mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHED, 2, 10)).thenReturn(page);
+
+		mockMvc.perform(get("/api/tracking")
+					.param("status", "WATCHED").param("page", "2").param("size", "10")
+					.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.totalElements").value(25))
+			.andExpect(jsonPath("$.number").value(2));
+	}
+
+	@Test
+	void listByStatus_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/tracking").param("status", "WATCHING"))
+			.andExpect(status().isUnauthorized());
 	}
 
 	@Test
