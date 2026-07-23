@@ -1,6 +1,9 @@
 import { NavLink } from "react-router-dom"
 
+import { CoupleAvatars } from "@/components/CoupleAvatars"
+import { daysSince } from "@/lib/date"
 import { cn } from "@/lib/utils"
+import { useAuthStore } from "@/stores/useAuthStore"
 
 const NAV_ITEMS = [
   { to: "/", label: "Hub Principal" },
@@ -9,6 +12,13 @@ const NAV_ITEMS = [
 ]
 
 export function Header() {
+  const user = useAuthStore((s) => s.user)
+  const couple = useAuthStore((s) => s.couple)
+
+  const firstName = user?.name.split(" ")[0] ?? ""
+  const partnerFirstName = couple?.partner?.name.split(" ")[0] ?? ""
+  const days = couple?.createdAt ? daysSince(couple.createdAt) : 0
+
   return (
     <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-[#09090a]/72 px-5 py-4 backdrop-blur-xl sm:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -40,7 +50,24 @@ export function Header() {
         ))}
       </nav>
 
-      <div className="flex flex-1 items-center justify-end" />
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+        {couple?.partner && (
+          <>
+            <div className="hidden text-right leading-tight sm:block">
+              <div className="text-[13px] font-semibold text-[#f6f4ec]">
+                {firstName} & {partnerFirstName}
+              </div>
+              <div className="text-[11px] text-[#a6a39a]">
+                {days} {days === 1 ? "dia" : "dias"} juntos no app
+              </div>
+            </div>
+            <CoupleAvatars
+              userInitial={firstName.charAt(0)}
+              partnerInitial={partnerFirstName.charAt(0)}
+            />
+          </>
+        )}
+      </div>
     </header>
   )
 }
