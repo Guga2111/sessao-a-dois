@@ -14,6 +14,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -24,6 +28,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -192,6 +197,57 @@ class MediaTrackServiceTest {
 	}
 
 	@Test
+	void listByStatusPagedReturnsPageMappedFromRepository() {
+		UUID coupleId = UUID.randomUUID();
+		UUID user1Id = UUID.randomUUID();
+		Couple couple = coupleWithMembers(user1Id, null);
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user1 = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user1, "id", user1Id);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+
+		Page<MediaTrack> repoPage = new PageImpl<>(List.of(track), PageRequest.of(0, 20), 1);
+		when(mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				eq(coupleId), eq(MediaStatus.WATCHING), any(Pageable.class)))
+			.thenReturn(repoPage);
+		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
+
+		Page<MediaTrackResponse> result = mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHING, 0, 20);
+
+		assertThat(result.getTotalElements()).isEqualTo(1);
+		assertThat(result.getContent()).hasSize(1);
+		assertThat(result.getContent().get(0).tmdbId()).isEqualTo(603L);
+	}
+
+	@Test
+	void listByStatusPagedClampsSizeToServerMaximum() {
+		UUID coupleId = UUID.randomUUID();
+		Page<MediaTrack> repoPage = new PageImpl<>(List.of());
+		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+		when(mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				eq(coupleId), eq(MediaStatus.WATCHED), pageableCaptor.capture()))
+			.thenReturn(repoPage);
+
+		mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHED, 0, 500);
+
+		assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(50);
+	}
+
+	@Test
+	void listByStatusPagedDefaultsNegativePageToZero() {
+		UUID coupleId = UUID.randomUUID();
+		Page<MediaTrack> repoPage = new PageImpl<>(List.of());
+		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+		when(mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				eq(coupleId), eq(MediaStatus.WATCHED), pageableCaptor.capture()))
+			.thenReturn(repoPage);
+
+		mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHED, -3, 20);
+
+		assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+	}
+
+	@Test
 	void markAsWatchedUpdatesStatusAndExistingReview() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
@@ -309,6 +365,79 @@ class MediaTrackServiceTest {
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> mediaTrackService.deleteTrack(trackId, coupleId))
+			.isInstanceOf(ResourceNotFoundException.class);
+	}
+
+	@Test
+	void deleteTrackThrowsResourceNotFoundWhenTrackBelongsToAnotherCouple() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple otherCouple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
+		ReflectionTestUtils.setField(otherCouple, "id", UUID.randomUUID());
+		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+
+		assertThatThrownBy(() -> mediaTrackService.deleteTrack(trackId, coupleId))
+			.isInstanceOf(ResourceNotFoundException.class);
+		verify(mediaTrackRepository, never()).delete(any(MediaTrack.class));
+	}
+
+	@Test
+	void startWatchingMovesTrackFromWantToSeeToWatching() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+		when(mediaTrackRepository.save(any(MediaTrack.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		MediaTrackResponse response = mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING);
+
+		assertThat(response.status()).isEqualTo(MediaStatus.WATCHING);
+		assertThat(track.getStatus()).isEqualTo(MediaStatus.WATCHING);
+		assertThat(track.getReviews()).isEmpty();
+		assertThat(track.getWatchedDate()).isNull();
+	}
+
+	@Test
+	void startWatchingThrowsWhenTrackIsNotWantToSee() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+
+		assertThatThrownBy(() -> mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
+			.isInstanceOf(IllegalArgumentException.class);
+		verify(mediaTrackRepository, never()).save(any());
+	}
+
+	@Test
+	void startWatchingThrowsWhenRequestedStatusIsNotWatching() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+
+		assertThatThrownBy(() -> mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHED))
+			.isInstanceOf(IllegalArgumentException.class);
+		verify(mediaTrackRepository, never()).findById(any());
+	}
+
+	@Test
+	void startWatchingThrowsResourceNotFoundWhenTrackBelongsToAnotherCouple() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple otherCouple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
+		ReflectionTestUtils.setField(otherCouple, "id", UUID.randomUUID());
+		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+
+		assertThatThrownBy(() -> mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
 			.isInstanceOf(ResourceNotFoundException.class);
 	}
 }

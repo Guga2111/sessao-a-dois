@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 
-import { Check, Clock3 } from "lucide-react"
+import { isAxiosError } from "axios"
+import { Check, Clock3, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
@@ -12,7 +13,10 @@ interface MediaCardProps {
   track: MediaTrackResponse
   myUserId: string
   onStatusChange?: (track: MediaTrackResponse) => void
+  onStartWatching?: (track: MediaTrackResponse) => void
+  onReview?: (track: MediaTrackResponse) => void
   onClick?: (track: MediaTrackResponse) => void
+  onDelete?: (track: MediaTrackResponse) => void
 }
 
 const TYPE_LABEL: Record<MediaTrackResponse["mediaType"], string> = {
@@ -46,9 +50,14 @@ export function MediaCard({
   track,
   myUserId,
   onStatusChange,
+  onStartWatching,
+  onReview,
   onClick,
+  onDelete,
 }: MediaCardProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
+  const [startingWatch, setStartingWatch] = useState(false)
+  const [startWatchError, setStartWatchError] = useState<string | null>(null)
 
   useEffect(() => {
     api
@@ -70,6 +79,24 @@ export function MediaCard({
     (review) => review.rating !== null && review.rating !== undefined
   )
   const showRatings = track.status !== "WANT_TO_SEE" && ratedReviews.length > 0
+
+  const handleStartWatching = async () => {
+    setStartingWatch(true)
+    setStartWatchError(null)
+    try {
+      const response = await api.patch<MediaTrackResponse>(
+        `/api/tracking/${track.id}/status`,
+        { status: "WATCHING" }
+      )
+      onStartWatching?.(response.data)
+    } catch (caught) {
+      const message =
+        (isAxiosError(caught) && caught.response?.data?.message) ||
+        "Não foi possível iniciar. Tente novamente."
+      setStartWatchError(message)
+      setStartingWatch(false)
+    }
+  }
   const coupleAvg =
     ratedReviews.length > 0
       ? ratedReviews.reduce((sum, r) => sum + r.rating!, 0) / ratedReviews.length
@@ -79,7 +106,7 @@ export function MediaCard({
     <div
       onClick={() => onClick?.(track)}
       className={cn(
-        "font-auth-body flex cursor-pointer flex-col overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] text-[#f6f4ec] transition-transform duration-[.18s] ease-out hover:-translate-y-1",
+        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] text-[#f6f4ec] transition-transform duration-[.18s] ease-out hover:-translate-y-1",
         STATUS_BORDER_HOVER[track.status]
       )}
     >
@@ -107,11 +134,24 @@ export function MediaCard({
         <div className="absolute top-2.5 left-2.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
           {TYPE_LABEL[track.mediaType]}
         </div>
-        {track.status === "WATCHED" && (
-          <div className="absolute top-2.5 right-2.5 grid size-6 place-items-center rounded-full bg-[rgba(61,220,151,.9)] text-[#07130d]">
-            <Check className="size-3.5" strokeWidth={3} />
-          </div>
-        )}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+          {track.status === "WATCHED" && (
+            <div className="grid size-6 flex-none place-items-center rounded-full bg-[rgba(61,220,151,.9)] text-[#07130d]">
+              <Check className="size-3.5" strokeWidth={3} />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete?.(track)
+            }}
+            aria-label="Excluir título"
+            className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-[rgba(9,9,10,.6)] text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-[rgba(255,107,107,.85)] hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[#ff6b6b]"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
         {track.status === "WANT_TO_SEE" && !details?.posterUrl && (
           <div className="absolute inset-0 grid place-items-center text-[34px] opacity-50">
             🍿
@@ -190,13 +230,45 @@ export function MediaCard({
           <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
             <Button
               variant="outline"
+              disabled={startingWatch}
+              onClick={(event) => {
+                event.stopPropagation()
+                void handleStartWatching()
+              }}
+              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {startingWatch ? "Iniciando…" : "Começar a assistir"}
+            </Button>
+            {startWatchError && (
+              <p className="mt-2 text-[12px] text-[#ffb3b3]">{startWatchError}</p>
+            )}
+          </div>
+        )}
+        {track.status === "WATCHING" && (
+          <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+            <Button
+              variant="outline"
               onClick={(event) => {
                 event.stopPropagation()
                 onStatusChange?.(track)
               }}
               className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
             >
-              Marcar como visto
+              Marcar como assistido
+            </Button>
+          </div>
+        )}
+        {track.status === "WATCHED" && (
+          <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+            <Button
+              variant="outline"
+              onClick={(event) => {
+                event.stopPropagation()
+                onReview?.(track)
+              }}
+              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+            >
+              Reavaliar
             </Button>
           </div>
         )}

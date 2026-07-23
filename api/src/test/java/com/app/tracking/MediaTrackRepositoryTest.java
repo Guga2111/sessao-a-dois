@@ -3,10 +3,14 @@ package com.app.tracking;
 import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
 import com.app.media.MediaType;
+import com.app.user.User;
+import com.app.user.UserRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -23,6 +27,12 @@ class MediaTrackRepositoryTest {
 
 	@Autowired
 	private CoupleRepository coupleRepository;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private UserReviewRepository userReviewRepository;
 
 	private Couple persistedCouple() {
 		return coupleRepository.save(new Couple(UUID.randomUUID(), "MTR" + UUID.randomUUID().toString().substring(0, 4)));
@@ -221,5 +231,83 @@ class MediaTrackRepositoryTest {
 				couple.getId(), MediaStatus.WATCHED, LocalDate.now().getYear())).isEmpty();
 		assertThat(mediaTrackRepository.countGenreOccurrencesByCoupleIdAndStatus(
 				couple.getId(), MediaStatus.WATCHED)).isEmpty();
+	}
+
+	@Test
+	void findByCoupleIdAndStatusOrderByCreatedAtDescReturnsFirstPageOrderedNewestFirst() throws InterruptedException {
+		Couple couple = persistedCouple();
+		MediaTrack first = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		MediaTrack second = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		MediaTrack third = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+
+		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(0, 2));
+
+		assertThat(page.getTotalElements()).isEqualTo(3);
+		assertThat(page.getTotalPages()).isEqualTo(2);
+		assertThat(page.getContent()).extracting(MediaTrack::getId)
+				.containsExactly(third.getId(), second.getId());
+	}
+
+	@Test
+	void findByCoupleIdAndStatusOrderByCreatedAtDescReturnsSecondPage() throws InterruptedException {
+		Couple couple = persistedCouple();
+		MediaTrack first = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		MediaTrack second = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+		Thread.sleep(5);
+		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		mediaTrackRepository.flush();
+
+		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(1, 2));
+
+		assertThat(page.getTotalElements()).isEqualTo(3);
+		assertThat(page.getContent()).extracting(MediaTrack::getId).containsExactly(first.getId());
+	}
+
+	@Test
+	void findByCoupleIdAndStatusOrderByCreatedAtDescIsScopedByStatusAndCouple() {
+		Couple couple = persistedCouple();
+		Couple otherCouple = persistedCouple();
+		trackWithStatus(couple, MediaStatus.WATCHING, MediaType.MOVIE, null, null, List.of());
+		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+		trackWithStatus(otherCouple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
+
+		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(0, 20));
+
+		assertThat(page.getTotalElements()).isEqualTo(1);
+	}
+
+	@Test
+	void deletingTrackCascadesReviewsOfBothMembersWithoutLeavingOrphanRows() {
+		Couple couple = persistedCouple();
+		User user1 = userRepository.save(new User("Ana", "ana-" + UUID.randomUUID() + "@example.com", "hash"));
+		User user2 = userRepository.save(new User("Bob", "bob-" + UUID.randomUUID() + "@example.com", "hash"));
+
+		MediaTrack track = trackWithStatus(couple, MediaStatus.WATCHED, MediaType.MOVIE, 120, LocalDate.now(),
+				List.of());
+		track.getReviews().add(new UserReview(track, user1, 5, "Adorei"));
+		track.getReviews().add(new UserReview(track, user2, 3, "Ok"));
+		track = mediaTrackRepository.save(track);
+		UUID trackId = track.getId();
+
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user1.getId())).isPresent();
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user2.getId())).isPresent();
+
+		mediaTrackRepository.delete(track);
+		mediaTrackRepository.flush();
+
+		assertThat(mediaTrackRepository.findById(trackId)).isEmpty();
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user1.getId())).isEmpty();
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user2.getId())).isEmpty();
 	}
 }

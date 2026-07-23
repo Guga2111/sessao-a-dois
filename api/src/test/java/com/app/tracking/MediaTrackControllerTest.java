@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -66,19 +69,58 @@ class MediaTrackControllerTest {
 	}
 
 	@Test
-	void list_returnsTracksFilteredByStatusForAuthenticatedUser() throws Exception {
+	void list_withoutStatusReturnsUnpagedArray() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse track = new MediaTrackResponse(
 			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
-		when(mediaTrackService.listByStatus(coupleId, MediaStatus.WATCHING)).thenReturn(List.of(track));
+		when(mediaTrackService.listByStatus(coupleId, null)).thenReturn(List.of(track));
 
-		mockMvc.perform(get("/api/tracking").param("status", "WATCHING")
+		mockMvc.perform(get("/api/tracking")
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].tmdbId").value(603))
 			.andExpect(jsonPath("$[0].status").value("WATCHING"));
+	}
+
+	@Test
+	void listByStatus_returnsPagedResultWithDefaultPageAndSize() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		MediaTrackResponse track = new MediaTrackResponse(
+			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+		Page<MediaTrackResponse> page = new PageImpl<>(List.of(track), PageRequest.of(0, 20), 1);
+		when(mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHING, 0, 20)).thenReturn(page);
+
+		mockMvc.perform(get("/api/tracking").param("status", "WATCHING")
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.content[0].tmdbId").value(603))
+			.andExpect(jsonPath("$.totalElements").value(1));
+	}
+
+	@Test
+	void listByStatus_forwardsCustomPageAndSize() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		Page<MediaTrackResponse> page = new PageImpl<>(List.of(), PageRequest.of(2, 10), 25);
+		when(mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHED, 2, 10)).thenReturn(page);
+
+		mockMvc.perform(get("/api/tracking")
+					.param("status", "WATCHED").param("page", "2").param("size", "10")
+					.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.totalElements").value(25))
+			.andExpect(jsonPath("$.number").value(2));
+	}
+
+	@Test
+	void listByStatus_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/tracking").param("status", "WATCHING"))
+			.andExpect(status().isUnauthorized());
 	}
 
 	@Test
@@ -108,6 +150,20 @@ class MediaTrackControllerTest {
 	}
 
 	@Test
+	void delete_ofOwnTrackReturnsNoContent() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+
+		mockMvc.perform(delete("/api/tracking/" + trackId)
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isNoContent());
+
+		org.mockito.Mockito.verify(mediaTrackService).deleteTrack(trackId, coupleId);
+	}
+
+	@Test
 	void delete_ofTrackFromAnotherCoupleReturnsNotFound() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
@@ -125,6 +181,78 @@ class MediaTrackControllerTest {
 	@Test
 	void delete_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(delete("/api/tracking/" + UUID.randomUUID()))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void updateStatus_movesTrackToWatchingForAuthenticatedUser() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		MediaTrackResponse response = new MediaTrackResponse(
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING)).thenReturn(response);
+
+		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("WATCHING"));
+	}
+
+	@Test
+	void updateStatus_ofTrackFromAnotherCoupleReturnsNotFound() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
+			.thenThrow(new ResourceNotFoundException("titulo nao encontrado"));
+
+		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").value("titulo nao encontrado"));
+	}
+
+	@Test
+	void updateStatus_rejectsInvalidTransitionWithBadRequest() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
+			.thenThrow(new IllegalArgumentException("transicao de status invalida"));
+
+		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("transicao de status invalida"));
+	}
+
+	@Test
+	void updateStatus_rejectsMissingStatusWithBadRequest() throws Exception {
+		UUID userId = UUID.randomUUID();
+
+		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.status").exists());
+	}
+
+	@Test
+	void updateStatus_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/status")
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
 			.andExpect(status().isUnauthorized());
 	}
 

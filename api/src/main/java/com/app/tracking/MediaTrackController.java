@@ -5,6 +5,7 @@ import com.app.couple.CoupleService;
 
 import jakarta.validation.Valid;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -49,11 +50,21 @@ public class MediaTrackController {
 		return ResponseEntity.ok(response);
 	}
 
-	@GetMapping
-	public ResponseEntity<List<MediaTrackResponse>> list(@AuthenticationPrincipal UUID userId,
-			@RequestParam(required = false) MediaStatus status) {
+	/** No {@code status}: unpaged, full list — kept as-is for DashboardScreen/MatchScreen. */
+	@GetMapping(params = "!status")
+	public ResponseEntity<List<MediaTrackResponse>> list(@AuthenticationPrincipal UUID userId) {
 		UUID coupleId = currentCoupleId(userId);
-		return ResponseEntity.ok(mediaTrackService.listByStatus(coupleId, status));
+		return ResponseEntity.ok(mediaTrackService.listByStatus(coupleId, null));
+	}
+
+	/** With {@code status}: paginated (default page=0, size=20, size capped server-side). */
+	@GetMapping(params = "status")
+	public ResponseEntity<Page<MediaTrackResponse>> listByStatus(@AuthenticationPrincipal UUID userId,
+			@RequestParam MediaStatus status,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size) {
+		UUID coupleId = currentCoupleId(userId);
+		return ResponseEntity.ok(mediaTrackService.listByStatusPaged(coupleId, status, page, size));
 	}
 
 	@PostMapping
@@ -69,6 +80,13 @@ public class MediaTrackController {
 			@PathVariable UUID id, @Valid @RequestBody WatchRequest request) {
 		UUID coupleId = currentCoupleId(userId);
 		return ResponseEntity.ok(mediaTrackService.markAsWatched(id, coupleId, userId, request));
+	}
+
+	@PatchMapping("/{id}/status")
+	public ResponseEntity<MediaTrackResponse> updateStatus(@AuthenticationPrincipal UUID userId,
+			@PathVariable UUID id, @Valid @RequestBody UpdateStatusRequest request) {
+		UUID coupleId = currentCoupleId(userId);
+		return ResponseEntity.ok(mediaTrackService.startWatching(id, coupleId, request.status()));
 	}
 
 	@DeleteMapping("/{id}")
