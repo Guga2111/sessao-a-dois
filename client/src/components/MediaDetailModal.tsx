@@ -206,13 +206,15 @@ export function MediaDetailModal({
                 )}
               </div>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={onClose}
-              className="mt-0.5 flex-none cursor-pointer rounded-xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] p-1.5 text-[#a6a39a] transition-colors hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
+              className="mt-0.5 flex-none rounded-xl border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#a6a39a] hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
             >
               <X className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
 

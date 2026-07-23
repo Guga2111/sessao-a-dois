@@ -4,6 +4,7 @@ import { Heart, Loader2, Search, Sparkles, X } from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { PendingDetailModal } from "@/components/PendingDetailModal"
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useMatchStore } from "@/stores/useMatchStore"
@@ -127,22 +128,26 @@ function SuggestionsTab() {
           </div>
 
           <div className="mt-6 flex items-center justify-center gap-6">
-            <button
+            <Button
               type="button"
+              variant="destructive"
+              size="icon-lg"
               onClick={handleReject}
               disabled={actionLoading}
-              className="flex size-14 cursor-pointer items-center justify-center rounded-full border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] text-[#ff6b6b] transition-colors hover:bg-[rgba(255,107,107,.16)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="size-14 rounded-full border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] text-[#ff6b6b] hover:bg-[rgba(255,107,107,.16)]"
             >
               <X className="size-6" strokeWidth={2.5} />
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-lg"
               onClick={handleLike}
               disabled={actionLoading}
-              className="flex size-14 cursor-pointer items-center justify-center rounded-full border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] text-[#3ddc97] transition-colors hover:bg-[rgba(61,220,151,.16)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="size-14 rounded-full border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] text-[#3ddc97] hover:bg-[rgba(61,220,151,.16)]"
             >
               <Heart className="size-6" strokeWidth={2.5} />
-            </button>
+            </Button>
           </div>
 
           <p className="mt-4 text-center text-[13px] text-[#a6a39a]">
@@ -330,12 +335,13 @@ function SearchTab() {
                   </p>
                 )}
 
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => handleLike(result)}
                   disabled={alreadyTracked || likeState === "loading"}
                   className={cn(
-                    "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed",
+                    "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] font-semibold transition-colors",
                     likeState === "matched" &&
                       "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.16)] text-[#ffdd7a]",
                     likeState === "liked" &&
@@ -372,7 +378,7 @@ function SearchTab() {
                     </>
                   )}
                   {likeState === "error" && "Tente novamente"}
-                </button>
+                </Button>
               </div>
             </div>
           )
@@ -409,8 +415,9 @@ export function MatchScreen() {
         </div>
 
         <div className="mx-auto mb-10 flex w-fit gap-1 rounded-xl bg-[rgba(255,255,255,.06)] p-1">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setActiveTab("suggestions")}
             className={cn(
               "cursor-pointer rounded-lg px-4 py-2 text-[13px] font-semibold transition-colors",
@@ -420,9 +427,10 @@ export function MatchScreen() {
             )}
           >
             Sugestoes
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setActiveTab("search")}
             className={cn(
               "cursor-pointer rounded-lg px-4 py-2 text-[13px] font-semibold transition-colors",
@@ -432,7 +440,7 @@ export function MatchScreen() {
             )}
           >
             Buscar
-          </button>
+          </Button>
         </div>
 
         {activeTab === "suggestions" && <SuggestionsTab />}

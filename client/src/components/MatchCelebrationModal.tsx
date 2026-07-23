@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom"
 
+import { Button } from "@/components/ui/button"
 import { useMatchStore } from "@/stores/useMatchStore"
 
 export function MatchCelebrationModal() {
@@ -39,20 +40,22 @@ export function MatchCelebrationModal() {
           <span>🔔</span> Notificação enviada para os dois
         </div>
         <div className="flex gap-3">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={handleGoToHub}
-            className="flex-1 cursor-pointer rounded-xl border border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] transition-colors hover:bg-white/[0.06]"
+            className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
           >
             Ver na lista
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="default"
             onClick={closeMatch}
-            className="flex-1 cursor-pointer rounded-xl border-none bg-[#ffcb2b] py-3.5 text-sm font-bold text-[#111]"
+            className="flex-1 rounded-xl border-none bg-[#ffcb2b] py-3.5 text-sm font-bold text-[#111]"
           >
             Continuar
-          </button>
+          </Button>
         </div>
       </div>
     </div>

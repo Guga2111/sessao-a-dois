@@ -2,6 +2,7 @@ import { isAxiosError } from "axios"
 import { Loader2, Search, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -214,14 +215,16 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
               Registre um filme ou série na lista de vocês.
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-sm"
             onClick={handleClose}
             aria-label="Fechar"
-            className="grid size-8.5 flex-none cursor-pointer place-items-center rounded-[10px] border border-white/10 text-[#a6a39a] transition-colors hover:bg-white/[0.06] hover:text-white"
+            className="flex-none rounded-[10px] border-white/10 text-[#a6a39a] hover:bg-white/[0.06] hover:text-white"
           >
             <X className="size-4.5" />
-          </button>
+          </Button>
         </div>
 
         <div className="px-6 pt-5.5" ref={searchBoxRef}>
@@ -261,11 +264,12 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
               <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-[#201e18] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,.5)]">
                 <ScrollArea className="h-full max-h-64 [&_[data-slot=scroll-area-viewport]]:max-h-64">
                   {results.map((result) => (
-                    <button
+                    <Button
                       key={`${result.mediaType}-${result.tmdbId}`}
                       type="button"
+                      variant="ghost"
                       onClick={() => selectResult(result)}
-                      className="flex w-full cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-white/[0.06]"
+                      className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-none px-3.5 py-2.5 text-left text-sm hover:bg-white/[0.06]"
                     >
                       <span className="truncate font-medium">
                         {result.title}
@@ -273,7 +277,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                       <span className="flex-none text-xs text-[#a6a39a]">
                         {result.year ?? "—"} · {TYPE_LABEL[result.mediaType]}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </ScrollArea>
               </div>
@@ -282,13 +286,14 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
           {selected && (
             <div className="mt-2 flex items-center gap-2 text-xs text-[#a6a39a]">
               Selecionado: <span className="text-[#ffdd7a]">{selected.title}</span>
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={clearSelection}
-                className="cursor-pointer underline decoration-dotted hover:text-white"
+                className="h-auto p-0 text-xs text-[#a6a39a] underline decoration-dotted hover:text-white"
               >
                 trocar
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -302,9 +307,10 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
               {STATUS_OPTIONS.map((option) => {
                 const active = status === option.value
                 return (
-                  <button
+                  <Button
                     key={option.value}
                     type="button"
+                    variant="ghost"
                     onClick={() =>
                       setState((s) => ({
                         ...s,
@@ -321,7 +327,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                     )}
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -335,9 +341,10 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                 </label>
                 <div className="flex h-11 items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <button
+                    <Button
                       key={star}
                       type="button"
+                      variant="ghost"
                       onClick={() =>
                         setState((s) => ({
                           ...s,
@@ -345,13 +352,13 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                         }))
                       }
                       aria-label={`${star} estrelas`}
-                      className="cursor-pointer bg-transparent px-0.5 text-[26px] leading-none"
+                      className="h-auto cursor-pointer bg-transparent px-0.5 py-0 text-[26px] leading-none"
                       style={{
                         color: star <= rating ? "#ffb443" : "rgba(255,255,255,.18)",
                       }}
                     >
                       ★
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -398,22 +405,24 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
         </div>
 
         <div className="flex gap-3 p-6 pt-0">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={handleClose}
             disabled={saving}
-            className="flex-1 cursor-pointer rounded-xl border border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="default"
             onClick={handleSave}
             disabled={saving}
-            className="flex-[1.4] cursor-pointer rounded-xl border-none bg-[#ffcb2b] py-3.5 text-sm font-bold text-[#111] shadow-[0_8px_22px_rgba(255,203,43,.35)] transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex-[1.4] rounded-xl border-none bg-[#ffcb2b] py-3.5 text-sm font-bold text-[#111] shadow-[0_8px_22px_rgba(255,203,43,.35)] transition-opacity disabled:opacity-60"
           >
             {saving ? "Salvando…" : "Salvar Título"}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

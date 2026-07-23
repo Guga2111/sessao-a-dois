@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { Heart, X } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import type { MediaDetails, PendingMatch } from "@/types/media"
 
@@ -142,13 +143,15 @@ export function PendingDetailModal({
                 )}
               </div>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={onClose}
-              className="mt-0.5 flex-none cursor-pointer rounded-xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] p-1.5 text-[#a6a39a] transition-colors hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
+              className="mt-0.5 flex-none rounded-xl border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#a6a39a] hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
             >
               <X className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -300,24 +303,26 @@ export function PendingDetailModal({
 
                 {/* Action buttons */}
                 <div className="flex gap-3 pt-1">
-                  <button
+                  <Button
                     type="button"
+                    variant="destructive"
                     onClick={onReject}
                     disabled={actionLoading}
-                    className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[12px] border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] px-4 py-3 text-[14px] font-semibold text-[#ff6b6b] transition-colors hover:bg-[rgba(255,107,107,.14)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] px-4 py-3 text-[14px] font-semibold text-[#ff6b6b] hover:bg-[rgba(255,107,107,.14)]"
                   >
                     <X className="size-4" strokeWidth={2.5} />
                     Passar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={onLike}
                     disabled={actionLoading}
-                    className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[12px] border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] px-4 py-3 text-[14px] font-semibold text-[#3ddc97] transition-colors hover:bg-[rgba(61,220,151,.14)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] px-4 py-3 text-[14px] font-semibold text-[#3ddc97] hover:bg-[rgba(61,220,151,.14)]"
                   >
                     <Heart className="size-4" strokeWidth={2.5} />
                     Curtir
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

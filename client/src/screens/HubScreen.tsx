@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react"
 import { ChevronDown } from "lucide-react"
 
 import { Header } from "@/components/Header"
+import { Button } from "@/components/ui/button"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
 import { TitleModal } from "@/components/TitleModal"
@@ -122,13 +123,13 @@ export function HubScreen() {
               estão acompanhando, em um só lugar.
             </p>
           </div>
-          <button
+          <Button
             type="button"
             onClick={() => setModalOpen(true)}
             className="inline-flex cursor-pointer items-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5"
           >
             <span className="text-[19px] leading-none">＋</span> Adicionar Título
-          </button>
+          </Button>
         </div>
 
         {SECTIONS.map((section) => {
@@ -190,14 +191,14 @@ export function HubScreen() {
         })}
       </main>
 
-      <button
+      <Button
         type="button"
         onClick={() => setModalOpen(true)}
         title="Adicionar Título"
         className="fixed right-5 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-[#ffcb2b] text-[28px] text-[#111] shadow-[0_14px_34px_rgba(255,203,43,.45)] sm:right-11"
       >
         ＋
-      </button>
+      </Button>
 
       <TitleModal
         open={modalOpen}

@@ -1,5 +1,7 @@
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
+
 interface InviteCodeTicketProps {
   code: string
 }
@@ -43,13 +45,15 @@ export function InviteCodeTicket({ code }: InviteCodeTicketProps) {
         <span className="font-mono text-[22px] font-bold tracking-[0.14em]">
           {code}
         </span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="xs"
           onClick={handleCopy}
-          className="cursor-pointer rounded-full bg-[#09090a]/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase hover:bg-[#09090a]/15"
+          className="rounded-full bg-[#09090a]/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase hover:bg-[#09090a]/15"
         >
           {copied ? "Copiado!" : "Copiar"}
-        </button>
+        </Button>
       </div>
     </div>
   )
