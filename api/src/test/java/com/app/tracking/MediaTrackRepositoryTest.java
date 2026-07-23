@@ -30,7 +30,12 @@ class MediaTrackRepositoryTest {
 
 	private MediaTrack watchedTrack(Couple couple, MediaType mediaType, Integer runtime, LocalDate watchedDate,
 			List<Integer> genreIds) {
-		MediaTrack track = new MediaTrack(couple, System.nanoTime(), mediaType, MediaStatus.WATCHED);
+		return trackWithStatus(couple, MediaStatus.WATCHED, mediaType, runtime, watchedDate, genreIds);
+	}
+
+	private MediaTrack trackWithStatus(Couple couple, MediaStatus status, MediaType mediaType, Integer runtime,
+			LocalDate watchedDate, List<Integer> genreIds) {
+		MediaTrack track = new MediaTrack(couple, System.nanoTime(), mediaType, status);
 		track.setRuntime(runtime);
 		track.setWatchedDate(watchedDate);
 		track.setGenreIds(genreIds);
@@ -152,6 +157,54 @@ class MediaTrackRepositoryTest {
 				.filteredOn(c -> c.getGenreId().equals(18))
 				.singleElement()
 				.satisfies(c -> assertThat(c.getTotal()).isEqualTo(1L));
+	}
+
+	@Test
+	void sumRuntimeIgnoresNullRuntimesButStillSumsTheRest() {
+		Couple couple = persistedCouple();
+		watchedTrack(couple, MediaType.MOVIE, 120, LocalDate.now(), List.of());
+		watchedTrack(couple, MediaType.MOVIE, null, LocalDate.now(), List.of());
+		watchedTrack(couple, MediaType.MOVIE, 30, LocalDate.now(), List.of());
+
+		int total = mediaTrackRepository.sumRuntimeByCoupleIdAndStatusAndMediaType(
+				couple.getId(), MediaStatus.WATCHED, MediaType.MOVIE);
+
+		assertThat(total).isEqualTo(150);
+	}
+
+	@Test
+	void countGenreOccurrencesExcludesNonWatchedTracks() {
+		Couple couple = persistedCouple();
+		watchedTrack(couple, MediaType.MOVIE, 100, LocalDate.now(), List.of(28));
+		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, 100, LocalDate.now(), List.of(28, 12));
+		trackWithStatus(couple, MediaStatus.WATCHING, MediaType.TV, null, LocalDate.now(), List.of(18));
+
+		List<MediaTrackRepository.GenreCount> counts = mediaTrackRepository
+				.countGenreOccurrencesByCoupleIdAndStatus(couple.getId(), MediaStatus.WATCHED);
+
+		assertThat(counts).singleElement().satisfies(c -> {
+			assertThat(c.getGenreId()).isEqualTo(28);
+			assertThat(c.getTotal()).isEqualTo(1L);
+		});
+	}
+
+	@Test
+	void countByCoupleIdAndStatusGroupedByMonthExcludesOtherStatuses() {
+		Couple couple = persistedCouple();
+		int year = LocalDate.now().getYear();
+		watchedTrack(couple, MediaType.MOVIE, 100, LocalDate.of(year, Month.JANUARY, 10), List.of());
+		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, 100, LocalDate.of(year, Month.JANUARY, 15),
+				List.of());
+		trackWithStatus(couple, MediaStatus.WATCHING, MediaType.MOVIE, 100, LocalDate.of(year, Month.JANUARY, 20),
+				List.of());
+
+		List<MediaTrackRepository.MonthlyCount> counts = mediaTrackRepository
+				.countByCoupleIdAndStatusGroupedByMonth(couple.getId(), MediaStatus.WATCHED, year);
+
+		assertThat(counts).singleElement().satisfies(c -> {
+			assertThat(c.getMonth()).isEqualTo(1);
+			assertThat(c.getTotal()).isEqualTo(1L);
+		});
 	}
 
 	@Test

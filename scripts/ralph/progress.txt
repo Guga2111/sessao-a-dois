@@ -83,3 +83,18 @@
   - Bean validation (`@Valid @RequestBody`) runs BEFORE the controller body, so a 400-validation test must NOT stub `coupleService.getCurrentCouple` (that call is never reached). `@MockitoBean` is lenient (no strict-stubbing failure), but leaving unused stubs is misleading — omit them.
   - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard `@WebMvcTest` + `@Import(SecurityConfig.class)` + `SecurityMockMvcRequestPostProcessors.authentication(...)`, mirroring the existing files exactly.
 ---
+
+## 2026-07-22 - US-007
+- Reinforced @DataJpaTest coverage for the dashboard stats/aggregation queries. All three AC-named queries were already covered by prior epics: `sumRuntimeByCoupleIdAndStatusAndMediaType` (total de horas de filmes), `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` (media de notas), `countGenreOccurrencesByCoupleIdAndStatus` (generos mais vistos), plus the month-grouped series. Filled the genuine gaps instead of duplicating:
+  - `MediaTrackRepositoryTest.sumRuntimeIgnoresNullRuntimesButStillSumsTheRest` — a WATCHED movie with null runtime mixed with non-null ones: SQL SUM skips the null and COALESCE only kicks in for the all-null case (previously only "all rows have runtime" and "no rows" were tested).
+  - `countGenreOccurrencesExcludesNonWatchedTracks` — genre occurrences from WANT_TO_SEE/WATCHING tracks must NOT be counted (status scoping of the genre join was untested; all prior genre rows were WATCHED).
+  - `countByCoupleIdAndStatusGroupedByMonthExcludesOtherStatuses` — month grouping ignores non-WATCHED tracks in the same month/year (only cross-year and cross-couple exclusion were tested before).
+  - `UserReviewRepositoryTest.averageRatingIncludesBothMembersIndependentReviewsOfTheSameTrack` — the "media de notas por usuario" AC: two members each review the SAME watched track (5 and 3), both count → avg 4.0 (prior tests only had one review per track).
+- Refactored `MediaTrackRepositoryTest` to add a `trackWithStatus(...)` helper; `watchedTrack(...)` now delegates to it so non-WATCHED tracks can be persisted for the status-scoping tests.
+- Files changed: `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java`, `api/src/test/java/com/app/tracking/UserReviewRepositoryTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - The stats queries have TWO layers of tests: unit (`StatsServiceTest`, mocks the repos + asserts DTO composition/rounding/zero-fill) and integration (`MediaTrackRepositoryTest`/`UserReviewRepositoryTest`, real H2 via @DataJpaTest). US-007 is the @DataJpaTest layer; the mock layer already existed.
+  - The genre aggregate joins `mt.genreIds` (an @ElementCollection → `media_track_genre` table). Status/couple filters live on the parent `MediaTrack`, so status scoping is a real branch worth asserting on the join query, not just on the flat count queries.
+  - `MediaTrack` has no public status setter used in tests here; construct with the desired status via `new MediaTrack(couple, tmdbId, mediaType, status)` — the ctor takes status as the 4th arg. `System.nanoTime()` is the existing convention for unique per-track tmdbId in these repo tests.
+  - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent, `./mvnw` cannot download Maven) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5 + @DataJpaTest + AssertJ (`singleElement()`, `isCloseTo(..., within(...))`) mirroring the existing files exactly.
+---
