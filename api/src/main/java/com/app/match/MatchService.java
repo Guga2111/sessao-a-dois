@@ -9,25 +9,30 @@ import com.app.tracking.MediaTrack;
 import com.app.tracking.MediaTrackRepository;
 import com.app.tracking.ResourceNotFoundException;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
 public class MatchService {
 
 	private final MatchLikeRepository matchLikeRepository;
+	private final MatchRejectRepository matchRejectRepository;
 	private final MediaTrackRepository mediaTrackRepository;
 	private final CoupleRepository coupleRepository;
 	private final MediaDetailsService mediaDetailsService;
 	private final SimpMessagingTemplate messagingTemplate;
 
-	public MatchService(MatchLikeRepository matchLikeRepository, MediaTrackRepository mediaTrackRepository,
-			CoupleRepository coupleRepository, MediaDetailsService mediaDetailsService,
-			SimpMessagingTemplate messagingTemplate) {
+	public MatchService(MatchLikeRepository matchLikeRepository, MatchRejectRepository matchRejectRepository,
+			MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
+			MediaDetailsService mediaDetailsService, SimpMessagingTemplate messagingTemplate) {
 		this.matchLikeRepository = matchLikeRepository;
+		this.matchRejectRepository = matchRejectRepository;
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.coupleRepository = coupleRepository;
 		this.mediaDetailsService = mediaDetailsService;
@@ -62,6 +67,29 @@ public class MatchService {
 		}
 
 		return new LikeResponse(matched);
+	}
+
+	@Transactional
+	public void reject(UUID coupleId, UUID userId, LikeRequest request) {
+		if (matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, request.tmdbId()).isPresent()) {
+			return;
+		}
+		Couple couple = coupleRepository.findById(coupleId)
+			.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
+		matchRejectRepository.save(new MatchReject(couple, userId, request.tmdbId(), request.mediaType()));
+	}
+
+	public List<PendingMatchDto> getPending(UUID coupleId, UUID userId) {
+		var page = matchLikeRepository.findPendingForUser(coupleId, userId, PageRequest.of(0, 10));
+		List<PendingMatchDto> result = new ArrayList<>();
+		for (MatchLike ml : page.getContent()) {
+			try {
+				MediaDetails details = mediaDetailsService.getDetails(ml.getMediaType(), ml.getTmdbId());
+				result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), details.title(), details.posterUrl()));
+			} catch (RuntimeException ignored) {
+			}
+		}
+		return result;
 	}
 
 	private void createMatch(Couple couple, LikeRequest request) {

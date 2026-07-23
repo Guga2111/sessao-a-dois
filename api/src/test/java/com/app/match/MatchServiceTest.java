@@ -16,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -40,6 +42,9 @@ class MatchServiceTest {
 	private MatchLikeRepository matchLikeRepository;
 
 	@Mock
+	private MatchRejectRepository matchRejectRepository;
+
+	@Mock
 	private MediaTrackRepository mediaTrackRepository;
 
 	@Mock
@@ -55,8 +60,8 @@ class MatchServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		matchService = new MatchService(matchLikeRepository, mediaTrackRepository, coupleRepository,
-				mediaDetailsService, messagingTemplate);
+		matchService = new MatchService(matchLikeRepository, matchRejectRepository, mediaTrackRepository,
+				coupleRepository, mediaDetailsService, messagingTemplate);
 	}
 
 	private Couple couple(UUID coupleId) {
@@ -239,5 +244,88 @@ class MatchServiceTest {
 
 		assertThatThrownBy(() -> matchService.like(coupleId, userId, request))
 			.isInstanceOf(ResourceNotFoundException.class);
+	}
+
+	@Test
+	void reject_persistsNewReject() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
+
+		when(matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L))
+			.thenReturn(Optional.empty());
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
+
+		matchService.reject(coupleId, userId, request);
+
+		ArgumentCaptor<MatchReject> captor = ArgumentCaptor.forClass(MatchReject.class);
+		verify(matchRejectRepository, times(1)).save(captor.capture());
+		assertThat(captor.getValue().getTmdbId()).isEqualTo(603L);
+		assertThat(captor.getValue().getUserId()).isEqualTo(userId);
+	}
+
+	@Test
+	void reject_idempotentWhenAlreadyRejected() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
+		MatchReject existing = new MatchReject(couple(coupleId), userId, 603L, MediaType.MOVIE);
+
+		when(matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L))
+			.thenReturn(Optional.of(existing));
+
+		matchService.reject(coupleId, userId, request);
+
+		verify(matchRejectRepository, never()).save(any(MatchReject.class));
+	}
+
+	@Test
+	void getPending_returnsPendingFromPartnerLikes() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
+
+		when(matchLikeRepository.findPendingForUser(eq(coupleId), eq(userId), any(Pageable.class)))
+			.thenReturn(new PageImpl<>(List.of(partnerLike)));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, "/poster.jpg", null, null, List.of(28), null, null, null));
+
+		List<PendingMatchDto> result = matchService.getPending(coupleId, userId);
+
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).tmdbId()).isEqualTo(603L);
+		assertThat(result.get(0).title()).isEqualTo("Matrix");
+		assertThat(result.get(0).posterUrl()).isEqualTo("/poster.jpg");
+	}
+
+	@Test
+	void getPending_skipsItemWhenTmdbFails() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
+
+		when(matchLikeRepository.findPendingForUser(eq(coupleId), eq(userId), any(Pageable.class)))
+			.thenReturn(new PageImpl<>(List.of(partnerLike)));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenThrow(new RuntimeException("TMDB unavailable"));
+
+		List<PendingMatchDto> result = matchService.getPending(coupleId, userId);
+
+		assertThat(result).isEmpty();
+	}
+
+	@Test
+	void getPending_returnsEmptyListWhenNoPending() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+
+		when(matchLikeRepository.findPendingForUser(eq(coupleId), eq(userId), any(Pageable.class)))
+			.thenReturn(new PageImpl<>(List.of()));
+
+		List<PendingMatchDto> result = matchService.getPending(coupleId, userId);
+
+		assertThat(result).isEmpty();
 	}
 }
