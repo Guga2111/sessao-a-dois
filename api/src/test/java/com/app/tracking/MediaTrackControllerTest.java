@@ -185,6 +185,78 @@ class MediaTrackControllerTest {
 	}
 
 	@Test
+	void updateStatus_movesTrackToWatchingForAuthenticatedUser() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		MediaTrackResponse response = new MediaTrackResponse(
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING)).thenReturn(response);
+
+		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("WATCHING"));
+	}
+
+	@Test
+	void updateStatus_ofTrackFromAnotherCoupleReturnsNotFound() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
+			.thenThrow(new ResourceNotFoundException("titulo nao encontrado"));
+
+		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").value("titulo nao encontrado"));
+	}
+
+	@Test
+	void updateStatus_rejectsInvalidTransitionWithBadRequest() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
+			.thenThrow(new IllegalArgumentException("transicao de status invalida"));
+
+		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("transicao de status invalida"));
+	}
+
+	@Test
+	void updateStatus_rejectsMissingStatusWithBadRequest() throws Exception {
+		UUID userId = UUID.randomUUID();
+
+		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/status")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.status").exists());
+	}
+
+	@Test
+	void updateStatus_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/status")
+				.contentType("application/json")
+				.content("{\"status\":\"WATCHING\"}"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void stats_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(get("/api/tracking/stats"))
 			.andExpect(status().isUnauthorized());

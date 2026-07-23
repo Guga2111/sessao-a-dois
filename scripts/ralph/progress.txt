@@ -32,3 +32,16 @@
   - Could not run `./mvnw test` in this sandbox (no JDK, no Maven Central access) - verified by manual review only, per api/CLAUDE.md's documented limitation. Next iteration (or a human) should run a real build before merging.
   - US-005 (Hub pagination UI) will be the one that actually wires HubScreen.tsx to call `GET /api/tracking?status=...&page=...&size=20` and consume `PagedMediaTrackResponse` - this story only touched the backend + shared type.
 ---
+
+## 2026-07-23 - US-003
+- Added `PATCH /api/tracking/{id}/status` to move a track from WANT_TO_SEE to WATCHING without creating/touching a UserReview or setting watchedDate. Reused the pre-existing (previously unused) `UpdateStatusRequest` record as the request body. New `MediaTrackService.startWatching(trackId, coupleId, requestedStatus)`: rejects any `status` other than `WATCHING` and rejects a track whose current status isn't `WANT_TO_SEE`, both with `IllegalArgumentException` -> 400 (already wired in `TrackingExceptionHandler`); ownership/404 handled by the existing `findOwnedTrack` helper.
+- Files changed:
+  - api/src/main/java/com/app/tracking/MediaTrackController.java - added `updateStatus` handler (`PATCH /{id}/status`)
+  - api/src/main/java/com/app/tracking/MediaTrackService.java - added `startWatching`
+  - api/src/test/java/com/app/tracking/MediaTrackServiceTest.java - added tests: successful transition, wrong current status (400), wrong requested status (400, no repo call), track owned by another couple (404)
+  - api/src/test/java/com/app/tracking/MediaTrackControllerTest.java - added tests: success, 404 for another couple's track, 400 for invalid transition, 400 for missing `status` field (bean validation), 401 unauthenticated
+- **Learnings for future iterations:**
+  - `UpdateStatusRequest.java` existed in the codebase since an earlier scaffolding commit but had zero references anywhere - always `grep` for a DTO's usages before writing a new one; it may already exist unused.
+  - Could not run `./mvnw test` in this sandbox (no JDK, no Maven Central access) - verified by manual review only, per api/CLAUDE.md's documented limitation. Next iteration (or a human) should run a real build before merging.
+  - Next story (US-004) is a frontend story (delete-with-confirmation on MediaCard) - remember to invoke the `frontend-design` skill before implementing per the Ralph frontend-story rule.
+---

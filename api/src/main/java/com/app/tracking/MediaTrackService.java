@@ -109,6 +109,24 @@ public class MediaTrackService {
 		return toResponse(mediaTrackRepository.save(track));
 	}
 
+	/**
+	 * Moves a track from WANT_TO_SEE to WATCHING without touching reviews or watchedDate.
+	 * Any other requested status, or a track not currently in WANT_TO_SEE, is a 400.
+	 */
+	public MediaTrackResponse startWatching(UUID trackId, UUID coupleId, MediaStatus requestedStatus) {
+		if (requestedStatus != MediaStatus.WATCHING) {
+			throw new IllegalArgumentException("transicao de status invalida");
+		}
+
+		MediaTrack track = findOwnedTrack(trackId, coupleId);
+		if (track.getStatus() != MediaStatus.WANT_TO_SEE) {
+			throw new IllegalArgumentException("transicao de status invalida");
+		}
+
+		track.setStatus(MediaStatus.WATCHING);
+		return toResponse(mediaTrackRepository.save(track));
+	}
+
 	public void deleteTrack(UUID trackId, UUID coupleId) {
 		MediaTrack track = findOwnedTrack(trackId, coupleId);
 		mediaTrackRepository.delete(track);
