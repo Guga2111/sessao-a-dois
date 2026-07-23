@@ -108,6 +108,20 @@ class MediaTrackControllerTest {
 	}
 
 	@Test
+	void delete_ofOwnTrackReturnsNoContent() throws Exception {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+
+		mockMvc.perform(delete("/api/tracking/" + trackId)
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isNoContent());
+
+		org.mockito.Mockito.verify(mediaTrackService).deleteTrack(trackId, coupleId);
+	}
+
+	@Test
 	void delete_ofTrackFromAnotherCoupleReturnsNotFound() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();

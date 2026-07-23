@@ -3,6 +3,8 @@ package com.app.tracking;
 import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
 import com.app.media.MediaType;
+import com.app.user.User;
+import com.app.user.UserRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,12 @@ class MediaTrackRepositoryTest {
 
 	@Autowired
 	private CoupleRepository coupleRepository;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private UserReviewRepository userReviewRepository;
 
 	private Couple persistedCouple() {
 		return coupleRepository.save(new Couple(UUID.randomUUID(), "MTR" + UUID.randomUUID().toString().substring(0, 4)));
@@ -221,5 +229,29 @@ class MediaTrackRepositoryTest {
 				couple.getId(), MediaStatus.WATCHED, LocalDate.now().getYear())).isEmpty();
 		assertThat(mediaTrackRepository.countGenreOccurrencesByCoupleIdAndStatus(
 				couple.getId(), MediaStatus.WATCHED)).isEmpty();
+	}
+
+	@Test
+	void deletingTrackCascadesReviewsOfBothMembersWithoutLeavingOrphanRows() {
+		Couple couple = persistedCouple();
+		User user1 = userRepository.save(new User("Ana", "ana-" + UUID.randomUUID() + "@example.com", "hash"));
+		User user2 = userRepository.save(new User("Bob", "bob-" + UUID.randomUUID() + "@example.com", "hash"));
+
+		MediaTrack track = trackWithStatus(couple, MediaStatus.WATCHED, MediaType.MOVIE, 120, LocalDate.now(),
+				List.of());
+		track.getReviews().add(new UserReview(track, user1, 5, "Adorei"));
+		track.getReviews().add(new UserReview(track, user2, 3, "Ok"));
+		track = mediaTrackRepository.save(track);
+		UUID trackId = track.getId();
+
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user1.getId())).isPresent();
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user2.getId())).isPresent();
+
+		mediaTrackRepository.delete(track);
+		mediaTrackRepository.flush();
+
+		assertThat(mediaTrackRepository.findById(trackId)).isEmpty();
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user1.getId())).isEmpty();
+		assertThat(userReviewRepository.findByMediaTrackIdAndUserId(trackId, user2.getId())).isEmpty();
 	}
 }

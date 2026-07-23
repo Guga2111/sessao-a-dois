@@ -311,4 +311,19 @@ class MediaTrackServiceTest {
 		assertThatThrownBy(() -> mediaTrackService.deleteTrack(trackId, coupleId))
 			.isInstanceOf(ResourceNotFoundException.class);
 	}
+
+	@Test
+	void deleteTrackThrowsResourceNotFoundWhenTrackBelongsToAnotherCouple() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple otherCouple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
+		ReflectionTestUtils.setField(otherCouple, "id", UUID.randomUUID());
+		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+
+		assertThatThrownBy(() -> mediaTrackService.deleteTrack(trackId, coupleId))
+			.isInstanceOf(ResourceNotFoundException.class);
+		verify(mediaTrackRepository, never()).delete(any(MediaTrack.class));
+	}
 }
