@@ -1,95 +1,16 @@
 ## Codebase Patterns
-- Backend package-by-feature under `com.app.*` (see `api/CLAUDE.md`); new features get their own package (e.g. `com.app.websocket`, `com.app.match`).
-- `SecurityConfig` (com.app.security) applies `anyRequest().authenticated()` to everything not explicitly `permitAll()`'d.
-- This sandbox has no JDK/Maven and no Maven Central access (`./mvnw` fails trying to download the wrapper distribution, and there is no `java`/`mvn` binary either) — backend changes here can only be reviewed by careful manual reading, not compiled/tested locally. Flag this explicitly in each backend story's progress entry rather than claiming "tests pass".
-- `MediaDetails.genreIds()` carries raw TMDB genre ids (separate from `genres()`, the pt-BR names) for any feature that needs to persist/aggregate by genre id without re-parsing TMDB responses.
-- This sandbox also can't run the frontend dev server/build (`npm run dev` / `vite build` fail with a `rolldown` native-binding resolution error, npm optional-deps + a shadowing empty `node_modules/rolldown/node_modules/@rolldown/` dir) and has no browser automation tool (no `chromium-cli`, no Playwright browsers installed) — frontend changes can only be verified with `npx tsc --noEmit`/`npx tsc -b` and `npx eslint <changed files>` from `client/`, not a live browser check. Flag this explicitly rather than claiming a browser check happened. See `client/CLAUDE.md` for what was tried.
-- New screens go in `client/src/screens/*.tsx`, wired into `client/src/App.tsx` routes and `client/src/components/Header.tsx`'s `NAV_ITEMS`; follow `HubScreen.tsx`'s pattern (Tailwind arbitrary-value colors matching the prototype exactly, `font-display`/`font-auth-body` classes, loading skeletons + empty-state messaging, `api.get<T>(...)` from `lib/api.ts`). Backend DTO shapes are hand-mirrored as TS interfaces under `client/src/types/*.ts` (no codegen) — keep them in sync manually when backend records change.
+- No JDK 21 / Maven Central in this sandbox: `java` is absent and `./mvnw` cannot download Maven. Backend build/test (`./mvnw test`) can only be verified on a machine with JDK 21 + Maven Central access. Make correct changes and note verification is deferred.
+- Base Java package is `com.app`; Maven `groupId` stays `com.lf` (intentional). See api/CLAUDE.md.
+- Test `src/test/resources/application.properties` REPLACES the main one for `@SpringBootTest` — redeclare every required property (`tmdb.api-key`, `app.jwt.secret`).
+- Unit-test the shared TMDB `RestClient` with `Mockito.mock(RestClient.class, RETURNS_DEEP_STUBS)` and stub the terminal `.body(Type.class)`.
+- Entities with `@GeneratedValue` ids have no id setter; use `ReflectionTestUtils.setField(entity, "id", uuid)` in unit tests.
 
 ## 2026-07-22 - US-001
-- Persisted TMDB genre ids on `MediaTrack` so future dashboard stats can aggregate by genre without extra TMDB calls.
-- Files changed:
-  - `api/src/main/java/com/app/media/MediaDetails.java`: added `List<Integer> genreIds` component (alongside existing `List<String> genres` names).
-  - `api/src/main/java/com/app/media/MediaDetailsService.java`: populates `genreIds` from `TmdbGenre.id()` in `toMediaDetails`.
-  - `api/src/main/java/com/app/tracking/MediaTrack.java`: new `genreIds` field via `@ElementCollection` + `@CollectionTable(name = "media_track_genre")`, defaults to empty list, `setGenreIds` never stores null.
-  - `api/src/main/java/com/app/tracking/MediaTrackService.java`: now depends on `MediaDetailsService`; `addTrack` calls a new `fetchGenreIds` helper that wraps `mediaDetailsService.getDetails(...)` in `catch (RuntimeException)` so a TMDB failure never blocks track creation (falls back to empty list).
-  - `api/src/main/java/com/app/match/MatchService.java`: `createMatch` now fetches `MediaDetails` once (title + genreIds) and sets `genreIds` on the new `MediaTrack` before saving, instead of only fetching the title after saving.
-  - Tests updated/added: `MediaDetailsServiceTest` (asserts `genreIds`), `MediaTrackServiceTest` (new `MediaDetailsService` mock, asserts genre ids persisted on save, new test for TMDB failure -> empty genre list), `MatchServiceTest` (asserts `genreIds` on the captured `MediaTrack`), `MediaControllerTest` (updated `MediaDetails` constructor call site).
-  - `api/CLAUDE.md`: documented the `genreIds` plumbing and the "enrich from TMDB but don't block persistence" pattern.
+- Added `jacoco-maven-plugin` (0.8.13, supports Java 21) to `api/pom.xml` build/plugins.
+  - `prepare-agent` execution (default binds to `initialize`, runs before `test`).
+  - `report` execution bound explicitly to the `test` phase → outputs default `target/site/jacoco/index.html`.
+- Files changed: `api/pom.xml`, `scripts/ralph/prd.json`.
 - **Learnings for future iterations:**
-  - `MediaDetails` is a record — any new component requires updating every `new MediaDetails(...)` call site (found via `grep -rn "MediaDetails(" src/`); there were 3 (2 tests, 1 prod).
-  - Schema for the new `media_track_genre` collection table relies on `spring.jpa.hibernate.ddl-auto=update` per the PRD, no manual migration was added — verify this property is actually set in `application.properties` before US-002 writes queries against `media_track_genre`.
-  - Genre-name resolution (TMDB id -> pt-BR name) is explicitly deferred to US-003's static map; this story only stores raw ids.
-  - Could not run `./mvnw test` / compile in this sandbox (no JDK, no Maven Central access) — changes were verified by careful manual review only. Run `./mvnw test` in a proper environment before considering this story fully verified.
----
-
-## 2026-07-22 - US-002
-- Added scoped aggregation queries needed by the future StatsService/dashboard: watched-movie runtime sum, watched-count by media type, watched-count grouped by month (current year), watched genre-id occurrence counts, and couple's average review rating over watched tracks.
-- Files changed:
-  - `api/src/main/java/com/app/tracking/MediaTrackRepository.java`: added `countByCoupleIdAndStatusAndMediaType` (derived query), `sumRuntimeByCoupleIdAndStatusAndMediaType` (`@Query`, `COALESCE(SUM(...),0)`), `countByCoupleIdAndStatusGroupedByMonth` (`@Query`, `EXTRACT(MONTH/YEAR FROM ...)`, returns `List<MonthlyCount>`), `countGenreOccurrencesByCoupleIdAndStatus` (`@Query` joining the `genreIds` element collection, returns `List<GenreCount>`). `MonthlyCount`/`GenreCount` are small nested interface projections.
-  - `api/src/main/java/com/app/tracking/UserReviewRepository.java`: added `findAverageRatingByCoupleIdAndMediaTrackStatus` (`@Query`, `AVG(ur.rating)` joined through `ur.mediaTrack.couple.id` and `ur.mediaTrack.status`); returns `null` (boxed `Double`) when there are no matching reviews — StatsService (US-003) must handle that null as "no data" rather than NPE.
-  - `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java` (new, `@DataJpaTest`): covers all four new `MediaTrackRepository` queries, including a "does not leak other couple's data" test and a "returns zero/empty when no data" test per query.
-  - `api/src/test/java/com/app/tracking/UserReviewRepositoryTest.java` (new, `@DataJpaTest`): covers average rating happy path (only WATCHED tracks counted), null-when-no-reviews, and no-leak-across-couples.
-  - `api/CLAUDE.md`: documented the aggregation-query pattern (scope by `couple.id`, nested interface projections bound by JPQL alias, `COALESCE` for possibly-empty `SUM`, portable `EXTRACT` instead of native SQL or HQL `month()/year()`).
-- **Learnings for future iterations:**
-  - `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` returns `null` (not `0.0`) when the couple has no WATCHED reviews — US-003's StatsService must treat `null` as the empty state, not treat it as a rating of zero.
-  - Interface projections (`MonthlyCount`, `GenreCount`) are nested inside their owning repository interface; Spring Data binds getter names to the JPQL `SELECT ... AS alias` names, so keep alias and getter names in sync if either changes.
-  - Still no JDK/Maven Central in this sandbox (`./mvnw -v` fails downloading the wrapper distribution) — same limitation as US-001, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
----
-
-## 2026-07-22 - US-003
-- Added `StatsService` that combines the US-002 aggregation queries into a single `StatsResponse` DTO for the future dashboard endpoint (US-004).
-- Files changed:
-  - `api/src/main/java/com/app/tracking/MediaTrackRepository.java`: added `sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth` (`@Query`, same `COALESCE(SUM(...),0)` + `EXTRACT` pattern as the existing runtime/monthly queries, scoped by couple/status/mediaType/month/year) — needed because no existing US-002 query covered "movie minutes watched in the current month".
-  - `api/src/main/java/com/app/tracking/GenreNames.java` (new): package-private static `Map<Integer, String>` merging TMDB movie + tv genre id -> pt-BR name lists (hardcoded, no TMDB call); `nameFor(Integer)` returns `null` for unknown ids.
-  - `api/src/main/java/com/app/tracking/GenreStat.java`, `MonthlyStat.java`, `StatsResponse.java` (new records): DTO shapes for top genres, the 12-month series, and the full stats payload.
-  - `api/src/main/java/com/app/tracking/StatsService.java` (new): `getStats(coupleId)` calls the repository aggregates, computes movie hours/minutes (total + current month), movie-vs-tv counts/percentages, average rating (1 decimal, defaults to `0.0` when the repo returns `null`), top-5 genres with percentages + favorite genre (highest count, `null` when no genres), and a zero-filled 12-month series for the current year.
-  - `api/src/test/java/com/app/tracking/MediaTrackRepositoryTest.java`: added tests for the new `sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth` query (correct month/year scoping + zero when no matches).
-  - `api/src/test/java/com/app/tracking/StatsServiceTest.java` (new, Mockito): covers the full-data case (percentages, rounding, top genres sorted by count, unmapped genre id dropped, zero-filled monthly series) and the empty-state case (couple with no watched titles -> all zeros/empty lists/null favorite genre, no exception on `null` average rating).
-  - `api/CLAUDE.md`: documented the `StatsService` composition pattern, the `GenreNames` map, the shared `round1` rounding helper, and the zero-filled 12-month series convention.
-- **Learnings for future iterations:**
-  - `StatsService` intentionally only calls existing repository aggregate queries (no direct entity fetches) — if US-004/US-005/US-006 need a new stat, add the aggregate to `MediaTrackRepository`/`UserReviewRepository` first, following the `COALESCE`/`EXTRACT`/nested-projection-interface pattern, then wire it into `StatsService`.
-  - Genre resolution silently drops any `genre_id` not in `GenreNames` (per the PRD's "ids sem nome correspondente sao ignorados") — this means `topGenres`/`favoriteGenre` percentages are computed only over the *named* genre occurrences, not the raw total including unknown ids.
-  - `UserReviewRepository.findAverageRatingByCoupleIdAndMediaTrackStatus` returning `null` (documented in the US-002 progress entry) is handled here by mapping `null` -> `0.0` in `StatsService`, matching the PRD's "estado vazio" requirement.
-  - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
----
-
-## 2026-07-22 - US-004
-- Added `GET /api/tracking/stats`, exposing US-003's `StatsService` to the frontend, with an explicit empty-state branch for users with no couple yet (distinct from a couple with no watched titles, which `StatsService.getStats` already zeroes out).
-- Files changed:
-  - `api/src/main/java/com/app/tracking/StatsService.java`: added `emptyStats()` — builds the same zero/empty `StatsResponse` shape as the "couple with no watched titles" case, for use when the authenticated user has no couple at all.
-  - `api/src/main/java/com/app/tracking/MediaTrackController.java`: injected `StatsService`; added `GET /stats` mapped under `/api/tracking` (so `/api/tracking/stats`). Looks up the couple via `coupleService.getCurrentCouple(userId)` directly (NOT the existing `currentCoupleId` helper, which throws 404 when there's no couple) and returns `statsService.getStats(coupleId)` when present or `statsService.emptyStats()` otherwise — always 200.
-  - `api/src/test/java/com/app/tracking/MediaTrackControllerTest.java`: added `StatsService` `@MockitoBean`, and three tests — 401 without auth, 200 with stats payload for a user with a couple, and 200 with the empty-state payload (mocking `statsService.emptyStats()`) for a user with no couple; null field assertions use `jsonPath(...).value(nullValue())` not `doesNotExist()`, since Jackson serializes `null` fields as JSON `null` by default (present in the doc, so `doesNotExist()` would fail).
-  - `api/CLAUDE.md`: documented that the stats endpoint intentionally bypasses `currentCoupleId` and the `emptyStats()` vs `getStats()` distinction.
-- **Learnings for future iterations:**
-  - Inherits `anyRequest().authenticated()` from `SecurityConfig` like every other endpoint in this controller — no `permitAll()` needed for the 401 behavior.
-  - Reused `@WebMvcTest(MediaTrackController.class)` + `@Import(SecurityConfig.class)` pattern already in `MediaTrackControllerTest`; only had to add a new `@MockitoBean` for `StatsService` alongside the existing ones.
-  - Still no JDK/Maven Central in this sandbox — same limitation as prior stories, changes verified by manual review only. Run `./mvnw test` in a real environment before trusting this fully.
----
-
-## 2026-07-22 - US-005
-- Added `DashboardScreen.tsx` rendering the 4 KPI cards (Tempo juntos, Filmes vs Séries, Gênero favorito, Total assistido) fed by `GET /api/tracking/stats` (US-004), matching the prototype's dashboard KPI row pixel-for-pixel (colors/spacing from `docs/design/claude-design-project/Sessao a Dois.dc.html` lines 199-233) and HubScreen's established Tailwind arbitrary-value conventions.
-- Files changed:
-  - `client/src/types/stats.ts` (new): TS mirror of the backend `StatsResponse`/`GenreStat`/`MonthlyStat` records.
-  - `client/src/screens/DashboardScreen.tsx` (new): fetches stats on mount, renders loading skeletons, an empty-state message when `totalTitles === 0` (or the fetch fails, since `stats` stays `null`), and the 4 KPI cards otherwise. `favoriteGenre`/second-place genre derived from `topGenres[0]`/`topGenres[1]`.
-  - `client/src/App.tsx`: added `/dashboard` route wrapped in `ProtectedRoute` + `RequireCouple` (same guard pattern as `/match`).
-  - `client/src/components/Header.tsx`: added "Dashboard" to `NAV_ITEMS`.
-  - `client/CLAUDE.md` (new): documented the frontend conventions and the sandbox's broken Vite dev server / missing browser tooling (see Codebase Patterns above).
-  - `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
-- **Learnings for future iterations:**
-  - Charts (bar chart, donut, genre bars from US-006) are NOT yet in `DashboardScreen.tsx` — this story only covers the KPI row per its acceptance criteria; US-006 should extend the same file/screen, reusing `stats.monthlySeries`/`stats.topGenres`/`stats.moviePercentage`/`stats.tvPercentage` already fetched here.
-  - Verification for this story was `npx tsc --noEmit`, `npx tsc -b` (production build typecheck), and `npx eslint` on the changed files only (the full `npx eslint .` has 3 pre-existing failures in `MediaDetailModal.tsx`, `WatchModal.tsx`, `components/ui/button.tsx` unrelated to this change — don't mistake those for something this story broke). Could NOT get a live browser render: `npm run dev` fails on a `rolldown` native-binding resolution bug (see `client/CLAUDE.md`), and there's no `chromium-cli`/Playwright browser available in this sandbox to drive one even if the dev server worked. Manual browser verification is needed before this is fully trusted.
-  - If a future iteration manages to fix the `npm run dev` binding issue, it'd be worth re-verifying US-001 through US-005 in a real browser too, since none of them have had one yet.
----
-
-## 2026-07-22 - US-006
-- Added the three dashboard charts (monthly bar chart, movie-vs-tv donut, top-5 genre bars) to `DashboardScreen.tsx`, reusing `stats.monthlySeries`/`stats.topGenres`/`stats.moviePercentage`/`stats.tvPercentage` already fetched by US-005 — no new API call needed.
-- Files changed:
-  - `client/src/screens/DashboardScreen.tsx`: added `MONTH_LABELS` (pt-BR month abbreviations), a shared `ChartCard` wrapper, and three chart components (`MonthlyBarsChart`, `MovieTvDonutChart`, `GenreBarsChart`), matching the prototype markup/colors/spacing exactly (`docs/design/claude-design-project/Sessao a Dois.dc.html` lines 235-280): bar heights proportional to `count/max(count)` with `#ffcb2b` fill, donut built with `conic-gradient(#ffcb2b 0 {moviePercentage}%, #ff9e2c {moviePercentage}% 100%)` and an inset circle showing `totalTitles`, genre rows as `%`-width bars over a `rgba(255,255,255,.06)` track. Each chart has its own empty-state message (no titles this year / no genre data) independent of the screen-level `isEmpty` state (which already covers "couple has zero watched titles total").
-  - `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
-- **Learnings for future iterations:**
-  - No charting library was added — everything is plain Tailwind divs/conic-gradient, consistent with the PRD's "sem biblioteca de charts externa" requirement and with how the prototype itself is built (inline styles/CSS, no canvas/SVG chart lib).
-  - Bar height uses `Math.max((m.count / maxCount) * 100, 2)` so a month with 0 titles still renders a sliver instead of disappearing entirely; `maxCount` itself is floored at 1 to avoid division by zero when `monthlySeries` is all zeros (but not empty).
-  - Verified with `npx tsc --noEmit`, `npx tsc -b`, and `npx eslint src/screens/DashboardScreen.tsx` from `client/` — all clean, no new errors. `npm run dev` still fails in this sandbox, now with `Cannot find module '../lightningcss.linux-arm64-gnu.node'` (a different native-binding gap than the previously-documented `rolldown` one, same underlying class of problem: optional native deps not resolving under this sandbox's npm/arch). No browser automation tool available either, so this story's "Verify in browser using dev-browser skill" acceptance criterion could NOT be executed — flagging explicitly rather than claiming it was checked.
-  - This was the last story in the Epico 6 PRD (`scripts/ralph/prd.json`) — all six user stories (US-001 through US-006) now have `passes: true`.
+  - This sandbox has NO JDK and NO Maven Central access, so `./mvnw test` cannot be run/verified here. The pom change is standard and syntactically valid; running `mvn test` must happen in a CI/dev env with JDK 21. Future backend test stories (US-002..US-007) face the same constraint — write correct tests but flag that green-check verification is deferred to a JDK env.
+  - JaCoCo 0.8.13 is the version chosen for Java 21 compatibility.
 ---

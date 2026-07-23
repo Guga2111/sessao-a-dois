@@ -65,4 +65,4 @@ O sistema é um aplicativo para casais gerenciarem o consumo de filmes e séries
   - Injeção segura de credenciais via arquivo `.env` (credenciais do banco de dados, JWT Secret, TMDB API Key).
 - **Deploy Frontend:** Build estático via `bun run build`, enviado por SCP para a VPS.
 - **Reverse Proxy:** Nginx servindo frontend estático e proxy para API, com SSL via Certbot/Let's Encrypt.
-- **Domínio:** `sessao.luisgosampaio.com`.
+- **Domínio:** `sessaoadois.luisgosampaio.com`.
