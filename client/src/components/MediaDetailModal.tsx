@@ -4,7 +4,6 @@ import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
-import { cn } from "@/lib/utils"
 import type { MediaDetails } from "@/types/media"
 import type { MediaTrackResponse } from "@/types/tracking"
 

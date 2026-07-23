@@ -41,7 +41,6 @@ O banco PostgreSQL roda no Supabase (externo). Na VPS so sobe o container da API
 
 - **bun** instalado (`bun --version`)
 - **Docker** instalado e rodando (`docker --version`)
-- **Chave SSH** configurada para acesso sem senha a VPS
 
 ### VPS Hostinger
 
@@ -57,24 +56,7 @@ O banco PostgreSQL roda no Supabase (externo). Na VPS so sobe o container da API
 
 ---
 
-## Passo 1 - Configurar chave SSH (primeira vez)
-
-Se ainda nao tens chave SSH:
-
-```bash
-# Gerar chave
-ssh-keygen -t ed25519 -C "teu-email@exemplo.com"
-
-# Copiar para a VPS (pede a senha pela ultima vez)
-ssh-copy-id -p <PORTA_SSH> <USER>@<IP_DA_VPS>
-
-# Testar (deve imprimir OK sem pedir senha)
-ssh -p <PORTA_SSH> <USER>@<IP_DA_VPS> "echo OK"
-```
-
----
-
-## Passo 2 - Criar o banco no Supabase
+## Passo 1 - Criar o banco no Supabase
 
 1. Acede a [supabase.com](https://supabase.com) e cria um novo projeto
 2. Vai a **Project Settings > Database**
@@ -91,7 +73,7 @@ O Spring Boot cria as tabelas automaticamente via JPA/Hibernate na primeira exec
 
 ---
 
-## Passo 3 - Preencher o .env local
+## Passo 2 - Preencher o .env
 
 Na raiz do repo, copia o template e preenche com valores reais:
 
@@ -116,40 +98,37 @@ CORS_ALLOWED_ORIGIN=https://sessaoadois.luisgosampaio.com
 # TMDB
 TMDB_API_KEY=teu-tmdb-api-read-access-token-v4
 
-# Deploy
-SSH_HOST=ip-da-vps
-SSH_USER=root
-SSH_PORT=22
+# API
 API_PORT=8085
 ```
 
-> O `.env` esta no `.gitignore` e nunca e commitado.
+> O `.env` esta no `.gitignore` e nunca e commitado. E usado tanto pelo `docker-compose-dev.yml` (dev local) quanto pelo `scripts/deploy.sh` (producao).
 
 ---
 
-## Passo 4 - Configurar Nginx na VPS (primeira vez)
+## Passo 3 - Configurar Nginx na VPS (primeira vez)
 
 Conecta a VPS e executa:
 
 ```bash
-ssh <USER>@<IP_DA_VPS>
+ssh root@31.97.169.38
 ```
 
-### 4.1 Criar o diretorio do frontend
+### 3.1 Criar o diretorio do frontend
 
 ```bash
 sudo mkdir -p /var/www/sessaoadois
 sudo chown $USER:$USER /var/www/sessaoadois
 ```
 
-### 4.2 Instalar a configuracao do Nginx
+### 3.2 Instalar a configuracao do Nginx
 
 O ficheiro de configuracao esta no repo em `deploy/nginx/sessaoadois.luisgosampaio.com.conf`. Envia-o para a VPS e configura:
 
 ```bash
 # Da tua maquina local, envia o ficheiro
 scp deploy/nginx/sessaoadois.luisgosampaio.com.conf \
-    <USER>@<IP>:/tmp/sessaoadois.luisgosampaio.com
+    root@31.97.169.38:/tmp/sessaoadois.luisgosampaio.com
 
 # Na VPS
 sudo mv /tmp/sessaoadois.luisgosampaio.com /etc/nginx/sites-available/
@@ -158,7 +137,7 @@ sudo ln -s /etc/nginx/sites-available/sessaoadois.luisgosampaio.com \
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-### 4.3 O que o Nginx faz
+### 3.3 O que o Nginx faz
 
 | Location | Destino | Descricao |
 |----------|---------|-----------|
@@ -166,7 +145,7 @@ sudo nginx -t && sudo systemctl reload nginx
 | `/api/` | `localhost:8085` | Proxy reverso para a API Spring Boot |
 | `/ws/` | `localhost:8085/ws/` | WebSocket/STOMP com headers de Upgrade |
 
-### 4.4 Emitir certificado SSL
+### 3.4 Emitir certificado SSL
 
 ```bash
 sudo certbot --nginx -d sessaoadois.luisgosampaio.com
@@ -179,7 +158,7 @@ O Certbot modifica automaticamente o conf do Nginx para:
 
 ---
 
-## Passo 5 - Executar o deploy
+## Passo 4 - Executar o deploy
 
 De volta a tua maquina local, na raiz do repo:
 
@@ -201,14 +180,14 @@ Ao final mostra os logs da API e o status do container.
 
 ---
 
-## Passo 6 - Verificar
+## Passo 5 - Verificar
 
 ```bash
 # Status do container na VPS
-ssh <USER>@<IP> "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml ps"
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml ps"
 
 # Logs da API
-ssh <USER>@<IP> "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs --tail 50 api"
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs --tail 50 api"
 
 # Testar no browser
 open https://sessaoadois.luisgosampaio.com
@@ -218,7 +197,7 @@ open https://sessaoadois.luisgosampaio.com
 
 ## Deploys seguintes
 
-Apos a configuracao inicial (passos 1-4), basta repetir:
+Apos a configuracao inicial (passos 1-3), basta repetir:
 
 ```bash
 ./scripts/deploy.sh
@@ -234,7 +213,7 @@ O script cuida de tudo: build, envio e deploy. Imagens antigas sao limpas automa
 
 ```bash
 # Ver logs completos
-ssh <USER>@<IP> "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs api"
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs api"
 ```
 
 Causas comuns:
@@ -248,10 +227,10 @@ A API ainda nao subiu ou crashou. Verificar:
 
 ```bash
 # Container esta rodando?
-ssh <USER>@<IP> "docker ps"
+ssh root@31.97.169.38 "docker ps"
 
 # Porta 8085 esta escutando?
-ssh <USER>@<IP> "curl -s http://localhost:8085/api/health || echo 'API offline'"
+ssh root@31.97.169.38 "curl -s http://localhost:8085/api/health || echo 'API offline'"
 ```
 
 ### Frontend carrega mas API falha (CORS)
@@ -261,7 +240,7 @@ Verificar que `CORS_ALLOWED_ORIGIN` no `.env` corresponde exatamente ao dominio 
 ### Certificado SSL expirado
 
 ```bash
-ssh <USER>@<IP> "sudo certbot renew"
+ssh root@31.97.169.38 "sudo certbot renew"
 ```
 
 ---

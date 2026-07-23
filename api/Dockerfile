@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- Stage 1: build ----
-# JDK 21 image; uses the Maven wrapper (./mvnw) present in api/ to package the app.
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
 # Copy only the files needed to resolve dependencies first, so this layer is
@@ -16,8 +15,7 @@ COPY src/ src/
 RUN ./mvnw -B -q -Dmaven.test.skip=true package
 
 # ---- Stage 2: runtime ----
-# Lean JRE 21 base; carries only the built jar, not the JDK or Maven.
-FROM eclipse-temurin:21-jre AS runtime
+FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
 # Copy only the produced Spring Boot jar from the build stage.
