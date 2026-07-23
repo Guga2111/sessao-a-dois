@@ -170,7 +170,7 @@
         "`bash -n scripts/deploy.sh` (checagem de sintaxe) passa"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "A execucao real do deploy depende de acesso a VPS e nao e feita pelo Ralph; o artefato e o script parametrizado."
     }
   ]

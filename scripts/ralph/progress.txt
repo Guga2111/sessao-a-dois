@@ -155,3 +155,17 @@
   - Este e um artefato de config puro; nao ha verificacao runtime possivel no sandbox (Nginx nao instalado). O bloco 443/SSL e o redirect 80->443 sao adicionados pelo certbot na VPS, entao o arquivo versionado so define o server block :80.
   - Story restante: US-012 (scripts/deploy.sh) — artefato shell verificavel apenas com `bash -n`.
 ---
+
+## 2026-07-23 - US-012
+- Criado `scripts/deploy.sh`: script unico de deploy de producao com `set -euo pipefail`.
+  - Ordem exata das etapas: [1/3] `bun run build` em `client/` -> [2/3] SCP de `client/dist/.` para `${SSH_USER}@${SSH_HOST}:${REMOTE_WEB_ROOT}/` -> [3/3] SSH rodando `cd ${REMOTE_APP_DIR} && docker compose -f docker-compose-prod.yml up -d --build`.
+  - `SSH_HOST`/`SSH_USER` obrigatorias (fail-fast via `: "${VAR:?...}"`); `SSH_PORT` (default 22), `REMOTE_APP_DIR` (default ~/sessao-a-dois) e `REMOTE_WEB_ROOT` (default /var/www/sessaoadois) com defaults. Nenhum valor hardcoded — o script carrega o `.env` da raiz (git-ignorado) com `set -a; source; set +a` sem sobrescrever o ambiente ja exportado.
+  - Cabecalho documenta pre-requisitos (chave SSH sem senha, `bun` local, repo+`.env`+docker na VPS, web root gravavel) e uso.
+  - `chmod +x` aplicado.
+- Verificacao: `bash -n scripts/deploy.sh` -> SYNTAX OK. shellcheck nao instalado no sandbox (pulado). A execucao real do deploy depende de acesso a VPS e NAO e feita pelo Ralph (artefato = script parametrizado).
+- Files changed: `scripts/deploy.sh` (novo), `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - `REMOTE_WEB_ROOT` default `/var/www/sessaoadois` casa com o `root` do server block em `deploy/nginx/` e com o passo 3 documentado la ("client/dist -> /var/www/sessaoadois. Veja scripts/deploy.sh"). Mantenha os tres em sincronia se o caminho mudar.
+  - O `~` em `REMOTE_APP_DIR` so expande no shell REMOTO (passado unquoted em `cd ${REMOTE_APP_DIR}` dentro do comando ssh); nao tente expandir localmente.
+  - Ultima story do Epico 7; todas as demais ja estavam verdes. Verificacoes de JDK/Docker/Nginx permanecem DEFERRED a ambientes reais (sandbox nao tem esses binarios); aqui so o `bash -n` era executavel e passou.
+---
