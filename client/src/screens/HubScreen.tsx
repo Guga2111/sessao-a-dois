@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { ChevronDown } from "lucide-react"
+
 import { Header } from "@/components/Header"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
 import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { MediaStatus, MediaTrackResponse } from "@/types/tracking"
@@ -56,6 +59,11 @@ export function HubScreen() {
   const [modalOpen, setModalOpen] = useState(false)
   const [detailTrack, setDetailTrack] = useState<MediaTrackResponse | null>(null)
   const [watchTrack, setWatchTrack] = useState<MediaTrackResponse | null>(null)
+  const [openSections, setOpenSections] = useState<Record<MediaStatus, boolean>>({
+    WATCHING: true,
+    WANT_TO_SEE: true,
+    WATCHED: true,
+  })
 
   const loadTracks = useCallback(() => {
     setLoading(true)
@@ -125,9 +133,17 @@ export function HubScreen() {
 
         {SECTIONS.map((section) => {
           const items = groups[section.status]
+          const isOpen = openSections[section.status]
           return (
-            <section key={section.status} className="mb-11">
-              <div className="mb-4.5 flex items-center gap-3">
+            <Collapsible
+              key={section.status}
+              open={isOpen}
+              onOpenChange={(open) =>
+                setOpenSections((prev) => ({ ...prev, [section.status]: open }))
+              }
+              className="mb-11"
+            >
+              <CollapsibleTrigger className="mb-4.5 flex w-full cursor-pointer items-center gap-3">
                 <span
                   className="size-2.5 rounded-full"
                   style={{
@@ -135,37 +151,41 @@ export function HubScreen() {
                     boxShadow: `0 0 12px ${section.dotColor}`,
                   }}
                 />
-                <h2 className="font-display text-xl tracking-tight">
-                  {section.title}
-                </h2>
+                <h2 className="font-display text-xl tracking-tight">{section.title}</h2>
                 <span className="rounded-full bg-white/[0.05] px-2.5 py-0.5 text-[13px] text-[#a6a39a]">
                   {loading ? "…" : items.length}
                 </span>
-              </div>
+                <ChevronDown
+                  className="ml-auto size-4 text-[#a6a39a] transition-transform duration-200"
+                  style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}
+                />
+              </CollapsibleTrigger>
 
-              {loading ? (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
-                  <SkeletonCard />
-                  <SkeletonCard />
-                </div>
-              ) : items.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-[#a6a39a]">
-                  {section.emptyMessage}
-                </div>
-              ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
-                  {items.map((track) => (
-                    <MediaCard
-                      key={track.id}
-                      track={track}
-                      myUserId={user?.id ?? ""}
-                      onStatusChange={setWatchTrack}
-                      onClick={setDetailTrack}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
+              <CollapsibleContent>
+                {loading ? (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+                    <SkeletonCard />
+                    <SkeletonCard />
+                  </div>
+                ) : items.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-[#a6a39a]">
+                    {section.emptyMessage}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+                    {items.map((track) => (
+                      <MediaCard
+                        key={track.id}
+                        track={track}
+                        myUserId={user?.id ?? ""}
+                        onStatusChange={setWatchTrack}
+                        onClick={setDetailTrack}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           )
         })}
       </main>
