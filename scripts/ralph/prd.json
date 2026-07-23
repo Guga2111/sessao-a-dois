@@ -140,7 +140,7 @@
         "Typecheck passa"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "As chamadas axios ja incluem o prefixo /api/... e o SockJS usa ${VITE_API_URL}/ws; por isso a base e o host puro."
     },
     {

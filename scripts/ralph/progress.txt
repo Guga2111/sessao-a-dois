@@ -6,6 +6,8 @@
 - Entities with `@GeneratedValue` ids have no id setter; use `ReflectionTestUtils.setField(entity, "id", uuid)` in unit tests.
 - No `docker`/`docker compose` binary in this sandbox either — `docker compose ... config` validation is DEFERRED to a Docker host. Env var names the API expects (from `api/src/main/resources/application.properties`): `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_DAYS`, `CORS_ALLOWED_ORIGIN`, `TMDB_BASE_URL`, `TMDB_API_KEY`. Spring Boot server port is the default `8080` inside the container (not overridden), so host publishes `${API_PORT:-8085}:8080`.
 - Compose healthcheck gotcha: to reference a container-side env var inside a `CMD-SHELL` healthcheck, escape with `$$` (e.g. `pg_isready -U $${POSTGRES_USER}`) so compose does not interpolate it at parse time. `eclipse-temurin:21-jre` (Ubuntu base) has `bash`, so `bash -c 'echo > /dev/tcp/127.0.0.1/8080'` is a dependency-free TCP healthcheck (no Actuator/curl needed).
+- Frontend `vite build` in this sandbox CAN run after installing the missing native bindings for THIS arch (linux-arm64-gnu) as `--no-save` (all in ONE `npm i` — a second install dedupes/wipes the first): `npm i lightningcss-linux-arm64-gnu@<lightningcss ver> @rolldown/binding-linux-arm64-gnu@<rolldown ver> @tailwindcss/oxide-linux-arm64-gnu@<oxide ver> --no-save` (read each version from `node_modules/<pkg>/package.json`). Then `npx vite build` succeeds. `npx tsc --noEmit` / `tsc -b` and `eslint` always work. No `bun` binary — use `npx`. (Supersedes the older client/CLAUDE.md note that the build could not run.)
+- Vite bakes `import.meta.env.VITE_*` at build time from `client/.env.production` (git-ignored via `.env.*`). After a prod build, `sockjs-client` still embeds harmless `http://localhost` / `http://localhost:80` fallback strings in the bundle (library internals, used only if `window.location` is unavailable) — the real check is that the dev API port (`8080`/`8085`) is ABSENT and the prod host IS present.
 
 ## 2026-07-22 - US-001
 - Added `jacoco-maven-plugin` (0.8.13, supports Java 21) to `api/pom.xml` build/plugins.
@@ -124,3 +126,17 @@
   - US-010 needs `client/.env.production` with `VITE_API_URL=https://sessaoadois.luisgosampaio.com` (pure host, no `/api`, no port) — that file will be git-ignored (`.env.*`), which is fine; it's a build-time local file. `client/.env.example` currently still points at `http://localhost:8080`.
   - Verification of `git check-ignore` / grep is runnable in this sandbox (unlike JDK/Docker steps); this story had no deferred checks.
 ---
+
+## 2026-07-23 - US-010
+- Configured the frontend production API base URL for the deploy build.
+  - Created `client/.env.production` with `VITE_API_URL=https://sessaoadois.luisgosampaio.com` (pure host, no `/api`, no port) — axios prepends `/api/...` and SockJS appends `/ws`, so the base must be the bare host. This file is git-ignored (`.env.*`), so it is a build-time local file (confirmed with `git check-ignore .env.production`).
+  - Documented the prod value in the TRACKED `client/.env.example` (dev line kept, prod line commented) so the git-ignored `.env.production` value is discoverable for future builders/deploys.
+- Verification (all RAN in-sandbox this time):
+  - `npx tsc --noEmit` → exit 0 (typecheck passes).
+  - `npx vite build` → SUCCESS after installing the arch native bindings `--no-save` (lightningcss + rolldown + @tailwindcss/oxide, linux-arm64-gnu) in a single `npm i`. Output: `dist/` (index.html + assets). This supersedes the client/CLAUDE.md claim that the build can't run here.
+  - Bundle grep: prod host `sessaoadois.luisgosampaio.com` PRESENT in `dist/assets/index-*.js`; dev API port `8080`/`8085` ABSENT (grep returns nothing). The only `localhost` strings are sockjs-client library fallbacks (`http://localhost`, `http://localhost:80`), not the configured API URL — AC intent (no dev API endpoint) satisfied.
+- Files changed (tracked): `client/.env.example`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`. (`client/.env.production` and `client/dist/` are git-ignored and not committed.)
+- **Learnings for future iterations:**
+  - The vite build DOES run in this sandbox once the three linux-arm64-gnu native bindings are installed together — see the new Codebase Patterns bullet. Don't blindly trust the older "build can't run" note in client/CLAUDE.md.
+  - `client/.gitignore` ignores `dist` and `.env.*` (with `!.env.example`), so a frontend prod-config story's real committed delta is just `.env.example` + the ralph bookkeeping files; the `.env.production` artifact lives only on the build machine (produced by the deploy in US-012).
+  - US-011 (Nginx conf) and US-012 (deploy.sh) are the remaining stories; both are pure artifacts (config file / shell script) with manual VPS execution deferred — no build/runtime verification blocked in-sandbox beyond `bash -n` syntax check for US-012.
