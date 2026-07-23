@@ -12,7 +12,7 @@ import { WatchModal } from "@/components/WatchModal"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/stores/useAuthStore"
-import type { MediaStatus, MediaTrackResponse } from "@/types/tracking"
+import type { MediaStatus, MediaTrackResponse, PagedMediaTrackResponse } from "@/types/tracking"
 
 interface Section {
   status: MediaStatus
@@ -42,6 +42,28 @@ const SECTIONS: Section[] = [
   },
 ]
 
+const PAGE_SIZE = 20
+
+interface SectionState {
+  items: MediaTrackResponse[]
+  page: number
+  total: number
+  loading: boolean
+  loadingMore: boolean
+}
+
+function emptySectionState(): SectionState {
+  return { items: [], page: 0, total: 0, loading: true, loadingMore: false }
+}
+
+function emptySections(): Record<MediaStatus, SectionState> {
+  return {
+    WATCHING: emptySectionState(),
+    WANT_TO_SEE: emptySectionState(),
+    WATCHED: emptySectionState(),
+  }
+}
+
 function SkeletonCard() {
   return (
     <div className="overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513]">
@@ -56,8 +78,7 @@ function SkeletonCard() {
 
 export function HubScreen() {
   const user = useAuthStore((state) => state.user)
-  const [tracks, setTracks] = useState<MediaTrackResponse[]>([])
-  const [loading, setLoading] = useState(true)
+  const [sections, setSections] = useState<Record<MediaStatus, SectionState>>(emptySections)
   const [modalOpen, setModalOpen] = useState(false)
   const [detailTrack, setDetailTrack] = useState<MediaTrackResponse | null>(null)
   const [watchTrack, setWatchTrack] = useState<MediaTrackResponse | null>(null)
@@ -68,38 +89,52 @@ export function HubScreen() {
     WATCHED: true,
   })
 
-  const loadTracks = useCallback(() => {
-    setLoading(true)
+  const fetchSectionPage = useCallback((status: MediaStatus, page: number) => {
     return api
-      .get<MediaTrackResponse[]>("/api/tracking")
-      .then((response) => {
-        setTracks(response.data)
+      .get<PagedMediaTrackResponse>("/api/tracking", {
+        params: { status, page, size: PAGE_SIZE },
       })
-      .finally(() => {
-        setLoading(false)
+      .then((response) => {
+        const { content, totalElements } = response.data
+        setSections((prev) => ({
+          ...prev,
+          [status]: {
+            items: page === 0 ? content : [...prev[status].items, ...content],
+            page,
+            total: totalElements,
+            loading: false,
+            loadingMore: false,
+          },
+        }))
+      })
+      .catch(() => {
+        setSections((prev) => ({
+          ...prev,
+          [status]: { ...prev[status], loading: false, loadingMore: false },
+        }))
       })
   }, [])
 
+  const reloadAllFirstPages = useCallback(() => {
+    SECTIONS.forEach((section) => void fetchSectionPage(section.status, 0))
+  }, [fetchSectionPage])
+
   useEffect(() => {
-    api
-      .get<MediaTrackResponse[]>("/api/tracking")
-      .then((response) => {
-        setTracks(response.data)
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-  }, [])
+    reloadAllFirstPages()
+  }, [reloadAllFirstPages])
+
+  const handleLoadMore = (status: MediaStatus) => {
+    const current = sections[status]
+    setSections((prev) => ({
+      ...prev,
+      [status]: { ...prev[status], loadingMore: true },
+    }))
+    void fetchSectionPage(status, current.page + 1)
+  }
 
   const handleModalSuccess = () => {
     setModalOpen(false)
-    void loadTracks()
-  }
-
-  const groups: Record<MediaStatus, MediaTrackResponse[]> = {
-    WATCHING: tracks.filter((track) => track.status === "WATCHING"),
-    WANT_TO_SEE: tracks.filter((track) => track.status === "WANT_TO_SEE"),
-    WATCHED: tracks.filter((track) => track.status === "WATCHED"),
+    reloadAllFirstPages()
   }
 
   return (
@@ -135,7 +170,9 @@ export function HubScreen() {
         </div>
 
         {SECTIONS.map((section) => {
-          const items = groups[section.status]
+          const state = sections[section.status]
+          const { items, loading, loadingMore, total } = state
+          const hasMore = !loading && items.length < total
           const isOpen = openSections[section.status]
           return (
             <Collapsible
@@ -156,7 +193,7 @@ export function HubScreen() {
                 />
                 <h2 className="font-display text-xl tracking-tight">{section.title}</h2>
                 <span className="rounded-full bg-white/[0.05] px-2.5 py-0.5 text-[13px] text-[#a6a39a]">
-                  {loading ? "…" : items.length}
+                  {loading ? "…" : total}
                 </span>
                 <ChevronDown
                   className="ml-auto size-4 text-[#a6a39a] transition-transform duration-200"
@@ -169,24 +206,40 @@ export function HubScreen() {
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
                     <SkeletonCard />
                     <SkeletonCard />
+                    <SkeletonCard />
+                    <SkeletonCard />
                   </div>
                 ) : items.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-[#a6a39a]">
                     {section.emptyMessage}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
-                    {items.map((track) => (
-                      <MediaCard
-                        key={track.id}
-                        track={track}
-                        myUserId={user?.id ?? ""}
-                        onStatusChange={setWatchTrack}
-                        onClick={setDetailTrack}
-                        onDelete={setDeleteTrack}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+                      {items.map((track) => (
+                        <MediaCard
+                          key={track.id}
+                          track={track}
+                          myUserId={user?.id ?? ""}
+                          onStatusChange={setWatchTrack}
+                          onClick={setDetailTrack}
+                          onDelete={setDeleteTrack}
+                        />
+                      ))}
+                    </div>
+                    {hasMore && (
+                      <div className="mt-6 flex justify-center">
+                        <Button
+                          type="button"
+                          onClick={() => handleLoadMore(section.status)}
+                          disabled={loadingMore}
+                          className="h-auto cursor-pointer rounded-full border border-white/10 bg-white/[0.04] px-6 py-2.5 text-[13px] font-semibold text-[#f6f4ec] transition-colors hover:border-[rgba(255,203,43,.4)] hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {loadingMore ? "Carregando…" : "Carregar mais"}
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </CollapsibleContent>
             </Collapsible>
@@ -224,7 +277,7 @@ export function HubScreen() {
         onClose={() => setWatchTrack(null)}
         onSuccess={() => {
           setWatchTrack(null)
-          void loadTracks()
+          reloadAllFirstPages()
         }}
       />
 
@@ -233,7 +286,14 @@ export function HubScreen() {
         onClose={() => setDeleteTrack(null)}
         onSuccess={(track) => {
           setDeleteTrack(null)
-          setTracks((prev) => prev.filter((t) => t.id !== track.id))
+          setSections((prev) => ({
+            ...prev,
+            [track.status]: {
+              ...prev[track.status],
+              items: prev[track.status].items.filter((t) => t.id !== track.id),
+              total: Math.max(prev[track.status].total - 1, 0),
+            },
+          }))
         }}
       />
     </div>
