@@ -48,6 +48,7 @@ function Stars({ rating }: { rating: number }) {
 export function MediaCard({
   track,
   myUserId,
+  onStatusChange,
   onStartWatching,
   onClick,
   onDelete,
@@ -239,6 +240,20 @@ export function MediaCard({
             {startWatchError && (
               <p className="mt-2 text-[12px] text-[#ffb3b3]">{startWatchError}</p>
             )}
+          </div>
+        )}
+        {track.status === "WATCHING" && (
+          <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+            <Button
+              variant="outline"
+              onClick={(event) => {
+                event.stopPropagation()
+                onStatusChange?.(track)
+              }}
+              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+            >
+              Marcar como assistido
+            </Button>
           </div>
         )}
       </div>
