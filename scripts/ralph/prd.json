@@ -112,7 +112,7 @@
         "`docker compose -f docker-compose-prod.yml config` valida sem erros"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

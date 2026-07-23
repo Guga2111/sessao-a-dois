@@ -1,0 +1,71 @@
+# Ambiente de PRODUCAO (VPS Hostinger / x86_64): API Spring Boot + PostgreSQL.
+#
+# Suba com:  docker compose -f docker-compose-prod.yml up -d --build
+# Valide com: docker compose -f docker-compose-prod.yml config
+#
+# Segredos: NUNCA hardcode. Todos os valores sensiveis vem de variaveis de
+# ambiente (arquivo .env na mesma pasta, carregado automaticamente pelo compose,
+# ou exportadas no shell). Veja .env.example para a lista completa.
+#
+# Diferencas em relacao ao docker-compose-dev.yml:
+#   - Sem PgAdmin; a porta do Postgres NAO e publicada no host (rede fechada).
+#   - Rede interna dedicada; ambos os servicos com restart: always.
+#   - Volume nomeado dedicado de producao para persistir os dados do Postgres.
+#   - API publicada em ${API_PORT:-8085} no host (o Nginx faz proxy para ela).
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: sessao-db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env - veja .env.example}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env - veja .env.example}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env - veja .env.example}
+    volumes:
+      - postgres-data-prod:/var/lib/postgresql/data
+    # Porta NAO publicada no host: o banco so e acessivel pela rede interna.
+    networks:
+      - sessao-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api:
+    build:
+      context: ./api
+    container_name: sessao-api-prod
+    restart: always
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:?defina POSTGRES_DB no .env - veja .env.example}
+      DB_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env - veja .env.example}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env - veja .env.example}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET (min. 32 bytes) no .env - veja .env.example}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:?defina CORS_ALLOWED_ORIGIN no .env - veja .env.example}
+      TMDB_API_KEY: ${TMDB_API_KEY:?defina TMDB_API_KEY no .env - veja .env.example}
+    ports:
+      # Host configuravel via API_PORT (default 8085) -> container 8080.
+      - "${API_PORT:-8085}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sessao-internal
+    # Healthcheck TCP simples (sem Spring Boot Actuator): checa a porta 8080 via
+    # /dev/tcp do bash presente na imagem eclipse-temurin (base Ubuntu).
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8080'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+networks:
+  sessao-internal:
+    driver: bridge
+
+volumes:
+  postgres-data-prod:

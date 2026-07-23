@@ -4,6 +4,8 @@
 - Test `src/test/resources/application.properties` REPLACES the main one for `@SpringBootTest` — redeclare every required property (`tmdb.api-key`, `app.jwt.secret`).
 - Unit-test the shared TMDB `RestClient` with `Mockito.mock(RestClient.class, RETURNS_DEEP_STUBS)` and stub the terminal `.body(Type.class)`.
 - Entities with `@GeneratedValue` ids have no id setter; use `ReflectionTestUtils.setField(entity, "id", uuid)` in unit tests.
+- No `docker`/`docker compose` binary in this sandbox either — `docker compose ... config` validation is DEFERRED to a Docker host. Env var names the API expects (from `api/src/main/resources/application.properties`): `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `JWT_EXPIRATION_DAYS`, `CORS_ALLOWED_ORIGIN`, `TMDB_BASE_URL`, `TMDB_API_KEY`. Spring Boot server port is the default `8080` inside the container (not overridden), so host publishes `${API_PORT:-8085}:8080`.
+- Compose healthcheck gotcha: to reference a container-side env var inside a `CMD-SHELL` healthcheck, escape with `$$` (e.g. `pg_isready -U $${POSTGRES_USER}`) so compose does not interpolate it at parse time. `eclipse-temurin:21-jre` (Ubuntu base) has `bash`, so `bash -c 'echo > /dev/tcp/127.0.0.1/8080'` is a dependency-free TCP healthcheck (no Actuator/curl needed).
 
 ## 2026-07-22 - US-001
 - Added `jacoco-maven-plugin` (0.8.13, supports Java 21) to `api/pom.xml` build/plugins.
@@ -97,4 +99,17 @@
   - The genre aggregate joins `mt.genreIds` (an @ElementCollection → `media_track_genre` table). Status/couple filters live on the parent `MediaTrack`, so status scoping is a real branch worth asserting on the join query, not just on the flat count queries.
   - `MediaTrack` has no public status setter used in tests here; construct with the desired status via `new MediaTrack(couple, tmdbId, mediaType, status)` — the ctor takes status as the 4th arg. `System.nanoTime()` is the existing convention for unique per-track tmdbId in these repo tests.
   - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent, `./mvnw` cannot download Maven) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5 + @DataJpaTest + AssertJ (`singleElement()`, `isCloseTo(..., within(...))`) mirroring the existing files exactly.
+---
+
+## 2026-07-22 - US-008
+- Created `docker-compose-prod.yml` at repo root (production compose for the VPS).
+  - Services: `db` (postgres:17-alpine) and `api` (built from ./api).
+  - `db`: named volume `postgres-data-prod` for persistence; port NOT published to the host; only on the internal network. `restart: always`. Healthcheck `pg_isready` (uses `$${POSTGRES_USER}`/`$${POSTGRES_DB}` so compose doesn't interpolate at parse time).
+  - `api`: `restart: always`; publishes `${API_PORT:-8085}:8080` on host (configurable); `depends_on: db condition: service_healthy`; TCP healthcheck via bash `/dev/tcp` (no Actuator). Env vars mirror the dev compose but ALL sensitive values come from `${...}` with `:?` fail-fast (no hardcode): POSTGRES_DB/USER/PASSWORD, JWT_SECRET, CORS_ALLOWED_ORIGIN, TMDB_API_KEY. DB_URL points at service `db` (jdbc:postgresql://db:5432/${POSTGRES_DB}).
+  - Dedicated internal bridge network `sessao-internal`; both services attached.
+- Files changed: `docker-compose-prod.yml` (new), `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - No docker binary in this sandbox, so `docker compose -f docker-compose-prod.yml config` could not be run here — validation DEFERRED to a Docker host. The file follows the dev compose's proven shape, so risk is low.
+  - US-009 (.env.example) must document the NEW prod var names this compose introduced: POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, API_PORT, plus JWT_SECRET, CORS_ALLOWED_ORIGIN, TMDB_API_KEY and the domain. The current .env.example only lists TMDB_API_KEY.
+  - The real `.env` at repo root currently holds a real TMDB token and is git-ignored (`.gitignore`: `.env`, `.env.*`, `!.env.example`) — US-009 just needs to confirm/extend that and add placeholders, not touch the real secret.
 ---
