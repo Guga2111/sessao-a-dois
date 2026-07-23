@@ -155,7 +155,7 @@
         "Comentario no arquivo documentando os passos manuais na VPS: symlink em sites-enabled, `nginx -t`, reload e `sudo certbot --nginx -d sessaoadois.luisgosampaio.com`"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Passo manual na VPS (symlink + certbot) nao pode ser executado pelo Ralph; o artefato e o arquivo de config + instrucoes. Certbot adiciona o bloco 443/SSL e o redirect 80->443."
     },
     {

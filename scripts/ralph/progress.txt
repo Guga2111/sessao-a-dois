@@ -140,3 +140,18 @@
   - The vite build DOES run in this sandbox once the three linux-arm64-gnu native bindings are installed together — see the new Codebase Patterns bullet. Don't blindly trust the older "build can't run" note in client/CLAUDE.md.
   - `client/.gitignore` ignores `dist` and `.env.*` (with `!.env.example`), so a frontend prod-config story's real committed delta is just `.env.example` + the ralph bookkeeping files; the `.env.production` artifact lives only on the build machine (produced by the deploy in US-012).
   - US-011 (Nginx conf) and US-012 (deploy.sh) are the remaining stories; both are pure artifacts (config file / shell script) with manual VPS execution deferred — no build/runtime verification blocked in-sandbox beyond `bash -n` syntax check for US-012.
+
+## 2026-07-23 - US-011
+- Adicionada a config do server block do Nginx versionada em `deploy/nginx/sessaoadois.luisgosampaio.com.conf` (novo diretorio `deploy/nginx/`).
+  - `server_name sessaoadois.luisgosampaio.com`; `root /var/www/sessaoadois`; `index index.html`.
+  - `location /` com fallback SPA `try_files $uri $uri/ /index.html`.
+  - `location /api/` com `proxy_pass http://localhost:8085` SEM barra final (preserva o prefixo /api dos controllers Spring) + headers X-Forwarded-*.
+  - `location /ws/` com `proxy_pass http://localhost:8085/ws/`, `proxy_http_version 1.1`, headers Upgrade/Connection e `proxy_read_timeout`/`proxy_send_timeout` 3600.
+  - Cabecalho do arquivo documenta os passos manuais na VPS: copiar para sites-available, symlink em sites-enabled, `nginx -t`, reload e `sudo certbot --nginx -d sessaoadois.luisgosampaio.com`.
+- Files changed: `deploy/nginx/sessaoadois.luisgosampaio.com.conf` (novo), `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - A API em producao e publicada em `localhost:8085` no host da VPS (docker-compose-prod.yml: `${API_PORT:-8085}:8080`), entao os `proxy_pass` do Nginx apontam para 8085, nao 8080.
+  - Regra chave do proxy: `/api/` SEM barra final no `proxy_pass` (preserva `/api`), enquanto `/ws/` COM `/ws/` final. Confundir isso quebra o roteamento dos controllers ou do handshake SockJS.
+  - Este e um artefato de config puro; nao ha verificacao runtime possivel no sandbox (Nginx nao instalado). O bloco 443/SSL e o redirect 80->443 sao adicionados pelo certbot na VPS, entao o arquivo versionado so define o server block :80.
+  - Story restante: US-012 (scripts/deploy.sh) — artefato shell verificavel apenas com `bash -n`.
+---
