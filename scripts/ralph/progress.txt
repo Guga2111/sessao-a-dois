@@ -70,3 +70,16 @@
   - `markAsWatched` always calls `userRepository.findById(userId)` (even when the user already has a review), so stub it in both the update-existing and add-new paths.
   - Still no JDK / Maven Central in this sandbox — `mvn test` verification DEFERRED to a JDK 21 env. Tests are standard JUnit5+Mockito mirroring the existing file.
 ---
+
+## 2026-07-22 - US-006
+- Reinforced controller/web-layer (MockMvc) coverage for US-006. All 5 controllers already had `@WebMvcTest` test classes from prior epics (AuthControllerTest, CoupleControllerTest, MatchControllerTest, MediaControllerTest, MediaTrackControllerTest) covering success + 400/401/404/409/502 and the "protected endpoint returns 401 without JWT" requirement. Filled the genuine gaps instead of duplicating:
+  - MediaTrackControllerTest: the `PATCH /{id}/watch` (markAsWatched) and `PUT /{id}/review` (upsertReview) endpoints had ZERO web-layer coverage. Added markAsWatched happy path (200), 401 (no auth), 404 (ResourceNotFoundException), 400 (invalid rating > 5 via bean validation); upsertReview happy path (200), 401, 403 (AccessDeniedException → 403 via TrackingExceptionHandler), 400 (invalid rating < 1). Also added create 400 for missing @NotNull fields (tmdbId/mediaType) and create 400 for rating-without-WATCHED (service IllegalArgumentException → 400).
+  - MatchControllerTest: added `like_rejectsMissingFieldsWithBadRequest` (empty body → 400 with errors.tmdbId/errors.mediaType) — the MethodArgumentNotValidException path in MatchExceptionHandler was untested (only 200/401/404/409 existed).
+- Files changed: `api/src/test/java/com/app/tracking/MediaTrackControllerTest.java`, `api/src/test/java/com/app/match/MatchControllerTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - `MediaTrackController` has 5 endpoints, not 3: `GET /api/tracking` (list), `POST` (create), `PATCH /{id}/watch` (markAsWatched), `PUT /{id}/review` (upsertReview), `DELETE /{id}`, plus `GET /stats`. The two mutation endpoints (watch/review) were the coverage blind spot.
+  - Error → HTTP status mapping is per-feature via `@RestControllerAdvice(basePackages=...)`: `TrackingExceptionHandler` maps ResourceNotFoundException→404, AccessDeniedException→403, IllegalArgumentException→400, MethodArgumentNotValidException→400 (body `{message:"dados invalidos", errors:{field:msg}}`). `MatchExceptionHandler` mirrors the validation shape and maps TitleAlreadyTrackedException→409.
+  - `markAsWatched` service signature is `(trackId, coupleId, userId, WatchRequest)`; `upsertReview` is `(trackId, userId, coupleId, UpsertReviewRequest)` — the middle two args are swapped between the two, easy to get wrong when stubbing.
+  - Bean validation (`@Valid @RequestBody`) runs BEFORE the controller body, so a 400-validation test must NOT stub `coupleService.getCurrentCouple` (that call is never reached). `@MockitoBean` is lenient (no strict-stubbing failure), but leaving unused stubs is misleading — omit them.
+  - Still no JDK / Maven Central in this sandbox (`java`/`mvn` absent) — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard `@WebMvcTest` + `@Import(SecurityConfig.class)` + `SecurityMockMvcRequestPostProcessors.authentication(...)`, mirroring the existing files exactly.
+---

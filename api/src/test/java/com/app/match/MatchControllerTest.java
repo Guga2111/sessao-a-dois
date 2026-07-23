@@ -106,4 +106,17 @@ class MatchControllerTest {
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("usuario nao pertence a nenhum casal"));
 	}
+
+	@Test
+	void like_rejectsMissingFieldsWithBadRequest() throws Exception {
+		UUID userId = UUID.randomUUID();
+
+		mockMvc.perform(post("/api/match/like")
+				.with(authentication(authenticatedUser(userId)))
+				.contentType("application/json")
+				.content("{}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.tmdbId").exists())
+			.andExpect(jsonPath("$.errors.mediaType").exists());
+	}
 }
