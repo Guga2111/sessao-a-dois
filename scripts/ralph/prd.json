@@ -27,7 +27,7 @@
         "`mvn test` passa"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

@@ -14,3 +14,15 @@
   - This sandbox has NO JDK and NO Maven Central access, so `./mvnw test` cannot be run/verified here. The pom change is standard and syntactically valid; running `mvn test` must happen in a CI/dev env with JDK 21. Future backend test stories (US-002..US-007) face the same constraint — write correct tests but flag that green-check verification is deferred to a JDK env.
   - JaCoCo 0.8.13 is the version chosen for Java 21 compatibility.
 ---
+
+## 2026-07-22 - US-002
+- Verified/completed unit-test coverage for the user-registration and couple services.
+  - There is NO `UserService` in this codebase: user registration + duplicate-email handling live in `com.app.auth.AuthService`, already fully covered by `AuthServiceTest` (register happy path, duplicate email, plus login cases).
+  - `CoupleServiceTest` already covered invite_code generation (happy + collision regen), join success, unknown invite code, self-join, already-paired, and couple-full errors.
+  - Added one genuine coverage gap: `returnsEmptyWhenUserHasNoCouple` for `CoupleService.getCurrentCouple` (only the "present" branch was tested before).
+- Files changed: `api/src/test/java/com/app/couple/CoupleServiceTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - "UserService" in the PRD maps to `AuthService` — registration is in the auth feature package, not a `user` service. `com.app.user` only has the `User` entity + `UserRepository`.
+  - All AC for US-002 were already satisfied by prior epics' tests; the story was closed by filling the one missing branch rather than duplicating existing tests.
+  - No JDK / Maven Central in this sandbox (`java`/`mvn` absent, `./mvnw` cannot download) — `mvn test` verification is DEFERRED to a JDK 21 env. The added test is standard JUnit5+Mockito and mirrors the existing patterns in the same file.
+---
