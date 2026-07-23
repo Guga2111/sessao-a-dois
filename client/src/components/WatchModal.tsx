@@ -2,6 +2,7 @@ import { isAxiosError } from "axios"
 import { X } from "lucide-react"
 import { useEffect, useState } from "react"
 
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import type { MediaTrackResponse } from "@/types/tracking"
 
@@ -74,14 +75,16 @@ export function WatchModal({ track, onClose, onSuccess }: WatchModalProps) {
               Nota e opinião são opcionais.
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-sm"
             onClick={onClose}
             aria-label="Fechar"
-            className="grid size-8.5 flex-none cursor-pointer place-items-center rounded-[10px] border border-white/10 text-[#a6a39a] transition-colors hover:bg-white/[0.06] hover:text-white"
+            className="flex-none rounded-[10px] border-white/10 text-[#a6a39a] hover:bg-white/[0.06] hover:text-white"
           >
             <X className="size-4.5" />
-          </button>
+          </Button>
         </div>
 
         <div className="flex flex-col gap-5 px-6 pb-6">
@@ -93,18 +96,19 @@ export function WatchModal({ track, onClose, onSuccess }: WatchModalProps) {
             </label>
             <div className="flex h-10 items-center gap-0.5">
               {[1, 2, 3, 4, 5].map((star) => (
-                <button
+                <Button
                   key={star}
                   type="button"
+                  variant="ghost"
                   onClick={() => setRating((prev) => (prev === star ? 0 : star))}
                   aria-label={`${star} estrela${star > 1 ? "s" : ""}`}
-                  className="cursor-pointer bg-transparent px-1 text-[28px] leading-none transition-transform hover:scale-110"
+                  className="h-auto cursor-pointer bg-transparent px-1 py-0 text-[28px] leading-none transition-transform hover:scale-110"
                   style={{
                     color: star <= rating ? "#ffb443" : "rgba(255,255,255,.18)",
                   }}
                 >
                   ★
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -132,22 +136,24 @@ export function WatchModal({ track, onClose, onSuccess }: WatchModalProps) {
 
           {/* Actions */}
           <div className="flex gap-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
               disabled={saving}
-              className="flex-1 cursor-pointer rounded-xl border border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
               onClick={handleConfirm}
               disabled={saving}
-              className="flex-[1.4] cursor-pointer rounded-xl border border-[rgba(61,220,151,.35)] bg-[rgba(61,220,151,.12)] py-3.5 text-sm font-bold text-[#3ddc97] shadow-[0_6px_20px_rgba(61,220,151,.15)] transition-colors hover:bg-[rgba(61,220,151,.18)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex-[1.4] rounded-xl border border-[rgba(61,220,151,.35)] bg-[rgba(61,220,151,.12)] py-3.5 text-sm font-bold text-[#3ddc97] shadow-[0_6px_20px_rgba(61,220,151,.15)] hover:bg-[rgba(61,220,151,.18)] disabled:opacity-60"
             >
               {saving ? "Salvando…" : "Confirmar"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

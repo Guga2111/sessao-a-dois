@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { X } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { MediaDetails } from "@/types/media"
@@ -205,13 +206,15 @@ export function MediaDetailModal({
                 )}
               </div>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={onClose}
-              className="mt-0.5 flex-none cursor-pointer rounded-xl border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] p-1.5 text-[#a6a39a] transition-colors hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
+              className="mt-0.5 flex-none rounded-xl border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#a6a39a] hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
             >
               <X className="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -399,21 +402,15 @@ export function MediaDetailModal({
 
                 {/* CTA */}
                 {track.status !== "WATCHED" && (
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => {
                       onStatusChange?.(track)
                       onClose()
                     }}
-                    className={cn(
-                      "mt-1 w-full cursor-pointer rounded-[12px] border px-4 py-3 text-[14px] font-semibold transition-colors",
-                      track.status === "WATCHING"
-                        ? "border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] text-[#3ddc97] hover:bg-[rgba(61,220,151,.14)]"
-                        : "border-[rgba(255,255,255,.12)] bg-[rgba(255,255,255,.05)] text-[#f6f4ec] hover:bg-[rgba(255,255,255,.09)]"
-                    )}
+                    className="mt-4 ml-auto flex h-auto rounded-full border-0 bg-[#ffcb2b] px-8 py-3.5 text-[15px] font-bold text-[#09090a] shadow-[0_4px_20px_rgba(255,203,43,.35)] hover:bg-[#ffe08a] hover:text-[#09090a]"
                   >
                     Marcar como visto
-                  </button>
+                  </Button>
                 )}
               </div>
             )}

@@ -128,8 +128,9 @@ export function JoinPage() {
       subtitle="Entre com o código que sua pessoa te mandou, ou gere o seu para compartilhar."
     >
       <div className="mb-6 flex gap-1 rounded-2xl border border-white/[0.06] bg-white/[0.05] p-1">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setMode("join")}
           className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
             mode === "join"
@@ -138,9 +139,10 @@ export function JoinPage() {
           }`}
         >
           Tenho um código
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setMode("create")}
           className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
             mode === "create"
@@ -149,7 +151,7 @@ export function JoinPage() {
           }`}
         >
           Criar meu código
-        </button>
+        </Button>
       </div>
 
       {mode === "join" ? (
