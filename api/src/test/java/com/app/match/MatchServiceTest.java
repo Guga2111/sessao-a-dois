@@ -173,6 +173,61 @@ class MatchServiceTest {
 	}
 
 	@Test
+	void like_persistedMatchLikeCapturesUserTitleAndMediaType() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		LikeRequest request = new LikeRequest(1399L, MediaType.TV);
+
+		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 1399L)).thenReturn(false);
+		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 1399L)).thenReturn(Optional.empty());
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
+		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 1399L, userId))
+			.thenReturn(Optional.empty());
+
+		matchService.like(coupleId, userId, request);
+
+		ArgumentCaptor<MatchLike> likeCaptor = ArgumentCaptor.forClass(MatchLike.class);
+		verify(matchLikeRepository, times(1)).save(likeCaptor.capture());
+		MatchLike saved = likeCaptor.getValue();
+		assertThat(saved.getUserId()).isEqualTo(userId);
+		assertThat(saved.getTmdbId()).isEqualTo(1399L);
+		assertThat(saved.getMediaType()).isEqualTo(MediaType.TV);
+		assertThat(saved.getCouple().getId()).isEqualTo(coupleId);
+	}
+
+	@Test
+	void like_matchEventForTvSeriesCarriesMediaTypeAndTitle() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		LikeRequest request = new LikeRequest(1399L, MediaType.TV);
+		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 1399L, MediaType.TV);
+
+		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 1399L)).thenReturn(false, false);
+		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 1399L)).thenReturn(Optional.empty());
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
+		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 1399L, userId))
+			.thenReturn(Optional.of(partnerLike));
+		when(mediaDetailsService.getDetails(MediaType.TV, 1399L))
+			.thenReturn(new MediaDetails(1399L, MediaType.TV, "Game of Thrones", 2011, null, null, null, List.of(18, 10765), null, null, null));
+
+		LikeResponse response = matchService.like(coupleId, userId, request);
+
+		assertThat(response.matched()).isTrue();
+
+		ArgumentCaptor<MediaTrack> trackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
+		verify(mediaTrackRepository, times(1)).save(trackCaptor.capture());
+		assertThat(trackCaptor.getValue().getMediaType()).isEqualTo(MediaType.TV);
+		assertThat(trackCaptor.getValue().getGenreIds()).containsExactly(18, 10765);
+
+		ArgumentCaptor<MatchEvent> eventCaptor = ArgumentCaptor.forClass(MatchEvent.class);
+		verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/couple/" + coupleId + "/match"),
+				eventCaptor.capture());
+		assertThat(eventCaptor.getValue().mediaType()).isEqualTo(MediaType.TV);
+		assertThat(eventCaptor.getValue().title()).isEqualTo("Game of Thrones");
+	}
+
+	@Test
 	void like_throwsWhenCoupleNotFound() {
 		UUID coupleId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();

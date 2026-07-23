@@ -55,7 +55,7 @@
         "`mvn test` passa"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Ja existe api/src/test/java/com/app/match/MatchServiceTest.java; complementar cobrindo os casos faltantes em vez de duplicar."
     },
     {

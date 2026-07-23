@@ -27,6 +27,22 @@
   - No JDK / Maven Central in this sandbox (`java`/`mvn` absent, `./mvnw` cannot download) — `mvn test` verification is DEFERRED to a JDK 21 env. The added test is standard JUnit5+Mockito and mirrors the existing patterns in the same file.
 ---
 
+## 2026-07-22 - US-004
+- Reinforced `MatchServiceTest` coverage for US-004. All three AC were already satisfied by prior Epic-5 tests:
+  - AC1 (like persists MatchLike): `like_firstLikeIsPersistedAndDoesNotMatch`.
+  - AC2 (partner already liked → MediaTrack WANT_TO_SEE + `messagingTemplate.convertAndSend` to `/topic/couple/{id}/match`): `like_partnerAlreadyLikedResultsInMatch`.
+  - AC3 (duplicate like handled without error): `like_duplicateLikeFromSameUserDoesNotPersistAgain`.
+  - Extra existing edges: title already tracked, no duplicate track when already matched, couple-not-found.
+- Added the two genuinely missing cases instead of duplicating:
+  - `like_persistedMatchLikeCapturesUserTitleAndMediaType` — captures the saved `MatchLike` and asserts `userId`/`tmdbId`/`mediaType`/`couple.id` (nothing previously verified the persisted MatchLike's field values).
+  - `like_matchEventForTvSeriesCarriesMediaTypeAndTitle` — TV-type match path: asserts the auto-created `MediaTrack.mediaType`/`genreIds` and that `MatchEvent.mediaType()` is `TV` (only MOVIE was exercised before).
+- Files changed: `api/src/test/java/com/app/match/MatchServiceTest.java`, `scripts/ralph/prd.json`.
+- **Learnings for future iterations:**
+  - `MediaDetails` is an 11-arg record: `(tmdbId, mediaType, title, year, ?, ?, ?, genreIds(List<Integer>), ?, ?, ?)` — genreIds is the 8th positional arg. `MatchService.createMatch` copies `details.genreIds()` onto the new `MediaTrack` (via `setGenreIds`), so a match test must stub `mediaDetailsService.getDetails(type, id)` with a real genre list to assert enrichment.
+  - `MatchEvent` record is `(long tmdbId, String title, MediaType mediaType)` — carries mediaType, so both MOVIE and TV paths are worth asserting.
+  - Still no JDK / Maven Central in this sandbox — `mvn test` verification DEFERRED to a JDK 21 env. New tests are standard JUnit5+Mockito mirroring the existing file (ArgumentCaptor + ReflectionTestUtils couple id).
+---
+
 ## 2026-07-22 - US-003
 - Filled tracking-service coverage gaps for US-003. `MediaTrackServiceTest` and `UserReviewServiceTest` already existed (from Epic 4) covering create, delete, upsert-review (create/update/independent per user), and not-found/forbidden errors. Added the genuinely missing cases:
   - `listByStatusReturnsIndependentReviewsForBothMembers` — `listByStatus(coupleId, null)` returns both members' reviews with independent rating/opinion/name (the "listar retornando reviews dos dois usuarios" AC).
