@@ -143,8 +143,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Audited AuthLayout/LoginPage/RegisterPage/JoinPage: no fixed widths beyond the existing `max-w-[440px]` container (which already shrinks correctly via the outer `px-5` padding), Inputs are `w-full min-w-0` by default, and tab/submit buttons are already `w-full`/`flex-1` — none of these overflow at 375px. The one real gap was `InviteCodeTicket`'s fixed `w-[136px]` right column: at a 375px viewport (after AuthLayout's `px-5` and the card's `p-8` padding, card content is ~271px wide) the left flex-1 column was squeezed to ~95px of text content, and at 320px it broke below ~40px — technically no horizontal scroll (flex-col text wraps rather than overflowing) but unusably cramped. Added a mobile-first responsive scale: right column `w-[104px] sm:w-[136px]` with smaller padding/code font-size, left column smaller padding/eyebrow/title font-size on mobile, both restoring original sizes at `sm:`."
     }
   ]
 }
