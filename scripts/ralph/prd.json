@@ -110,8 +110,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Only concrete overflow risk found was the suggestion-card wrapper's fixed `max-w-[280px]`; changed to `max-w-[calc(100vw-32px)] sm:max-w-[280px]` per the acceptance criteria's exact formula (main's existing `px-5` padding already keeps it clear of the viewport edge, so this is a literal/defensive match rather than a visual change). Action buttons (`size-14` circles, `gap-6`) were already touch-adequate and fit comfortably within a 375px viewport; search grid (`minmax(250px,1fr)`) and search input already collapse to one column without horizontal scroll. No other fixed-width elements found."
     },
     {
       "id": "US-007",
