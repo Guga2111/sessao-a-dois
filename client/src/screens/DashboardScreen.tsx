@@ -245,7 +245,7 @@ export function DashboardScreen() {
             algo como visto para ver o painel ganhar vida.
           </div>
         ) : (
-          <div className="mb-5.5 grid grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-4.5">
+          <div className="mb-5.5 grid grid-cols-1 gap-4.5 md:grid-cols-2 lg:grid-cols-4">
             {loading || !stats ? (
               <>
                 <KpiSkeleton />

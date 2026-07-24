@@ -126,8 +126,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Inspected DashboardScreen.tsx: KPI grid was `grid-cols-[repeat(auto-fit,minmax(230px,1fr))]`, which already avoided horizontal overflow but could show 2 columns as early as ~476px (well below the project's 768px mobile threshold), violating the AC's literal 'single column below 768px' requirement. Changed to `grid-cols-1 md:grid-cols-2 lg:grid-cols-4` (md=768px matches the project's existing mobile breakpoint convention from useIsMobile). Charts section (`grid-cols-1 lg:grid-cols-[1.6fr_1fr]`) and GenreBarsChart were already single-column below `lg` and already full-width — no changes needed there. MonthlyBarsChart's flex bar row and MovieTvDonutChart's fixed 130px donut + legend were checked by hand at a 375px viewport width (main `px-5` + ChartCard `p-6` padding) and don't overflow — no changes needed."
     },
     {
       "id": "US-008",
