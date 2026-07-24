@@ -201,9 +201,9 @@ export function HubScreen() {
       }}
     >
       <Header />
-      <main className="mx-auto max-w-[1240px] px-5 pt-10 pb-32 sm:px-8 sm:pt-11">
+      <main className="mx-auto max-w-[1240px] px-4 pt-10 pb-32 sm:px-8 sm:pt-11">
         <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
-          <div>
+          <div className="min-w-0">
             <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-[#ffcb2b] uppercase">
               Minha Lista
             </div>
@@ -218,7 +218,7 @@ export function HubScreen() {
           <Button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="inline-flex cursor-pointer items-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5"
+            className="inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5 sm:w-auto"
           >
             <span className="text-[19px] leading-none">＋</span> Adicionar Título
           </Button>
@@ -321,7 +321,7 @@ export function HubScreen() {
         type="button"
         onClick={() => setModalOpen(true)}
         title="Adicionar Título"
-        className="fixed right-5 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-[#ffcb2b] text-[28px] text-[#111] shadow-[0_14px_34px_rgba(255,203,43,.45)] sm:right-11"
+        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-[#ffcb2b] text-[28px] text-[#111] shadow-[0_14px_34px_rgba(255,203,43,.45)] sm:right-11"
       >
         ＋
       </Button>
