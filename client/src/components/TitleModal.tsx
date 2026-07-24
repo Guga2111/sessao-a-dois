@@ -199,7 +199,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
     >
       <DialogContent
         showCloseButton={false}
-        className="w-full max-w-[520px] gap-0 overflow-visible rounded-[22px] border border-white/10 bg-[#161513] p-0 text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:max-w-[520px]"
+        className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] gap-0 overflow-visible rounded-[22px] border border-white/10 bg-[#161513] p-0 text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:w-full sm:max-w-[520px]"
       >
         <DialogTitle className="sr-only">Adicionar Título</DialogTitle>
         <DialogDescription className="sr-only">

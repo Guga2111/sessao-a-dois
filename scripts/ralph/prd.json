@@ -78,8 +78,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Applied mobile width/height rules to all 6 modals. TitleModal (shadcn Dialog): DialogContent className changed to `w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh]` on mobile, `sm:w-full sm:max-w-[520px]` on desktop, kept `overflow-visible` (not overflow-y-auto) on the outer element because the search-results dropdown is absolutely positioned within it and the existing inner body div already scrolls independently via `max-h-[calc(90vh-280px)] overflow-y-auto`. MediaDetailModal/PendingDetailModal (custom backdrop divs, no DialogContent): changed inner div from `w-full max-w-[900px]` to `w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] sm:w-full sm:max-w-[900px]`, and switched inline style `maxHeight` from `90dvh` to `90svh` per acceptance criteria (kept existing `overflowY: auto`). ReviewModal/WatchModal/DeleteTrackDialog (custom, max-w-[420px]): same calc(100vw-32px) mobile width plus added `max-h-[90svh] overflow-y-auto` directly since they had no height cap before."
     },
     {
       "id": "US-005",

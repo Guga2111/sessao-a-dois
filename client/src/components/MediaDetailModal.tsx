@@ -160,11 +160,11 @@ export function MediaDetailModal({
       style={{ background: "rgba(9,9,10,.82)", backdropFilter: "blur(12px)" }}
     >
       <div
-        className="font-auth-body relative w-full max-w-[900px] overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.08)] text-[#f6f4ec]"
+        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.08)] text-[#f6f4ec] sm:w-full sm:max-w-[900px]"
         style={{
           background:
             "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), #161513",
-          maxHeight: "90dvh",
+          maxHeight: "90svh",
           overflowY: "auto",
         }}
       >

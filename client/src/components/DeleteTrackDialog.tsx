@@ -60,7 +60,7 @@ export function DeleteTrackDialog({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-full max-w-[420px] rounded-[22px] border border-white/10 bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         <div className="flex items-start gap-4 p-6 pb-5">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,90,90,.12)] text-[#ff6b6b]">
