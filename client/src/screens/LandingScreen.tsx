@@ -1,7 +1,9 @@
 import { DashboardPreview } from "@/components/landing/DashboardPreview"
 import { FaqSection } from "@/components/landing/FaqSection"
 import { FeatureGrid } from "@/components/landing/FeatureGrid"
+import { FinalCta } from "@/components/landing/FinalCta"
 import { HowItWorks } from "@/components/landing/HowItWorks"
+import { LandingFooter } from "@/components/landing/LandingFooter"
 import { LandingHeader } from "@/components/landing/LandingHeader"
 import { LandingHero } from "@/components/landing/LandingHero"
 import { MatchShowcase } from "@/components/landing/MatchShowcase"
@@ -24,6 +26,8 @@ export function LandingScreen() {
       <DashboardPreview />
       <Testimonials />
       <FaqSection />
+      <FinalCta />
+      <LandingFooter />
     </div>
   )
 }

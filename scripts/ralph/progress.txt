@@ -111,3 +111,12 @@
   - Sandbox `npm run dev` still fails with the same pre-existing rolldown `Cannot find native binding` (`@rolldown/binding-linux-arm64-gnu`) error, reconfirmed this session — `tsc --noEmit` + `eslint` (both clean here) remain the only available verification.
 - Next: US-012 (FinalCta + LandingFooter).
 ---
+
+## 2026-07-24 - US-012
+- Implemented: created `client/src/components/landing/FinalCta.tsx` — a centered closing block (Heart-in-`#ffcb2b`-badge signature icon, emotional headline "Comecem a assistir a dois hoje", microcopy, primary CTA "Começar a dois" -> `/register` reusing the header/hero button style, secondary "Já temos conta" -> `/login` outlined) with a discreet radial-gradient glow behind it. Also created `client/src/components/landing/LandingFooter.tsx` — brand lockup matching `LandingHeader`'s logo at a smaller scale, the same 3 anchor links (`#como-funciona`/`#recursos`/`#faq`) plus plain-text `/login`/`/register` links, and a copyright line. Wired both into `LandingScreen.tsx` after `FaqSection`.
+- Files changed: `client/src/components/landing/FinalCta.tsx` (new), `client/src/components/landing/LandingFooter.tsx` (new), `client/src/screens/LandingScreen.tsx`.
+- **Learnings for future iterations:**
+  - Deliberately reused existing tokens/patterns rather than inventing new ones for this "closing" story: the CTA button styles are byte-for-byte the same classes as `LandingHeader`/`LandingHero`'s CTAs, and the footer's brand lockup is a smaller-scale copy of `LandingHeader`'s logo block — per `client/CLAUDE.md`'s guidance to match existing inlined-arbitrary-value patterns instead of introducing new design tokens for a page section that's meant to feel continuous with what came before, not introduce a new visual voice at the very end.
+  - Sandbox `npm run dev` still fails with the same pre-existing rolldown `Cannot find native binding` (`@rolldown/binding-linux-arm64-gnu`) error, reconfirmed this session — `tsc --noEmit` + `eslint` (both clean here) remain the only available verification.
+- Next: US-013 (accessibility + prefers-reduced-motion final pass across the whole landing page — audit all 10 section components for focus-visible, aria-labels/aria-hidden, WCAG AA contrast, and reduced-motion compliance).
+---

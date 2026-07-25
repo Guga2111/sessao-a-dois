@@ -191,8 +191,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/landing/FinalCta.tsx and LandingFooter.tsx, wired into LandingScreen.tsx after FaqSection. FinalCta: centered closing block with a Heart-in-badge signature icon, emotional headline 'Comecem a assistir a dois hoje', microcopy, primary CTA 'Comecar a dois' (/register, same #ffcb2b bg + shadow glow as header/hero CTA) and secondary 'Ja temos conta' (/login, outlined), plus a discreet radial-gradient glow (rgba(255,203,43,.14) at top-center) behind the block matching the LandingScreen page-level gradient style (not a new token). LandingFooter: brand lockup (same Heart-in-#ffcb2b-badge + 'Sessao*a*Dois' wordmark as LandingHeader, smaller scale), the same 3 anchor links as LandingHeader/faq (#como-funciona/#recursos/#faq) plus /login and /register links (Entrar/Criar conta as plain text links, not the header's button style, since this is a footer utility row), and a copyright line. Verified every href/to in both files resolves to an existing route or in-page id (no broken links)."
     },
     {
       "id": "US-013",
