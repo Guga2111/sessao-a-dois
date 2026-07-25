@@ -92,3 +92,12 @@
   - Sandbox `npm run dev` still fails with the same pre-existing rolldown "Cannot find native binding" (`@rolldown/binding-linux-arm64-gnu`) error — reconfirmed this session. `tsc --noEmit` + `eslint` (both clean here) remain the only available verification.
 - Next: US-010 (Testimonials — 2-3 fictional "Ana & Léo"-style quotes with dual-avatar styling, responsive grid/stack, no new carousel dependency).
 ---
+
+## 2026-07-24 - US-010
+- Implemented: created `client/src/components/landing/Testimonials.tsx` — 3 fictional couple testimonials (Ana & Léo, Bia & Rafa, Carol & Duda) in a `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` layout (stacks on mobile, no carousel dependency added). Each is a `<figure>` card using the established `#161513`/`rounded-[20px]`/border card language, with a quote (`blockquote`), a dual-avatar (two overlapping gradient circles, hue-varied per couple, `-space-x`-style overlap matching `LandingHero`'s avatar-pair and the prototype header's couple avatar motif — no real photos), couple name (`font-display`) + relationship duration (`#a6a39a`, `figcaption`). Added a large low-opacity closing quote mark per card (`font-display`, ~20% opacity accent color, `aria-hidden`) as the section's one signature flourish, since a testimonial section is fundamentally about a quoted voice. Wired into `LandingScreen.tsx` after `DashboardPreview`.
+- Files changed: `client/src/components/landing/Testimonials.tsx` (new), `client/src/screens/LandingScreen.tsx`.
+- **Learnings for future iterations:**
+  - Sandbox `npm run dev` still fails with the same pre-existing rolldown `Cannot find native binding` (`@rolldown/binding-linux-arm64-gnu`) error, reconfirmed this session despite `client/CLAUDE.md`'s 2026-07-23 "fixed" note not holding across sessions — `tsc --noEmit` + `eslint` (both clean here) remain the only available verification; don't re-attempt fixing it.
+  - The dual-avatar overlap pattern (`-space-x-2`/absolute-positioned overlapping circles with `linear-gradient(160deg, hsl(H 70% 55%), hsl(H 60% 30%))` and a `border-2 border-[#161513]` ring to separate them from the card bg) is now used in 3 places (prototype header, `LandingHero`'s preview panel, `Testimonials`) — treat it as the canonical "represents a couple" avatar for any future landing section that needs one, just vary the hue pair per instance.
+- Next: US-011 (FaqSection — 4-6 expandable Q&A items reusing `src/components/ui/collapsible.tsx`, needs `id="faq"` to match `LandingHeader`'s anchor; no new dependency).
+---

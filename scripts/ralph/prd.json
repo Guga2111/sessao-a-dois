@@ -161,8 +161,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/landing/Testimonials.tsx with 3 fictional couple testimonials (Ana & Léo, Bia & Rafa, Carol & Duda) in a grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 layout (stacks on mobile, no carousel dependency added). Each testimonial is a <figure> card matching the established #161513/border/rounded-[20px] card language, with a quote, a dual-avatar (two overlapping gradient circles per couple, hue-varied per testimonial, same -space-x-2 overlap motif as LandingHero's 'Lista de vocês dois' avatar pair and the prototype header's couple avatar), couple name (font-display) and relationship duration (#a6a39a). Added a large low-opacity closing quote mark (”) as a subtle signature flourish per card, using font-display at 20% opacity in the accent color - decorative only, aria-hidden. Wired into LandingScreen.tsx after DashboardPreview."
     },
     {
       "id": "US-011",

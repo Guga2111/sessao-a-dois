@@ -4,6 +4,7 @@ import { HowItWorks } from "@/components/landing/HowItWorks"
 import { LandingHeader } from "@/components/landing/LandingHeader"
 import { LandingHero } from "@/components/landing/LandingHero"
 import { MatchShowcase } from "@/components/landing/MatchShowcase"
+import { Testimonials } from "@/components/landing/Testimonials"
 
 export function LandingScreen() {
   return (
@@ -20,6 +21,7 @@ export function LandingScreen() {
       <FeatureGrid />
       <MatchShowcase />
       <DashboardPreview />
+      <Testimonials />
     </div>
   )
 }
