@@ -1,4 +1,4 @@
-import { Menu, X } from "lucide-react"
+import { Heart, Menu, X } from "lucide-react"
 import { useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 
@@ -9,7 +9,7 @@ import { useAuthStore } from "@/stores/useAuthStore"
 
 const NAV_ITEMS = [
   { to: "/", label: "Hub Principal" },
-  { to: "/match", label: "Match ♥" },
+  { to: "/match", label: "Match", icon: Heart },
   { to: "/dashboard", label: "Dashboard" },
 ]
 
@@ -25,8 +25,8 @@ export function Header() {
   return (
     <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-[#09090a]/72 px-5 py-4 backdrop-blur-xl sm:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-[#ffcb2b] text-lg shadow-[0_6px_20px_rgba(255,203,43,.35)]">
-          ♥
+        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-[#ffcb2b] shadow-[0_6px_20px_rgba(255,203,43,.35)]">
+          <Heart className="size-[18px] fill-current text-[#111]" />
         </div>
         <div className="font-display truncate text-[19px] font-bold tracking-tight text-[#f6f4ec]">
           Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
@@ -49,6 +49,7 @@ export function Header() {
             }
           >
             {item.label}
+            {"icon" in item && item.icon && <item.icon className="size-3.5 fill-current" />}
           </NavLink>
         ))}
       </nav>
@@ -110,6 +111,7 @@ function MobileNav() {
               }
             >
               {item.label}
+              {"icon" in item && item.icon && <item.icon className="size-3.5 fill-current" />}
             </NavLink>
           ))}
         </nav>

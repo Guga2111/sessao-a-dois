@@ -1,3 +1,4 @@
+import { Heart } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
 
@@ -30,10 +31,10 @@ export function AuthLayout({
           className="mb-8 flex items-center gap-3 no-underline"
         >
           <span
-            className="grid size-10 place-items-center rounded-xl bg-[#ffcb2b] text-lg shadow-[0_6px_20px_rgba(255,203,43,.35)]"
+            className="grid size-10 place-items-center rounded-xl bg-[#ffcb2b] shadow-[0_6px_20px_rgba(255,203,43,.35)]"
             aria-hidden
           >
-            ♥
+            <Heart className="size-[18px] fill-current text-[#111]" />
           </span>
           <span className="font-display text-[19px] font-bold tracking-tight text-[#f6f4ec]">
             Sessão<span className="text-[#ff9e2c]">·</span>a·Dois

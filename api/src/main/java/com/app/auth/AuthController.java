@@ -1,6 +1,11 @@
 package com.app.auth;
 
+import com.app.couple.Couple;
+import com.app.couple.CoupleResponse;
+import com.app.couple.CoupleService;
+import com.app.couple.PartnerSummary;
 import com.app.user.User;
+import com.app.user.UserRepository;
 
 import jakarta.validation.Valid;
 
@@ -11,14 +16,20 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
 	private final AuthService authService;
+	private final CoupleService coupleService;
+	private final UserRepository userRepository;
 
-	public AuthController(AuthService authService) {
+	public AuthController(AuthService authService, CoupleService coupleService, UserRepository userRepository) {
 		this.authService = authService;
+		this.coupleService = coupleService;
+		this.userRepository = userRepository;
 	}
 
 	@PostMapping("/register")
@@ -33,6 +44,17 @@ public class AuthController {
 		AuthService.LoginResult result = authService.login(request);
 		User user = result.user();
 		UserSummary userSummary = new UserSummary(user.getId(), user.getName(), user.getEmail());
-		return ResponseEntity.ok(new LoginResponse(result.token(), userSummary, null));
+		CoupleResponse coupleResponse = coupleService.getCurrentCouple(user.getId())
+			.map(couple -> toResponse(couple, user.getId()))
+			.orElse(null);
+		return ResponseEntity.ok(new LoginResponse(result.token(), userSummary, coupleResponse));
+	}
+
+	private CoupleResponse toResponse(Couple couple, UUID currentUserId) {
+		UUID partnerId = couple.getUser1Id().equals(currentUserId) ? couple.getUser2Id() : couple.getUser1Id();
+		PartnerSummary partner = partnerId == null ? null : userRepository.findById(partnerId)
+			.map(u -> new PartnerSummary(u.getId(), u.getName(), u.getEmail()))
+			.orElse(null);
+		return new CoupleResponse(couple.getId(), couple.getInviteCode(), partner, couple.getCreatedAt());
 	}
 }

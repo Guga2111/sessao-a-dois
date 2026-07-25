@@ -1,8 +1,10 @@
 package com.app.auth;
 
+import com.app.couple.CoupleService;
 import com.app.security.JwtService;
 import com.app.security.SecurityConfig;
 import com.app.user.User;
+import com.app.user.UserRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,12 @@ class AuthControllerTest {
 
 	@MockitoBean
 	private AuthService authService;
+
+	@MockitoBean
+	private CoupleService coupleService;
+
+	@MockitoBean
+	private UserRepository userRepository;
 
 	@MockitoBean
 	private JwtService jwtService;

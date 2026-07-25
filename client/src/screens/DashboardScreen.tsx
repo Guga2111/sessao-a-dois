@@ -1,3 +1,4 @@
+import { Heart } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { Header } from "@/components/Header"
@@ -174,7 +175,7 @@ function KpiCard({
   label,
   children,
 }: {
-  icon: string
+  icon: React.ReactNode
   iconColor: string
   label: string
   children: React.ReactNode
@@ -290,7 +291,7 @@ export function DashboardScreen() {
                   </div>
                 </KpiCard>
 
-                <KpiCard icon="♥" iconColor="#ffb443" label="Gênero favorito">
+                <KpiCard icon={<Heart className="size-3.5 fill-current" />} iconColor="#ffb443" label="Gênero favorito">
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {stats.favoriteGenre ?? "—"}
                   </div>

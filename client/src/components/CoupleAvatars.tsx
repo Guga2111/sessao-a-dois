@@ -1,3 +1,5 @@
+import { Heart } from "lucide-react"
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 interface CoupleAvatarsProps {
@@ -47,8 +49,8 @@ export function CoupleAvatars({ userInitial, partnerInitial }: CoupleAvatarsProp
       </Avatar>
 
       {/* Heart badge */}
-      <div className="absolute -bottom-[3px] left-1/2 grid size-[18px] -translate-x-1/2 place-items-center rounded-full border-2 border-[#09090a] bg-[#ffcb2b] text-[9px]">
-        ♥
+      <div className="absolute -bottom-[3px] left-1/2 grid size-[18px] -translate-x-1/2 place-items-center rounded-full border-2 border-[#09090a] bg-[#ffcb2b]">
+        <Heart className="size-[9px] fill-current text-[#111]" />
       </div>
     </div>
   )
