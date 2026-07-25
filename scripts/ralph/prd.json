@@ -146,8 +146,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/landing/DashboardPreview.tsx, reproducing DashboardScreen's visual language with fixed/fake data (128h42m tempo juntos, 64%/36% filmes vs series, top 3 generos favoritos com barras). A useRevealOnView hook wraps a single IntersectionObserver (threshold 0.35, disconnects after first hit) in a useEffect whose body only creates/observes/cleans up the observer - setState(true) happens inside the observer's callback (an async event, not the effect body itself), which does not trigger react-hooks/set-state-in-effect (that rule only flags synchronous setState calls in the effect body). Genre bars and the filmes-vs-series split bar animate width from 0% to their target only once revealed via IntersectionObserver, using motion-safe:transition-[width] so prefers-reduced-motion:reduce users skip the transition and the bar simply appears at its target width when scrolled into view (matches the 'estado final estatico' pattern from MatchShowcase, adapted for a scroll-triggered reveal instead of a looping animation). No API calls, no useMatchStore/useAuthStore touched. Wired into LandingScreen.tsx between MatchShowcase and the still-pending Testimonials."
     },
     {
       "id": "US-010",

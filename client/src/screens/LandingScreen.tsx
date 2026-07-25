@@ -1,3 +1,4 @@
+import { DashboardPreview } from "@/components/landing/DashboardPreview"
 import { FeatureGrid } from "@/components/landing/FeatureGrid"
 import { HowItWorks } from "@/components/landing/HowItWorks"
 import { LandingHeader } from "@/components/landing/LandingHeader"
@@ -18,6 +19,7 @@ export function LandingScreen() {
       <HowItWorks />
       <FeatureGrid />
       <MatchShowcase />
+      <DashboardPreview />
     </div>
   )
 }
