@@ -52,3 +52,13 @@
   - Sandbox `npm run dev` is broken again with the same pre-existing rolldown "Cannot find native binding" error (client/CLAUDE.md's 2026-07-23 "fixed" note did not hold this session) - don't spend time debugging this again, it's a known-flaky sandbox issue; rely on `tsc --noEmit` + `eslint` (both clean for this change) + manual code review against the prototype reference instead.
 - Next: US-006 (HowItWorks 3-step section, needs `id="como-funciona"` to match LandingHeader's anchor link).
 ---
+
+## 2026-07-24 - US-006
+- Implemented: created `client/src/components/landing/HowItWorks.tsx`, a 3-step section (`id="como-funciona"`, matching `LandingHeader`'s anchor) — Criar conta (UserPlus) -> Parear com o código (KeyRound) -> Assistir e avaliar juntos (Heart). Each step is an icon badge (`#161513` bg, `#ffcb2b`/25 border, rounded-2xl) + `0N` index label + font-display title + font-auth-body microcopy in `#a6a39a`. Grid: `grid-cols-1 sm:grid-cols-3` with a `clamp()` gap, so it stacks on mobile and goes 3-up from `sm`. Added a subtle dashed horizontal line connecting the icon badges (visible `sm:block` only) as the section's one signature flourish — justified because this content genuinely is an ordered process (signup requires pairing before tracking), unlike a plain feature list. No emoji anywhere; icons are Lucide and `aria-hidden`. Wired into `LandingScreen.tsx` right after `LandingHero`.
+- Files changed: `client/src/components/landing/HowItWorks.tsx` (new), `client/src/screens/LandingScreen.tsx`.
+- **Learnings for future iterations:**
+  - `npx vite build` still fails in this sandbox with the same pre-existing rolldown `Cannot find native binding` error (arm64 binding missing) — reconfirmed again this session, not a regression. `tsc --noEmit` + `eslint` (both clean here) remain the only available verification; note this in every future story's report rather than re-investigating the rolldown issue.
+  - For any future landing section that's a genuine ordered sequence (not just a list), the connecting-dashed-line-between-icon-badges pattern from `HowItWorks.tsx` is reusable — but only reach for numbering/connectors when the content really is sequential, per `frontend-design` skill guidance; a feature grid (US-007) should NOT reuse this numbered/connected treatment.
+  - Section anchor ids used by `LandingHeader`: `#como-funciona` now exists (this story); `#recursos` (US-007) and `#faq` (US-011) are still pending.
+- Next: US-007 (FeatureGrid, 4 highlight cards, needs `id="recursos"`).
+---

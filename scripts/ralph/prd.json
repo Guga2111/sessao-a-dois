@@ -99,8 +99,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/landing/HowItWorks.tsx with section id=\"como-funciona\" (matches LandingHeader's anchor). 3 numbered steps (Criar conta -> Parear com o codigo -> Assistir e avaliar juntos), each with a Lucide icon (UserPlus/KeyRound/Heart) in a #161513 rounded-2xl badge with #ffcb2b/25 border, font-display title, font-auth-body microcopy in #a6a39a. Grid is grid-cols-1 sm:grid-cols-3 (stacks on mobile, 3-up from sm breakpoint) with clamp()-based gap. Numbering is justified here (a literal ordered process the user must follow), so added a subtle dashed connecting line between the icon badges on sm+ as the section's signature element, implying the path from signup to watching together - purely decorative/aria-hidden, no motion (kept static per existing site's restrained animation use). No emojis anywhere."
     },
     {
       "id": "US-007",
