@@ -176,8 +176,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/landing/FaqSection.tsx (id=\"faq\") with 6 Q&A items (pricing, invite code, TMDB pt-BR, privacy, individual ratings, Match) using base-ui Collapsible (Collapsible/CollapsibleTrigger/CollapsibleContent from src/components/ui/collapsible.tsx) for accordion behavior - aria-expanded/keyboard handled natively by base-ui, icon rotates via group-data-[panel-open] on the Trigger itself. No new dependency. Wired into LandingScreen.tsx after Testimonials."
     },
     {
       "id": "US-012",
