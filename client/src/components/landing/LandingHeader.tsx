@@ -19,7 +19,7 @@ export function LandingHeader() {
         </span>
       </Link>
 
-      <nav aria-label="Secoes da pagina" className="hidden items-center gap-1 md:flex">
+      <nav aria-label="Secoes da pagina" className="hidden items-center gap-1 lg:flex">
         {ANCHOR_LINKS.map((link) => (
           <a
             key={link.href}

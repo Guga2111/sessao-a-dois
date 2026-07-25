@@ -66,7 +66,7 @@ export function MatchShowcase() {
       </div>
 
       <div aria-hidden="true" className="relative mx-auto flex max-w-lg flex-col items-center">
-        <div className="flex w-full items-center justify-center gap-6 sm:gap-10">
+        <div className="flex w-full items-center justify-center gap-3 sm:gap-10">
           <LikedCard name={VIEWERS[0].name} gradient={VIEWERS[0].from} />
 
           <div className="relative grid size-16 flex-none place-items-center sm:size-20">
