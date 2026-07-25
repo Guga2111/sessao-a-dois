@@ -130,8 +130,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/landing/MatchShowcase.tsx with two LikedCard mini poster tiles (Ana / Leo) flanking a center Heart+Sparkles burst, a 'Deu Match!' status label, and a 'Queremos Ver' pill that receives the title - all driven by 5 new CSS @keyframes added to client/src/index.css (sd-match-like, sd-match-ring, sd-match-burst, sd-match-sparkle, sd-match-pill), a single synced 6s infinite timeline (0-22% like-pulse, 8-30% like ring, 28-58% match burst+label, 30-52% sparkles, 46-100% pill slide-in) so every element shares one clock without JS state/timers. No useMatchStore, no API, no WebSocket - purely CSS + static data. Reduced motion handled by applying the animation only via Tailwind's motion-safe: variant on each animate-[...] utility, with the base (non-prefixed) classes already set to the final matched-state values (opacity-100 etc.) - so prefers-reduced-motion: reduce users simply never get the animate override and see the static matched outcome, no extra reduced-motion branch needed. Icons are Lucide Heart/Sparkles, aria-hidden where decorative; no emoji anywhere (unlike MatchCelebrationModal's emoji, intentionally not reused here per AC)."
     },
     {
       "id": "US-009",

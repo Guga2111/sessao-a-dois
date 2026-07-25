@@ -2,6 +2,7 @@ import { FeatureGrid } from "@/components/landing/FeatureGrid"
 import { HowItWorks } from "@/components/landing/HowItWorks"
 import { LandingHeader } from "@/components/landing/LandingHeader"
 import { LandingHero } from "@/components/landing/LandingHero"
+import { MatchShowcase } from "@/components/landing/MatchShowcase"
 
 export function LandingScreen() {
   return (
@@ -16,6 +17,7 @@ export function LandingScreen() {
       <LandingHero />
       <HowItWorks />
       <FeatureGrid />
+      <MatchShowcase />
     </div>
   )
 }

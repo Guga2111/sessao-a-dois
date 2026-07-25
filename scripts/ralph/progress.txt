@@ -72,3 +72,13 @@
   - Section anchor ids used by `LandingHeader`: `#como-funciona` and `#recursos` now both exist; `#faq` (US-011) is still pending.
 - Next: US-008 (MatchShowcase - CSS-only match animation, no store/API/WebSocket, must respect prefers-reduced-motion).
 ---
+
+## 2026-07-24 - US-008
+- Implemented: created `client/src/components/landing/MatchShowcase.tsx` — two "liked" mini title-card tiles (Ana/Léo) around a center Heart+Sparkles burst that culminates in a "Deu Match!" label and a "Queremos Ver" pill receiving the title. Added 5 new CSS `@keyframes` to `client/src/index.css` (`sd-match-like`, `sd-match-ring`, `sd-match-burst`, `sd-match-sparkle`, `sd-match-pill`) forming one synced 6s infinite timeline — no JS state, no timers, no `useMatchStore`, no API/WebSocket. Wired into `LandingScreen.tsx` between `FeatureGrid` and the still-pending `DashboardPreview`.
+- Files changed: `client/src/components/landing/MatchShowcase.tsx` (new), `client/src/index.css`, `client/src/screens/LandingScreen.tsx`.
+- **Learnings for future iterations:**
+  - Reduced-motion pattern used here (reusable for US-009's animated dashboard bars): give every animated element's *base* (non-prefixed) Tailwind classes the final/settled visual state (e.g. `opacity-100`), then add the actual CSS animation only via `motion-safe:animate-[keyframeName_Ns_ease_infinite]`. Under `prefers-reduced-motion: reduce`, the `motion-safe:` utility simply never applies (Tailwind wraps it in `@media (prefers-reduced-motion: no-preference)`), so the element renders its static final state automatically — no separate reduced-motion branch or JS media-query check needed.
+  - For a multi-element synced CSS loop (multiple pieces of UI animating in relation to each other), define one shared keyframes duration (here 6s) and give each element's `@keyframes` percentage stops that line up on that same timeline, rather than juggling separate `animation-delay`s per element — much easier to reason about and keeps everything visually in sync since they all start at mount.
+  - `npm run dev` is broken in this sandbox again with the same pre-existing rolldown "Cannot find native binding" (`rolldown-binding.linux-arm64-gnu.node`) error — reconfirmed this session despite client/CLAUDE.md's 2026-07-23 "fixed" note. `tsc --noEmit` + `eslint` (both clean here) remain the only available verification; don't re-attempt fixing this, just note it per story.
+- Next: US-009 (DashboardPreview — fake stats teaser with viewport-triggered bar animation; watch the `react-hooks/set-state-in-effect` lint rule per client/CLAUDE.md, likely needs an IntersectionObserver + the reduced-motion pattern above).
+---
