@@ -33,3 +33,13 @@
   - Sandbox's `npm run dev` / vite still fails with the same pre-existing rolldown "Cannot find native binding" error as of this run (re-confirmed, not a regression) — browser verification continues to rely on `tsc --noEmit` + `eslint` + manual review only.
 - Next: US-004 (scaffold LandingScreen composition + LandingHeader as isolated components under `client/src/components/landing/`).
 ---
+
+## 2026-07-24 - US-004
+- Implemented: refactored LandingScreen.tsx from an inline placeholder into a composition of isolated section components under client/src/components/landing/: LandingHeader.tsx (sticky, translucent+blur, bottom border, logo link to "/", anchor nav to #como-funciona/#recursos/#faq hidden below md, Entrar+Criar conta buttons always visible) and LandingHero.tsx (moved verbatim from the old inline hero, no visual changes).
+- Files changed: `client/src/components/landing/LandingHeader.tsx` (new), `client/src/components/landing/LandingHero.tsx` (new), `client/src/screens/LandingScreen.tsx` (rewritten to compose the two).
+- **Learnings for future iterations:**
+  - Anchor links in LandingHeader point to ids (#como-funciona, #recursos, #faq) that don't exist as real sections yet - US-006 (HowItWorks), US-007 (FeatureGrid) and US-011 (FaqSection) need to add matching `id="como-funciona"` / `id="recursos"` / `id="faq"` on their outer `<section>` elements so the anchors actually scroll somewhere.
+  - Mobile collapse pattern used: `hidden md:flex` on the anchor `<nav>`, CTA buttons stay in a separate flex-none container that's always rendered - this satisfies "anchors collapse but CTA stays reachable at ~360px" without any JS/media-query state, just Tailwind responsive classes.
+  - `client/CLAUDE.md` sandbox note now says `npm run dev` works again (fixed 2026-07-23) but this session didn't try starting it - relied on `tsc --noEmit` + `eslint` only, per prior sessions' precedent; both clean for the new/changed landing files. The eslint run on the whole `client/` shows 6 pre-existing errors (ReviewModal.tsx, WatchModal.tsx set-state-in-effect x2 each = 4, button.tsx react-refresh/only-export-components x1... actually totals 6 as counted by eslint) that are unrelated to this change and pre-date it.
+- Next: US-005 (LandingHero section - note: US-004 already produced a LandingHero.tsx as a straight extraction of the existing minimal hero; US-005 asks for a richer hero with eyebrow/CTA styling already mostly present, but also asks for a "mock/preview visual reaproveitando o estilo dos cards de midia" which is NOT yet implemented - that's the main remaining gap for US-005).
+---

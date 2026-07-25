@@ -67,8 +67,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Extracted the inline header/hero from LandingScreen.tsx into client/src/components/landing/LandingHeader.tsx and LandingHeader's sibling LandingHero.tsx; LandingScreen.tsx now composes <LandingHeader /><LandingHero />. LandingHeader adds an anchor nav (Como funciona #como-funciona, Recursos #recursos, FAQ #faq) hidden below md (hidden md:flex) so at ~360px only the logo + Entrar/Criar conta buttons show - Criar conta stays visible and tappable at all widths per AC (anchors are the only thing that collapses). Kept exact sticky/backdrop-blur/border styling from the existing header already used in Header.tsx (the authenticated app header) for visual consistency. All links use focus-visible:outline-2 with the #ffcb2b accent for keyboard nav. Anchor hrefs point to ids that don't exist as sections yet (added by US-006/US-007/US-011) - this is expected, they'll resolve once those stories add the matching id attributes."
     },
     {
       "id": "US-005",
