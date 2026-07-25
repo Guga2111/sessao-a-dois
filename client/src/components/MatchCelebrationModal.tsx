@@ -15,7 +15,7 @@ export function MatchCelebrationModal() {
 
   const handleGoToHub = () => {
     closeMatch()
-    navigate("/")
+    navigate("/hub")
   }
 
   return (

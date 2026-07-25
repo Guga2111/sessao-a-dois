@@ -1,0 +1,25 @@
+# Ralph Progress Log
+# Feature: Landing Page Publica - Sessao a Dois (ralph/landing-page)
+# Started: 2026-07-24
+
+
+## 2026-07-24 - US-001
+- Implemented: installed `@fontsource/bricolage-grotesque` and `@fontsource/dm-sans` (self-hosted) and imported the specific weight CSS files needed (Bricolage 600/700/800, DM Sans 400/500/600/700) in `client/src/index.css` right after the existing `@fontsource-variable/instrument-sans` import. `.font-display`/`.font-auth-body` in index.css already referenced "Bricolage Grotesque"/"DM Sans" by name with Instrument Sans as fallback, so no CSS class changes were needed once the actual font files were imported.
+- Also removed a pre-existing Google Fonts `<link>` block (2x preconnect + 1x stylesheet) from `client/index.html` that was already remotely loading these same two fonts — the AC explicitly requires no Google Fonts link / self-hosted only, so this stale remote link had to be deleted, not just left alongside the new self-hosted import.
+- Files changed: `client/package.json`, `client/package-lock.json`, `client/src/index.css`, `client/index.html`.
+- **Learnings for future iterations:**
+  - Codebase Patterns note: no browser tooling (dev-browser skill/MCP) is available in this sandbox — verification is `tsc --noEmit` + `eslint` only, plus manual code inspection. `npm run dev` / `vite build` currently fail in this sandbox with the pre-existing "Cannot find native binding" rolldown error (documented in client/CLAUDE.md) — confirmed via `git stash` that this failure exists independent of my changes, so it's not a regression, just an unverifiable-here build step.
+  - `npm install <new pkg>` in `client/` can print "removed N packages" referring to optional rolldown platform bindings churn — check `git diff package.json`/`package-lock.json` stay scoped to the intended new deps; this is npm's known optional-deps bug (https://github.com/npm/cli/issues/4828), not something to "fix" here.
+  - This PRD's actual state lives at `.claude/skills/ralph/prd.json` / `.claude/skills/ralph/progress.txt` (14 landing-page stories, US-002 next), not `scripts/ralph/prd.json` (found empty at session start, pre-existing/unrelated to this work).
+- Next: US-002 (migrate Hub route from `/` to `/hub`).
+---
+
+## 2026-07-24 - US-002
+- Implemented: migrated the Hub route from `path="/"` to `path="/hub"` in `client/src/App.tsx` (kept `ProtectedRoute` + `RequireCouple` guards unchanged), and updated the catch-all `*` route to redirect to `/hub` instead of `/`. Updated every other reference in the codebase that treated `/` as the Hub: `Header.tsx` `NAV_ITEMS` first entry + the `end={item.to === "/"}` check in both the desktop `<nav>` and `MobileNav` (now `=== "/hub"`), `guards.tsx` `PublicOnlyRoute` (authenticated+partnered redirect target) and `RedirectIfCoupled`, `LoginPage.tsx` and `JoinPage.tsx` post-success `navigate(...)` calls, and `MatchCelebrationModal.tsx`'s "Ver na lista" button handler.
+- Files changed: `client/src/App.tsx`, `client/src/components/Header.tsx`, `client/src/components/MatchCelebrationModal.tsx`, `client/src/routes/auth/JoinPage.tsx`, `client/src/routes/auth/LoginPage.tsx`, `client/src/routes/guards.tsx`, plus this progress log and `prd.json` (`scripts/ralph/` — see Codebase Patterns note below).
+- **Learnings for future iterations:**
+  - Also fixed a setup bug found at session start: `scripts/ralph/prd.json`/`progress.txt` were empty on disk even though `scripts/ralph/CLAUDE.md` (the file that defines "same directory as this file") is what's actually loaded for this task. The real landing-page PRD data had ended up at `.claude/skills/ralph/prd.json`/`progress.txt` instead (likely written there by mistake during the PRD→JSON conversion step). Copied that content into `scripts/ralph/` so the working files match what `ralph.sh`/this task's CLAUDE.md expect. If `scripts/ralph/prd.json` is ever empty again at the start of a run, check `.claude/skills/ralph/` for a stray copy before re-deriving the PRD from `tasks/prd-landing-page.md`.
+  - Dev server (`npm run dev`) is still broken in this sandbox with the pre-existing rolldown "Cannot find native binding" error — reinstalled `node_modules` (rm -rf + npm install, no lockfile changes) per the documented workaround and it still fails. Despite `client/CLAUDE.md` saying it worked as of 2026-07-23, it does not currently — don't spend much time retrying this, just note it in the report and rely on `tsc --noEmit` + `eslint` + a manual grep audit of all route references instead.
+  - Useful grep pattern for future route-rename stories: `grep -rn 'to="/X"\|navigate("/X"\|Navigate to="/X"' client/src` to find every place a given path is referenced as a nav target (covers `<Link>`/`<NavLink>` `to=`, `useNavigate()` calls, and guard `<Navigate>` redirects) — used this after the edits to confirm zero remaining references to `/` as the Hub.
+- Next: US-003 (public `/` route with LandingScreen + session guard).
+---

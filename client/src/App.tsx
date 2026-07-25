@@ -72,7 +72,7 @@ export function App() {
           }
         />
         <Route
-          path="/"
+          path="/hub"
           element={
             <ProtectedRoute>
               <RequireCouple>
@@ -101,7 +101,7 @@ export function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/hub" replace />} />
       </Routes>
       <MatchCelebrationModal />
     </>
