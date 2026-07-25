@@ -23,3 +23,13 @@
   - Useful grep pattern for future route-rename stories: `grep -rn 'to="/X"\|navigate("/X"\|Navigate to="/X"' client/src` to find every place a given path is referenced as a nav target (covers `<Link>`/`<NavLink>` `to=`, `useNavigate()` calls, and guard `<Navigate>` redirects) — used this after the edits to confirm zero remaining references to `/` as the Hub.
 - Next: US-003 (public `/` route with LandingScreen + session guard).
 ---
+
+## 2026-07-24 - US-003
+- Implemented: added a public `path="/"` route in `client/src/App.tsx` rendering a new minimal `client/src/screens/LandingScreen.tsx` (sticky header with brand + Entrar/Criar conta links, hero headline/subtitle/CTAs, radial-gradient bg over `#09090a`, no API calls). Reused the existing `PublicOnlyRoute` guard from `routes/guards.tsx` to wrap the route instead of writing new session logic — it already redirects authenticated+partnered users to `/hub`, authenticated-without-couple to `/join`, and renders children for anonymous visitors, which is exactly the AC's required behavior. Invalid/expired JWT handling was NOT reinvented: the existing `api.ts` response interceptor (401 + had-auth-header -> `clearAuthToken()` + hard redirect to `/login`) combined with `App.tsx`'s mount-time `loadCurrentUser()` call already covers "JWT present but invalid -> session cleared -> /login", satisfying the AC as-is.
+- Files changed: `client/src/App.tsx` (new `/` route + import), `client/src/screens/LandingScreen.tsx` (new file).
+- **Learnings for future iterations:**
+  - `PublicOnlyRoute` (in `routes/guards.tsx`) is reusable as-is for any public route that needs "anonymous sees content, authenticated gets redirected to /hub or /join" — no need to write a bespoke guard per public route, just wrap the route element with it like `/login`/`/register` already do.
+  - `LandingScreen.tsx` here is intentionally a minimal placeholder (header + single hero block, inline Tailwind, no `components/landing/` subfolder yet) — US-004 explicitly asks to refactor this into a composition of isolated section components under `client/src/components/landing/` (starting with `LandingHeader`). Future iterations should replace/extend this file rather than pile more sections into it directly.
+  - Sandbox's `npm run dev` / vite still fails with the same pre-existing rolldown "Cannot find native binding" error as of this run (re-confirmed, not a regression) — browser verification continues to rely on `tsc --noEmit` + `eslint` + manual review only.
+- Next: US-004 (scaffold LandingScreen composition + LandingHeader as isolated components under `client/src/components/landing/`).
+---

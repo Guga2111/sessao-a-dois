@@ -13,6 +13,7 @@ import {
 } from "@/routes/guards"
 import { DashboardScreen } from "@/screens/DashboardScreen"
 import { HubScreen } from "@/screens/HubScreen"
+import { LandingScreen } from "@/screens/LandingScreen"
 import { MatchScreen } from "@/screens/MatchScreen"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useMatchStore } from "@/stores/useMatchStore"
@@ -45,6 +46,14 @@ export function App() {
   return (
     <>
       <Routes>
+        <Route
+          path="/"
+          element={
+            <PublicOnlyRoute>
+              <LandingScreen />
+            </PublicOnlyRoute>
+          }
+        />
         <Route
           path="/login"
           element={

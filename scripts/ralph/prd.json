@@ -50,8 +50,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added path='/' route in App.tsx rendering the new client/src/screens/LandingScreen.tsx (minimal placeholder hero + header, no API calls, full sections come in US-004+). Reused the existing PublicOnlyRoute guard (routes/guards.tsx) instead of writing new session logic: it already redirects authenticated+partnered users to /hub, authenticated+unpartnered to /join, and renders children for anonymous visitors - exactly matching the AC. Expired/invalid JWT cleanup is already handled by the existing api.ts response interceptor (401 -> clearAuthToken + redirect to /login) combined with App.tsx's mount-time loadCurrentUser() call, so no new token validation was written, per AC instruction to reuse existing 401 handling."
     },
     {
       "id": "US-004",
