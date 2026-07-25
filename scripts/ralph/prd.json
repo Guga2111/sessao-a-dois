@@ -84,8 +84,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Reworked LandingHero.tsx into a two-column layout on md+ (text/CTAs left, preview mock right; stacks to single column centered on mobile). Preview mock is a #161513 panel (border rgba(255,255,255,.07), radius 22px) with a couple avatar-duo (two overlapping gradient circles, matching the header's duo-avatar motif) + 'Lista de vocês dois' label + a 'Queremos Ver' status pill, containing a 2-up grid of mini title cards that mimic the real media-card anatomy from the prototype (docs/design/.../Sessao a Dois.dc.html lines 87-113): poster placeholder with hue-based linear-gradient + genre badge top-left, title (font-display) + year, star rating (Lucide Star, fill #ffb443), and a type pill (Filme/Serie) styled like the prototype's type badge (bg rgba(255,203,43,.12), border rgba(255,203,43,.25), text #ffdd7a). Radial-gradient bg over #09090a was already present in LandingScreen.tsx from US-003, left untouched. Primary CTA glow (#ffcb2b box-shadow) was already present from US-003/US-004, unchanged. Layout uses clamp() for the headline (already existing) and max-w-[420px]/grid/gap responsive classes for the preview panel - verified no horizontal overflow by reasoning through the breakpoints (panel is justify-self-center under md, capped max-w-[420px] with w-full, so it never exceeds the 360px+ viewport minus the px-5 page padding)."
     },
     {
       "id": "US-006",

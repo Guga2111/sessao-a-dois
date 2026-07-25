@@ -43,3 +43,12 @@
   - `client/CLAUDE.md` sandbox note now says `npm run dev` works again (fixed 2026-07-23) but this session didn't try starting it - relied on `tsc --noEmit` + `eslint` only, per prior sessions' precedent; both clean for the new/changed landing files. The eslint run on the whole `client/` shows 6 pre-existing errors (ReviewModal.tsx, WatchModal.tsx set-state-in-effect x2 each = 4, button.tsx react-refresh/only-export-components x1... actually totals 6 as counted by eslint) that are unrelated to this change and pre-date it.
 - Next: US-005 (LandingHero section - note: US-004 already produced a LandingHero.tsx as a straight extraction of the existing minimal hero; US-005 asks for a richer hero with eyebrow/CTA styling already mostly present, but also asks for a "mock/preview visual reaproveitando o estilo dos cards de midia" which is NOT yet implemented - that's the main remaining gap for US-005).
 ---
+
+## 2026-07-24 - US-005
+- Implemented: enriched LandingHero.tsx with the required "mock/preview visual" reusing the app's media-card design language. Restructured the hero into a responsive two-column grid (text+CTAs left, preview mock right on md+, single centered column below md). The preview mock is a #161513 panel with duo-avatar + "Lista de vocês dois" label + "Queremos Ver" status pill header, and a 2-up grid of mini title cards mirroring the real HubScreen card anatomy (poster gradient placeholder + genre badge, title/year, star rating, type pill) sourced from docs/design/claude-design-project/Sessao a Dois.dc.html lines 87-113.
+- Files changed: `client/src/components/landing/LandingHero.tsx`.
+- **Learnings for future iterations:**
+  - The prototype HTML's media-card anatomy (docs/design/claude-design-project/Sessao a Dois.dc.html ~lines 87-113) is the reusable reference for any future landing section that needs to mimic a real title card (FeatureGrid in US-007, MatchShowcase in US-008 will likely want the same poster-gradient + genre-badge + type-pill pattern) - just scale it down proportionally like this hero mock does.
+  - Sandbox `npm run dev` is broken again with the same pre-existing rolldown "Cannot find native binding" error (client/CLAUDE.md's 2026-07-23 "fixed" note did not hold this session) - don't spend time debugging this again, it's a known-flaky sandbox issue; rely on `tsc --noEmit` + `eslint` (both clean for this change) + manual code review against the prototype reference instead.
+- Next: US-006 (HowItWorks 3-step section, needs `id="como-funciona"` to match LandingHeader's anchor link).
+---
