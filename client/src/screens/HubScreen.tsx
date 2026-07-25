@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ChevronDown } from "lucide-react"
 
@@ -12,6 +12,7 @@ import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api } from "@/lib/api"
+import { useIsMobile } from "@/lib/useIsMobile"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { MediaStatus, MediaTrackResponse, PagedMediaTrackResponse } from "@/types/tracking"
 
@@ -67,7 +68,7 @@ function emptySections(): Record<MediaStatus, SectionState> {
 
 function SkeletonCard() {
   return (
-    <div className="overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513]">
+    <div className="min-w-[72vw] max-w-[72vw] shrink-0 overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] md:min-w-0 md:max-w-none md:shrink">
       <div className="aspect-[3/4] animate-pulse bg-white/[0.04]" />
       <div className="space-y-2.5 p-3.5">
         <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/[0.06]" />
@@ -77,8 +78,52 @@ function SkeletonCard() {
   )
 }
 
+interface LoadMoreSentinelProps {
+  status: MediaStatus
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: (status: MediaStatus) => void
+}
+
+/** Invisible sentinel appended after the last mobile carousel card; triggers
+ *  `onLoadMore` via IntersectionObserver instead of a "load more" tap. Only
+ *  ever mounted on mobile (see call site), so the observer never registers
+ *  on desktop. Flags are read from a ref synced in an effect rather than the
+ *  closure so the observer callback (created once per `status`) always sees
+ *  the latest `hasMore`/`loadingMore` without needing to be recreated. */
+function LoadMoreSentinel({ status, hasMore, loadingMore, onLoadMore }: LoadMoreSentinelProps) {
+  const flagsRef = useRef({ hasMore, loadingMore })
+  useEffect(() => {
+    flagsRef.current = { hasMore, loadingMore }
+  })
+
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      observerRef.current?.disconnect()
+      observerRef.current = null
+      if (!node) return
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const flags = flagsRef.current
+          if (entries[0]?.isIntersecting && flags.hasMore && !flags.loadingMore) {
+            onLoadMore(status)
+          }
+        },
+        { threshold: 0.5 }
+      )
+      observer.observe(node)
+      observerRef.current = observer
+    },
+    [status, onLoadMore]
+  )
+
+  return <div ref={sentinelRef} aria-hidden="true" className="w-px shrink-0" />
+}
+
 export function HubScreen() {
   const user = useAuthStore((state) => state.user)
+  const isMobile = useIsMobile()
   const [sections, setSections] = useState<Record<MediaStatus, SectionState>>(emptySections)
   const [modalOpen, setModalOpen] = useState(false)
   const [detailTrack, setDetailTrack] = useState<MediaTrackResponse | null>(null)
@@ -125,14 +170,22 @@ export function HubScreen() {
     reloadAllFirstPages()
   }, [reloadAllFirstPages])
 
-  const handleLoadMore = (status: MediaStatus) => {
-    const current = sections[status]
-    setSections((prev) => ({
-      ...prev,
-      [status]: { ...prev[status], loadingMore: true },
-    }))
-    void fetchSectionPage(status, current.page + 1)
-  }
+  const sectionsRef = useRef(sections)
+  useEffect(() => {
+    sectionsRef.current = sections
+  }, [sections])
+
+  const handleLoadMore = useCallback(
+    (status: MediaStatus) => {
+      const current = sectionsRef.current[status]
+      setSections((prev) => ({
+        ...prev,
+        [status]: { ...prev[status], loadingMore: true },
+      }))
+      void fetchSectionPage(status, current.page + 1)
+    },
+    [fetchSectionPage]
+  )
 
   const handleModalSuccess = () => {
     setModalOpen(false)
@@ -148,9 +201,9 @@ export function HubScreen() {
       }}
     >
       <Header />
-      <main className="mx-auto max-w-[1240px] px-5 pt-10 pb-32 sm:px-8 sm:pt-11">
+      <main className="mx-auto max-w-[1240px] px-4 pt-10 pb-32 sm:px-8 sm:pt-11">
         <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
-          <div>
+          <div className="min-w-0">
             <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-[#ffcb2b] uppercase">
               Minha Lista
             </div>
@@ -165,7 +218,7 @@ export function HubScreen() {
           <Button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="inline-flex cursor-pointer items-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5"
+            className="inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5 sm:w-auto"
           >
             <span className="text-[19px] leading-none">＋</span> Adicionar Título
           </Button>
@@ -205,7 +258,7 @@ export function HubScreen() {
 
               <CollapsibleContent>
                 {loading ? (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+                  <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
                     <SkeletonCard />
                     <SkeletonCard />
                     <SkeletonCard />
@@ -217,22 +270,35 @@ export function HubScreen() {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+                    <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
                       {items.map((track) => (
-                        <MediaCard
+                        <div
                           key={track.id}
-                          track={track}
-                          myUserId={user?.id ?? ""}
-                          onStatusChange={setWatchTrack}
-                          onStartWatching={reloadAllFirstPages}
-                          onReview={setReviewTrack}
-                          onClick={setDetailTrack}
-                          onDelete={setDeleteTrack}
-                        />
+                          className="min-w-[72vw] max-w-[72vw] shrink-0 [scroll-snap-align:start] md:min-w-0 md:max-w-none md:shrink md:[scroll-snap-align:none]"
+                        >
+                          <MediaCard
+                            track={track}
+                            myUserId={user?.id ?? ""}
+                            onStatusChange={setWatchTrack}
+                            onStartWatching={reloadAllFirstPages}
+                            onReview={setReviewTrack}
+                            onClick={setDetailTrack}
+                            onDelete={setDeleteTrack}
+                          />
+                        </div>
                       ))}
+                      {loadingMore && <SkeletonCard />}
+                      {isMobile && hasMore && (
+                        <LoadMoreSentinel
+                          status={section.status}
+                          hasMore={hasMore}
+                          loadingMore={loadingMore}
+                          onLoadMore={handleLoadMore}
+                        />
+                      )}
                     </div>
                     {hasMore && (
-                      <div className="mt-6 flex justify-center">
+                      <div className="mt-6 hidden justify-center md:flex">
                         <Button
                           type="button"
                           onClick={() => handleLoadMore(section.status)}
@@ -255,7 +321,7 @@ export function HubScreen() {
         type="button"
         onClick={() => setModalOpen(true)}
         title="Adicionar Título"
-        className="fixed right-5 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-[#ffcb2b] text-[28px] text-[#111] shadow-[0_14px_34px_rgba(255,203,43,.45)] sm:right-11"
+        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-[#ffcb2b] text-[28px] text-[#111] shadow-[0_14px_34px_rgba(255,203,43,.45)] sm:right-11"
       >
         ＋
       </Button>

@@ -73,7 +73,7 @@ export function ReviewModal({ track, myUserId, onClose, onSuccess }: ReviewModal
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-full max-w-[420px] rounded-[22px] border border-white/10 bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 p-6 pb-5">

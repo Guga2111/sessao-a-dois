@@ -1,4 +1,6 @@
-import { NavLink } from "react-router-dom"
+import { Menu, X } from "lucide-react"
+import { useState } from "react"
+import { NavLink, useLocation } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
 import { daysSince } from "@/lib/date"
@@ -14,6 +16,7 @@ const NAV_ITEMS = [
 export function Header() {
   const user = useAuthStore((s) => s.user)
   const couple = useAuthStore((s) => s.couple)
+  const location = useLocation()
 
   const firstName = user?.name.split(" ")[0] ?? ""
   const partnerFirstName = couple?.partner?.name.split(" ")[0] ?? ""
@@ -30,7 +33,7 @@ export function Header() {
         </div>
       </div>
 
-      <nav className="flex items-center gap-1.5 rounded-[14px] border border-white/[0.06] bg-white/[0.05] p-1.5">
+      <nav className="hidden items-center gap-1.5 rounded-[14px] border border-white/[0.06] bg-white/[0.05] p-1.5 md:flex">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -67,7 +70,50 @@ export function Header() {
             />
           </>
         )}
+
+        <MobileNav key={location.pathname} />
       </div>
     </header>
+  )
+}
+
+function MobileNav() {
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  return (
+    <div className="relative md:hidden">
+      <button
+        type="button"
+        onClick={() => setMenuOpen((open) => !open)}
+        aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+        aria-expanded={menuOpen}
+        className="grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-[#f6f4ec] transition-colors hover:bg-white/[0.09]"
+      >
+        {menuOpen ? <X size={19} /> : <Menu size={19} />}
+      </button>
+
+      {menuOpen && (
+        <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-[14px] border border-white/[0.08] bg-[#141312] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.5)]">
+          {NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/"}
+              onClick={() => setMenuOpen(false)}
+              className={({ isActive }) =>
+                cn(
+                  "rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
+                  isActive
+                    ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                    : "text-[#a6a39a] hover:text-[#f6f4ec]"
+                )
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
+    </div>
   )
 }

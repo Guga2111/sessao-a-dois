@@ -21,11 +21,11 @@ export function InviteCodeTicket({ code }: InviteCodeTicketProps) {
 
   return (
     <div className="relative isolate flex overflow-hidden rounded-2xl bg-[#ffcb2b] text-[#09090a] shadow-[0_16px_40px_-12px_rgba(255,203,43,.45)]">
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-5 py-6">
-        <span className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-60">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4 py-5 sm:px-5 sm:py-6">
+        <span className="text-[9px] font-bold tracking-[0.12em] uppercase opacity-60 sm:text-[10px] sm:tracking-[0.2em]">
           Ingresso · duas cadeiras
         </span>
-        <span className="font-display truncate text-lg leading-tight font-extrabold">
+        <span className="font-display truncate text-base leading-tight font-extrabold sm:text-lg">
           Sessão a Dois
         </span>
         <span className="text-xs font-medium opacity-70">
@@ -33,7 +33,7 @@ export function InviteCodeTicket({ code }: InviteCodeTicketProps) {
         </span>
       </div>
 
-      <div className="relative flex w-[136px] shrink-0 flex-col items-center justify-center gap-2 border-l-2 border-dashed border-[#09090a]/25 px-3 py-6">
+      <div className="relative flex w-[104px] shrink-0 flex-col items-center justify-center gap-2 border-l-2 border-dashed border-[#09090a]/25 px-2 py-5 sm:w-[136px] sm:px-3 sm:py-6">
         <span
           className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#0d0d0f]"
           aria-hidden
@@ -42,7 +42,7 @@ export function InviteCodeTicket({ code }: InviteCodeTicketProps) {
           className="absolute -bottom-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#0d0d0f]"
           aria-hidden
         />
-        <span className="font-mono text-[22px] font-bold tracking-[0.14em]">
+        <span className="font-mono text-base font-bold tracking-[0.08em] sm:text-[22px] sm:tracking-[0.14em]">
           {code}
         </span>
         <Button
