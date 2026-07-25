@@ -61,7 +61,7 @@ export function Testimonials() {
               {testimonial.quote}
             </blockquote>
             <figcaption className="mt-6 flex items-center gap-3">
-              <div className="relative h-9 w-[46px] flex-none">
+              <div aria-hidden="true" className="relative h-9 w-[46px] flex-none">
                 <span
                   className="absolute top-0.5 left-0 size-8 rounded-full border-2 border-[#161513]"
                   style={{

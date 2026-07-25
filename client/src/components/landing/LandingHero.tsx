@@ -22,7 +22,7 @@ const PREVIEW_TITLES = [
 
 export function LandingHero() {
   return (
-    <main className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.05fr_0.95fr] md:gap-10 lg:py-24">
+    <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.05fr_0.95fr] md:gap-10 lg:py-24">
       <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
         <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-[#ffcb2b] uppercase">
           Feito para dois
@@ -103,6 +103,6 @@ export function LandingHero() {
           ))}
         </div>
       </div>
-    </main>
+    </section>
   )
 }

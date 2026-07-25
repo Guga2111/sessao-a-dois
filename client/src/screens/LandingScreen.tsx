@@ -19,14 +19,16 @@ export function LandingScreen() {
       }}
     >
       <LandingHeader />
-      <LandingHero />
-      <HowItWorks />
-      <FeatureGrid />
-      <MatchShowcase />
-      <DashboardPreview />
-      <Testimonials />
-      <FaqSection />
-      <FinalCta />
+      <main>
+        <LandingHero />
+        <HowItWorks />
+        <FeatureGrid />
+        <MatchShowcase />
+        <DashboardPreview />
+        <Testimonials />
+        <FaqSection />
+        <FinalCta />
+      </main>
       <LandingFooter />
     </div>
   )

@@ -208,8 +208,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Audited all 10 landing components + LandingScreen against the AC. Fixed 4 real gaps found: (1) Landmark structure was broken - LandingHero rendered its own <main>, so every other section (HowItWorks..FinalCta) sat outside any main landmark; changed LandingHero's outer tag to <section> and wrapped LandingHero..FinalCta in a single <main> in LandingScreen.tsx (header/main/footer now correct, one <main> for the whole page). (2) MatchShowcase's 'Deu Match!' span had role=\"status\", but the animation loops infinitely (every 6s) - a live region there would re-announce the same text to screen reader users every 6 seconds forever; removed role=\"status\" and instead marked the whole decorative animated demo container aria-hidden=\"true\" (the section's h2+p already fully describe the Match behavior in accessible text, so nothing is lost). (3) LandingFooter's copyright line used text-[#6f6c64] on the #09090a page background, which computes to ~3.8:1 contrast - fails WCAG AA (needs 4.5:1 for this small text); swapped to the already-approved secondary token text-[#a6a39a] (~7.9:1, comfortably AA). (4) Testimonials' dual-avatar decorative circles div had no aria-hidden (unlike the identical pattern already used in LandingHero/LandingHeader/LandingFooter); added aria-hidden=\"true\" to match. Everything else already met the AC on inspection: every interactive element (links, buttons, Collapsible triggers) already had focus-visible:outline-2 classes from earlier stories, all decorative Lucide icons were already aria-hidden, every section already had a real <h2> (hero has the page's single <h1>), and prefers-reduced-motion was already fully handled via the motion-safe: pattern established in US-008/US-009. tsc --noEmit and eslint both clean on the changed files."
     },
     {
       "id": "US-014",

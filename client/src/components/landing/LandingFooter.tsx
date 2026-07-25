@@ -51,7 +51,7 @@ export function LandingFooter() {
         </nav>
       </div>
 
-      <p className="mt-8 text-center text-xs text-[#6f6c64] sm:text-left">
+      <p className="mt-8 text-center text-xs text-[#a6a39a] sm:text-left">
         © {new Date().getFullYear()} Sessão a Dois. Feito para casais que
         assistem juntos.
       </p>
