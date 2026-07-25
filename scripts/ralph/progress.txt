@@ -62,3 +62,13 @@
   - Section anchor ids used by `LandingHeader`: `#como-funciona` now exists (this story); `#recursos` (US-007) and `#faq` (US-011) are still pending.
 - Next: US-007 (FeatureGrid, 4 highlight cards, needs `id="recursos"`).
 ---
+
+## 2026-07-24 - US-007
+- Implemented: created `client/src/components/landing/FeatureGrid.tsx`, a 4-card section (`id="recursos"`, matching `LandingHeader`'s anchor) — Lista compartilhada (ListChecks), Match em tempo real (Heart), Notas & opiniões individuais (NotebookPen), Dashboard do casal (LayoutDashboard). Each card follows the established landing card language: `#161513` bg, `rgba(255,255,255,.07)` border, `rounded-[20px]`, icon in a `#09090a` badge with `#ffcb2b`/25 border, `font-display` title, `font-auth-body` `#a6a39a` microcopy. Grid uses an inline `gridTemplateColumns: repeat(auto-fit, minmax(min(100%, 260px), 1fr))` style (Tailwind's `grid-cols-*` utilities can't express `auto-fit`/`minmax`, so went inline like the AC literally asked for) — 1 column on mobile, multiple on desktop, no fixed breakpoints needed. Deliberately did NOT reuse `HowItWorks`' numbered/dashed-connector treatment here since this is a plain feature list, not a sequence. Wired into `LandingScreen.tsx` right after `HowItWorks`.
+- Files changed: `client/src/components/landing/FeatureGrid.tsx` (new), `client/src/screens/LandingScreen.tsx`.
+- **Learnings for future iterations:**
+  - `npx vite build` still fails in this sandbox with the same pre-existing rolldown `Cannot find native binding` (`@rolldown/binding-linux-arm64-gnu`) error — reconfirmed again this session, not a regression. `tsc --noEmit` + `eslint` (both clean here) remain the only available verification.
+  - For any grid needing true CSS `auto-fit`/`minmax()` fluid columns (not just responsive breakpoints), use an inline `style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, Npx), 1fr))" }}` — Tailwind has no utility for `auto-fit` and the `minmax(100%,...)` wrapped in `min()` is what prevents a single very-narrow item from overflowing at small widths.
+  - Section anchor ids used by `LandingHeader`: `#como-funciona` and `#recursos` now both exist; `#faq` (US-011) is still pending.
+- Next: US-008 (MatchShowcase - CSS-only match animation, no store/API/WebSocket, must respect prefers-reduced-motion).
+---

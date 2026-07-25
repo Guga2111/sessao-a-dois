@@ -114,8 +114,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/landing/FeatureGrid.tsx, section id=\"recursos\" (matches LandingHeader's anchor). 4 cards (Lista compartilhada / Match em tempo real / Notas & opinioes individuais / Dashboard do casal), each with a Lucide icon (ListChecks/Heart/NotebookPen/LayoutDashboard) in a #09090a icon badge with #ffcb2b/25 border, font-display title, font-auth-body microcopy in #a6a39a. Card shell: #161513 bg, border rgba(255,255,255,.07), rounded-[20px] (within the 18-24px AC range). Grid uses inline style gridTemplateColumns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)) per the AC's literal auto-fit requirement (Tailwind's grid-cols-* utilities don't express auto-fit/minmax, so used an inline style like LandingHero already does elsewhere) - collapses to 1 column under ~260px-per-item on mobile, multiple columns on desktop. No numbered/connected treatment reused from HowItWorks since this is a plain feature list, not a sequence (per frontend-design skill note in US-006's progress log). No emoji anywhere; icons are Lucide and aria-hidden. Wired into LandingScreen.tsx right after HowItWorks."
     },
     {
       "id": "US-008",
