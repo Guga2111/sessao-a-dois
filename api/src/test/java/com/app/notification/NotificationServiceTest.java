@@ -5,13 +5,19 @@ import com.app.media.MediaType;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import com.app.tracking.ResourceNotFoundException;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -19,8 +25,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -100,5 +108,75 @@ class NotificationServiceTest {
 				MediaType.MOVIE, "Matrix", user1Id);
 
 		assertThat(dtos).allMatch(dto -> dto.actorName() == null);
+	}
+
+	@Test
+	void listNotifications_returnsPageWithResolvedActorNames() {
+		UUID coupleId = UUID.randomUUID();
+		UUID recipientId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		Couple couple = couple(coupleId, recipientId, actorId);
+		Notification notification = savedNotification(couple, recipientId, actorId);
+
+		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
+			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of(new User("Ana", "ana@x.com", "hash")));
+
+		Page<NotificationDto> page = notificationService.listNotifications(recipientId, 0, 20);
+
+		assertThat(page.getContent()).hasSize(1);
+		assertThat(page.getContent().get(0).actorName()).isEqualTo("Ana");
+	}
+
+	@Test
+	void unreadCount_delegatesToRepository() {
+		UUID recipientId = UUID.randomUUID();
+		when(notificationRepository.countByRecipientUserIdAndReadFalse(recipientId)).thenReturn(5L);
+
+		assertThat(notificationService.unreadCount(recipientId)).isEqualTo(5L);
+	}
+
+	@Test
+	void markAsRead_marksOwnedNotificationAsRead() {
+		UUID recipientId = UUID.randomUUID();
+		Notification notification = savedNotification(couple(UUID.randomUUID(), recipientId, UUID.randomUUID()),
+				recipientId, UUID.randomUUID());
+		when(notificationRepository.findById(notification.getId())).thenReturn(Optional.of(notification));
+
+		notificationService.markAsRead(notification.getId(), recipientId);
+
+		assertThat(notification.isRead()).isTrue();
+		verify(notificationRepository).save(notification);
+	}
+
+	@Test
+	void markAsRead_throwsResourceNotFoundWhenMissing() {
+		UUID notificationId = UUID.randomUUID();
+		when(notificationRepository.findById(notificationId)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> notificationService.markAsRead(notificationId, UUID.randomUUID()))
+			.isInstanceOf(ResourceNotFoundException.class);
+	}
+
+	@Test
+	void markAsRead_throwsAccessDeniedWhenNotOwnedByUser() {
+		UUID recipientId = UUID.randomUUID();
+		UUID otherUserId = UUID.randomUUID();
+		Notification notification = savedNotification(couple(UUID.randomUUID(), recipientId, UUID.randomUUID()),
+				recipientId, UUID.randomUUID());
+		when(notificationRepository.findById(notification.getId())).thenReturn(Optional.of(notification));
+
+		assertThatThrownBy(() -> notificationService.markAsRead(notification.getId(), otherUserId))
+			.isInstanceOf(AccessDeniedException.class);
+		verify(notificationRepository, never()).save(any(Notification.class));
+	}
+
+	@Test
+	void markAllAsRead_delegatesToRepository() {
+		UUID recipientId = UUID.randomUUID();
+
+		notificationService.markAllAsRead(recipientId);
+
+		verify(notificationRepository).markAllAsReadByRecipientUserId(recipientId);
 	}
 }

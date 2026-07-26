@@ -2,16 +2,23 @@ package com.app.notification;
 
 import com.app.couple.Couple;
 import com.app.media.MediaType;
+import com.app.tracking.ResourceNotFoundException;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -58,6 +65,46 @@ public class NotificationService {
 
 		scheduleBroadcast(destination, dtos);
 		return dtos;
+	}
+
+	public Page<NotificationDto> listNotifications(UUID recipientUserId, int page, int size) {
+		Page<Notification> notifications = notificationRepository
+			.findByRecipientUserIdOrderByCreatedAtDesc(recipientUserId, PageRequest.of(page, size));
+
+		Map<UUID, String> actorNames = resolveActorNames(notifications.getContent());
+		return notifications.map(n -> toDto(n, actorNames.get(n.getActorUserId())));
+	}
+
+	public long unreadCount(UUID recipientUserId) {
+		return notificationRepository.countByRecipientUserIdAndReadFalse(recipientUserId);
+	}
+
+	@Transactional
+	public void markAsRead(UUID notificationId, UUID recipientUserId) {
+		Notification notification = notificationRepository.findById(notificationId)
+			.orElseThrow(() -> new ResourceNotFoundException("notificacao nao encontrada"));
+
+		if (!notification.getRecipientUserId().equals(recipientUserId)) {
+			throw new AccessDeniedException("notificacao nao pertence ao usuario autenticado");
+		}
+
+		notification.setRead(true);
+		notificationRepository.save(notification);
+	}
+
+	@Transactional
+	public void markAllAsRead(UUID recipientUserId) {
+		notificationRepository.markAllAsReadByRecipientUserId(recipientUserId);
+	}
+
+	private Map<UUID, String> resolveActorNames(List<Notification> notifications) {
+		List<UUID> actorIds = notifications.stream().map(Notification::getActorUserId).distinct().toList();
+
+		Map<UUID, String> names = new HashMap<>();
+		for (User user : userRepository.findAllById(actorIds)) {
+			names.put(user.getId(), user.getName());
+		}
+		return names;
 	}
 
 	private void scheduleBroadcast(String destination, List<NotificationDto> dtos) {
