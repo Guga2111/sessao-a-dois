@@ -120,8 +120,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/types/notification.ts (Notification interface + NotificationType/PagedNotificationResponse mirroring the backend NotificationDto and Spring Data Page<T> shape) and client/src/stores/useNotificationStore.ts (Zustand). Store state: notifications, unreadCount, page, hasMore. Exposes fetchNotifications() (page=0,size=20, replaces list), fetchMore() (next page, appends, updates hasMore from totalPages), fetchUnreadCount() (separate GET /api/notifications/unread-count, since US-008 calls it independently from fetchNotifications on app load), markAsRead(id) and markAllAsRead() (optimistic update then PATCH, revert to pre-update snapshot on error), and pushIncoming(notification) (prepend + increment unreadCount, for the STOMP wiring in US-008). All requests go through the existing `api` axios client (src/lib/api.ts), same as useMatchStore/useAuthStore."
     },
     {
       "id": "US-008",

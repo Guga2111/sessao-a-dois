@@ -19,3 +19,16 @@ Started: Sun Jul 26 14:28:59 PDT 2026
   - When a DTO/list endpoint needs a display name resolved from a foreign id per row (e.g. actorName from actorUserId), batch-resolve with `userRepository.findAllById(distinctIds)` into a Map first, then map over the page - avoids N+1 UserRepository.findById calls per row.
   - This sandbox has no JDK/Maven and no network access to Maven Central (mvnw tries to download the maven distribution and fails) - consistent with the note already in api/CLAUDE.md. Changes here were verified by manual code review only, not by running ./mvnw test. Flag this to a human or a later iteration with build tooling available.
 ---
+
+## 2026-07-26 - US-007
+- Implemented TypeScript types and Zustand store for notifications.
+- Files changed:
+  - client/src/types/notification.ts (new)
+  - client/src/stores/useNotificationStore.ts (new)
+- **Learnings for future iterations:**
+  - Frontend paginated list endpoints (Spring Data `Page<T>`) get a `Paged<X>Response` interface mirroring `PagedMediaTrackResponse` (content/totalElements/totalPages/number/size) - reused this shape for `PagedNotificationResponse`.
+  - Store pattern (see useMatchStore/useAuthStore): plain Zustand `create<State>((set, get) => ({...}))`, all HTTP via the shared `api` axios client (src/lib/api.ts) which already attaches the JWT.
+  - For optimistic updates with rollback (markAsRead/markAllAsRead), snapshot the pre-update state at the top of the action, apply the optimistic `set()`, then in the `catch` restore the snapshot via `set()` and rethrow - avoids hand-rolling inverse-operation logic.
+  - `fetchNotifications()` and `fetchUnreadCount()` are kept as two separate store methods (not combined) because US-008's spec calls them independently on app load ("chamar fetchNotifications() e buscar unread-count").
+  - `npm run lint` in client/ currently has 6 pre-existing errors unrelated to notifications work (PendingDetailModal.tsx, ReviewModal.tsx, WatchModal.tsx react-hooks/set-state-in-effect; button.tsx react-refresh/only-export-components) - verified with `npx eslint <new files>` directly that the new files themselves are lint-clean; do not assume `npm run lint` will exit 0 in this repo right now.
+---
