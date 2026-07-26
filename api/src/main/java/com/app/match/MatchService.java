@@ -82,6 +82,15 @@ public class MatchService {
 		Couple couple = coupleRepository.findById(coupleId)
 			.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 		matchRejectRepository.save(new MatchReject(couple, userId, request.tmdbId(), request.mediaType()));
+
+		boolean partnerLiked = matchLikeRepository
+			.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, request.tmdbId(), userId)
+			.isPresent();
+		if (partnerLiked) {
+			MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
+			notificationService.notifyCouple(couple, NotificationType.NO_MATCH, request.tmdbId(), request.mediaType(),
+					details.title(), userId);
+		}
 	}
 
 	public List<PendingMatchDto> getPending(UUID coupleId, UUID userId) {

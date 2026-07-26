@@ -86,8 +86,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "MatchService.reject(coupleId, userId, request) now also checks matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, tmdbId, userId) right after persisting the MatchReject; if the partner had liked the same tmdbId, fetches title via mediaDetailsService and calls notificationService.notifyCouple(couple, NotificationType.NO_MATCH, tmdbId, mediaType, title, userId) with actorUserId = userId (whoever just rejected/passed). NotificationService's existing after-commit STOMP broadcast to /topic/couple/{coupleId}/notifications is reused as-is (no new wiring needed). Left the existing MatchReject persistence/idempotency behavior untouched. Updated MatchServiceTest: reject_persistsNewReject now stubs findFirstByCoupleIdAndTmdbIdAndUserIdNot to empty and asserts notifyCouple is never called; added reject_partnerAlreadyLikedCreatesNoMatchNotification asserting the NO_MATCH notifyCouple call args."
     },
     {
       "id": "US-006",

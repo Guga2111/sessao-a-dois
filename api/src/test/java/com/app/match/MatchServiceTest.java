@@ -268,6 +268,8 @@ class MatchServiceTest {
 		when(matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L))
 			.thenReturn(Optional.empty());
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
+		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 603L, userId))
+			.thenReturn(Optional.empty());
 
 		matchService.reject(coupleId, userId, request);
 
@@ -275,6 +277,30 @@ class MatchServiceTest {
 		verify(matchRejectRepository, times(1)).save(captor.capture());
 		assertThat(captor.getValue().getTmdbId()).isEqualTo(603L);
 		assertThat(captor.getValue().getUserId()).isEqualTo(userId);
+		verify(notificationService, never()).notifyCouple(any(Couple.class), any(NotificationType.class), any(Long.class),
+				any(MediaType.class), anyString(), any(UUID.class));
+	}
+
+	@Test
+	void reject_partnerAlreadyLikedCreatesNoMatchNotification() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
+		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
+
+		when(matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L))
+			.thenReturn(Optional.empty());
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
+		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 603L, userId))
+			.thenReturn(Optional.of(partnerLike));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null, List.of(28), null, null, null));
+
+		matchService.reject(coupleId, userId, request);
+
+		verify(notificationService, times(1)).notifyCouple(any(Couple.class), eq(NotificationType.NO_MATCH), eq(603L),
+				eq(MediaType.MOVIE), eq("Matrix"), eq(userId));
 	}
 
 	@Test

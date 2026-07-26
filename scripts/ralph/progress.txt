@@ -65,3 +65,16 @@
   - This codebase's match tests use `MediaType`/`MatchLike`/`MediaTrack` mocks per-test rather than shared fixtures — when adding a new collaborator (NotificationService) to a service under test, every existing `new MatchService(...)` constructor call site in the test class must be updated, not just one.
   - Same sandbox limitation as all prior stories: no JDK/Maven available (`java`/`mvn` missing, `./mvnw` cannot reach Maven Central) — could not run `./mvnw test` to verify compilation/pass. Code changes are minimal and mirror the existing tested MatchService/MatchServiceTest structure; verify on a machine with JDK 21 + Maven Central access before merging if this matters.
 ---
+
+## 2026-07-26 - US-005
+- Implemented: No-Match flow now creates NO_MATCH notifications for both couple members when a user rejects a title the partner had liked.
+- Files changed:
+  - api/src/main/java/com/app/match/MatchService.java (reject(...) now checks matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot after saving the MatchReject; if the partner liked the same tmdbId, fetches title via mediaDetailsService and calls notificationService.notifyCouple(couple, NotificationType.NO_MATCH, tmdbId, mediaType, title, userId))
+  - api/src/test/java/com/app/match/MatchServiceTest.java (reject_persistsNewReject updated to stub the new lookup + assert notifyCouple never called when partner hasn't liked; added reject_partnerAlreadyLikedCreatesNoMatchNotification)
+- **Learnings for future iterations:**
+  - `actor_user_id` for a NO_MATCH notification is the `userId` param of `MatchService.reject(coupleId, userId, request)` — the user who just passed/rejected the title, mirroring how MATCH's actor is the user whose `like()` call closed the match.
+  - Reused `MatchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot` (already existed for match detection in `like()`) to detect "did the partner like this title" inside `reject()` — no new repository query needed.
+  - `reject()` fetches `MediaDetails` (for the title) only when a NO_MATCH notification is actually needed (partner liked), same "call TMDB only when required" style as `createMatch()`.
+  - Per the story's explicit scope note, the existing MatchReject persistence/idempotency/discard behavior was left completely untouched — the notification call is purely additive after the existing `matchRejectRepository.save(...)`.
+  - Same sandbox limitation as all prior notification stories: no JDK/Maven available here (`java`/`mvn` missing, `./mvnw` cannot reach Maven Central) — could not run `./mvnw test` to verify compilation/pass. Change mirrors the already-tested MATCH-flow pattern in the same file/class closely to minimize risk; verify on a machine with JDK 21 + Maven Central access before merging if this matters.
+---
