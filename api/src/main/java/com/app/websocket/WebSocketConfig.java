@@ -8,9 +8,12 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * Broker STOMP para eventos em tempo real (ex.: Match do Epico 5). Endpoint
- * {@code /ws} com fallback SockJS, autenticacao via {@link JwtHandshakeInterceptor}
- * no handshake, broker simples em {@code /topic} e prefixo de aplicacao {@code /app}.
+ * Broker STOMP para eventos em tempo real (Match/No-Match e Notificacoes do
+ * casal, ex.: {@code /topic/couple/{coupleId}/match} e
+ * {@code /topic/couple/{coupleId}/notifications}). Endpoint {@code /ws} com
+ * fallback SockJS, autenticacao via {@link JwtHandshakeInterceptor} no
+ * handshake, broker simples em {@code /topic} e prefixo de aplicacao
+ * {@code /app}.
  */
 @Configuration
 @EnableWebSocketMessageBroker

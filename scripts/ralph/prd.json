@@ -51,8 +51,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created NotificationDto record (id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt) and NotificationService.notifyCouple(couple, type, tmdbId, mediaType, title, actorUserId): builds the recipient list from couple.user1Id/user2Id, persists one Notification per recipient, resolves actorName via UserRepository, and broadcasts each resulting DTO to /topic/couple/{coupleId}/notifications. Broadcast is deferred to TransactionSynchronization.afterCommit() when a transaction is active (falls back to immediate send otherwise) so the STOMP push never precedes the DB commit. WebSocketConfig's existing /topic broker already covers the new destination; only its Javadoc was extended to document it. NotificationServiceTest (Mockito) covers: 2 notifications created + 2 STOMP sends for a couple event, and actorName resolving to null when the actor user lookup misses."
     },
     {
       "id": "US-004",
