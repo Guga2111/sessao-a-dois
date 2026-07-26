@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/useAuthStore"
 
 const NAV_ITEMS = [
-  { to: "/", label: "Hub Principal" },
+  { to: "/hub", label: "Hub Principal" },
   { to: "/match", label: "Match", icon: Heart },
   { to: "/dashboard", label: "Dashboard" },
 ]
@@ -38,7 +38,7 @@ export function Header() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/"}
+            end={item.to === "/hub"}
             className={({ isActive }) =>
               cn(
                 "rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors",
@@ -99,7 +99,7 @@ function MobileNav() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/"}
+              end={item.to === "/hub"}
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 cn(

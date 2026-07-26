@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/instrument-sans";
+@import "@fontsource/bricolage-grotesque/600.css";
+@import "@fontsource/bricolage-grotesque/700.css";
+@import "@fontsource/bricolage-grotesque/800.css";
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/600.css";
+@import "@fontsource/dm-sans/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -131,6 +138,35 @@
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* MatchShowcase (landing) — single synced timeline, phases documented inline at each usage site. */
+@keyframes sd-match-like {
+  0%, 8% { transform: scale(1); }
+  14% { transform: scale(1.16); }
+  22%, 100% { transform: scale(1); }
+}
+@keyframes sd-match-ring {
+  0%, 8% { opacity: 0; transform: scale(0.7); }
+  16% { opacity: 1; transform: scale(1.35); }
+  30%, 100% { opacity: 0; transform: scale(1.35); }
+}
+@keyframes sd-match-burst {
+  0%, 28% { opacity: 0; transform: scale(0.6); }
+  36% { opacity: 1; transform: scale(1.08); }
+  44% { opacity: 1; transform: scale(1); }
+  58%, 100% { opacity: 0; transform: scale(1); }
+}
+@keyframes sd-match-sparkle {
+  0%, 30% { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+  38% { opacity: 1; transform: scale(1) rotate(0deg); }
+  52%, 100% { opacity: 0; transform: scale(1.1) rotate(8deg); }
+}
+@keyframes sd-match-pill {
+  0%, 46% { opacity: 0; transform: translateY(10px); }
+  56% { opacity: 1; transform: translateY(0); }
+  96% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(10px); }
 }
 
 @layer base {

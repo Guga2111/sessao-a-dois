@@ -25,7 +25,7 @@ export function LoginPage() {
 
     try {
       await login({ email, password })
-      navigate("/", { replace: true })
+      navigate("/hub", { replace: true })
     } catch (submitError) {
       if (isAxiosError(submitError) && submitError.response?.status === 401) {
         setError("E-mail ou senha incorretos.")

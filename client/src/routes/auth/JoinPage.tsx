@@ -34,7 +34,7 @@ export function JoinPage() {
     try {
       const joined = await joinCouple(inviteCode.trim().toUpperCase())
       if (joined.partner) {
-        navigate("/", { replace: true })
+        navigate("/hub", { replace: true })
       }
     } catch (submitError) {
       if (!isAxiosError(submitError)) {
