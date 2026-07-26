@@ -135,8 +135,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "useMatchStore.connect() now also subscribes to /topic/couple/{coupleId}/notifications on the same STOMP client (right after the existing /match subscription, before client.activate()/set()), parsing each message as the shared Notification type and forwarding it to useNotificationStore.getState().pushIncoming(notification) - no second connection opened. App.tsx's existing 'authenticated + coupled' effect (the one that already calls connect(coupleId)/disconnect()) now also calls fetchNotifications() and fetchUnreadCount() from useNotificationStore when that condition is true, so both fire together on app load. Confirmed the STOMP payload needs no transform: NotificationDto (backend, US-003) and the Notification TS interface (US-007) both already share the same field names/shapes, so JSON.parse(message.body) is used as-is."
     },
     {
       "id": "US-009",

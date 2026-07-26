@@ -32,3 +32,14 @@ Started: Sun Jul 26 14:28:59 PDT 2026
   - `fetchNotifications()` and `fetchUnreadCount()` are kept as two separate store methods (not combined) because US-008's spec calls them independently on app load ("chamar fetchNotifications() e buscar unread-count").
   - `npm run lint` in client/ currently has 6 pre-existing errors unrelated to notifications work (PendingDetailModal.tsx, ReviewModal.tsx, WatchModal.tsx react-hooks/set-state-in-effect; button.tsx react-refresh/only-export-components) - verified with `npx eslint <new files>` directly that the new files themselves are lint-clean; do not assume `npm run lint` will exit 0 in this repo right now.
 ---
+
+## 2026-07-26 - US-008
+- Subscribed to /topic/couple/{coupleId}/notifications on the existing STOMP connection managed by useMatchStore, and wired notification fetch-on-load into App.tsx.
+- Files changed:
+  - client/src/stores/useMatchStore.ts (client.subscribe to the notifications topic inside onConnect, forwards each message to useNotificationStore.getState().pushIncoming)
+  - client/src/App.tsx (the existing isAuthenticated+hasPartner+coupleId effect now also calls fetchNotifications()/fetchUnreadCount() alongside connect())
+- **Learnings for future iterations:**
+  - Cross-store calls from inside a Zustand store body (not a React component) should use `useOtherStore.getState().action(...)` rather than a hook - avoids importing React hook machinery into non-component code and sidesteps any circular-subscription concerns.
+  - No payload transform was needed for the STOMP notification message: NotificationDto (backend) and the `Notification` TS type (client/src/types/notification.ts, from US-007) already have matching field names, so `JSON.parse(message.body) as Notification` is a direct, safe cast.
+  - Sandbox gotcha confirmed still current: `npx vite build` fails with `Cannot find module './rolldown-binding.linux-arm64-gnu.node'` until `npm install @rolldown/binding-linux-arm64-gnu lightningcss-linux-arm64-gnu @tailwindcss/oxide-linux-arm64-gnu` is run locally - but do NOT commit that `npm install` (it dirties package.json/package-lock.json with sandbox-only arm64 optional bindings that were never part of prior commits); `git checkout -- client/package.json client/package-lock.json` after verifying the build to keep the diff clean.
+---

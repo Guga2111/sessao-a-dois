@@ -4,7 +4,9 @@ import { create } from "zustand"
 
 import { api } from "@/lib/api"
 import { getAuthToken } from "@/lib/authToken"
+import { useNotificationStore } from "@/stores/useNotificationStore"
 import type { PendingMatch } from "@/types/media"
+import type { Notification } from "@/types/notification"
 
 export type MediaType = "MOVIE" | "TV"
 
@@ -58,6 +60,13 @@ export const useMatchStore = create<MatchState>((set, get) => ({
           (message) => {
             const matchData = JSON.parse(message.body) as MatchEvent
             set({ matchData, matchOpen: true })
+          }
+        )
+        client.subscribe(
+          `/topic/couple/${coupleId}/notifications`,
+          (message) => {
+            const notification = JSON.parse(message.body) as Notification
+            useNotificationStore.getState().pushIncoming(notification)
           }
         )
         set({ subscription, connected: true })
