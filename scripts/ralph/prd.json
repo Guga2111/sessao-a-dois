@@ -1,230 +1,201 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/landing-page",
-  "description": "Landing Page Publica - Sessao a Dois: pagina estatica de marketing na rota publica '/' que apresenta o produto (lista compartilhada, Match em tempo real, notas/opinioes individuais, Dashboard do casal) e converte o visitante anonimo em '/register' ou '/login'. Herda o design system do prototipo (tema escuro, acentos amarelo/laranja/verde, Bricolage Grotesque + DM Sans, cards, glows, icones Lucide). O Hub autenticado migra de '/' para '/hub'. Sem backend novo.",
+  "branchName": "ralph/sistema-notificacoes",
+  "description": "Sistema de Notificacoes (Match & No-Match) - notifica ambos os membros do casal em tempo real via STOMP + persistencia, com icone/badge no Header e dropdown de listagem.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Adicionar as fontes reais do prototipo (Bricolage Grotesque + DM Sans)",
-      "description": "Como desenvolvedor, quero as fontes do design system instaladas de fato, para que font-display e font-auth-body deixem de cair no fallback (Instrument Sans) e a landing use a tipografia exata do prototipo.",
+      "title": "Entidade e persistencia de Notification (Backend)",
+      "description": "Como desenvolvedor, preciso persistir notificacoes no banco para que o historico sobreviva a refresh e a periodos offline.",
       "acceptanceCriteria": [
-        "Adicionar @fontsource/bricolage-grotesque e @fontsource/dm-sans ao client/package.json (self-hosted, seguindo o padrao de @fontsource-variable/instrument-sans)",
-        "Importar no client/src/index.css os pesos: Bricolage Grotesque 600/700/800 e DM Sans 400/500/600/700",
-        ".font-display resolve para Bricolage Grotesque e .font-auth-body para DM Sans no computed font-family (nao o fallback)",
-        "Nenhum <link> de Google Fonts adicionado ao index.html",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Criar entidade JPA `Notification` no pacote `com.app.notification`",
+        "Campos: id, couple_id (FK Couple), recipient_user_id (FK User), type (enum MATCH|NO_MATCH), tmdb_id (Long), media_type (enum MOVIE|TV), title (String), actor_user_id (FK User), read (boolean default false), created_at (timestamp)",
+        "Criar `NotificationRepository` com consulta de listagem por recipient_user_id ordenada por created_at desc e contagem de nao-lidas",
+        "Adicionar indice em (recipient_user_id, read)",
+        "Tabela criada automaticamente via JPA/Hibernate na subida da aplicacao",
+        "Testes unitarios (JUnit 5 + Mockito) do repositorio/servico passam",
+        "Tests pass",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Added @fontsource/bricolage-grotesque and @fontsource/dm-sans (weights 600/700/800 and 400/500/600/700 respectively) as self-hosted deps, imported per-weight CSS files in client/src/index.css right after the existing instrument-sans import. Removed the pre-existing Google Fonts <link> tags (preconnect x2 + stylesheet) from client/index.html that were already loading these exact fonts remotely - AC required no Google Fonts link and self-hosted only, so the old remote link had to go, not just the new self-hosted addition."
+      "notes": "Created com.app.notification package: Notification JPA entity (couple FK via @ManyToOne, recipientUserId/actorUserId as plain UUID columns matching the MatchLike.userId convention rather than a User @ManyToOne join), NotificationType enum (MATCH/NO_MATCH), and NotificationRepository with findByRecipientUserIdOrderByCreatedAtDesc + countByRecipientUserIdAndReadFalse. Composite index on (recipient_user_id, is_read) via @Table(indexes=...). Renamed the 'read' field's column to is_read to avoid the SQL reserved-word ambiguity around READ. DataJpaTest repository test added following MatchLikeRepositoryTest's pattern (persistedCouple() helper, H2 in-memory)."
     },
     {
       "id": "US-002",
-      "title": "Migrar o Hub de '/' para '/hub' e liberar a raiz",
-      "description": "Como usuario autenticado, quero que meu Hub continue funcionando apos a raiz '/' virar publica, acessando-o em '/hub' sem quebras de navegacao.",
+      "title": "Rotina de retencao: expirar notificacoes com mais de 30 dias (Backend)",
+      "description": "Como sistema, quero remover automaticamente notificacoes antigas para nao crescer a tabela indefinidamente.",
       "acceptanceCriteria": [
-        "Em client/src/App.tsx, a rota do HubScreen passa de path='/' para path='/hub', mantendo ProtectedRoute + RequireCouple",
-        "client/src/components/Header.tsx (NAV_ITEMS) e qualquer link/Navigate que aponte para '/' como Hub passa a apontar para '/hub' (guards, api.ts redirect pos-login, telas de auth, PublicOnlyRoute)",
-        "PublicOnlyRoute redireciona usuario autenticado com casal para '/hub' (antes '/'); sem casal continua indo para '/join'",
-        "Fluxo pos-login/registro leva o usuario autenticado+casal ao '/hub'",
-        "Nenhum link morto para '/' como Hub permanece no codigo",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Adicionar consulta no `NotificationRepository` que remove notificacoes com created_at anterior a 30 dias",
+        "Criar rotina `@Scheduled` (executa 1x/dia) que chama essa limpeza",
+        "Habilitar `@EnableScheduling` na aplicacao caso ainda nao esteja",
+        "Teste unitario cobrindo a consulta de expiracao (notificacao > 30 dias e removida; <= 30 dias permanece)",
+        "Tests pass",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Route path changed from '/' to '/hub' in App.tsx (kept ProtectedRoute+RequireCouple wrapper), catch-all '*' now redirects to /hub. Updated every reference that pointed at '/' as the Hub: Header.tsx NAV_ITEMS + both NavLink 'end' checks (desktop nav + MobileNav), guards.tsx PublicOnlyRoute (authenticated+partnered -> /hub) and RedirectIfCoupled (-> /hub), LoginPage.tsx and JoinPage.tsx post-success navigate('/hub'), MatchCelebrationModal.tsx 'Ver na lista' button navigate('/hub'). Grepped for any remaining to=\"/\"/navigate(\"/\")/Navigate to=\"/\" afterward - none left. tsc --noEmit clean; eslint has 6 pre-existing errors (react-hooks/set-state-in-effect x3, react-refresh/only-export-components x1 - actually 4 files/6 total) unrelated to this change, confirmed identical via git stash before my edits. Dev server still fails in this sandbox with the pre-existing rolldown native-binding error (reinstalled node_modules to retry per client/CLAUDE.md workaround, no change) - browser verification not possible here, relied on tsc/eslint + full grep audit of route references."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Rota publica '/' com logica de sessao (LandingScreen + guard)",
-      "description": "Como visitante, quero que '/' mostre a landing quando nao estou logado, e como usuario logado quero ser levado direto ao app sem ver a pagina de marketing.",
+      "title": "NotificationService + DTO e broadcast STOMP (Backend)",
+      "description": "Como desenvolvedor, preciso de um servico central que crie notificacoes, retorne o DTO e emita o evento STOMP para o topico do casal.",
       "acceptanceCriteria": [
-        "Nova rota publica path='/' renderiza LandingScreen, fora de ProtectedRoute (renderiza sem JWT)",
-        "Visitante sem sessao ve a LandingScreen",
-        "Usuario autenticado com JWT valido e casal que acessa '/' e redirecionado para '/hub'; autenticado sem casal para '/join'",
-        "Usuario com JWT presente porem invalido/expirado tem a sessao limpa e e redirecionado para '/login', reaproveitando o tratamento de 401 existente em src/lib/api.ts/useAuthStore (sem inventar validacao nova de token)",
-        "A landing nao faz nenhuma chamada de API de conteudo",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Criar `NotificationDto` com campos: id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt",
+        "Criar `NotificationService` com metodo que cria duas Notification (uma por recipient_user_id do casal) para um dado evento e retorna os DTOs",
+        "Registrar/estender o destino STOMP `/topic/couple/{coupleId}/notifications` na config de WebSocket existente",
+        "Emitir o DTO via `SimpMessagingTemplate` APOS o commit da persistencia (notificacao ja existe no banco quando o push chega)",
+        "Teste unitario verificando que o `SimpMessagingTemplate` e chamado com o destino e payload corretos",
+        "Tests pass",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Added path='/' route in App.tsx rendering the new client/src/screens/LandingScreen.tsx (minimal placeholder hero + header, no API calls, full sections come in US-004+). Reused the existing PublicOnlyRoute guard (routes/guards.tsx) instead of writing new session logic: it already redirects authenticated+partnered users to /hub, authenticated+unpartnered to /join, and renders children for anonymous visitors - exactly matching the AC. Expired/invalid JWT cleanup is already handled by the existing api.ts response interceptor (401 -> clearAuthToken + redirect to /login) combined with App.tsx's mount-time loadCurrentUser() call, so no new token validation was written, per AC instruction to reuse existing 401 handling."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Scaffold do LandingScreen + LandingHeader publico",
-      "description": "Como visitante, quero um header publico fixo com a marca e CTAs sempre acessiveis, para poder criar conta ou entrar a qualquer momento da rolagem.",
+      "title": "Gerar notificacoes no fluxo de Match (Backend)",
+      "description": "Como membro do casal, quero ser notificado quando um Match acontece, para saber que um titulo entrou na nossa lista.",
       "acceptanceCriteria": [
-        "Criar client/src/screens/LandingScreen.tsx como composicao de secoes isoladas em client/src/components/landing/",
-        "Criar LandingHeader com logo 'Sessao·a·Dois' (icone Lucide, sem emoji), links de ancora (Como funciona, Recursos, FAQ) e botoes 'Entrar' (link /login) e 'Criar conta' (link /register)",
-        "Header e sticky top-0 com fundo translucido + backdrop-blur e borda inferior 1px rgba(255,255,255,.07)",
-        "Em ~360px o header se adapta (ancoras colapsam/escondem) mas o CTA 'Criar conta' permanece acessivel",
-        "Links navegaveis por teclado com :focus-visible visivel",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Quando a logica de match confirma que ambos curtiram o mesmo tmdb_id, chamar o NotificationService para criar duas Notification do tipo MATCH (uma por membro)",
+        "actor_user_id = usuario que deu o segundo like (quem fechou o match)",
+        "A criacao das notificacoes ocorre na mesma transacao da criacao do MediaTrack (status WANT_TO_SEE)",
+        "Apos persistir, o evento STOMP e emitido para /topic/couple/{coupleId}/notifications",
+        "Fluxo existente de adicionar o titulo a 'Queremos Ver' continua sem regressao",
+        "Testes unitarios: match cria 2 notificacoes MATCH + emite evento; nao-match nao cria notificacao de match",
+        "Tests pass",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Extracted the inline header/hero from LandingScreen.tsx into client/src/components/landing/LandingHeader.tsx and LandingHeader's sibling LandingHero.tsx; LandingScreen.tsx now composes <LandingHeader /><LandingHero />. LandingHeader adds an anchor nav (Como funciona #como-funciona, Recursos #recursos, FAQ #faq) hidden below md (hidden md:flex) so at ~360px only the logo + Entrar/Criar conta buttons show - Criar conta stays visible and tappable at all widths per AC (anchors are the only thing that collapses). Kept exact sticky/backdrop-blur/border styling from the existing header already used in Header.tsx (the authenticated app header) for visual consistency. All links use focus-visible:outline-2 with the #ffcb2b accent for keyboard nav. Anchor hrefs point to ids that don't exist as sections yet (added by US-006/US-007/US-011) - this is expected, they'll resolve once those stories add the matching id attributes."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Secao Hero (LandingHero)",
-      "description": "Como visitante, quero uma headline emocional que me faca sentir que este app e 'para nos dois', com um preview visual da lista do casal.",
+      "title": "Gerar notificacao no fluxo de No-Match (Backend)",
+      "description": "Como membro do casal, quero ser notificado quando ha divergencia (o parceiro passou um titulo que eu curti).",
       "acceptanceCriteria": [
-        "LandingHero com eyebrow uppercase, headline (font-display 700/800), subtitulo (font-auth-body cor #a6a39a), CTA primario 'Comecar a dois' -> /register e CTA secundario 'Ja temos conta' -> /login",
-        "Fundo com radial-gradient sutil (mesmos gradientes do prototipo) sobre #09090a",
-        "Mock/preview visual reaproveitando o estilo dos cards de midia (#161513, raio 18-24px, borda 1px rgba(255,255,255,.07), badges/pilulas)",
-        "CTA primario usa o acento #ffcb2b com glow discreto (box-shadow) e texto escuro",
-        "Layout fluido com clamp(); sem overflow horizontal entre 360px e desktop",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Quando um usuario passa um titulo que o parceiro havia curtido, criar duas Notification do tipo NO_MATCH (uma por membro) via NotificationService",
+        "actor_user_id = usuario que passou o titulo",
+        "Evento STOMP emitido para /topic/couple/{coupleId}/notifications",
+        "NAO alterar a regra existente de descarte/ocultacao do titulo recusado (fora de escopo)",
+        "Testes unitarios cobrindo geracao de 2 notificacoes NO_MATCH e emissao do evento",
+        "Tests pass",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Reworked LandingHero.tsx into a two-column layout on md+ (text/CTAs left, preview mock right; stacks to single column centered on mobile). Preview mock is a #161513 panel (border rgba(255,255,255,.07), radius 22px) with a couple avatar-duo (two overlapping gradient circles, matching the header's duo-avatar motif) + 'Lista de vocês dois' label + a 'Queremos Ver' status pill, containing a 2-up grid of mini title cards that mimic the real media-card anatomy from the prototype (docs/design/.../Sessao a Dois.dc.html lines 87-113): poster placeholder with hue-based linear-gradient + genre badge top-left, title (font-display) + year, star rating (Lucide Star, fill #ffb443), and a type pill (Filme/Serie) styled like the prototype's type badge (bg rgba(255,203,43,.12), border rgba(255,203,43,.25), text #ffdd7a). Radial-gradient bg over #09090a was already present in LandingScreen.tsx from US-003, left untouched. Primary CTA glow (#ffcb2b box-shadow) was already present from US-003/US-004, unchanged. Layout uses clamp() for the headline (already existing) and max-w-[420px]/grid/gap responsive classes for the preview panel - verified no horizontal overflow by reasoning through the breakpoints (panel is justify-self-center under md, capped max-w-[420px] with w-full, so it never exceeds the 360px+ viewport minus the px-5 page padding)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Secao 'Como funciona' (HowItWorks, 3 passos)",
-      "description": "Como visitante, quero entender em 3 passos como comecar, para reduzir a friccao de criar conta.",
+      "title": "Endpoints REST de notificacoes (Backend)",
+      "description": "Como frontend, preciso listar notificacoes, contar nao-lidas e marca-las como lidas.",
       "acceptanceCriteria": [
-        "HowItWorks com 3 passos numerados: (1) Criar conta -> (2) Parear com o codigo de convite -> (3) Assistir e avaliar juntos",
-        "Cada passo tem icone Lucide, titulo curto e microcopy; grid responsivo (auto-fit/clamp()) que empilha no mobile",
-        "Nenhum emoji usado como icone",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "GET /api/notifications?page=&size= lista as notificacoes do usuario autenticado, created_at desc, paginado",
+        "GET /api/notifications/unread-count retorna { count: number } de nao-lidas do usuario autenticado",
+        "PATCH /api/notifications/{id}/read marca uma notificacao do usuario como lida; retorna 403 se nao pertencer ao usuario",
+        "PATCH /api/notifications/read-all marca todas as nao-lidas do usuario como lidas",
+        "Todos exigem JWT valido e escopam por recipient_user_id = usuario autenticado",
+        "Testes de Controller (MockMvc) cobrindo os quatro endpoints, incluindo o caso 403",
+        "Tests pass",
+        "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Created client/src/components/landing/HowItWorks.tsx with section id=\"como-funciona\" (matches LandingHeader's anchor). 3 numbered steps (Criar conta -> Parear com o codigo -> Assistir e avaliar juntos), each with a Lucide icon (UserPlus/KeyRound/Heart) in a #161513 rounded-2xl badge with #ffcb2b/25 border, font-display title, font-auth-body microcopy in #a6a39a. Grid is grid-cols-1 sm:grid-cols-3 (stacks on mobile, 3-up from sm breakpoint) with clamp()-based gap. Numbering is justified here (a literal ordered process the user must follow), so added a subtle dashed connecting line between the icon badges on sm+ as the section's signature element, implying the path from signup to watching together - purely decorative/aria-hidden, no motion (kept static per existing site's restrained animation use). No emojis anywhere."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Grid de recursos (FeatureGrid, 4 destaques)",
-      "description": "Como visitante, quero ver os diferenciais do produto de forma escaneavel, para me convencer do valor.",
+      "title": "Tipagens e store de notificacoes (Frontend)",
+      "description": "Como desenvolvedor frontend, preciso de tipos TypeScript e um estado global (Zustand) para gerenciar notificacoes.",
       "acceptanceCriteria": [
-        "FeatureGrid com 4 cards: Lista compartilhada (Assistindo/Queremos Ver/Ja Vimos), Match em tempo real, Notas & opinioes individuais, Dashboard do casal",
-        "Cada card: icone Lucide + titulo (font-display) + microcopy (font-auth-body), estilo de card do design system (#161513, borda sutil, raio 18-24px)",
-        "Grid grid-template-columns: repeat(auto-fit, minmax(...)) fluido; 1 coluna no mobile, multiplas no desktop",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Criar tipos em client/src/types/notification.ts: NotificationType ('MATCH'|'NO_MATCH'), MediaType ('MOVIE'|'TV') e interface Notification (id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt)",
+        "Criar `useNotificationStore` (Zustand) com estado: notifications, unreadCount, page, hasMore",
+        "Store expoe: fetchNotifications() (1a pagina size=20), fetchMore() (proximo lote, atualiza hasMore), markAsRead(id), markAllAsRead(), pushIncoming(n)",
+        "fetchNotifications e unread-count usam o cliente Axios com interceptor JWT ja configurado",
+        "markAsRead/markAllAsRead fazem atualizacao otimista + chamada REST (revertem em erro)",
+        "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Created client/src/components/landing/FeatureGrid.tsx, section id=\"recursos\" (matches LandingHeader's anchor). 4 cards (Lista compartilhada / Match em tempo real / Notas & opinioes individuais / Dashboard do casal), each with a Lucide icon (ListChecks/Heart/NotebookPen/LayoutDashboard) in a #09090a icon badge with #ffcb2b/25 border, font-display title, font-auth-body microcopy in #a6a39a. Card shell: #161513 bg, border rgba(255,255,255,.07), rounded-[20px] (within the 18-24px AC range). Grid uses inline style gridTemplateColumns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)) per the AC's literal auto-fit requirement (Tailwind's grid-cols-* utilities don't express auto-fit/minmax, so used an inline style like LandingHero already does elsewhere) - collapses to 1 column under ~260px-per-item on mobile, multiple columns on desktop. No numbered/connected treatment reused from HowItWorks since this is a plain feature list, not a sequence (per frontend-design skill note in US-006's progress log). No emoji anywhere; icons are Lucide and aria-hidden. Wired into LandingScreen.tsx right after HowItWorks."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Prova visual do Match (MatchShowcase)",
-      "description": "Como visitante, quero ver a magica do 'os dois curtiram -> deu Match', porque e o diferencial central do produto.",
+      "title": "Assinar topico STOMP de notificacoes reusando a conexao existente (Frontend)",
+      "description": "Como frontend, quero receber novas notificacoes em tempo real pela conexao STOMP ja aberta pelo useMatchStore.",
       "acceptanceCriteria": [
-        "MatchShowcase mostra dois cards 'curtidos' e uma micro-animacao em loop CSS que culmina no momento de Match ('Deu Match!') e no titulo entrando na pilula 'Queremos Ver'",
-        "Animacao e puramente visual (CSS/estado interno de UI), sem API, sem WebSocket, sem backend, sem estado global (useMatchStore nao e tocado)",
-        "prefers-reduced-motion: reduce -> sem loop; renderiza o estado final (match concluido) de forma estatica",
-        "Icones Lucide (coracao/sparkles), nenhum emoji",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Assinar /topic/couple/{coupleId}/notifications no mesmo ponto onde useMatchStore ja assina /match (reusar a conexao unica, sem abrir uma segunda)",
+        "Ao receber evento, chamar pushIncoming(n): prepend na lista e incrementa unreadCount",
+        "Ao carregar a app (autenticado + casal vinculado), chamar fetchNotifications() e buscar unread-count",
+        "Payload STOMP tem o mesmo shape do DTO REST (sem transformacao divergente)",
+        "Typecheck passes"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Created client/src/components/landing/MatchShowcase.tsx with two LikedCard mini poster tiles (Ana / Leo) flanking a center Heart+Sparkles burst, a 'Deu Match!' status label, and a 'Queremos Ver' pill that receives the title - all driven by 5 new CSS @keyframes added to client/src/index.css (sd-match-like, sd-match-ring, sd-match-burst, sd-match-sparkle, sd-match-pill), a single synced 6s infinite timeline (0-22% like-pulse, 8-30% like ring, 28-58% match burst+label, 30-52% sparkles, 46-100% pill slide-in) so every element shares one clock without JS state/timers. No useMatchStore, no API, no WebSocket - purely CSS + static data. Reduced motion handled by applying the animation only via Tailwind's motion-safe: variant on each animate-[...] utility, with the base (non-prefixed) classes already set to the final matched-state values (opacity-100 etc.) - so prefers-reduced-motion: reduce users simply never get the animate override and see the static matched outcome, no extra reduced-motion branch needed. Icons are Lucide Heart/Sparkles, aria-hidden where decorative; no emoji anywhere (unlike MatchCelebrationModal's emoji, intentionally not reused here per AC)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Previa do Dashboard (DashboardPreview)",
-      "description": "Como visitante, quero um teaser das estatisticas do casal, para desejar ter o meu proprio dashboard.",
+      "title": "Icone de notificacoes no Header (Frontend)",
+      "description": "Como membro do casal, quero ver um icone de notificacoes no Header, ao lado do avatar do casal, indicando quando ha notificacoes nao-lidas.",
       "acceptanceCriteria": [
-        "DashboardPreview reproduz o estilo do DashboardScreen real com dados fixos/fake (horas juntos, filmes vs series, generos favoritos)",
-        "Barras/KPIs animam ao entrar na viewport (IntersectionObserver dentro de useEffect com setState no callback, ou animacao CSS on-scroll); respeitam prefers-reduced-motion (estado final estatico)",
-        "Nenhuma chamada a /api/tracking/stats nem a qualquer endpoint",
-        "Nao viola react-hooks/set-state-in-effect nem react-hooks/refs (ver client/CLAUDE.md)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Usar a skill frontend-design antes de implementar (obrigatorio para client/)",
+        "Criar componente NotificationBell.tsx e monta-lo no Header.tsx imediatamente a esquerda do avatar do casal (bloco direito)",
+        "Estado sem nao-lidas: sino neutro, sem badge",
+        "Estado com nao-lidas: badge com a contagem (unreadCount); exibir '9+' quando > 9",
+        "Visual consistente com o design (tema escuro, acentos #ffcb2b/#ff9e2c, fontes Bricolage Grotesque/DM Sans)",
+        "Acessivel: aria-label descritivo (ex: 'Notificacoes, 3 nao lidas') e navegavel por teclado",
+        "Typecheck passes (tsc --noEmit)",
+        "Lint passes (eslint)",
+        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Created client/src/components/landing/DashboardPreview.tsx, reproducing DashboardScreen's visual language with fixed/fake data (128h42m tempo juntos, 64%/36% filmes vs series, top 3 generos favoritos com barras). A useRevealOnView hook wraps a single IntersectionObserver (threshold 0.35, disconnects after first hit) in a useEffect whose body only creates/observes/cleans up the observer - setState(true) happens inside the observer's callback (an async event, not the effect body itself), which does not trigger react-hooks/set-state-in-effect (that rule only flags synchronous setState calls in the effect body). Genre bars and the filmes-vs-series split bar animate width from 0% to their target only once revealed via IntersectionObserver, using motion-safe:transition-[width] so prefers-reduced-motion:reduce users skip the transition and the bar simply appears at its target width when scrolled into view (matches the 'estado final estatico' pattern from MatchShowcase, adapted for a scroll-triggered reveal instead of a looping animation). No API calls, no useMatchStore/useAuthStore touched. Wired into LandingScreen.tsx between MatchShowcase and the still-pending Testimonials."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Depoimentos (Testimonials)",
-      "description": "Como visitante, quero ver casais falando bem do app, para ganhar confianca.",
+      "title": "Dropdown de listagem de notificacoes (Frontend)",
+      "description": "Como membro do casal, quero abrir um dropdown com minhas notificacoes e marca-las como lidas.",
       "acceptanceCriteria": [
-        "Testimonials com 2-3 depoimentos claramente ilustrativos no tom 'Ana & Leo' (conteudo ficticio de marketing)",
-        "Cada depoimento: citacao, nome do casal e avatar estilizado (estilo de avatar duplo do prototipo, sem foto real)",
-        "Layout responsivo (grid que empilha no mobile ou carrossel simples) sem dependencia nova de carrossel",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Usar a skill frontend-design antes de implementar",
+        "Criar NotificationDropdown.tsx (Shadcn popover/dropdown) ancorado ao sino, listando as 20 mais recentes (mais recentes primeiro)",
+        "Botao 'Ver mais' ao fim da lista chama fetchMore(); some quando hasMore for false",
+        "Cada item mostra icone/cor por tipo (MATCH comemorativo, NO_MATCH neutro), titulo, texto contextual e tempo relativo (ex: 'ha 2 min')",
+        "Texto do NO_MATCH depende do destinatario: quem passou ve texto neutro ('Sem match desta vez em {titulo}'); o parceiro ve com nome ('{actorName} passou {titulo} - sem match desta vez'). Front decide comparando actorUserId com o usuario atual",
+        "Item nao-lido tem indicador visual (ponto/realce); item lido e atenuado",
+        "Acao 'Marcar todas como lidas' no topo do dropdown chama markAllAsRead",
+        "Abrir o dropdown NAO marca tudo como lido automaticamente; marcar acontece por clique no item ou no 'marcar todas'",
+        "Estado vazio: mensagem amigavel quando nao ha notificacoes",
+        "Fecha ao clicar fora e com Esc",
+        "Typecheck passes (tsc --noEmit)",
+        "Lint passes (eslint)",
+        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "Created client/src/components/landing/Testimonials.tsx with 3 fictional couple testimonials (Ana & Léo, Bia & Rafa, Carol & Duda) in a grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 layout (stacks on mobile, no carousel dependency added). Each testimonial is a <figure> card matching the established #161513/border/rounded-[20px] card language, with a quote, a dual-avatar (two overlapping gradient circles per couple, hue-varied per testimonial, same -space-x-2 overlap motif as LandingHero's 'Lista de vocês dois' avatar pair and the prototype header's couple avatar), couple name (font-display) and relationship duration (#a6a39a). Added a large low-opacity closing quote mark (”) as a subtle signature flourish per card, using font-display at 20% opacity in the accent color - decorative only, aria-hidden. Wired into LandingScreen.tsx after DashboardPreview."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "FAQ (FaqSection)",
-      "description": "Como visitante com duvidas, quero respostas rapidas as objecoes comuns, para remover barreiras antes de criar conta.",
+      "title": "Celebracao de Match reutilizando a notificacao (Frontend)",
+      "description": "Como casal, quero que o modal de comemoracao de Match continue aparecendo e fique coerente com a nova notificacao.",
       "acceptanceCriteria": [
-        "FaqSection com 4-6 perguntas (ex.: 'Preciso pagar?', 'Como funciona o codigo de convite?', 'De onde vem os dados dos filmes?' -> TMDB pt-BR, 'Meus dados sao privados?')",
-        "Itens expansiveis/colapsaveis reaproveitando src/components/ui/collapsible.tsx, com acessibilidade de accordion (aria-expanded, foco por teclado)",
-        "Nenhuma dependencia nova introduzida",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Usar a skill frontend-design antes de implementar",
+        "Ao receber um evento de notificacao MATCH pelo STOMP, o modal/celebracao de Match existente continua sendo disparado (sem regressao)",
+        "A notificacao MATCH tambem aparece no dropdown e conta no badge",
+        "Evitar duplicidade: um mesmo match nao gera duas celebracoes no cliente que fez a acao (deduplicar por notification.id ou tmdb_id)",
+        "Typecheck passes (tsc --noEmit)",
+        "Lint passes (eslint)",
+        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Created client/src/components/landing/FaqSection.tsx (id=\"faq\") with 6 Q&A items (pricing, invite code, TMDB pt-BR, privacy, individual ratings, Match) using base-ui Collapsible (Collapsible/CollapsibleTrigger/CollapsibleContent from src/components/ui/collapsible.tsx) for accordion behavior - aria-expanded/keyboard handled natively by base-ui, icon rotates via group-data-[panel-open] on the Trigger itself. No new dependency. Wired into LandingScreen.tsx after Testimonials."
-    },
-    {
-      "id": "US-012",
-      "title": "CTA final (FinalCta) + Rodape (LandingFooter)",
-      "description": "Como visitante que rolou ate o fim, quero um ultimo empurrao para criar conta e um rodape com a marca.",
-      "acceptanceCriteria": [
-        "FinalCta: bloco de fechamento com headline emocional + CTA primario 'Comecar a dois' (/register) e link secundario para /login",
-        "LandingFooter: logo/marca 'Sessao·a·Dois', links de ancora e para /login e /register, sem links quebrados ou para paginas inexistentes",
-        "Ambos seguem o design system (cores, tipografia, glows discretos)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "Created client/src/components/landing/FinalCta.tsx and LandingFooter.tsx, wired into LandingScreen.tsx after FaqSection. FinalCta: centered closing block with a Heart-in-badge signature icon, emotional headline 'Comecem a assistir a dois hoje', microcopy, primary CTA 'Comecar a dois' (/register, same #ffcb2b bg + shadow glow as header/hero CTA) and secondary 'Ja temos conta' (/login, outlined), plus a discreet radial-gradient glow (rgba(255,203,43,.14) at top-center) behind the block matching the LandingScreen page-level gradient style (not a new token). LandingFooter: brand lockup (same Heart-in-#ffcb2b-badge + 'Sessao*a*Dois' wordmark as LandingHeader, smaller scale), the same 3 anchor links as LandingHeader/faq (#como-funciona/#recursos/#faq) plus /login and /register links (Entrar/Criar conta as plain text links, not the header's button style, since this is a footer utility row), and a copyright line. Verified every href/to in both files resolves to an existing route or in-page id (no broken links)."
-    },
-    {
-      "id": "US-013",
-      "title": "Acessibilidade e prefers-reduced-motion (passada final)",
-      "description": "Como usuario de teclado/leitor de tela ou sensivel a movimento, quero navegar e ler a landing confortavelmente.",
-      "acceptanceCriteria": [
-        "Toda a pagina e navegavel por teclado; ordem de foco logica; :focus-visible visivel em todos os interativos (links, botoes, accordion)",
-        "Elementos interativos e icones informativos tem alt/aria-label adequados; icones decorativos sao aria-hidden",
-        "Contraste de texto atende WCAG AA no tema escuro (primario #f6f4ec, secundario #a6a39a)",
-        "Todas as animacoes (hero, match, dashboard, hovers) respeitam prefers-reduced-motion: reduce",
-        "Landmark structure correta (<header>, <main>, <footer>, secoes com heading)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "Audited all 10 landing components + LandingScreen against the AC. Fixed 4 real gaps found: (1) Landmark structure was broken - LandingHero rendered its own <main>, so every other section (HowItWorks..FinalCta) sat outside any main landmark; changed LandingHero's outer tag to <section> and wrapped LandingHero..FinalCta in a single <main> in LandingScreen.tsx (header/main/footer now correct, one <main> for the whole page). (2) MatchShowcase's 'Deu Match!' span had role=\"status\", but the animation loops infinitely (every 6s) - a live region there would re-announce the same text to screen reader users every 6 seconds forever; removed role=\"status\" and instead marked the whole decorative animated demo container aria-hidden=\"true\" (the section's h2+p already fully describe the Match behavior in accessible text, so nothing is lost). (3) LandingFooter's copyright line used text-[#6f6c64] on the #09090a page background, which computes to ~3.8:1 contrast - fails WCAG AA (needs 4.5:1 for this small text); swapped to the already-approved secondary token text-[#a6a39a] (~7.9:1, comfortably AA). (4) Testimonials' dual-avatar decorative circles div had no aria-hidden (unlike the identical pattern already used in LandingHero/LandingHeader/LandingFooter); added aria-hidden=\"true\" to match. Everything else already met the AC on inspection: every interactive element (links, buttons, Collapsible triggers) already had focus-visible:outline-2 classes from earlier stories, all decorative Lucide icons were already aria-hidden, every section already had a real <h2> (hero has the page's single <h1>), and prefers-reduced-motion was already fully handled via the motion-safe: pattern established in US-008/US-009. tsc --noEmit and eslint both clean on the changed files."
-    },
-    {
-      "id": "US-014",
-      "title": "QA responsivo (~360px -> desktop largo)",
-      "description": "Como visitante em qualquer dispositivo, quero a pagina sem quebras de layout.",
-      "acceptanceCriteria": [
-        "Sem overflow horizontal nem sobreposicao em 360px, 768px, 1024px e >=1440px",
-        "Header, hero, grids e demos permanecem legiveis e alinhados nos breakpoints",
-        "Imagens/mocks nao estouram seus containers; tipografia escala via clamp()",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Audited all 10 landing/*.tsx section components against 360/768/1024/>=1440px by computing exact pixel budgets from their Tailwind classes (gap/padding/font sizes vs. available content width per breakpoint), since no browser/Chromium is available in this sandbox (no sudo to install Playwright's system deps) even though the Vite dev server itself now runs. Found and fixed 2 real defects: (1) LandingHeader's anchor nav (`hidden md:flex`) required ~785px of content width at the md breakpoint (768px) against ~704px available - a ~80px overflow starting at exactly 768px - was already fixed (uncommitted from a prior session) by moving the reveal to `lg:flex` (1024px), where the same content fits with ~130px to spare; verified via computation and committed as part of this story. (2) MatchShowcase's two 104px liked-cards + 64px center icon + gap-6 (24px) summed to exactly 320px, matching the exact available width at 360px (360 - px-5*2) with zero margin - a zero-slack fit is fragile to any box-model/border rounding; reduced the base gap from `gap-6` to `gap-3` (24px->12px) to add ~16-24px of real margin, keeping `sm:gap-10` unchanged for tablet/desktop."
+      "passes": false,
+      "notes": ""
     }
   ]
 }

@@ -1,15 +1,22 @@
 # Ralph Progress Log
-# Feature: Landing Page Publica - Sessao a Dois (ralph/landing-page)
-# Started: 2026-07-24
+# Feature: Sistema de Notificacoes (Match & No-Match) - Sessao a Dois (ralph/sistema-notificacoes)
+# Started: 2026-07-26
+
+## Codebase Patterns
+- User references on entities scoped to a Couple (recipientUserId, actorUserId, MatchLike.userId) are plain UUID @Column fields, not @ManyToOne to User — only the Couple relation is a real JPA association.
+- This sandbox has no JDK/Maven (`mvn`/`java` missing, `./mvnw` can't reach Maven Central) — backend changes here cannot be compiled/tested locally; mirror existing tested code closely and flag verification as pending.
 
 
-## 2026-07-24 - US-001
-- Implemented: installed `@fontsource/bricolage-grotesque` and `@fontsource/dm-sans` (self-hosted) and imported the specific weight CSS files needed (Bricolage 600/700/800, DM Sans 400/500/600/700) in `client/src/index.css` right after the existing `@fontsource-variable/instrument-sans` import. `.font-display`/`.font-auth-body` in index.css already referenced "Bricolage Grotesque"/"DM Sans" by name with Instrument Sans as fallback, so no CSS class changes were needed once the actual font files were imported.
-- Also removed a pre-existing Google Fonts `<link>` block (2x preconnect + 1x stylesheet) from `client/index.html` that was already remotely loading these same two fonts — the AC explicitly requires no Google Fonts link / self-hosted only, so this stale remote link had to be deleted, not just left alongside the new self-hosted import.
-- Files changed: `client/package.json`, `client/package-lock.json`, `client/src/index.css`, `client/index.html`.
+## 2026-07-26 - US-001
+- Implemented: com.app.notification package with Notification JPA entity, NotificationType enum (MATCH/NO_MATCH), and NotificationRepository.
+- Files changed:
+  - api/src/main/java/com/app/notification/Notification.java (new)
+  - api/src/main/java/com/app/notification/NotificationType.java (new)
+  - api/src/main/java/com/app/notification/NotificationRepository.java (new)
+  - api/src/test/java/com/app/notification/NotificationRepositoryTest.java (new)
 - **Learnings for future iterations:**
-  - Codebase Patterns note: no browser tooling (dev-browser skill/MCP) is available in this sandbox — verification is `tsc --noEmit` + `eslint` only, plus manual code inspection. `npm run dev` / `vite build` currently fail in this sandbox with the pre-existing "Cannot find native binding" rolldown error (documented in client/CLAUDE.md) — confirmed via `git stash` that this failure exists independent of my changes, so it's not a regression, just an unverifiable-here build step.
-  - `npm install <new pkg>` in `client/` can print "removed N packages" referring to optional rolldown platform bindings churn — check `git diff package.json`/`package-lock.json` stay scoped to the intended new deps; this is npm's known optional-deps bug (https://github.com/npm/cli/issues/4828), not something to "fix" here.
-  - This PRD's actual state lives at `.claude/skills/ralph/prd.json` / `.claude/skills/ralph/progress.txt` (14 landing-page stories, US-002 next), not `scripts/ralph/prd.json` (found empty at session start, pre-existing/unrelated to this work).
-- Next: US-002 (migrate Hub route from `/` to `/hub`).
+  - Followed the MatchLike convention: recipientUserId/actorUserId are plain UUID @Column fields (conceptually FK to User), not @ManyToOne relations to User — only Couple gets a real @ManyToOne. Reuse this for any future notification-related entity.
+  - Avoided naming a column `read` (SQL ambiguous/reserved-ish keyword) — mapped the boolean field `read`/`isRead()` to column `is_read` instead. If a future story queries this column directly (native SQL or a raw @Query string), remember it's `is_read` on the DB side.
+  - Composite index for the "list unread notifications for a user" access pattern is declared via `@Table(indexes = @Index(columnList = "recipient_user_id, is_read"))` on the entity, consistent with how MatchLike/MediaTrack express table-level constraints in this codebase (e.g. MatchLike's @UniqueConstraint).
+  - This sandbox has no JDK/Maven available (`mvn`/`java` not found, and `./mvnw` cannot download the wrapper because Maven Central is unreachable) — could not run `./mvnw test`/`package` to verify. Code was written to mirror MatchLikeRepositoryTest/MatchLike exactly (same annotations, same @DataJpaTest + CoupleRepository helper pattern) to minimize risk. Future iterations in this sandbox will hit the same limitation — verify on a machine with JDK 21 + Maven Central access before merging if this matters.
 ---

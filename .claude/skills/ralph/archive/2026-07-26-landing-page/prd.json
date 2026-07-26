@@ -1,0 +1,230 @@
+{
+  "project": "Sessao a Dois",
+  "branchName": "ralph/landing-page",
+  "description": "Landing Page Publica - Sessao a Dois: pagina estatica de marketing na rota publica '/' que apresenta o produto (lista compartilhada, Match em tempo real, notas/opinioes individuais, Dashboard do casal) e converte o visitante anonimo em '/register' ou '/login'. Herda o design system do prototipo (tema escuro, acentos amarelo/laranja/verde, Bricolage Grotesque + DM Sans, cards, glows, icones Lucide). O Hub autenticado migra de '/' para '/hub'. Sem backend novo.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Adicionar as fontes reais do prototipo (Bricolage Grotesque + DM Sans)",
+      "description": "Como desenvolvedor, quero as fontes do design system instaladas de fato, para que font-display e font-auth-body deixem de cair no fallback (Instrument Sans) e a landing use a tipografia exata do prototipo.",
+      "acceptanceCriteria": [
+        "Adicionar @fontsource/bricolage-grotesque e @fontsource/dm-sans ao client/package.json (self-hosted, seguindo o padrao de @fontsource-variable/instrument-sans)",
+        "Importar no client/src/index.css os pesos: Bricolage Grotesque 600/700/800 e DM Sans 400/500/600/700",
+        ".font-display resolve para Bricolage Grotesque e .font-auth-body para DM Sans no computed font-family (nao o fallback)",
+        "Nenhum <link> de Google Fonts adicionado ao index.html",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Added @fontsource/bricolage-grotesque and @fontsource/dm-sans (weights 600/700/800 and 400/500/600/700 respectively) as self-hosted deps, imported per-weight CSS files in client/src/index.css right after the existing instrument-sans import. Removed the pre-existing Google Fonts <link> tags (preconnect x2 + stylesheet) from client/index.html that were already loading these exact fonts remotely - AC required no Google Fonts link and self-hosted only, so the old remote link had to go, not just the new self-hosted addition."
+    },
+    {
+      "id": "US-002",
+      "title": "Migrar o Hub de '/' para '/hub' e liberar a raiz",
+      "description": "Como usuario autenticado, quero que meu Hub continue funcionando apos a raiz '/' virar publica, acessando-o em '/hub' sem quebras de navegacao.",
+      "acceptanceCriteria": [
+        "Em client/src/App.tsx, a rota do HubScreen passa de path='/' para path='/hub', mantendo ProtectedRoute + RequireCouple",
+        "client/src/components/Header.tsx (NAV_ITEMS) e qualquer link/Navigate que aponte para '/' como Hub passa a apontar para '/hub' (guards, api.ts redirect pos-login, telas de auth, PublicOnlyRoute)",
+        "PublicOnlyRoute redireciona usuario autenticado com casal para '/hub' (antes '/'); sem casal continua indo para '/join'",
+        "Fluxo pos-login/registro leva o usuario autenticado+casal ao '/hub'",
+        "Nenhum link morto para '/' como Hub permanece no codigo",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Rota publica '/' com logica de sessao (LandingScreen + guard)",
+      "description": "Como visitante, quero que '/' mostre a landing quando nao estou logado, e como usuario logado quero ser levado direto ao app sem ver a pagina de marketing.",
+      "acceptanceCriteria": [
+        "Nova rota publica path='/' renderiza LandingScreen, fora de ProtectedRoute (renderiza sem JWT)",
+        "Visitante sem sessao ve a LandingScreen",
+        "Usuario autenticado com JWT valido e casal que acessa '/' e redirecionado para '/hub'; autenticado sem casal para '/join'",
+        "Usuario com JWT presente porem invalido/expirado tem a sessao limpa e e redirecionado para '/login', reaproveitando o tratamento de 401 existente em src/lib/api.ts/useAuthStore (sem inventar validacao nova de token)",
+        "A landing nao faz nenhuma chamada de API de conteudo",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Scaffold do LandingScreen + LandingHeader publico",
+      "description": "Como visitante, quero um header publico fixo com a marca e CTAs sempre acessiveis, para poder criar conta ou entrar a qualquer momento da rolagem.",
+      "acceptanceCriteria": [
+        "Criar client/src/screens/LandingScreen.tsx como composicao de secoes isoladas em client/src/components/landing/",
+        "Criar LandingHeader com logo 'Sessao·a·Dois' (icone Lucide, sem emoji), links de ancora (Como funciona, Recursos, FAQ) e botoes 'Entrar' (link /login) e 'Criar conta' (link /register)",
+        "Header e sticky top-0 com fundo translucido + backdrop-blur e borda inferior 1px rgba(255,255,255,.07)",
+        "Em ~360px o header se adapta (ancoras colapsam/escondem) mas o CTA 'Criar conta' permanece acessivel",
+        "Links navegaveis por teclado com :focus-visible visivel",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Secao Hero (LandingHero)",
+      "description": "Como visitante, quero uma headline emocional que me faca sentir que este app e 'para nos dois', com um preview visual da lista do casal.",
+      "acceptanceCriteria": [
+        "LandingHero com eyebrow uppercase, headline (font-display 700/800), subtitulo (font-auth-body cor #a6a39a), CTA primario 'Comecar a dois' -> /register e CTA secundario 'Ja temos conta' -> /login",
+        "Fundo com radial-gradient sutil (mesmos gradientes do prototipo) sobre #09090a",
+        "Mock/preview visual reaproveitando o estilo dos cards de midia (#161513, raio 18-24px, borda 1px rgba(255,255,255,.07), badges/pilulas)",
+        "CTA primario usa o acento #ffcb2b com glow discreto (box-shadow) e texto escuro",
+        "Layout fluido com clamp(); sem overflow horizontal entre 360px e desktop",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Secao 'Como funciona' (HowItWorks, 3 passos)",
+      "description": "Como visitante, quero entender em 3 passos como comecar, para reduzir a friccao de criar conta.",
+      "acceptanceCriteria": [
+        "HowItWorks com 3 passos numerados: (1) Criar conta -> (2) Parear com o codigo de convite -> (3) Assistir e avaliar juntos",
+        "Cada passo tem icone Lucide, titulo curto e microcopy; grid responsivo (auto-fit/clamp()) que empilha no mobile",
+        "Nenhum emoji usado como icone",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Grid de recursos (FeatureGrid, 4 destaques)",
+      "description": "Como visitante, quero ver os diferenciais do produto de forma escaneavel, para me convencer do valor.",
+      "acceptanceCriteria": [
+        "FeatureGrid com 4 cards: Lista compartilhada (Assistindo/Queremos Ver/Ja Vimos), Match em tempo real, Notas & opinioes individuais, Dashboard do casal",
+        "Cada card: icone Lucide + titulo (font-display) + microcopy (font-auth-body), estilo de card do design system (#161513, borda sutil, raio 18-24px)",
+        "Grid grid-template-columns: repeat(auto-fit, minmax(...)) fluido; 1 coluna no mobile, multiplas no desktop",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Prova visual do Match (MatchShowcase)",
+      "description": "Como visitante, quero ver a magica do 'os dois curtiram -> deu Match', porque e o diferencial central do produto.",
+      "acceptanceCriteria": [
+        "MatchShowcase mostra dois cards 'curtidos' e uma micro-animacao em loop CSS que culmina no momento de Match ('Deu Match!') e no titulo entrando na pilula 'Queremos Ver'",
+        "Animacao e puramente visual (CSS/estado interno de UI), sem API, sem WebSocket, sem backend, sem estado global (useMatchStore nao e tocado)",
+        "prefers-reduced-motion: reduce -> sem loop; renderiza o estado final (match concluido) de forma estatica",
+        "Icones Lucide (coracao/sparkles), nenhum emoji",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Previa do Dashboard (DashboardPreview)",
+      "description": "Como visitante, quero um teaser das estatisticas do casal, para desejar ter o meu proprio dashboard.",
+      "acceptanceCriteria": [
+        "DashboardPreview reproduz o estilo do DashboardScreen real com dados fixos/fake (horas juntos, filmes vs series, generos favoritos)",
+        "Barras/KPIs animam ao entrar na viewport (IntersectionObserver dentro de useEffect com setState no callback, ou animacao CSS on-scroll); respeitam prefers-reduced-motion (estado final estatico)",
+        "Nenhuma chamada a /api/tracking/stats nem a qualquer endpoint",
+        "Nao viola react-hooks/set-state-in-effect nem react-hooks/refs (ver client/CLAUDE.md)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Depoimentos (Testimonials)",
+      "description": "Como visitante, quero ver casais falando bem do app, para ganhar confianca.",
+      "acceptanceCriteria": [
+        "Testimonials com 2-3 depoimentos claramente ilustrativos no tom 'Ana & Leo' (conteudo ficticio de marketing)",
+        "Cada depoimento: citacao, nome do casal e avatar estilizado (estilo de avatar duplo do prototipo, sem foto real)",
+        "Layout responsivo (grid que empilha no mobile ou carrossel simples) sem dependencia nova de carrossel",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "FAQ (FaqSection)",
+      "description": "Como visitante com duvidas, quero respostas rapidas as objecoes comuns, para remover barreiras antes de criar conta.",
+      "acceptanceCriteria": [
+        "FaqSection com 4-6 perguntas (ex.: 'Preciso pagar?', 'Como funciona o codigo de convite?', 'De onde vem os dados dos filmes?' -> TMDB pt-BR, 'Meus dados sao privados?')",
+        "Itens expansiveis/colapsaveis reaproveitando src/components/ui/collapsible.tsx, com acessibilidade de accordion (aria-expanded, foco por teclado)",
+        "Nenhuma dependencia nova introduzida",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "CTA final (FinalCta) + Rodape (LandingFooter)",
+      "description": "Como visitante que rolou ate o fim, quero um ultimo empurrao para criar conta e um rodape com a marca.",
+      "acceptanceCriteria": [
+        "FinalCta: bloco de fechamento com headline emocional + CTA primario 'Comecar a dois' (/register) e link secundario para /login",
+        "LandingFooter: logo/marca 'Sessao·a·Dois', links de ancora e para /login e /register, sem links quebrados ou para paginas inexistentes",
+        "Ambos seguem o design system (cores, tipografia, glows discretos)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Acessibilidade e prefers-reduced-motion (passada final)",
+      "description": "Como usuario de teclado/leitor de tela ou sensivel a movimento, quero navegar e ler a landing confortavelmente.",
+      "acceptanceCriteria": [
+        "Toda a pagina e navegavel por teclado; ordem de foco logica; :focus-visible visivel em todos os interativos (links, botoes, accordion)",
+        "Elementos interativos e icones informativos tem alt/aria-label adequados; icones decorativos sao aria-hidden",
+        "Contraste de texto atende WCAG AA no tema escuro (primario #f6f4ec, secundario #a6a39a)",
+        "Todas as animacoes (hero, match, dashboard, hovers) respeitam prefers-reduced-motion: reduce",
+        "Landmark structure correta (<header>, <main>, <footer>, secoes com heading)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "QA responsivo (~360px -> desktop largo)",
+      "description": "Como visitante em qualquer dispositivo, quero a pagina sem quebras de layout.",
+      "acceptanceCriteria": [
+        "Sem overflow horizontal nem sobreposicao em 360px, 768px, 1024px e >=1440px",
+        "Header, hero, grids e demos permanecem legiveis e alinhados nos breakpoints",
+        "Imagens/mocks nao estouram seus containers; tipografia escala via clamp()",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
