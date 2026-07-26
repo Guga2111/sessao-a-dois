@@ -54,3 +54,16 @@ Started: Sun Jul 26 14:28:59 PDT 2026
   - No Chromium/Playwright in this sandbox (per client/CLAUDE.md), so "verify in browser" for UI stories here means: tsc --noEmit, eslint on the changed files, and a full `npx vite build` as a stronger-than-typecheck signal that the component actually compiles and renders without errors - not a real screenshot. Documented as such per US-009's acceptance criteria fallback clause.
   - The bell is mounted inside the same `couple?.partner &&` conditional as `CoupleAvatars` in Header.tsx (not rendered when there's no linked partner yet), since notifications are couple-scoped and only make sense once a couple exists. Keep this in mind for US-010's dropdown - it should live in the same conditional block.
 ---
+
+## 2026-07-26 - US-010
+- Added NotificationDropdown.tsx (Popover anchored to NotificationBell) listing notifications, with mark-as-read/mark-all-as-read, "Ver mais" pagination, and per-type/per-recipient contextual text; mounted in Header.tsx in place of the bare NotificationBell.
+- Files changed:
+  - client/src/components/NotificationDropdown.tsx (new)
+  - client/src/components/Header.tsx (renders NotificationDropdown instead of NotificationBell directly)
+- **Learnings for future iterations:**
+  - `render={<SomeComponent />}` is this codebase's established composition pattern for base-ui primitives (see ui/dialog.tsx's `DialogPrimitive.Close render={<Button variant="outline" />}`) - used the same way here for `PopoverTrigger render={<NotificationBell />}`. Since `NotificationBell` is already a native `<button>` and `PopoverTrigger`'s default `nativeButton` is `true`, no extra wrapper or `nativeButton={false}` was needed.
+  - `date-fns` v4 (already a dependency) ships a `pt-BR` locale at `date-fns/locale` - used `formatDistanceToNowStrict(date, { addSuffix: true, locale: ptBR })` for "há 2 min"-style relative time; no new dependency required.
+  - `useNotificationStore.markAsRead` is already idempotent (no-ops if the target is already `read`), so item click handlers can call it unconditionally without checking `read` first.
+  - The store's `notifications` list is already capped at one page (20) by `fetchNotifications`/`fetchMore`'s `PAGE_SIZE`, so no dropdown-side slicing/truncation was needed for the "20 most recent" requirement - just render the store's list as-is.
+  - Still no Chromium/JDK/Maven in this sandbox, consistent with prior notes - verification here is tsc/eslint/`vite build` only, not a real rendered screenshot or a live backend. Flag for a human/CI pass with real browser + backend before considering the UI fully verified.
+---

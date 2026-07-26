@@ -3,7 +3,7 @@ import { useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
-import { NotificationBell } from "@/components/NotificationBell"
+import { NotificationDropdown } from "@/components/NotificationDropdown"
 import { daysSince } from "@/lib/date"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -66,7 +66,7 @@ export function Header() {
                 {days} {days === 1 ? "dia" : "dias"} juntos no app
               </div>
             </div>
-            <NotificationBell />
+            <NotificationDropdown />
             <CoupleAvatars
               userInitial={firstName.charAt(0)}
               partnerInitial={partnerFirstName.charAt(0)}
