@@ -5,6 +5,8 @@ import com.app.couple.CoupleRepository;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
+import com.app.notification.NotificationService;
+import com.app.notification.NotificationType;
 import com.app.tracking.MediaStatus;
 import com.app.tracking.MediaTrack;
 import com.app.tracking.MediaTrackRepository;
@@ -56,12 +58,15 @@ class MatchServiceTest {
 	@Mock
 	private SimpMessagingTemplate messagingTemplate;
 
+	@Mock
+	private NotificationService notificationService;
+
 	private MatchService matchService;
 
 	@BeforeEach
 	void setUp() {
 		matchService = new MatchService(matchLikeRepository, matchRejectRepository, mediaTrackRepository,
-				coupleRepository, mediaDetailsService, messagingTemplate);
+				coupleRepository, mediaDetailsService, messagingTemplate, notificationService);
 	}
 
 	private Couple couple(UUID coupleId) {
@@ -120,6 +125,9 @@ class MatchServiceTest {
 				eventCaptor.capture());
 		assertThat(eventCaptor.getValue().title()).isEqualTo("Matrix");
 		assertThat(eventCaptor.getValue().tmdbId()).isEqualTo(603L);
+
+		verify(notificationService, times(1)).notifyCouple(any(Couple.class), eq(NotificationType.MATCH), eq(603L),
+				eq(MediaType.MOVIE), eq("Matrix"), eq(userId));
 	}
 
 	@Test
@@ -142,6 +150,8 @@ class MatchServiceTest {
 		assertThat(response.matched()).isTrue();
 		verify(mediaTrackRepository, never()).save(any(MediaTrack.class));
 		verify(messagingTemplate, never()).convertAndSend(anyString(), any(MatchEvent.class));
+		verify(notificationService, never()).notifyCouple(any(Couple.class), any(NotificationType.class), any(Long.class),
+				any(MediaType.class), anyString(), any(UUID.class));
 	}
 
 	@Test
@@ -230,6 +240,9 @@ class MatchServiceTest {
 				eventCaptor.capture());
 		assertThat(eventCaptor.getValue().mediaType()).isEqualTo(MediaType.TV);
 		assertThat(eventCaptor.getValue().title()).isEqualTo("Game of Thrones");
+
+		verify(notificationService, times(1)).notifyCouple(any(Couple.class), eq(NotificationType.MATCH), eq(1399L),
+				eq(MediaType.TV), eq("Game of Thrones"), eq(userId));
 	}
 
 	@Test

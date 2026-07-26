@@ -69,8 +69,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Injected NotificationService into MatchService (constructor param added). MatchService.createMatch(couple, request, actorUserId) now also calls notificationService.notifyCouple(couple, NotificationType.MATCH, tmdbId, mediaType, title, actorUserId) right after the MediaTrack save and the existing /match STOMP send, inside the same @Transactional like() method. actorUserId = userId (the caller of like(), i.e. whoever's like just closed the match) per the story's 'quem fechou o match' rule. NotificationService itself handles the after-commit STOMP push to /topic/couple/{id}/notifications, so no extra transactional wiring was needed here. Updated MatchServiceTest: added a NotificationService mock, verified notifyCouple is called with the right args on both match tests (movie + TV), and verified it's never called when a MediaTrack already exists for that tmdb_id (the 'no duplicate match' test doubles as the no-match-notification case since MatchService has no separate non-match branch to notify from)."
     },
     {
       "id": "US-005",

@@ -52,3 +52,16 @@
   - One STOMP message is sent per created Notification DTO (so a couple event with 2 recipients sends 2 messages to the same topic) rather than a single combined event — mirrors "creates duas Notification ... retorna os DTOs" from the story literally. Future frontend work (US-008) must be aware both members' STOMP clients will observe both DTOs on the shared topic; frontend must NOT blindly push every incoming DTO into the current user's list without checking it's meant for them if that becomes an issue in practice — revisit if US-008 finds this creates duplicate/wrong entries for a user's own notification.
   - Same sandbox limitation as prior stories: no JDK/Maven available, so `./mvnw test` could not be run — code mirrors MatchService/MatchServiceTest patterns closely (constructor injection, Mockito unit test with ArgumentCaptor) to minimize risk. Verify on a machine with JDK 21 + Maven Central access.
 ---
+
+## 2026-07-26 - US-004
+- Implemented: Match flow now creates MATCH notifications for both couple members via NotificationService.
+- Files changed:
+  - api/src/main/java/com/app/match/MatchService.java (constructor now takes NotificationService; createMatch(couple, request, actorUserId) calls notificationService.notifyCouple(couple, NotificationType.MATCH, tmdbId, mediaType, title, actorUserId) after the MediaTrack save + existing /match STOMP send)
+  - api/src/test/java/com/app/match/MatchServiceTest.java (added NotificationService mock; asserted notifyCouple call args on both match-producing tests, and never-called on the "already matched, no duplicate track" test)
+- **Learnings for future iterations:**
+  - `actor_user_id` for a MATCH notification is the `userId` param of `MatchService.like(coupleId, userId, request)` — i.e. whichever user's `like()` call is the one that discovers the partner already liked the same tmdb_id (closes the match), not the first liker. This is naturally already the `userId` in scope inside `createMatch`, no extra lookup needed.
+  - `createMatch` already ran inside the caller's `@Transactional like()` method, so no new transaction boundary was needed for `NotificationService.notifyCouple(...)` — its own after-commit STOMP scheduling (see Codebase Patterns / api/CLAUDE.md) attaches to that same transaction automatically.
+  - `MatchService`'s existing `/topic/couple/{id}/match` STOMP send (via `messagingTemplate` directly) is unrelated to and unaffected by the new `/topic/couple/{id}/notifications` push from `NotificationService` — both fire for a match event, on two different topics, and the frontend must listen to both (match-celebration modal vs. notification bell/dropdown) per US-011.
+  - This codebase's match tests use `MediaType`/`MatchLike`/`MediaTrack` mocks per-test rather than shared fixtures — when adding a new collaborator (NotificationService) to a service under test, every existing `new MatchService(...)` constructor call site in the test class must be updated, not just one.
+  - Same sandbox limitation as all prior stories: no JDK/Maven available (`java`/`mvn` missing, `./mvnw` cannot reach Maven Central) — could not run `./mvnw test` to verify compilation/pass. Code changes are minimal and mirror the existing tested MatchService/MatchServiceTest structure; verify on a machine with JDK 21 + Maven Central access before merging if this matters.
+---
