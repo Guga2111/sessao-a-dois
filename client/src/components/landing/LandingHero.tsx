@@ -3,20 +3,24 @@ import { Link } from "react-router-dom"
 
 const PREVIEW_TITLES = [
   {
-    title: "Nós Dois à Noite",
-    year: "2023",
+    title: "Nossas Noites",
+    year: "2017",
     genre: "Romance",
     type: "Filme",
     rating: "4,5",
-    hue: 45,
+    poster: "https://image.tmdb.org/t/p/w500/u55x5RZ8xP80URk9nfQMmFc1cJM.jpg",
+    provider: "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
+    providerName: "Netflix",
   },
   {
-    title: "Maré Alta",
-    year: "2022",
+    title: "Fleabag",
+    year: "2016",
     genre: "Drama",
     type: "Série",
     rating: "5,0",
-    hue: 18,
+    poster: "https://image.tmdb.org/t/p/w500/27vEYsRKa3eAniwmoccOoluEXQ1.jpg",
+    provider: "https://image.tmdb.org/t/p/w92/pvske1MyAoymrs5bguRfVqYiM9a.jpg",
+    providerName: "Prime Video",
   },
 ]
 
@@ -74,15 +78,22 @@ export function LandingHero() {
               key={item.title}
               className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#0f0e0c]"
             >
-              <div
-                className="relative aspect-[3/4]"
-                style={{
-                  background: `linear-gradient(160deg, hsl(${item.hue} 42% 24%), hsl(${item.hue} 46% 11%))`,
-                }}
-              >
+              <div className="relative aspect-3/4 overflow-hidden bg-[#1a1816]">
+                <img
+                  src={item.poster}
+                  alt={item.title}
+                  className="size-full object-cover"
+                  loading="lazy"
+                />
                 <span className="absolute top-2 left-2 rounded-md bg-[#09090a]/60 px-2 py-0.5 text-[10px] font-semibold text-[#f6f4ec] backdrop-blur-sm">
                   {item.genre}
                 </span>
+                <img
+                  src={item.provider}
+                  alt={item.providerName}
+                  className="absolute right-2 bottom-2 size-7 rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.5)]"
+                  loading="lazy"
+                />
               </div>
               <div className="p-2.5">
                 <div className="flex items-baseline justify-between gap-1">
