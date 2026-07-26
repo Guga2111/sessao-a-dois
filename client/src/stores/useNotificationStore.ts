@@ -1,6 +1,7 @@
 import { create } from "zustand"
 
 import { api } from "@/lib/api"
+import { useMatchStore } from "@/stores/useMatchStore"
 import type { Notification, PagedNotificationResponse } from "@/types/notification"
 
 const PAGE_SIZE = 20
@@ -102,5 +103,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       notifications: [notification, ...state.notifications],
       unreadCount: state.unreadCount + 1,
     }))
+
+    if (notification.type === "MATCH") {
+      useMatchStore.getState().celebrateMatch(
+        {
+          tmdbId: notification.tmdbId,
+          title: notification.title,
+          mediaType: notification.mediaType,
+        },
+        `tmdb:${notification.tmdbId}`
+      )
+    }
   },
 }))

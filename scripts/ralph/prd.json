@@ -194,8 +194,8 @@
         "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "No new visual UI needed (confirmed via frontend-design skill) - MatchCelebrationModal.tsx's existing design is untouched, this was pure state-wiring. Root cause: backend already emits TWO separate STOMP messages for one match (/topic/couple/{id}/match with a MatchEvent, and /topic/couple/{id}/notifications with a MATCH-type Notification) - useMatchStore previously only reacted to the first, so nothing was actually broken, but the story asks the celebration to also react to the notification event (reuse it) while staying dedup-safe. Added a module-level `celebratedMatchKeys` Set in useMatchStore.ts plus a new `celebrateMatch(event, dedupeKey)` action: the /match handler calls it with key `tmdb:{tmdbId}`, and useNotificationStore.pushIncoming now calls `useMatchStore.getState().celebrateMatch(...)` with the SAME key (`tmdb:{tmdbId}`, built from the notification's own tmdbId/title/mediaType) whenever notification.type === 'MATCH'. Whichever of the two STOMP messages arrives first opens the modal; the second is a no-op since the key is already in the Set. This creates a circular import (useMatchStore <-> useNotificationStore, already existed one-directionally since US-008) - safe here because both stores only reference each other inside callback bodies (STOMP handlers / pushIncoming), never at module top-level/store-init time, so load order doesn't matter. Verified with tsc --noEmit (clean), eslint on both changed files (clean), and npx vite build (succeeded, dist/ removed after, no package.json/package-lock.json diff)."
     }
   ]
 }

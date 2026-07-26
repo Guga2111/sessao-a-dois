@@ -67,3 +67,14 @@ Started: Sun Jul 26 14:28:59 PDT 2026
   - The store's `notifications` list is already capped at one page (20) by `fetchNotifications`/`fetchMore`'s `PAGE_SIZE`, so no dropdown-side slicing/truncation was needed for the "20 most recent" requirement - just render the store's list as-is.
   - Still no Chromium/JDK/Maven in this sandbox, consistent with prior notes - verification here is tsc/eslint/`vite build` only, not a real rendered screenshot or a live backend. Flag for a human/CI pass with real browser + backend before considering the UI fully verified.
 ---
+
+## 2026-07-26 - US-011
+- Wired the MATCH notification (STOMP) to also trigger the existing Match celebration modal, with dedup so a client never sees the celebration twice for the same match.
+- Files changed:
+  - client/src/stores/useMatchStore.ts (module-level `celebratedMatchKeys` Set + new `celebrateMatch(event, dedupeKey)` action; /match STOMP handler now routes through it)
+  - client/src/stores/useNotificationStore.ts (pushIncoming calls `useMatchStore.getState().celebrateMatch(...)` for MATCH-type notifications, using the same `tmdb:{tmdbId}` dedupe key as the /match handler)
+- **Learnings for future iterations:**
+  - The backend already sends two independent STOMP messages per match (/topic/couple/{id}/match with a MatchEvent, and /topic/couple/{id}/notifications with a MATCH Notification) - both reach every subscriber. Any client-side reaction driven by "a match happened" that listens to both topics needs a shared dedupe key (we used `tmdb:{tmdbId}`) so the first message to arrive wins and the second is a no-op, rather than firing twice.
+  - useMatchStore -> useNotificationStore -> useMatchStore is now a two-directional circular import between the two store files. This is safe in this codebase specifically because both sides only touch the other store inside callback bodies (STOMP message handlers, pushIncoming), never during module init/store creation - if a future change needs the other store's state synchronously at creation time, this circularity would need breaking up (e.g. an event bus) instead.
+  - Confirmed via the frontend-design skill that not every client/ story needs new visual design - pure state/logic stories (no new component, no visual change) still route through the skill per CLAUDE.md, but the skill itself will say "no design guidance needed" when the acceptance criteria is logic-only.
+---

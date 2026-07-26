@@ -29,7 +29,13 @@ interface MatchState {
   closeMatch: () => void
   fetchPending: () => Promise<void>
   removePending: (tmdbId: number) => void
+  celebrateMatch: (event: MatchEvent, dedupeKey: string) => void
 }
+
+// Both the /match STOMP event and the MATCH notification can announce the
+// same match; this tracks which matches already opened the modal so a client
+// never sees the celebration twice for one match.
+const celebratedMatchKeys = new Set<string>()
 
 export const useMatchStore = create<MatchState>((set, get) => ({
   client: null,
@@ -59,7 +65,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
           `/topic/couple/${coupleId}/match`,
           (message) => {
             const matchData = JSON.parse(message.body) as MatchEvent
-            set({ matchData, matchOpen: true })
+            get().celebrateMatch(matchData, `tmdb:${matchData.tmdbId}`)
           }
         )
         client.subscribe(
@@ -78,6 +84,14 @@ export const useMatchStore = create<MatchState>((set, get) => ({
 
     client.activate()
     set({ client })
+  },
+
+  celebrateMatch: (event, dedupeKey) => {
+    if (celebratedMatchKeys.has(dedupeKey)) {
+      return
+    }
+    celebratedMatchKeys.add(dedupeKey)
+    set({ matchData: event, matchOpen: true })
   },
 
   disconnect: () => {
