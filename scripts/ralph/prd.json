@@ -34,8 +34,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added NotificationRepository.deleteByCreatedAtBefore(LocalDateTime) derived delete query, NotificationCleanupService with @Scheduled(cron = \"0 0 3 * * *\") + @Transactional expireOldNotifications() (30-day retention), and @EnableScheduling on SessaoADoisApplication. Tests: NotificationRepositoryTest gained deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff (uses ReflectionTestUtils to backdate createdAt since it's a @CreationTimestamp); new NotificationCleanupServiceTest (Mockito) verifies the cutoff passed to the repository is ~30 days ago."
     },
     {
       "id": "US-003",

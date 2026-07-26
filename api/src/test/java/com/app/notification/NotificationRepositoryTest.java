@@ -9,7 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,5 +71,24 @@ class NotificationRepositoryTest {
 				PageRequest.of(0, 10));
 
 		assertThat(page.getContent()).isEmpty();
+	}
+
+	@Test
+	void deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff() {
+		Couple couple = persistedCouple();
+		UUID recipientId = UUID.randomUUID();
+
+		Notification old = notificationRepository.save(newNotification(couple, recipientId));
+		Notification recent = notificationRepository.save(newNotification(couple, recipientId));
+
+		ReflectionTestUtils.setField(old, "createdAt", LocalDateTime.now().minusDays(31));
+		ReflectionTestUtils.setField(recent, "createdAt", LocalDateTime.now().minusDays(10));
+		notificationRepository.saveAll(java.util.List.of(old, recent));
+
+		long removed = notificationRepository.deleteByCreatedAtBefore(LocalDateTime.now().minusDays(30));
+
+		assertThat(removed).isEqualTo(1);
+		assertThat(notificationRepository.findById(old.getId())).isEmpty();
+		assertThat(notificationRepository.findById(recent.getId())).isPresent();
 	}
 }
