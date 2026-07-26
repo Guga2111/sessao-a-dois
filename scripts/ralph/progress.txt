@@ -43,3 +43,14 @@ Started: Sun Jul 26 14:28:59 PDT 2026
   - No payload transform was needed for the STOMP notification message: NotificationDto (backend) and the `Notification` TS type (client/src/types/notification.ts, from US-007) already have matching field names, so `JSON.parse(message.body) as Notification` is a direct, safe cast.
   - Sandbox gotcha confirmed still current: `npx vite build` fails with `Cannot find module './rolldown-binding.linux-arm64-gnu.node'` until `npm install @rolldown/binding-linux-arm64-gnu lightningcss-linux-arm64-gnu @tailwindcss/oxide-linux-arm64-gnu` is run locally - but do NOT commit that `npm install` (it dirties package.json/package-lock.json with sandbox-only arm64 optional bindings that were never part of prior commits); `git checkout -- client/package.json client/package-lock.json` after verifying the build to keep the diff clean.
 ---
+
+## 2026-07-26 - US-009
+- Added NotificationBell icon/badge component and mounted it in the Header, to the left of the couple avatars.
+- Files changed:
+  - client/src/components/NotificationBell.tsx (new)
+  - client/src/components/Header.tsx (import + render inside the existing couple?.partner block)
+- **Learnings for future iterations:**
+  - `npx vite build` worked in this sandbox run without needing the arm64 optional-binding workaround noted after US-008 - the packages must already be present from that prior install. Still remove `dist/` after a manual build check and confirm `git status --short package.json package-lock.json` is empty before committing, just in case.
+  - No Chromium/Playwright in this sandbox (per client/CLAUDE.md), so "verify in browser" for UI stories here means: tsc --noEmit, eslint on the changed files, and a full `npx vite build` as a stronger-than-typecheck signal that the component actually compiles and renders without errors - not a real screenshot. Documented as such per US-009's acceptance criteria fallback clause.
+  - The bell is mounted inside the same `couple?.partner &&` conditional as `CoupleAvatars` in Header.tsx (not rendered when there's no linked partner yet), since notifications are couple-scoped and only make sense once a couple exists. Keep this in mind for US-010's dropdown - it should live in the same conditional block.
+---

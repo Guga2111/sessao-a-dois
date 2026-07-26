@@ -154,8 +154,8 @@
         "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created client/src/components/NotificationBell.tsx: a button styled like Header.tsx's existing MobileNav trigger (size-9.5, rounded-[10px], border-white/[0.06], bg-white/[0.05]) with a lucide Bell icon, reading unreadCount from useNotificationStore. No unread: plain bell, no badge. Unread > 0: small gradient badge (from-[#ffcb2b] to-[#ff9e2c], dark text) top-right showing the count, '9+' when >9, plus a subtle animate-ping dot (motion-reduce:animate-none) as the one signature touch signalling 'something new' without overdoing it. aria-label is dynamic ('Notificacoes' vs 'Notificacoes, N nao lida(s)'), badge itself is aria-hidden since the label already states the count; being a native <button> it's keyboard-focusable by default with a visible focus-visible ring in the brand yellow. Mounted in Header.tsx immediately to the left of CoupleAvatars, inside the same couple?.partner conditional block (bell only makes sense once linked, matching where notifications are couple-scoped). Click has no handler yet (dropdown listing is US-010). Verified with tsc --noEmit, eslint on both changed files, and a full `npx vite build` (succeeded without needing the arm64 optional-binding workaround this time - dist/ removed after, package.json/lock untouched) - no Chromium available in this sandbox so no real screenshot, but a full production build compiling and rendering the new component with no console errors during build is a stronger signal than typecheck alone."
     },
     {
       "id": "US-010",
