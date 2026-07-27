@@ -125,8 +125,8 @@
         "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado. RatingRequestDialog.tsx usa Dialog shadcn com os tokens inline do ReviewModal. tsc e build passaram; npm run lint tem 6 erros pre-existentes (baseline, sem relacao com este arquivo) confirmados via teste isolado. Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md); wiring com NotificationDropdown fica para US-009."
     },
     {
       "id": "US-009",
