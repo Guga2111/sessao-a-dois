@@ -48,7 +48,7 @@ class NotificationControllerTest {
 
 	private NotificationDto dto(UUID actorId) {
 		return new NotificationDto(UUID.randomUUID(), NotificationType.MATCH, 603L, MediaType.MOVIE, "Matrix",
-				actorId, "Ana", false, Instant.now(), UUID.randomUUID());
+				actorId, "Ana", false, Instant.now(), UUID.randomUUID(), null);
 	}
 
 	@Test

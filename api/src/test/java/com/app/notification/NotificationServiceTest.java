@@ -131,6 +131,43 @@ class NotificationServiceTest {
 	}
 
 	@Test
+	void listNotifications_mapsMediaTrackIdForRatingRequest() {
+		UUID recipientId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		UUID mediaTrackId = UUID.randomUUID();
+		Couple couple = couple(UUID.randomUUID(), recipientId, actorId);
+		Notification notification = new Notification(couple, recipientId, NotificationType.RATING_REQUEST, 603L,
+				MediaType.MOVIE, "Matrix", actorId, mediaTrackId);
+		ReflectionTestUtils.setField(notification, "id", UUID.randomUUID());
+
+		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
+			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of());
+
+		NotificationDto dto = notificationService.listNotifications(recipientId, 0, 20).getContent().get(0);
+
+		assertThat(dto.type()).isEqualTo(NotificationType.RATING_REQUEST);
+		assertThat(dto.mediaTrackId()).isEqualTo(mediaTrackId);
+	}
+
+	@Test
+	void listNotifications_mediaTrackIdIsNullForMatchNotifications() {
+		UUID recipientId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		Couple couple = couple(UUID.randomUUID(), recipientId, actorId);
+		Notification notification = savedNotification(couple, recipientId, actorId);
+
+		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
+			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of());
+
+		NotificationDto dto = notificationService.listNotifications(recipientId, 0, 20).getContent().get(0);
+
+		assertThat(dto.type()).isEqualTo(NotificationType.MATCH);
+		assertThat(dto.mediaTrackId()).isNull();
+	}
+
+	@Test
 	void unreadCount_delegatesToRepository() {
 		UUID recipientId = UUID.randomUUID();
 		when(notificationRepository.countByRecipientUserIdAndReadFalse(recipientId)).thenReturn(5L);

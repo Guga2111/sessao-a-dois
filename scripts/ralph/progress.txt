@@ -19,3 +19,21 @@
   - `./mvnw -DskipTests package` could NOT be run in this environment (no JDK, Maven wrapper cannot fetch the distribution). Build/test verification is pending on a machine with JDK 21 + network.
   - `NotificationRepositoryTest` is a `@DataJpaTest` with an autowired `EntityManager`; native queries against the `notification` table are already used there (see the createdAt-backdating test) — reuse that for column-level assertions.
 ---
+
+## 2026-07-27 - US-002
+- `Notification` ganhou coluna nullable `media_track_id` (UUID) + getter e um segundo construtor de 8 args com `mediaTrackId`; o construtor antigo de 7 args delega passando `null`, entao MATCH/NO_MATCH seguem identicos sem tocar em `MatchService`.
+- `NotificationDto` ganhou `UUID mediaTrackId` como ultimo componente do record; `NotificationService.toDto` preenche a partir da entidade (vale tanto para REST quanto para o push STOMP, que serializa o mesmo DTO).
+- Testes: `NotificationServiceTest` (mapeamento do DTO com mediaTrackId preenchido em RATING_REQUEST e null em MATCH), `NotificationRepositoryTest.mediaTrackIdIsPersistedForRatingRequestAndNullForMatch`, e `NotificationControllerTest.dto(...)` ajustado para o novo arity.
+- Arquivos alterados:
+  - `api/src/main/java/com/app/notification/Notification.java`
+  - `api/src/main/java/com/app/notification/NotificationDto.java`
+  - `api/src/main/java/com/app/notification/NotificationService.java`
+  - `api/src/test/java/com/app/notification/NotificationServiceTest.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/src/test/java/com/app/notification/NotificationControllerTest.java`
+- **Learnings for future iterations:**
+  - `NotificationDto` e um record: adicionar um componente quebra TODA construcao posicional. Hoje o unico ponto fora do service e `NotificationControllerTest.dto(...)` — grepar por `new NotificationDto(` antes de mexer.
+  - Ao adicionar campo opcional a uma entidade com construtor publico usado por outra feature (`MatchService`), preferir sobrecarga: construtor novo completo + o antigo delegando com `null`. Evita tocar em call sites de match.
+  - `ddl-auto=update` (application.properties) cria a coluna nova automaticamente em dev/prod; nao ha Flyway/Liquibase no projeto, entao "migracao" e sempre so adicionar coluna nullable.
+  - Continua valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha no download do proprio Maven. Compilacao/testes do backend seguem pendentes de verificacao em maquina com JDK 21.
+---

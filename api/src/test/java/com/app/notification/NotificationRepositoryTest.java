@@ -97,6 +97,28 @@ class NotificationRepositoryTest {
 	}
 
 	@Test
+	void mediaTrackIdIsPersistedForRatingRequestAndNullForMatch() {
+		Couple couple = persistedCouple();
+		UUID mediaTrackId = UUID.randomUUID();
+
+		Notification ratingRequest = notificationRepository.save(new Notification(couple, UUID.randomUUID(),
+				NotificationType.RATING_REQUEST, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID(),
+				mediaTrackId));
+		Notification match = notificationRepository.save(newNotification(couple, UUID.randomUUID()));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(notificationRepository.findById(ratingRequest.getId()))
+			.get()
+			.extracting(Notification::getMediaTrackId)
+			.isEqualTo(mediaTrackId);
+		assertThat(notificationRepository.findById(match.getId()))
+			.get()
+			.extracting(Notification::getMediaTrackId)
+			.isNull();
+	}
+
+	@Test
 	void deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff() {
 		Couple couple = persistedCouple();
 		UUID recipientId = UUID.randomUUID();

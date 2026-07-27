@@ -53,6 +53,10 @@ public class Notification {
 	@Column(name = "actor_user_id", nullable = false)
 	private UUID actorUserId;
 
+	/** Preenchido apenas para RATING_REQUEST; nulo para MATCH/NO_MATCH. */
+	@Column(name = "media_track_id")
+	private UUID mediaTrackId;
+
 	@Column(name = "is_read", nullable = false)
 	private boolean read = false;
 
@@ -65,6 +69,11 @@ public class Notification {
 
 	public Notification(Couple couple, UUID recipientUserId, NotificationType type, Long tmdbId,
 			MediaType mediaType, String title, UUID actorUserId) {
+		this(couple, recipientUserId, type, tmdbId, mediaType, title, actorUserId, null);
+	}
+
+	public Notification(Couple couple, UUID recipientUserId, NotificationType type, Long tmdbId,
+			MediaType mediaType, String title, UUID actorUserId, UUID mediaTrackId) {
 		this.couple = couple;
 		this.recipientUserId = recipientUserId;
 		this.type = type;
@@ -72,6 +81,7 @@ public class Notification {
 		this.mediaType = mediaType;
 		this.title = title;
 		this.actorUserId = actorUserId;
+		this.mediaTrackId = mediaTrackId;
 	}
 
 	public UUID getId() {
@@ -104,6 +114,10 @@ public class Notification {
 
 	public UUID getActorUserId() {
 		return actorUserId;
+	}
+
+	public UUID getMediaTrackId() {
+		return mediaTrackId;
 	}
 
 	public boolean isRead() {
