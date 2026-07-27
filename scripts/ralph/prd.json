@@ -154,8 +154,8 @@
         "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado. notificationText cobre RATING_REQUEST ('{actorName} avaliou \"{title}\" — dê sua nota também.', fallback 'Seu par'); NotificationIcon novo variant com Star (lucide-react), badge circular amarelo outline (border/bg/texto #ffcb2b) distinto do gradiente cheio do MATCH e do cinza do NO_MATCH/X. tsc e build passaram; lint no mesmo baseline de 7 erros pre-existentes (nenhum novo). Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md)."
     },
     {
       "id": "US-011",

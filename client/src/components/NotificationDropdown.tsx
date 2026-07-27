@@ -1,6 +1,6 @@
 import { formatDistanceToNowStrict } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { BellOff, Heart, X } from "lucide-react"
+import { BellOff, Heart, Star, X } from "lucide-react"
 import { useState } from "react"
 
 import {
@@ -28,6 +28,11 @@ function notificationText(notification: Notification, currentUserId?: string): s
     return `Vocês dois curtiram "${notification.title}" — foi para Queremos Ver.`
   }
 
+  if (notification.type === "RATING_REQUEST") {
+    const actorName = notification.actorName ?? "Seu par"
+    return `${actorName} avaliou "${notification.title}" — dê sua nota também.`
+  }
+
   const isActor = notification.actorUserId === currentUserId
   if (isActor) {
     return `Sem match desta vez em "${notification.title}".`
@@ -42,6 +47,14 @@ function NotificationIcon({ type }: { type: Notification["type"] }) {
     return (
       <div className="grid size-9 flex-none place-items-center rounded-full bg-gradient-to-b from-[#ffcb2b] to-[#ff9e2c] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.35)]">
         <Heart className="size-4 fill-current" />
+      </div>
+    )
+  }
+
+  if (type === "RATING_REQUEST") {
+    return (
+      <div className="grid size-9 flex-none place-items-center rounded-full border border-[#ffcb2b]/40 bg-[#ffcb2b]/[0.1] text-[#ffcb2b]">
+        <Star className="size-4 fill-current" />
       </div>
     )
   }

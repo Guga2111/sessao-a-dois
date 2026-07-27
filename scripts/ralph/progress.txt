@@ -149,3 +149,15 @@
   - `npm run lint` continua com o mesmo baseline de 7 erros pre-existentes (ReviewModal/WatchModal/RatingRequestDialog `react-hooks/set-state-in-effect` + `ui/button.tsx` `react-refresh/only-export-components`) — nenhum novo introduzido por esta story.
   - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
 ---
+
+## 2026-07-27 - US-010
+- `NotificationDropdown.tsx`: `notificationText(...)` ganhou um branch para `RATING_REQUEST` (`'{actorName} avaliou "{title}" — dê sua nota também.'`, fallback `'Seu par'` quando `actorName` e nulo, mesmo padrao ja usado no branch de NO_MATCH). `NotificationIcon` ganhou um terceiro variant: `Star` (lucide-react) preenchido, badge circular com outline amarelo (`border-[#ffcb2b]/40 bg-[#ffcb2b]/[0.1] text-[#ffcb2b]`) — deliberadamente distinto do gradiente cheio amarelo/laranja do MATCH (coracao) e do cinza translucido do NO_MATCH/X, mas ainda na mesma familia de cor (amarelo = "acao pendente do parceiro").
+- Arquivos alterados:
+  - `client/src/components/NotificationDropdown.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - Mudanca pequena e contida num componente ja estabelecido: a skill `frontend-design` foi invocada (regra do CLAUDE.md raiz para qualquer edicao em `client/`), mas o resultado correto foi seguir os tokens/padroes JA existentes no arquivo (mesmo `size-9`, mesmo padrao de badge circular com `border`+`bg`+`text` na cor do tipo) em vez de introduzir uma paleta nova — nem toda story de UI pede um novo sistema visual, so precisa ser consistente com o que ja existe.
+  - `npm run lint` continua no mesmo baseline de 7 erros pre-existentes (ReviewModal/WatchModal `react-hooks/set-state-in-effect` + `RatingRequestDialog` idem + `ui/button.tsx` `react-refresh/only-export-components`) — nenhum novo introduzido por esta story.
+  - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
+  - Proxima story (US-011, tooltip da nota individual no MediaCard) tambem exige `frontend-design` e mexe num componente diferente (`MediaCard`, nao `NotificationDropdown`) — sem overlap de arquivos com esta.
+---
