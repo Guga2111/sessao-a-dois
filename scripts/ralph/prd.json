@@ -95,8 +95,8 @@
         "Compila (./mvnw -DskipTests package)"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado (deleteByCoupleIdAndTmdbIdAndType + RatingRequestService.onTrackDeleted, chamado de MediaTrackService.deleteTrack, agora @Transactional). Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
     },
     {
       "id": "US-007",

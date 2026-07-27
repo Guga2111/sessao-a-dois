@@ -93,3 +93,20 @@
   - US-006 (limpar RATING_REQUEST ao deletar o track) deve reusar `NotificationRepository` com uma query de delecao escopada por casal e ser chamada de `MediaTrackService.deleteTrack`, que precisa ser `@Transactional`.
   - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` nao roda. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
 ---
+
+## 2026-07-27 - US-006
+- `NotificationRepository.deleteByCoupleIdAndTmdbIdAndType(coupleId, tmdbId, type)` (derived delete query, escopada por casal e tipo) + `RatingRequestService.onTrackDeleted(track)`, que chama essa query com `NotificationType.RATING_REQUEST` — nunca toca MATCH/NO_MATCH nem outro casal que rastreie o mesmo tmdbId.
+- `MediaTrackService.deleteTrack` passou a ser `@Transactional` e chama `ratingRequestService.onTrackDeleted(track)` antes de `mediaTrackRepository.delete(track)`, na mesma transacao.
+- Testes: `NotificationRepositoryTest` +2 (apaga so as RATING_REQUEST daquele casal+titulo, ignorando MATCH/outro titulo/outro casal; no-op quando nao ha nenhuma), `RatingRequestServiceTest` +1 (delega para o repositorio com os ids certos, sem tocar em `notificationService`), `MediaTrackServiceTest` +2 (`verify(ratingRequestService).onTrackDeleted(track)` no caminho feliz; `verify(ratingRequestService, never())...` quando o track nao existe).
+- Arquivos alterados:
+  - `api/src/main/java/com/app/notification/NotificationRepository.java`
+  - `api/src/main/java/com/app/tracking/MediaTrackService.java`
+  - `api/src/main/java/com/app/tracking/RatingRequestService.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/src/test/java/com/app/tracking/MediaTrackServiceTest.java`
+  - `api/src/test/java/com/app/tracking/RatingRequestServiceTest.java`
+- **Learnings for future iterations:**
+  - Este era o ultimo item backend do epico; US-007 em diante e tudo `client/` — invocar a skill `frontend-design` antes de qualquer implementacao ali, por regra do `CLAUDE.md` da raiz.
+  - `deleteByCoupleIdAndTmdbIdAndType` roda ANTES de `mediaTrackRepository.delete(track)` em `deleteTrack`, nao depois — a limpeza de notificacoes nao depende do track ainda existir (usa `couple.getId()`/`track.getTmdbId()`, nao o id do track), mas manter a ordem "notificacoes primeiro" segue o mesmo padrao dos outros orquestradores do `RatingRequestService`.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` nao roda. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
+---

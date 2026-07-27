@@ -34,6 +34,13 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 	List<Notification> findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(UUID recipientUserId,
 			UUID coupleId, Long tmdbId, NotificationType type);
 
+	/**
+	 * Limpeza dos pedidos de avaliacao quando o titulo sai da lista do casal:
+	 * escopada ao casal e ao tipo, para nunca apagar MATCH/NO_MATCH nem tocar em
+	 * outro casal que rastreie o mesmo tmdbId.
+	 */
+	long deleteByCoupleIdAndTmdbIdAndType(UUID coupleId, Long tmdbId, NotificationType type);
+
 	@Modifying
 	@Query("UPDATE Notification n SET n.read = true WHERE n.recipientUserId = :recipientUserId AND n.read = false")
 	int markAllAsReadByRecipientUserId(@Param("recipientUserId") UUID recipientUserId);

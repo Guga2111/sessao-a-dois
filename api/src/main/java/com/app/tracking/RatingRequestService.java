@@ -74,6 +74,16 @@ public class RatingRequestService {
 	}
 
 	/**
+	 * Remove os pedidos de avaliacao do titulo quando ele sai da lista do casal:
+	 * sem isso a notificacao continuaria apontando para um track inexistente.
+	 * Roda na transacao de {@code MediaTrackService.deleteTrack}, antes da remocao.
+	 */
+	public void onTrackDeleted(MediaTrack track) {
+		notificationRepository.deleteByCoupleIdAndTmdbIdAndType(track.getCouple().getId(), track.getTmdbId(),
+				NotificationType.RATING_REQUEST);
+	}
+
+	/**
 	 * Ao dar a propria nota, o ator resolve sozinho qualquer RATING_REQUEST que
 	 * tenha recebido para aquele titulo — sem acao manual no dropdown.
 	 */

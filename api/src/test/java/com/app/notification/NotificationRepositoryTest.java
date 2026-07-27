@@ -216,4 +216,45 @@ class NotificationRepositoryTest {
 		assertThat(notificationRepository.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
 				UUID.randomUUID(), couple.getId(), 603L, NotificationType.RATING_REQUEST)).isEmpty();
 	}
+
+	@Test
+	void deletesOnlyTheRatingRequestsOfThatCoupleAndTitle() {
+		Couple couple = persistedCouple();
+		Couple otherCouple = persistedCouple();
+		UUID recipientId = UUID.randomUUID();
+
+		notificationRepository.save(new Notification(couple, recipientId, NotificationType.RATING_REQUEST, 603L,
+				MediaType.MOVIE, "The Matrix", UUID.randomUUID(), UUID.randomUUID()));
+		Notification read = notificationRepository.save(new Notification(couple, recipientId,
+				NotificationType.RATING_REQUEST, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID(),
+				UUID.randomUUID()));
+		read.setRead(true);
+		notificationRepository.save(read);
+		// ruidos que a delecao nao pode capturar
+		Notification match = notificationRepository.save(new Notification(couple, recipientId,
+				NotificationType.MATCH, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID()));
+		Notification otherTitle = notificationRepository.save(new Notification(couple, recipientId,
+				NotificationType.RATING_REQUEST, 604L, MediaType.MOVIE, "Outro", UUID.randomUUID(),
+				UUID.randomUUID()));
+		Notification otherCoupleRequest = notificationRepository.save(new Notification(otherCouple, recipientId,
+				NotificationType.RATING_REQUEST, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID(),
+				UUID.randomUUID()));
+
+		long deleted = notificationRepository.deleteByCoupleIdAndTmdbIdAndType(couple.getId(), 603L,
+				NotificationType.RATING_REQUEST);
+
+		assertThat(deleted).isEqualTo(2);
+		assertThat(notificationRepository.findAll()).extracting(Notification::getId)
+			.containsExactlyInAnyOrder(match.getId(), otherTitle.getId(), otherCoupleRequest.getId());
+	}
+
+	@Test
+	void deleteRatingRequestsIsANoOpWhenThereIsNoneForTheTitle() {
+		Couple couple = persistedCouple();
+		notificationRepository.save(newNotification(couple, UUID.randomUUID()));
+
+		assertThat(notificationRepository.deleteByCoupleIdAndTmdbIdAndType(couple.getId(), 603L,
+				NotificationType.RATING_REQUEST)).isZero();
+		assertThat(notificationRepository.findAll()).hasSize(1);
+	}
 }

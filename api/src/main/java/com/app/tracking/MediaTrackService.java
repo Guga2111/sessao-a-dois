@@ -138,8 +138,10 @@ public class MediaTrackService {
 		return toResponse(mediaTrackRepository.save(track));
 	}
 
+	@Transactional
 	public void deleteTrack(UUID trackId, UUID coupleId) {
 		MediaTrack track = findOwnedTrack(trackId, coupleId);
+		ratingRequestService.onTrackDeleted(track);
 		mediaTrackRepository.delete(track);
 	}
 

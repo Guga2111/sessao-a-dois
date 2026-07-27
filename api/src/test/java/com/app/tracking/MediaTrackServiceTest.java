@@ -423,6 +423,7 @@ class MediaTrackServiceTest {
 
 		mediaTrackService.deleteTrack(trackId, coupleId);
 
+		verify(ratingRequestService).onTrackDeleted(track);
 		verify(mediaTrackRepository, times(1)).delete(track);
 	}
 
@@ -450,6 +451,7 @@ class MediaTrackServiceTest {
 		assertThatThrownBy(() -> mediaTrackService.deleteTrack(trackId, coupleId))
 			.isInstanceOf(ResourceNotFoundException.class);
 		verify(mediaTrackRepository, never()).delete(any(MediaTrack.class));
+		verify(ratingRequestService, never()).onTrackDeleted(any());
 	}
 
 	@Test

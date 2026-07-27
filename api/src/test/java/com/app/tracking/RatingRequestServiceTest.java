@@ -210,4 +210,15 @@ class RatingRequestServiceTest {
 
 		verifyNoInteractions(notificationRepository);
 	}
+
+	@Test
+	void onTrackDeletedRemovesOnlyTheRatingRequestsOfThatCoupleAndTitle() {
+		MediaTrack track = track(couple(actorId, partnerId));
+
+		ratingRequestService.onTrackDeleted(track);
+
+		verify(notificationRepository).deleteByCoupleIdAndTmdbIdAndType(coupleId, TMDB_ID,
+				NotificationType.RATING_REQUEST);
+		verifyNoInteractions(notificationService);
+	}
 }
