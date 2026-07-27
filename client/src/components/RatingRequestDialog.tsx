@@ -15,13 +15,18 @@ import type { MediaTrackResponse } from "@/types/tracking"
 interface RatingRequestDialogProps {
   mediaTrackId: string | null
   title: string
+  description?: string
   onClose: () => void
   onSuccess: (track: MediaTrackResponse) => void
 }
 
+const DEFAULT_DESCRIPTION =
+  "Seu par já avaliou. Dê sua nota também — ela e a opinião são opcionais."
+
 export function RatingRequestDialog({
   mediaTrackId,
   title,
+  description = DEFAULT_DESCRIPTION,
   onClose,
   onSuccess,
 }: RatingRequestDialogProps) {
@@ -80,7 +85,7 @@ export function RatingRequestDialog({
             Avalie &quot;{title}&quot;
           </DialogTitle>
           <DialogDescription className="text-[13px] text-[#a6a39a]">
-            Seu par já avaliou. Dê sua nota também — ela e a opinião são opcionais.
+            {description}
           </DialogDescription>
         </DialogHeader>
 

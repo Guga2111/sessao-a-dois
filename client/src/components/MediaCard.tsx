@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
 
 import { isAxiosError } from "axios"
-import { Check, Clock3, Trash2 } from "lucide-react"
+import { Check, Clock3, Star, Trash2 } from "lucide-react"
 
+import { RatingRequestDialog } from "@/components/RatingRequestDialog"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -21,6 +22,7 @@ interface MediaCardProps {
   onStatusChange?: (track: MediaTrackResponse) => void
   onStartWatching?: (track: MediaTrackResponse) => void
   onReview?: (track: MediaTrackResponse) => void
+  onRated?: (track: MediaTrackResponse) => void
   onClick?: (track: MediaTrackResponse) => void
   onDelete?: (track: MediaTrackResponse) => void
 }
@@ -63,12 +65,14 @@ export function MediaCard({
   onStatusChange,
   onStartWatching,
   onReview,
+  onRated,
   onClick,
   onDelete,
 }: MediaCardProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
   const [startingWatch, setStartingWatch] = useState(false)
   const [startWatchError, setStartWatchError] = useState<string | null>(null)
+  const [rateOpen, setRateOpen] = useState(false)
 
   useEffect(() => {
     api
@@ -114,6 +118,7 @@ export function MediaCard({
       : null
 
   return (
+    <>
     <div
       onClick={() => onClick?.(track)}
       className={cn(
@@ -289,21 +294,47 @@ export function MediaCard({
             </Button>
           </div>
         )}
-        {track.status === "WATCHED" && (
-          <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
-            <Button
-              variant="outline"
-              onClick={(event) => {
-                event.stopPropagation()
-                onReview?.(track)
-              }}
-              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
-            >
-              Reavaliar
-            </Button>
-          </div>
-        )}
+        {track.status === "WATCHED" &&
+          (myReview?.rating ? (
+            <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+              <Button
+                variant="outline"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onReview?.(track)
+                }}
+                className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+              >
+                Reavaliar
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+              <Button
+                variant="outline"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setRateOpen(true)
+                }}
+                className="h-auto w-full rounded-full border-[rgba(255,203,43,.35)] bg-[rgba(255,203,43,.1)] py-2.5 text-[13px] font-semibold text-[#ffcb2b] hover:bg-[rgba(255,203,43,.16)] hover:text-[#ffcb2b]"
+              >
+                <Star className="mr-1.5 -mt-px inline size-3.5" strokeWidth={2.5} />
+                Avaliar
+              </Button>
+            </div>
+          ))}
       </div>
     </div>
+    <RatingRequestDialog
+      mediaTrackId={rateOpen ? track.id : null}
+      title={details?.title ?? `Título #${track.tmdbId}`}
+      description="Dê sua nota e opinião sobre este título — ambas são opcionais."
+      onClose={() => setRateOpen(false)}
+      onSuccess={(updated) => {
+        setRateOpen(false)
+        onRated?.(updated)
+      }}
+    />
+    </>
   )
 }

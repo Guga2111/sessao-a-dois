@@ -188,8 +188,8 @@
         "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado. MediaCard.tsx: footer WATCHED agora bifurca em myReview?.rating; sem nota mostra botao 'Avaliar' (amarelo, icone Star) que abre um RatingRequestDialog local (novo prop description customizavel, ja que o texto padrao assume que o parceiro avaliou primeiro); com nota mantem 'Reavaliar' + ReviewModal via onReview (comportamento intacto). Novo prop MediaCard.onRated mescla o track atualizado nas sections da HubScreen (mesmo padrao do ReviewModal.onSuccess). tsc/build passaram; lint no baseline pre-existente de 7 erros (nenhum novo)."
     }
   ]
 }

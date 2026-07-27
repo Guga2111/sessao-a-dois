@@ -178,3 +178,19 @@
   - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
   - Proxima story (US-012, gate do "Reavaliar" no MediaCard) mexe no mesmo arquivo (`MediaCard.tsx`, footer WATCHED) e tambem exige `frontend-design` — ha overlap de arquivo com esta story, mas nao de trecho de codigo (footer vs. bloco de rating).
 ---
+
+## 2026-07-27 - US-012
+- `MediaCard.tsx`: footer do status `WATCHED` bifurca em `myReview?.rating`. Sem nota (`myReview?.rating` ausente): botao "Avaliar" (destaque amarelo `#ffcb2b`, icone `Star` do lucide-react) que abre um `RatingRequestDialog` (US-008) renderizado localmente dentro do proprio `MediaCard`, controlado por `useState<boolean> rateOpen` e `mediaTrackId={rateOpen ? track.id : null}`. Com nota: mantido 100% o botao "Reavaliar" + `onReview?.(track)` (abre o `ReviewModal` existente via `HubScreen`).
+- `RatingRequestDialog.tsx` ganhou um prop opcional `description` (default = a mensagem original "Seu par já avaliou..."), porque essa frase assume que o parceiro avaliou primeiro — nao vale para o caso de nota inicial gatilhada pelo proprio `MediaCard` (o parceiro pode nao ter avaliado ainda). `MediaCard` passa uma `description` neutra ("Dê sua nota e opinião sobre este título — ambas são opcionais.").
+- `MediaCard` ganhou um novo prop `onRated?: (track: MediaTrackResponse) => void`, chamado no `onSuccess` do dialog local. `HubScreen.tsx` implementa `onRated` mesclando o track atualizado em `sections` (mesmo padrao de merge do `ReviewModal.onSuccess` — `items.map((t) => t.id === updated.id ? updated : t)`), o que faz o card re-renderizar com `myReview.rating` preenchido e o botao virar "Reavaliar" automaticamente, sem novo fetch da lista inteira.
+- O `<RatingRequestDialog>` teve que ser movido para FORA (irmao) da `<div onClick={() => onClick?.(track)}>` do card — envolvendo o retorno do componente num Fragment `<>...</>` — porque React Portals ainda borbulham eventos sintenticos pela arvore de componentes (nao pela arvore DOM); se o Dialog ficasse dentro da div clicavel, qualquer clique dentro dele (mesmo renderizado via Portal fora do DOM da div) acionaria `onClick?.(track)` e abriria o `MediaDetailModal` por cima do dialog de nota.
+- Arquivos alterados:
+  - `client/src/components/MediaCard.tsx`
+  - `client/src/components/RatingRequestDialog.tsx`
+  - `client/src/screens/HubScreen.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - Padrao reutilizavel: quando um componente de lista (`MediaCard`) precisa abrir um modal/dialog PROPRIO (nao delegado ao pai via callback, como `onReview`/`onClick` fazem), e esse componente tem uma `div` clicavel envolvendo tudo, o dialog deve ser um IRMAO dessa div (Fragment no retorno), nunca um filho — vale tanto para `Dialog` (shadcn/base-ui, via Portal) quanto qualquer outro overlay. Mesma logica ja documentada em `client/CLAUDE.md` para `Popover`+`Dialog` sibling, agora tambem se aplica a "card clicavel" + `Dialog` filho.
+  - Ao reusar um componente de dialog escrito para um fluxo especifico (aqui, `RatingRequestDialog` foi escrito para o caso "parceiro ja avaliou, agora avalie voce") em um segundo contexto com premissa diferente (aqui, "ninguem sabe se o parceiro ja avaliou"), extrair a copy fixa como prop opcional com default é mais barato do que duplicar o componente — o resto (estrelas, textarea, erro 404, submit) e identico nos dois fluxos.
+  - Este era o ultimo item do PRD (`US-012`, priority 12) — todas as 12 stories de `scripts/ralph/prd.json` estao `passes: true` apos esta.
+---

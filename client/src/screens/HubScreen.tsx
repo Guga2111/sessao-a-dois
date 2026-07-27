@@ -282,6 +282,17 @@ export function HubScreen() {
                             onStatusChange={setWatchTrack}
                             onStartWatching={reloadAllFirstPages}
                             onReview={setReviewTrack}
+                            onRated={(updated) => {
+                              setSections((prev) => ({
+                                ...prev,
+                                [updated.status]: {
+                                  ...prev[updated.status],
+                                  items: prev[updated.status].items.map((t) =>
+                                    t.id === updated.id ? updated : t
+                                  ),
+                                },
+                              }))
+                            }}
                             onClick={setDetailTrack}
                             onDelete={setDeleteTrack}
                           />
