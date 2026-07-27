@@ -108,8 +108,8 @@
         "tsc passa"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado. tsc --noEmit passou limpo."
     },
     {
       "id": "US-008",

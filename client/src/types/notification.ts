@@ -1,6 +1,6 @@
 import type { MediaType } from "@/types/tracking"
 
-export type NotificationType = "MATCH" | "NO_MATCH"
+export type NotificationType = "MATCH" | "NO_MATCH" | "RATING_REQUEST"
 
 export interface Notification {
   id: string
@@ -13,6 +13,7 @@ export interface Notification {
   read: boolean
   createdAt: string
   recipientUserId: string
+  mediaTrackId: string | null
 }
 
 // Shape of GET /api/notifications?page=&size= (Spring Data `Page<T>` JSON).

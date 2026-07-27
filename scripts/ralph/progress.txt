@@ -110,3 +110,14 @@
   - `deleteByCoupleIdAndTmdbIdAndType` roda ANTES de `mediaTrackRepository.delete(track)` em `deleteTrack`, nao depois — a limpeza de notificacoes nao depende do track ainda existir (usa `couple.getId()`/`track.getTmdbId()`, nao o id do track), mas manter a ordem "notificacoes primeiro" segue o mesmo padrao dos outros orquestradores do `RatingRequestService`.
   - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` nao roda. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
 ---
+
+## 2026-07-27 - US-007
+- `client/src/types/notification.ts`: `NotificationType` ganhou `"RATING_REQUEST"` e a interface `Notification` ganhou `mediaTrackId: string | null`, espelhando o `NotificationDto` do backend (US-002).
+- Nao ha nenhuma construcao de objeto `Notification` por literal no client (so `import type` e uso via API/store), entao nenhum outro arquivo precisou mudar.
+- Arquivos alterados:
+  - `client/src/types/notification.ts`
+- **Learnings for future iterations:**
+  - `client` roda com `npm` neste sandbox (nao ha `bun` instalado, apesar do `docs/ARCHITECTURE.md` mencionar Bun como package manager do projeto); `npm run typecheck` (`tsc --noEmit`) funciona e passou limpo aqui.
+  - Story puramente de tipos, sem skill `frontend-design` necessaria (nao ha UI/componente/pagina visivel envolvido) — a regra do CLAUDE.md da raiz sobre `frontend-design` se aplica a partir de US-008 (Dialog) em diante.
+  - `docs/` (regra obrigatoria do CLAUDE.md raiz) foi conferido: `ARCHITECTURE.md` tem contexto de arquitetura relevante; `support.js`/`Sessao a Dois.dc.html` sao artefatos gerados de um runtime de design (dc-runtime), sem instrucoes de projeto — so codigo de renderizacao de prototipo.
+---
