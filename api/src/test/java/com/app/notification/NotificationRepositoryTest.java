@@ -78,6 +78,25 @@ class NotificationRepositoryTest {
 	}
 
 	@Test
+	void ratingRequestTypeIsPersistedAsItsEnumName() {
+		Couple couple = persistedCouple();
+		Notification saved = notificationRepository.save(new Notification(couple, UUID.randomUUID(),
+				NotificationType.RATING_REQUEST, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID()));
+		entityManager.flush();
+		entityManager.clear();
+
+		Object storedType = entityManager.createNativeQuery("SELECT type FROM notification WHERE id = ?")
+			.setParameter(1, saved.getId())
+			.getSingleResult();
+
+		assertThat(storedType).isEqualTo("RATING_REQUEST");
+		assertThat(notificationRepository.findById(saved.getId()))
+			.get()
+			.extracting(Notification::getType)
+			.isEqualTo(NotificationType.RATING_REQUEST);
+	}
+
+	@Test
 	void deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff() {
 		Couple couple = persistedCouple();
 		UUID recipientId = UUID.randomUUID();

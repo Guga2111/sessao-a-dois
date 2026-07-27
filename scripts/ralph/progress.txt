@@ -1,80 +1,21 @@
-# Ralph Progress Log
-Started: Sun Jul 26 14:28:59 PDT 2026
+## Codebase Patterns
+- Backend package base is `com.app` (package-by-feature): user, couple, media, tracking, match, notification, security, websocket.
+- Notifications: `NotificationService.notifyCouple(...)` is the single entry point today; it persists one Notification per couple member and pushes STOMP to `/topic/couple/{coupleId}/notifications` via `TransactionSynchronizationManager.afterCommit()`. Reuse the persist-then-push-after-commit pattern.
+- Enums on entities are always `@Enumerated(EnumType.STRING)`, so adding an enum constant needs no data migration.
+- `api/src/test/resources/application.properties` REPLACES the main one for `@SpringBootTest`; any new required property must be mirrored there.
+- **This sandbox has no JDK and no Maven Central access** (`java` not found, `./mvnw` cannot download Maven). Backend compile/test acceptance criteria cannot be verified here — keep changes conservative and flag verification as pending in the progress log.
+- Frontend rule (CLAUDE.md): any change under `client/` must invoke the `frontend-design` skill first.
+
 ---
 
-## 2026-07-26 - US-006
-- Implemented REST endpoints for notifications: GET /api/notifications (paginated), GET /api/notifications/unread-count, PATCH /api/notifications/{id}/read, PATCH /api/notifications/read-all.
+## 2026-07-27 - US-001
+- Added `RATING_REQUEST` to `NotificationType` (now MATCH, NO_MATCH, RATING_REQUEST). `Notification.type` is already `@Enumerated(EnumType.STRING)`, so the constant persists as the literal string and existing rows are untouched (no migration needed).
+- Added `NotificationRepositoryTest.ratingRequestTypeIsPersistedAsItsEnumName` asserting the raw `type` column stores `'RATING_REQUEST'` and reads back as the enum.
 - Files changed:
-  - api/src/main/java/com/app/notification/NotificationController.java (new)
-  - api/src/main/java/com/app/notification/NotificationExceptionHandler.java (new)
-  - api/src/main/java/com/app/notification/UnreadCountResponse.java (new)
-  - api/src/main/java/com/app/notification/NotificationService.java (listNotifications/unreadCount/markAsRead/markAllAsRead)
-  - api/src/main/java/com/app/notification/NotificationRepository.java (markAllAsReadByRecipientUserId bulk @Modifying query)
-  - api/src/test/java/com/app/notification/NotificationControllerTest.java (new)
-  - api/src/test/java/com/app/notification/NotificationServiceTest.java (extended)
+  - `api/src/main/java/com/app/notification/NotificationType.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
 - **Learnings for future iterations:**
-  - Every feature package in this backend gets its own `@RestControllerAdvice(basePackages = "com.app.X")` handler that maps `com.app.tracking.ResourceNotFoundException` -> 404 and `org.springframework.security.access.AccessDeniedException` -> 403 (see TrackingExceptionHandler/MatchExceptionHandler). Reuse this exact pattern rather than inventing a new exception type per feature.
-  - `com.app.tracking.ResourceNotFoundException` is a shared cross-feature class (already imported by com.app.match) - it's fine to reuse from com.app.notification too instead of creating a notification-specific one.
-  - For a "mark all as read/done" bulk update, prefer a `@Modifying @Query("UPDATE ... SET ... WHERE ...")` on the repository (needs the calling service method annotated `@Transactional`) over fetching all rows and calling save() in a loop.
-  - When a DTO/list endpoint needs a display name resolved from a foreign id per row (e.g. actorName from actorUserId), batch-resolve with `userRepository.findAllById(distinctIds)` into a Map first, then map over the page - avoids N+1 UserRepository.findById calls per row.
-  - This sandbox has no JDK/Maven and no network access to Maven Central (mvnw tries to download the maven distribution and fails) - consistent with the note already in api/CLAUDE.md. Changes here were verified by manual code review only, not by running ./mvnw test. Flag this to a human or a later iteration with build tooling available.
----
-
-## 2026-07-26 - US-007
-- Implemented TypeScript types and Zustand store for notifications.
-- Files changed:
-  - client/src/types/notification.ts (new)
-  - client/src/stores/useNotificationStore.ts (new)
-- **Learnings for future iterations:**
-  - Frontend paginated list endpoints (Spring Data `Page<T>`) get a `Paged<X>Response` interface mirroring `PagedMediaTrackResponse` (content/totalElements/totalPages/number/size) - reused this shape for `PagedNotificationResponse`.
-  - Store pattern (see useMatchStore/useAuthStore): plain Zustand `create<State>((set, get) => ({...}))`, all HTTP via the shared `api` axios client (src/lib/api.ts) which already attaches the JWT.
-  - For optimistic updates with rollback (markAsRead/markAllAsRead), snapshot the pre-update state at the top of the action, apply the optimistic `set()`, then in the `catch` restore the snapshot via `set()` and rethrow - avoids hand-rolling inverse-operation logic.
-  - `fetchNotifications()` and `fetchUnreadCount()` are kept as two separate store methods (not combined) because US-008's spec calls them independently on app load ("chamar fetchNotifications() e buscar unread-count").
-  - `npm run lint` in client/ currently has 6 pre-existing errors unrelated to notifications work (PendingDetailModal.tsx, ReviewModal.tsx, WatchModal.tsx react-hooks/set-state-in-effect; button.tsx react-refresh/only-export-components) - verified with `npx eslint <new files>` directly that the new files themselves are lint-clean; do not assume `npm run lint` will exit 0 in this repo right now.
----
-
-## 2026-07-26 - US-008
-- Subscribed to /topic/couple/{coupleId}/notifications on the existing STOMP connection managed by useMatchStore, and wired notification fetch-on-load into App.tsx.
-- Files changed:
-  - client/src/stores/useMatchStore.ts (client.subscribe to the notifications topic inside onConnect, forwards each message to useNotificationStore.getState().pushIncoming)
-  - client/src/App.tsx (the existing isAuthenticated+hasPartner+coupleId effect now also calls fetchNotifications()/fetchUnreadCount() alongside connect())
-- **Learnings for future iterations:**
-  - Cross-store calls from inside a Zustand store body (not a React component) should use `useOtherStore.getState().action(...)` rather than a hook - avoids importing React hook machinery into non-component code and sidesteps any circular-subscription concerns.
-  - No payload transform was needed for the STOMP notification message: NotificationDto (backend) and the `Notification` TS type (client/src/types/notification.ts, from US-007) already have matching field names, so `JSON.parse(message.body) as Notification` is a direct, safe cast.
-  - Sandbox gotcha confirmed still current: `npx vite build` fails with `Cannot find module './rolldown-binding.linux-arm64-gnu.node'` until `npm install @rolldown/binding-linux-arm64-gnu lightningcss-linux-arm64-gnu @tailwindcss/oxide-linux-arm64-gnu` is run locally - but do NOT commit that `npm install` (it dirties package.json/package-lock.json with sandbox-only arm64 optional bindings that were never part of prior commits); `git checkout -- client/package.json client/package-lock.json` after verifying the build to keep the diff clean.
----
-
-## 2026-07-26 - US-009
-- Added NotificationBell icon/badge component and mounted it in the Header, to the left of the couple avatars.
-- Files changed:
-  - client/src/components/NotificationBell.tsx (new)
-  - client/src/components/Header.tsx (import + render inside the existing couple?.partner block)
-- **Learnings for future iterations:**
-  - `npx vite build` worked in this sandbox run without needing the arm64 optional-binding workaround noted after US-008 - the packages must already be present from that prior install. Still remove `dist/` after a manual build check and confirm `git status --short package.json package-lock.json` is empty before committing, just in case.
-  - No Chromium/Playwright in this sandbox (per client/CLAUDE.md), so "verify in browser" for UI stories here means: tsc --noEmit, eslint on the changed files, and a full `npx vite build` as a stronger-than-typecheck signal that the component actually compiles and renders without errors - not a real screenshot. Documented as such per US-009's acceptance criteria fallback clause.
-  - The bell is mounted inside the same `couple?.partner &&` conditional as `CoupleAvatars` in Header.tsx (not rendered when there's no linked partner yet), since notifications are couple-scoped and only make sense once a couple exists. Keep this in mind for US-010's dropdown - it should live in the same conditional block.
----
-
-## 2026-07-26 - US-010
-- Added NotificationDropdown.tsx (Popover anchored to NotificationBell) listing notifications, with mark-as-read/mark-all-as-read, "Ver mais" pagination, and per-type/per-recipient contextual text; mounted in Header.tsx in place of the bare NotificationBell.
-- Files changed:
-  - client/src/components/NotificationDropdown.tsx (new)
-  - client/src/components/Header.tsx (renders NotificationDropdown instead of NotificationBell directly)
-- **Learnings for future iterations:**
-  - `render={<SomeComponent />}` is this codebase's established composition pattern for base-ui primitives (see ui/dialog.tsx's `DialogPrimitive.Close render={<Button variant="outline" />}`) - used the same way here for `PopoverTrigger render={<NotificationBell />}`. Since `NotificationBell` is already a native `<button>` and `PopoverTrigger`'s default `nativeButton` is `true`, no extra wrapper or `nativeButton={false}` was needed.
-  - `date-fns` v4 (already a dependency) ships a `pt-BR` locale at `date-fns/locale` - used `formatDistanceToNowStrict(date, { addSuffix: true, locale: ptBR })` for "há 2 min"-style relative time; no new dependency required.
-  - `useNotificationStore.markAsRead` is already idempotent (no-ops if the target is already `read`), so item click handlers can call it unconditionally without checking `read` first.
-  - The store's `notifications` list is already capped at one page (20) by `fetchNotifications`/`fetchMore`'s `PAGE_SIZE`, so no dropdown-side slicing/truncation was needed for the "20 most recent" requirement - just render the store's list as-is.
-  - Still no Chromium/JDK/Maven in this sandbox, consistent with prior notes - verification here is tsc/eslint/`vite build` only, not a real rendered screenshot or a live backend. Flag for a human/CI pass with real browser + backend before considering the UI fully verified.
----
-
-## 2026-07-26 - US-011
-- Wired the MATCH notification (STOMP) to also trigger the existing Match celebration modal, with dedup so a client never sees the celebration twice for the same match.
-- Files changed:
-  - client/src/stores/useMatchStore.ts (module-level `celebratedMatchKeys` Set + new `celebrateMatch(event, dedupeKey)` action; /match STOMP handler now routes through it)
-  - client/src/stores/useNotificationStore.ts (pushIncoming calls `useMatchStore.getState().celebrateMatch(...)` for MATCH-type notifications, using the same `tmdb:{tmdbId}` dedupe key as the /match handler)
-- **Learnings for future iterations:**
-  - The backend already sends two independent STOMP messages per match (/topic/couple/{id}/match with a MatchEvent, and /topic/couple/{id}/notifications with a MATCH Notification) - both reach every subscriber. Any client-side reaction driven by "a match happened" that listens to both topics needs a shared dedupe key (we used `tmdb:{tmdbId}`) so the first message to arrive wins and the second is a no-op, rather than firing twice.
-  - useMatchStore -> useNotificationStore -> useMatchStore is now a two-directional circular import between the two store files. This is safe in this codebase specifically because both sides only touch the other store inside callback bodies (STOMP message handlers, pushIncoming), never during module init/store creation - if a future change needs the other store's state synchronously at creation time, this circularity would need breaking up (e.g. an event bus) instead.
-  - Confirmed via the frontend-design skill that not every client/ story needs new visual design - pure state/logic stories (no new component, no visual change) still route through the skill per CLAUDE.md, but the skill itself will say "no design guidance needed" when the acceptance criteria is logic-only.
+  - No `switch` over `NotificationType` exists in main code (only `notifyCouple` passing it through and Mockito `any(NotificationType.class)` matchers in tests), so adding a constant does not break exhaustiveness anywhere.
+  - `./mvnw -DskipTests package` could NOT be run in this environment (no JDK, Maven wrapper cannot fetch the distribution). Build/test verification is pending on a machine with JDK 21 + network.
+  - `NotificationRepositoryTest` is a `@DataJpaTest` with an autowired `EntityManager`; native queries against the `notification` table are already used there (see the createdAt-backdating test) — reuse that for column-level assertions.
 ---
