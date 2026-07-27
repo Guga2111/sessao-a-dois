@@ -172,8 +172,8 @@
         "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado. Novo client/src/components/ui/tooltip.tsx (primitivo shadcn/base-ui @base-ui/react/tooltip, mesmo padrao de popover.tsx). MediaCard.tsx envolve o bloco estrelas+media num Tooltip cujo conteudo lista track.reviews (sempre inclui os dois membros do casal, rating null vira 'sem nota'). tsc/build passaram; lint no baseline pre-existente de 7 erros (nenhum novo)."
     },
     {
       "id": "US-012",

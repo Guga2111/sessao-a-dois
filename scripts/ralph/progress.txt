@@ -161,3 +161,20 @@
   - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
   - Proxima story (US-011, tooltip da nota individual no MediaCard) tambem exige `frontend-design` e mexe num componente diferente (`MediaCard`, nao `NotificationDropdown`) — sem overlap de arquivos com esta.
 ---
+
+## 2026-07-27 - US-011
+- Novo `client/src/components/ui/tooltip.tsx`: primitivo shadcn/base-ui a partir de `@base-ui/react/tooltip` (`Tooltip`, `TooltipTrigger`, `TooltipContent`, `TooltipProvider`), seguindo 1:1 a estrutura de `popover.tsx` ja existente (Portal > Positioner > Popup, mesmas classes de animacao `data-open/data-closed`).
+- `MediaCard.tsx`: o bloco "Estrelas + media" (renderizado quando `showRatings && coupleAvg !== null`) agora fica dentro de `TooltipProvider > Tooltip > TooltipTrigger (render={<div/>}) + TooltipContent`. O conteudo do tooltip mapeia `track.reviews` (sempre tem 1 entrada por membro do casal, vindo do backend — `MediaTrackService.toResponse` gera `ReviewDto` pra cada `memberId`, com `rating`/`opinion` null quando esse membro nao avaliou) e mostra `"{userName}: {rating} estrela(s)"` ou `"{userName}: sem nota"` via helper novo `reviewRatingLabel(rating)`.
+- Nao precisou de logica nova para o caso "so um avaliou": `coupleAvg` ja e a media de `ratedReviews` (so as reviews com rating != null), entao quando so 1 rating existe a "media" ja e exatamente aquela nota — nenhuma mudanca no calculo de `coupleAvg` (D7 do PRD, intocado).
+- Arquivos alterados:
+  - `client/src/components/ui/tooltip.tsx` (novo)
+  - `client/src/components/MediaCard.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - `@base-ui/react/tooltip` ja esta disponivel no `node_modules` (mesma lib `@base-ui/react` de `popover.tsx`/`dialog.tsx`), so faltava o wrapper em `components/ui/`. Padrao de `TooltipTrigger` para envolver um elemento nao-botao: `<TooltipTrigger render={<div className="..." />}>{children}</TooltipTrigger>` — o `render` element vira o DOM node real (aqui um `div`, evitando que vire `<button>` default dentro do card), os `children` passados ao `TooltipTrigger` renderizam dentro dele. Mesmo padrao ja usado em `dialog.tsx` (`<DialogPrimitive.Close render={<Button .../>}>Close</DialogPrimitive.Close>`) e `NotificationDropdown.tsx` (`<PopoverTrigger render={<NotificationBell />} />`).
+  - `track.reviews` do backend SEMPRE tem uma entrada por membro do casal (nunca so por quem avaliou) — ver `MediaTrackService.toResponse`/`toReviewDto` em `api/CLAUDE.md`. Isso significa que qualquer feature de front que precise "nome + nota de cada membro" pode iterar direto em `track.reviews` sem se preocupar em achar o nome do parceiro que ainda nao avaliou.
+  - `tsc -b` (rodado pelo `npm run build`) e mais estrito que `tsc --noEmit` (`npm run typecheck`) sobre imports nao usados (`TS6133`) — `import * as React from "react"` sem uso de `React.*` no arquivo (JSX moderno nao precisa) falha no build mesmo com `typecheck` limpo. Sempre rodar `npm run build`, nao so `typecheck`, antes de considerar uma story de UI pronta.
+  - `npm run lint` continua no mesmo baseline de 7 erros pre-existentes (nenhum novo introduzido por `tooltip.tsx`/`MediaCard.tsx`).
+  - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
+  - Proxima story (US-012, gate do "Reavaliar" no MediaCard) mexe no mesmo arquivo (`MediaCard.tsx`, footer WATCHED) e tambem exige `frontend-design` — ha overlap de arquivo com esta story, mas nao de trecho de codigo (footer vs. bloco de rating).
+---

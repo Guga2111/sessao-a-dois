@@ -4,6 +4,12 @@ import { isAxiosError } from "axios"
 import { Check, Clock3, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { MediaDetails } from "@/types/media"
@@ -34,6 +40,11 @@ function formatWatchedDate(watchedDate: string | null): string | null {
   if (!watchedDate) return null
   const date = new Date(`${watchedDate}T00:00:00`)
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
+}
+
+function reviewRatingLabel(rating: number | null | undefined): string {
+  if (rating === null || rating === undefined) return "sem nota"
+  return `${rating} ${rating === 1 ? "estrela" : "estrelas"}`
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -200,12 +211,32 @@ export function MediaCard({
 
           {/* Estrelas + média */}
           {showRatings && coupleAvg !== null && (
-            <div className="mt-2.5 flex items-center gap-2">
-              <Stars rating={coupleAvg} />
-              <span className="text-[13px] text-[#a6a39a]">
-                {coupleAvg.toFixed(1).replace(".", ",")}
-              </span>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <div className="mt-2.5 flex w-fit items-center gap-2" />
+                  }
+                >
+                  <Stars rating={coupleAvg} />
+                  <span className="text-[13px] text-[#a6a39a]">
+                    {coupleAvg.toFixed(1).replace(".", ",")}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="rounded-lg border border-[rgba(255,255,255,.1)] bg-[#201e18] px-3 py-2 text-[#f6f4ec] shadow-xl">
+                  <div className="flex flex-col gap-1">
+                    {track.reviews.map((review) => (
+                      <span key={review.userId} className="text-[12px]">
+                        <span className="font-semibold">
+                          {review.userName}:
+                        </span>{" "}
+                        {reviewRatingLabel(review.rating)}
+                      </span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {/* Data */}
