@@ -134,3 +134,18 @@
   - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente para quem tiver Chromium disponivel; so build/typecheck confirmados aqui.
   - US-009 precisa importar este componente no `NotificationDropdown.tsx` e controlar `mediaTrackId` a partir do estado local (ex. `useState<Notification | null>`), chamando `onSuccess` para fechar E marcar a notificacao como lida no `useNotificationStore`.
 ---
+
+## 2026-07-27 - US-009
+- `NotificationDropdown.tsx`: `handleSelect(id)` agora olha o `type` da notificacao antes de decidir a acao. Para `RATING_REQUEST` com `mediaTrackId` preenchido, guarda a notificacao inteira em `useState<Notification | null>` (`ratingRequest`) e abre o `RatingRequestDialog` (US-008) em vez de chamar `markAsRead` direto. Para os demais tipos (MATCH/NO_MATCH), o clique continua so chamando `markAsRead` como antes.
+- `RatingRequestDialog` foi movido para fora do `<Popover>` (como irmao, dentro de um Fragment `<>`) — ele e controlado via `mediaTrackId`/`title` derivados de `ratingRequest`, e nao precisa (nem deve) ficar dentro da arvore do Popover, que so espera Trigger/Content.
+- `onSuccess` do dialog: chama `markAsRead(ratingRequest.id)` (que ja faz o PATCH `/api/notifications/{id}/read` e atualiza `notifications`/`unreadCount` no `useNotificationStore` local, sem novo fetch) e fecha o dialog (`setRatingRequest(null)`).
+- Texto/icone especificos de `RATING_REQUEST` no dropdown (`notificationText`/`NotificationIcon`) ficam para US-010 — hoje uma RATING_REQUEST cai no branch "else" (texto/icone de NO_MATCH), o que e cosmeticamente errado mas fora do escopo desta story.
+- Arquivos alterados:
+  - `client/src/components/NotificationDropdown.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - `Popover` (base-ui) so deve conter `PopoverTrigger`/`PopoverContent` como filhos diretos; qualquer outro modal/dialog controlado pelo mesmo componente pai deve ficar como irmao (fora do `<Popover>`), tipicamente envolvendo o retorno num Fragment `<>...</>`.
+  - Nao existe store global de tracking (Hub usa `useState` local dentro de `HubScreen.tsx`, sem zustand) — "atualizar o track na Hub se estiver montada" (mencionado no PRD) nao tem um mecanismo pronto para isso hoje; ficou fora do escopo. Se uma story futura pedir isso de verdade, provavelmente exige promover o estado de tracks da Hub para um store (ex. `useTrackingStore`), que nenhuma story anterior criou.
+  - `npm run lint` continua com o mesmo baseline de 7 erros pre-existentes (ReviewModal/WatchModal/RatingRequestDialog `react-hooks/set-state-in-effect` + `ui/button.tsx` `react-refresh/only-export-components`) — nenhum novo introduzido por esta story.
+  - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
+---

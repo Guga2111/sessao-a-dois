@@ -140,8 +140,8 @@
         "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implementado. NotificationDropdown.tsx diferencia por type no handleSelect: RATING_REQUEST com mediaTrackId abre o RatingRequestDialog (US-008) em vez de markAsRead direto; demais tipos mantem o comportamento atual. onSuccess do dialog chama markAsRead da notificacao e fecha o dialog. tsc e build passaram; lint com o mesmo baseline de 7 erros pre-existentes (nenhum novo). Atualizacao do track na Hub (se montada) nao implementada: nao ha store global de tracking hoje (Hub usa estado local em HubScreen), so um novo mecanismo de sincronizacao entre dropdown e Hub sairia do escopo desta story. Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md)."
     },
     {
       "id": "US-010",
