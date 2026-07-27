@@ -120,7 +120,9 @@ class NotificationServiceTest {
 
 		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
 			.thenReturn(new PageImpl<>(List.of(notification)));
-		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of(new User("Ana", "ana@x.com", "hash")));
+		User actor = new User("Ana", "ana@x.com", "hash");
+		ReflectionTestUtils.setField(actor, "id", actorId);
+		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of(actor));
 
 		Page<NotificationDto> page = notificationService.listNotifications(recipientId, 0, 20);
 

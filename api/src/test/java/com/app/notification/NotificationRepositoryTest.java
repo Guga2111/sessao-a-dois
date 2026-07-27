@@ -5,11 +5,11 @@ import com.app.couple.CoupleRepository;
 import com.app.media.MediaType;
 
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -25,6 +25,9 @@ class NotificationRepositoryTest {
 
 	@Autowired
 	private CoupleRepository coupleRepository;
+
+	@Autowired
+	private EntityManager entityManager;
 
 	private Couple persistedCouple() {
 		return coupleRepository.save(new Couple(UUID.randomUUID(), "NTC" + UUID.randomUUID().toString().substring(0, 4)));
@@ -82,9 +85,16 @@ class NotificationRepositoryTest {
 		Notification old = notificationRepository.save(newNotification(couple, recipientId));
 		Notification recent = notificationRepository.save(newNotification(couple, recipientId));
 
-		ReflectionTestUtils.setField(old, "createdAt", Instant.now().minus(31, ChronoUnit.DAYS));
-		ReflectionTestUtils.setField(recent, "createdAt", Instant.now().minus(10, ChronoUnit.DAYS));
-		notificationRepository.saveAll(java.util.List.of(old, recent));
+		entityManager.createNativeQuery("UPDATE notification SET created_at = ? WHERE id = ?")
+			.setParameter(1, Instant.now().minus(31, ChronoUnit.DAYS))
+			.setParameter(2, old.getId())
+			.executeUpdate();
+		entityManager.createNativeQuery("UPDATE notification SET created_at = ? WHERE id = ?")
+			.setParameter(1, Instant.now().minus(10, ChronoUnit.DAYS))
+			.setParameter(2, recent.getId())
+			.executeUpdate();
+		entityManager.flush();
+		entityManager.clear();
 
 		long removed = notificationRepository.deleteByCreatedAtBefore(Instant.now().minus(30, ChronoUnit.DAYS));
 
