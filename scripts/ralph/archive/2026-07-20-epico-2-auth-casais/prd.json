@@ -1,0 +1,78 @@
+{
+  "project": "Sessao a Dois - Couple Media Tracker",
+  "branchName": "ralph/epico-3-integracao-tmdb",
+  "description": "Epico 3: Integracao TMDB (Dominio Media/BFF) - backend atua como proxy seguro para a API do TMDB, ocultando a API Key e padronizando respostas em pt-BR, com endpoints de busca e detalhes (com onde assistir)",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Configurar RestClient para o TMDB",
+      "description": "Como desenvolvedor, preciso de um RestClient configurado centralmente para chamar a API do TMDB, para que todas as integracoes futuras reutilizem a mesma configuracao (base URL, autenticacao, idioma padrao).",
+      "acceptanceCriteria": [
+        "RestClient (Spring 3.2+) configurado como @Bean em uma classe de configuracao dentro de com.app.media",
+        "Base URL do TMDB (https://api.themoviedb.org/3) e a API Key sao lidos de variaveis de ambiente/application.properties (ex.: TMDB_API_KEY), nunca hardcoded no codigo",
+        "Todo request enviado ao TMDB inclui language=pt-BR como parametro padrao, sem precisar ser passado manualmente em cada chamada",
+        "A API Key e enviada via header de autenticacao do TMDB, nunca exposta em logs",
+        "Se TMDB_API_KEY nao estiver configurada, a aplicacao falha ao subir (fail-fast) com mensagem clara",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Endpoint de busca combinada de filmes e series",
+      "description": "Como usuario do app, quero pesquisar por um titulo (filme ou serie) e ver os dois tipos misturados nos resultados, para nao precisar saber previamente se e um filme ou uma serie.",
+      "acceptanceCriteria": [
+        "Endpoint GET /api/media/search?q={termo} implementado em com.app.media, usando o RestClient da US-001",
+        "Internamente, chama o endpoint /search/multi do TMDB",
+        "Resposta e um DTO simplificado proprio (nao o JSON bruto do TMDB), contendo por item: tmdbId, mediaType (MOVIE|TV), title, year, posterUrl (URL completa), overview, voteAverage",
+        "Itens do TMDB que nao sejam filme nem serie (ex.: person) sao filtrados e nao aparecem na resposta",
+        "Se q estiver vazio ou ausente, retorna 400 Bad Request com mensagem clara, sem chamar o TMDB",
+        "Retorna lista vazia (200 OK com []) quando o TMDB nao encontra resultados - isso nao e um erro",
+        "Testes unitarios (JUnit 5 + Mockito, TMDB mockado) cobrem: sucesso com resultados mistos (filme + serie), lista vazia, e parametro q invalido",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Endpoint de detalhes do titulo com onde assistir",
+      "description": "Como usuario do app, quero ver os detalhes completos de um filme/serie (sinopse, generos, nota do TMDB, streamings disponiveis), para decidir se quero assistir e onde.",
+      "acceptanceCriteria": [
+        "Endpoint GET /api/media/{mediaType}/{tmdbId} (mediaType = movie ou tv) implementado em com.app.media",
+        "Internamente, chama GET /{mediaType}/{tmdbId}?append_to_response=watch/providers no TMDB em uma unica chamada HTTP",
+        "Resposta e um DTO simplificado contendo: tmdbId, mediaType, title, year, posterUrl, overview, genres (nomes em pt-BR), voteAverage, runtime (apenas para filmes, em minutos), e watchProviders (lista com name e logoUrl dos servicos de streaming disponiveis na regiao BR)",
+        "Se o TMDB nao tiver dados de watch/providers para o Brasil, watchProviders retorna lista vazia (nao e erro)",
+        "Se o tmdbId nao existir no TMDB, retorna 404 Not Found com mensagem clara",
+        "Se mediaType for diferente de movie/tv, retorna 400 Bad Request antes de chamar o TMDB",
+        "Testes unitarios (JUnit 5 + Mockito, TMDB mockado) cobrem: sucesso com watch/providers presente, sucesso sem watch/providers (BR vazio), tmdbId inexistente (404), e mediaType invalido (400)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Tratamento de falhas do TMDB (resiliencia)",
+      "description": "Como usuario do app, quero receber uma mensagem de erro compreensivel (nao uma tela quebrada) quando o TMDB estiver indisponivel, para entender que e um problema temporario e nao um bug do app.",
+      "acceptanceCriteria": [
+        "Um @RestControllerAdvice (ou equivalente) em com.app.media captura excecoes de chamada ao TMDB (timeout, erro de conexao, resposta 4xx/5xx do TMDB) originadas nos endpoints das US-002 e US-003",
+        "Quando o TMDB retorna erro ou esta inacessivel, o backend responde 502 Bad Gateway com corpo JSON contendo mensagem generica (ex.: 'Nao foi possivel buscar dados no momento. Tente novamente mais tarde.'), sem vazar stacktrace, URL do TMDB ou a API Key",
+        "Erros do TMDB sao logados no backend (nivel ERROR, incluindo status code e endpoint chamado) para diagnostico, mas a API Key nunca aparece no log",
+        "Testes unitarios (JUnit 5 + Mockito) simulam timeout/erro 5xx do TMDB nos services de busca e detalhes, e verificam que o endpoint responde 502 com a mensagem esperada, sem vazar a API Key",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
