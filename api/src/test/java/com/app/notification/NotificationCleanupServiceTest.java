@@ -6,7 +6,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,10 +27,10 @@ class NotificationCleanupServiceTest {
 
 		service.expireOldNotifications();
 
-		ArgumentCaptor<LocalDateTime> cutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+		ArgumentCaptor<Instant> cutoffCaptor = ArgumentCaptor.forClass(Instant.class);
 		verify(notificationRepository).deleteByCreatedAtBefore(cutoffCaptor.capture());
 
-		LocalDateTime expectedCutoff = LocalDateTime.now().minusDays(30);
-		assertThat(cutoffCaptor.getValue()).isBetween(expectedCutoff.minusMinutes(1), expectedCutoff.plusMinutes(1));
+		Instant expectedCutoff = Instant.now().minus(30, ChronoUnit.DAYS);
+		assertThat(cutoffCaptor.getValue()).isBetween(expectedCutoff.minusSeconds(60), expectedCutoff.plusSeconds(60));
 	}
 }

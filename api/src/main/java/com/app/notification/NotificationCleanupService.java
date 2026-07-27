@@ -6,7 +6,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Service
 public class NotificationCleanupService {
@@ -24,7 +25,7 @@ public class NotificationCleanupService {
 	@Scheduled(cron = "0 0 3 * * *")
 	@Transactional
 	public void expireOldNotifications() {
-		LocalDateTime cutoff = LocalDateTime.now().minusDays(RETENTION_DAYS);
+		Instant cutoff = Instant.now().minus(RETENTION_DAYS, ChronoUnit.DAYS);
 		long removed = notificationRepository.deleteByCreatedAtBefore(cutoff);
 		log.info("Expired {} notifications older than {} days", removed, RETENTION_DAYS);
 	}

@@ -17,7 +17,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -58,7 +58,7 @@ public class Notification {
 
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
-	private LocalDateTime createdAt;
+	private Instant createdAt;
 
 	protected Notification() {
 	}
@@ -114,7 +114,7 @@ public class Notification {
 		this.read = read;
 	}
 
-	public LocalDateTime getCreatedAt() {
+	public Instant getCreatedAt() {
 		return createdAt;
 	}
 }

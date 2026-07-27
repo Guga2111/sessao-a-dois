@@ -11,7 +11,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,11 +82,11 @@ class NotificationRepositoryTest {
 		Notification old = notificationRepository.save(newNotification(couple, recipientId));
 		Notification recent = notificationRepository.save(newNotification(couple, recipientId));
 
-		ReflectionTestUtils.setField(old, "createdAt", LocalDateTime.now().minusDays(31));
-		ReflectionTestUtils.setField(recent, "createdAt", LocalDateTime.now().minusDays(10));
+		ReflectionTestUtils.setField(old, "createdAt", Instant.now().minus(31, ChronoUnit.DAYS));
+		ReflectionTestUtils.setField(recent, "createdAt", Instant.now().minus(10, ChronoUnit.DAYS));
 		notificationRepository.saveAll(java.util.List.of(old, recent));
 
-		long removed = notificationRepository.deleteByCreatedAtBefore(LocalDateTime.now().minusDays(30));
+		long removed = notificationRepository.deleteByCreatedAtBefore(Instant.now().minus(30, ChronoUnit.DAYS));
 
 		assertThat(removed).isEqualTo(1);
 		assertThat(notificationRepository.findById(old.getId())).isEmpty();
