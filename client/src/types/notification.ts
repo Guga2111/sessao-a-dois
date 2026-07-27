@@ -12,6 +12,7 @@ export interface Notification {
   actorName: string | null
   read: boolean
   createdAt: string
+  recipientUserId: string
 }
 
 // Shape of GET /api/notifications?page=&size= (Spring Data `Page<T>` JSON).

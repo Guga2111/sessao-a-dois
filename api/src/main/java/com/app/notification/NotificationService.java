@@ -129,6 +129,6 @@ public class NotificationService {
 	private NotificationDto toDto(Notification notification, String actorName) {
 		return new NotificationDto(notification.getId(), notification.getType(), notification.getTmdbId(),
 				notification.getMediaType(), notification.getTitle(), notification.getActorUserId(), actorName,
-				notification.isRead(), notification.getCreatedAt());
+				notification.isRead(), notification.getCreatedAt(), notification.getRecipientUserId());
 	}
 }

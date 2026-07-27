@@ -15,7 +15,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,7 +48,7 @@ class NotificationControllerTest {
 
 	private NotificationDto dto(UUID actorId) {
 		return new NotificationDto(UUID.randomUUID(), NotificationType.MATCH, 603L, MediaType.MOVIE, "Matrix",
-				actorId, "Ana", false, LocalDateTime.now());
+				actorId, "Ana", false, Instant.now(), UUID.randomUUID());
 	}
 
 	@Test

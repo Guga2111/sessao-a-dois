@@ -4,6 +4,7 @@ import { create } from "zustand"
 
 import { api } from "@/lib/api"
 import { getAuthToken } from "@/lib/authToken"
+import { useAuthStore } from "@/stores/useAuthStore"
 import { useNotificationStore } from "@/stores/useNotificationStore"
 import type { PendingMatch } from "@/types/media"
 import type { Notification } from "@/types/notification"
@@ -72,7 +73,10 @@ export const useMatchStore = create<MatchState>((set, get) => ({
           `/topic/couple/${coupleId}/notifications`,
           (message) => {
             const notification = JSON.parse(message.body) as Notification
-            useNotificationStore.getState().pushIncoming(notification)
+            const currentUserId = useAuthStore.getState().user?.id
+            if (currentUserId && notification.recipientUserId === currentUserId) {
+              useNotificationStore.getState().pushIncoming(notification)
+            }
           }
         )
         set({ subscription, connected: true })
