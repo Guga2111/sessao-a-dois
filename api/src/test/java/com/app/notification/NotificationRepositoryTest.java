@@ -180,4 +180,40 @@ class NotificationRepositoryTest {
 		assertThat(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
 				recipientId, couple.getId(), 603L, NotificationType.RATING_REQUEST)).isFalse();
 	}
+
+	@Test
+	void findsOnlyUnreadRatingRequestsOfThatRecipientCoupleAndTitle() {
+		Couple couple = persistedCouple();
+		Couple otherCouple = persistedCouple();
+		UUID recipientId = UUID.randomUUID();
+
+		Notification pending = notificationRepository.save(new Notification(couple, recipientId,
+				NotificationType.RATING_REQUEST, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID(),
+				UUID.randomUUID()));
+		// ruidos que a query nao pode capturar
+		Notification alreadyRead = notificationRepository.save(new Notification(couple, recipientId,
+				NotificationType.RATING_REQUEST, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID(),
+				UUID.randomUUID()));
+		alreadyRead.setRead(true);
+		notificationRepository.save(alreadyRead);
+		notificationRepository.save(new Notification(couple, recipientId, NotificationType.MATCH, 603L,
+				MediaType.MOVIE, "The Matrix", UUID.randomUUID()));
+		notificationRepository.save(new Notification(couple, recipientId, NotificationType.RATING_REQUEST, 604L,
+				MediaType.MOVIE, "Outro", UUID.randomUUID(), UUID.randomUUID()));
+		notificationRepository.save(new Notification(otherCouple, recipientId, NotificationType.RATING_REQUEST,
+				603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID(), UUID.randomUUID()));
+
+		assertThat(notificationRepository.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				recipientId, couple.getId(), 603L, NotificationType.RATING_REQUEST))
+			.extracting(Notification::getId)
+			.containsExactly(pending.getId());
+	}
+
+	@Test
+	void findUnreadRatingRequestsIsEmptyWhenThereIsNoPendingRequest() {
+		Couple couple = persistedCouple();
+
+		assertThat(notificationRepository.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				UUID.randomUUID(), couple.getId(), 603L, NotificationType.RATING_REQUEST)).isEmpty();
+	}
 }

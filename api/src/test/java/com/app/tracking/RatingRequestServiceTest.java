@@ -4,6 +4,7 @@ import com.app.couple.Couple;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
+import com.app.notification.Notification;
 import com.app.notification.NotificationRepository;
 import com.app.notification.NotificationService;
 import com.app.notification.NotificationType;
@@ -16,8 +17,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -165,5 +168,46 @@ class RatingRequestServiceTest {
 
 		verify(notificationService).notifyRatingRequest(eq(track.getCouple()), eq(partnerId), eq(actorId),
 				eq(TMDB_ID), eq(MediaType.MOVIE), eq(RatingRequestService.FALLBACK_TITLE), eq(trackId));
+	}
+
+	@Test
+	void marksTheActorsOwnPendingRequestAsReadWhenHeRates() {
+		MediaTrack track = track(couple(partnerId, actorId));
+		addReview(track, actorId, 4);
+		addReview(track, partnerId, 5);
+		Notification pending = new Notification(track.getCouple(), actorId, NotificationType.RATING_REQUEST,
+				TMDB_ID, MediaType.MOVIE, "Matrix", partnerId, trackId);
+		when(notificationRepository.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(actorId,
+				coupleId, TMDB_ID, NotificationType.RATING_REQUEST))
+			.thenReturn(List.of(pending));
+
+		ratingRequestService.onRatingRegistered(track, actorId);
+
+		assertThat(pending.isRead()).isTrue();
+		verify(notificationRepository).saveAll(List.of(pending));
+	}
+
+	@Test
+	void doesNothingWhenTheActorHasNoPendingRequest() {
+		MediaTrack track = track(couple(actorId, partnerId));
+		addReview(track, actorId, 5);
+		addReview(track, partnerId, 4);
+
+		ratingRequestService.onRatingRegistered(track, actorId);
+
+		verify(notificationRepository).findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(actorId,
+				coupleId, TMDB_ID, NotificationType.RATING_REQUEST);
+		verify(notificationRepository, never()).saveAll(any());
+		verifyNoInteractions(notificationService);
+	}
+
+	@Test
+	void doesNotResolveAnythingWhenTheActorDidNotRate() {
+		MediaTrack track = track(couple(actorId, partnerId));
+		addReview(track, actorId, null);
+
+		ratingRequestService.onRatingRegistered(track, actorId);
+
+		verifyNoInteractions(notificationRepository);
 	}
 }

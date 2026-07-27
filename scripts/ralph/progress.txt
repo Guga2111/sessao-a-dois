@@ -76,3 +76,20 @@
   - `US-005` (resolver o pedido do proprio ator) e `US-006` (limpar ao deletar o track) devem entrar no mesmo `RatingRequestService`/`NotificationRepository`, nao em novos servicos.
   - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha ao baixar o proprio Maven. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
 ---
+
+## 2026-07-27 - US-005
+- `RatingRequestService.onRatingRegistered` agora tambem resolve os pedidos do proprio ator: logo apos confirmar que o ator tem nota (e antes de decidir sobre notificar o parceiro), marca como lidas todas as RATING_REQUEST nao lidas de `(actorUserId, couple, tmdbId)` via `resolvePendingRequestsFor(...)`. Como o orquestrador ja era chamado em `markAsWatched`, `addTrack` (WATCHED) e `upsertReview`, os 3 caminhos ficam cobertos sem tocar nos call sites.
+- Nova derived query `NotificationRepository.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(...)` (escopada ao casal, espelhando a query de idempotencia `exists...`), seguida de `saveAll` das entidades com `setRead(true)`. Lista vazia = no-op total (nem `saveAll`).
+- Testes: `RatingRequestServiceTest` +3 (resolve o pedido pendente do ator; no-op quando nao ha pendente; nada acontece quando o ator nao deu nota) e `NotificationRepositoryTest` +2 (a query filtra por destinatario/casal/tmdbId/tipo/nao-lida; vazio quando nao ha pendente).
+- Arquivos alterados:
+  - `api/src/main/java/com/app/tracking/RatingRequestService.java`
+  - `api/src/main/java/com/app/notification/NotificationRepository.java`
+  - `api/src/test/java/com/app/tracking/RatingRequestServiceTest.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/CLAUDE.md`
+- **Learnings for future iterations:**
+  - A resolucao tem que vir ANTES do `return` do "parceiro ja avaliou": o caso mais comum (ator e o parceiro pendente respondendo ao pedido) e justamente aquele em que o outro membro ja tem nota, entao colocar a resolucao depois dessa guarda nunca resolveria nada.
+  - Em teste Mockito, metodo de repositorio que retorna `List` devolve lista vazia por padrao — os testes antigos que agora passam pelo novo `find...` continuam verdes sem stub adicional. Nao vale para retorno `Optional`/objeto.
+  - US-006 (limpar RATING_REQUEST ao deletar o track) deve reusar `NotificationRepository` com uma query de delecao escopada por casal e ser chamada de `MediaTrackService.deleteTrack`, que precisa ser `@Transactional`.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` nao roda. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
+---

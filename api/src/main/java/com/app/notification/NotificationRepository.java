@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
@@ -24,6 +25,14 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 	 */
 	boolean existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(UUID recipientUserId, UUID coupleId,
 			Long tmdbId, NotificationType type);
+
+	/**
+	 * Pedidos de avaliacao ainda pendentes para um destinatario num titulo do
+	 * casal: usados para resolver automaticamente o pedido quando ele avalia.
+	 * Escopado ao casal pelo mesmo motivo da query de idempotencia acima.
+	 */
+	List<Notification> findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(UUID recipientUserId,
+			UUID coupleId, Long tmdbId, NotificationType type);
 
 	@Modifying
 	@Query("UPDATE Notification n SET n.read = true WHERE n.recipientUserId = :recipientUserId AND n.read = false")

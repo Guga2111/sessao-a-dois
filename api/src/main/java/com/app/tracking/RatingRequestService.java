@@ -2,6 +2,7 @@ package com.app.tracking;
 
 import com.app.couple.Couple;
 import com.app.media.MediaDetailsService;
+import com.app.notification.Notification;
 import com.app.notification.NotificationRepository;
 import com.app.notification.NotificationService;
 import com.app.notification.NotificationType;
@@ -10,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -38,10 +40,10 @@ public class RatingRequestService {
 	}
 
 	/**
-	 * Notifica o parceiro do {@code actorUserId} de que ele ainda nao avaliou o
-	 * titulo. No-op quando o ator nao deu nota, quando o casal nao tem parceiro,
-	 * quando o parceiro ja tem nota, ou quando ja existe um pedido nao lido para
-	 * o mesmo titulo (idempotencia).
+	 * Resolve os pedidos pendentes do proprio {@code actorUserId} para o titulo e
+	 * notifica o parceiro de que ele ainda nao avaliou. No-op quando o ator nao
+	 * deu nota, quando o casal nao tem parceiro, quando o parceiro ja tem nota, ou
+	 * quando ja existe um pedido nao lido para o mesmo titulo (idempotencia).
 	 */
 	public void onRatingRegistered(MediaTrack track, UUID actorUserId) {
 		if (ratingOf(track, actorUserId) == null) {
@@ -49,6 +51,8 @@ public class RatingRequestService {
 		}
 
 		Couple couple = track.getCouple();
+		resolvePendingRequestsFor(couple, actorUserId, track.getTmdbId());
+
 		UUID partnerId = partnerOf(couple, actorUserId);
 		if (partnerId == null) {
 			return;
@@ -67,6 +71,21 @@ public class RatingRequestService {
 
 		notificationService.notifyRatingRequest(couple, partnerId, actorUserId, track.getTmdbId(),
 				track.getMediaType(), resolveTitle(track), track.getId());
+	}
+
+	/**
+	 * Ao dar a propria nota, o ator resolve sozinho qualquer RATING_REQUEST que
+	 * tenha recebido para aquele titulo — sem acao manual no dropdown.
+	 */
+	private void resolvePendingRequestsFor(Couple couple, UUID actorUserId, Long tmdbId) {
+		List<Notification> pending = notificationRepository
+			.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(actorUserId, couple.getId(), tmdbId,
+					NotificationType.RATING_REQUEST);
+		if (pending.isEmpty()) {
+			return;
+		}
+		pending.forEach(notification -> notification.setRead(true));
+		notificationRepository.saveAll(pending);
 	}
 
 	private UUID partnerOf(Couple couple, UUID actorUserId) {
