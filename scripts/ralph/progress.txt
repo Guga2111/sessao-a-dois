@@ -37,3 +37,18 @@
   - `ddl-auto=update` (application.properties) cria a coluna nova automaticamente em dev/prod; nao ha Flyway/Liquibase no projeto, entao "migracao" e sempre so adicionar coluna nullable.
   - Continua valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha no download do proprio Maven. Compilacao/testes do backend seguem pendentes de verificacao em maquina com JDK 21.
 ---
+
+## 2026-07-27 - US-003
+- `NotificationService.notifyRatingRequest(couple, recipientUserId, actorUserId, tmdbId, mediaType, title, mediaTrackId)`: persiste exatamente 1 `Notification` do tipo `RATING_REQUEST` para o parceiro e retorna `Optional<NotificationDto>`. Reusa `scheduleBroadcast(...)` (mesmo `afterCommit` de `notifyCouple`) publicando em `/topic/couple/{coupleId}/notifications`.
+- `recipientUserId == null` (casal sem parceiro): retorna `Optional.empty()` sem salvar nada e sem push — guard antes de qualquer acesso a repositorio.
+- Testes novos em `NotificationServiceTest`: cria 1 notificacao com destinatario/mediaTrackId/actorName corretos; push so acontece depois do `afterCommit` (usando `TransactionSynchronizationManager.initSynchronization()` + disparo manual das synchronizations); caso destinatario nulo e no-op total.
+- Arquivos alterados:
+  - `api/src/main/java/com/app/notification/NotificationService.java`
+  - `api/src/test/java/com/app/notification/NotificationServiceTest.java`
+  - `api/CLAUDE.md`
+- **Learnings for future iterations:**
+  - Para testar o `afterCommit` sem Spring: `TransactionSynchronizationManager.initSynchronization()`, chamar o metodo, verificar que `messagingTemplate` NAO foi usado, depois `getSynchronizations().forEach(TransactionSynchronization::afterCommit)` e `clearSynchronization()` num `finally`. Sem `initSynchronization()` o service publica imediatamente — por isso os testes antigos de `notifyCouple` veem o send na hora.
+  - `notificationRepository.save(...)` mockado deve devolver a propria entidade com id setado via `ReflectionTestUtils.setField(n, "id", ...)`; devolver uma entidade fabricada a parte (como `savedNotification`) apaga os campos que o teste quer assertar (mediaTrackId, recipient).
+  - Nova convencao: eventos de destinatario unico usam `Optional<NotificationDto>`; `notifyCouple` (varios destinatarios) continua com `List<NotificationDto>`.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha ao baixar o proprio Maven. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
+---

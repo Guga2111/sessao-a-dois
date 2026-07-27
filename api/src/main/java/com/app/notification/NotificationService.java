@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -65,6 +66,27 @@ public class NotificationService {
 
 		scheduleBroadcast(destination, dtos);
 		return dtos;
+	}
+
+	/**
+	 * Cria uma unica notificacao de pedido de avaliacao para o parceiro do ator.
+	 * Diferente de {@link #notifyCouple}, nao gera uma notificacao por membro:
+	 * quem acabou de avaliar nao precisa ser lembrado. Se o casal ainda nao tem
+	 * parceiro ({@code recipientUserId} nulo), nada e persistido nem publicado.
+	 */
+	public Optional<NotificationDto> notifyRatingRequest(Couple couple, UUID recipientUserId, UUID actorUserId,
+			Long tmdbId, MediaType mediaType, String title, UUID mediaTrackId) {
+		if (recipientUserId == null) {
+			return Optional.empty();
+		}
+
+		String actorName = userRepository.findById(actorUserId).map(User::getName).orElse(null);
+		Notification saved = notificationRepository.save(new Notification(couple, recipientUserId,
+				NotificationType.RATING_REQUEST, tmdbId, mediaType, title, actorUserId, mediaTrackId));
+		NotificationDto dto = toDto(saved, actorName);
+
+		scheduleBroadcast(String.format(DESTINATION_TEMPLATE, couple.getId()), List.of(dto));
+		return Optional.of(dto);
 	}
 
 	public Page<NotificationDto> listNotifications(UUID recipientUserId, int page, int size) {
