@@ -7,6 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { NotificationBell } from "@/components/NotificationBell"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -138,39 +139,41 @@ export function NotificationDropdown() {
           )}
         </div>
 
-        <div className="max-h-[420px] overflow-y-auto p-2">
-          {notifications.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-              <div className="grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#a6a39a]">
-                <BellOff className="size-5" />
+        <ScrollArea viewportClassName="max-h-[420px]">
+          <div className="p-2">
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+                <div className="grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#a6a39a]">
+                  <BellOff className="size-5" />
+                </div>
+                <p className="text-[13px] leading-snug text-[#a6a39a]">
+                  Nenhuma notificação por aqui ainda.
+                </p>
               </div>
-              <p className="text-[13px] leading-snug text-[#a6a39a]">
-                Nenhuma notificação por aqui ainda.
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {notifications.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  currentUserId={currentUserId}
-                  onSelect={handleSelect}
-                />
-              ))}
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col gap-1">
+                {notifications.map((notification) => (
+                  <NotificationItem
+                    key={notification.id}
+                    notification={notification}
+                    currentUserId={currentUserId}
+                    onSelect={handleSelect}
+                  />
+                ))}
+              </div>
+            )}
 
-          {hasMore && (
-            <button
-              type="button"
-              onClick={() => void fetchMore()}
-              className="mt-1 w-full rounded-[10px] py-2.5 text-center text-[13px] font-semibold text-[#a6a39a] transition-colors hover:bg-white/[0.05] hover:text-[#f6f4ec]"
-            >
-              Ver mais
-            </button>
-          )}
-        </div>
+            {hasMore && (
+              <button
+                type="button"
+                onClick={() => void fetchMore()}
+                className="mt-1 w-full rounded-[10px] py-2.5 text-center text-[13px] font-semibold text-[#a6a39a] transition-colors hover:bg-white/[0.05] hover:text-[#f6f4ec]"
+              >
+                Ver mais
+              </button>
+            )}
+          </div>
+        </ScrollArea>
       </PopoverContent>
     </Popover>
   )
