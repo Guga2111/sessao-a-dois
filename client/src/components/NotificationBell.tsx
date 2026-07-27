@@ -1,8 +1,13 @@
+import { forwardRef } from "react"
 import { Bell } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { useNotificationStore } from "@/stores/useNotificationStore"
 
-export function NotificationBell() {
+export const NotificationBell = forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<"button">
+>(function NotificationBell({ className, ...props }, ref) {
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const hasUnread = unreadCount > 0
   const badgeLabel = unreadCount > 9 ? "9+" : String(unreadCount)
@@ -13,9 +18,14 @@ export function NotificationBell() {
 
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={ariaLabel}
-      className="relative grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-[#a6a39a] transition-colors hover:bg-white/[0.09] hover:text-[#f6f4ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffcb2b]"
+      className={cn(
+        "relative grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-[#a6a39a] transition-colors hover:bg-white/[0.09] hover:text-[#f6f4ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffcb2b]",
+        className
+      )}
+      {...props}
     >
       <Bell className="size-[18px]" />
       {hasUnread && (
@@ -31,4 +41,4 @@ export function NotificationBell() {
       )}
     </button>
   )
-}
+})
