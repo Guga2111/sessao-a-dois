@@ -18,6 +18,13 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
 	long deleteByCreatedAtBefore(Instant cutoff);
 
+	/**
+	 * Idempotencia do pedido de avaliacao: escopado ao casal para nunca cruzar
+	 * notificacoes de casais diferentes que rastreiam o mesmo tmdbId.
+	 */
+	boolean existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(UUID recipientUserId, UUID coupleId,
+			Long tmdbId, NotificationType type);
+
 	@Modifying
 	@Query("UPDATE Notification n SET n.read = true WHERE n.recipientUserId = :recipientUserId AND n.read = false")
 	int markAllAsReadByRecipientUserId(@Param("recipientUserId") UUID recipientUserId);

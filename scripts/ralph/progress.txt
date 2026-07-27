@@ -52,3 +52,27 @@
   - Nova convencao: eventos de destinatario unico usam `Optional<NotificationDto>`; `notifyCouple` (varios destinatarios) continua com `List<NotificationDto>`.
   - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha ao baixar o proprio Maven. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
 ---
+
+## 2026-07-27 - US-004
+- Novo `RatingRequestService` (com.app.tracking) com o orquestrador unico `onRatingRegistered(MediaTrack track, UUID actorUserId)`: resolve o parceiro pelo `Couple`, checa as 4 condicoes (ator tem rating; parceiro existe; parceiro sem rating; sem RATING_REQUEST nao lida) e delega para `NotificationService.notifyRatingRequest(...)`.
+- Chamado nos 3 caminhos: `MediaTrackService.markAsWatched` (sempre), `MediaTrackService.addTrack` (so quando o track nasce `WATCHED`) e `UserReviewService.upsertReview`. As tres passaram a ser `@Transactional` para que a notificacao e o push after-commit fiquem na mesma transacao da escrita da nota.
+- Idempotencia: `NotificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(...)` — derived query escopada por casal (nunca cruza casais que rastreiam o mesmo tmdbId).
+- Titulo via `MediaDetailsService.getDetails(...).title()` em `try/catch (RuntimeException)` com fallback `RatingRequestService.FALLBACK_TITLE` ("seu titulo"); TMDB fora do ar nao derruba o registro da nota.
+- Testes: `RatingRequestServiceTest` (7 casos: notifica com ator=user1 e ator=user2, parceiro ja avaliou, casal sem parceiro, ator sem nota, pedido nao lido ja existente, fallback de titulo), tests de call site nos 3 caminhos (`MediaTrackServiceTest` x3, `UserReviewServiceTest` x1) e 2 casos de repositorio para a nova query.
+- Arquivos alterados:
+  - `api/src/main/java/com/app/tracking/RatingRequestService.java` (novo)
+  - `api/src/main/java/com/app/tracking/MediaTrackService.java`
+  - `api/src/main/java/com/app/tracking/UserReviewService.java`
+  - `api/src/main/java/com/app/notification/NotificationRepository.java`
+  - `api/src/test/java/com/app/tracking/RatingRequestServiceTest.java` (novo)
+  - `api/src/test/java/com/app/tracking/MediaTrackServiceTest.java`
+  - `api/src/test/java/com/app/tracking/UserReviewServiceTest.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/CLAUDE.md`
+- **Learnings for future iterations:**
+  - Adicionar uma dependencia ao construtor de `MediaTrackService`/`UserReviewService` quebra os testes unitarios (`new MediaTrackService(...)` no `@BeforeEach`) — nao ha `@InjectMocks` nesses testes, a construcao e manual. Grepar por `new MediaTrackService(`/`new UserReviewService(` antes de mexer no construtor.
+  - `MediaTrackService.markAsWatched`/`addTrack` e `UserReviewService.upsertReview` NAO eram `@Transactional` antes desta story; sem transacao ativa o `scheduleBroadcast` do `NotificationService` publica imediatamente (antes do commit). Qualquer novo efeito colateral pos-escrita precisa que o metodo seja transacional.
+  - Em `upsertReview`, a `UserReview` vinda de `userReviewRepository.findByMediaTrackIdAndUserId` e a mesma instancia presente em `track.getReviews()` dentro do mesmo persistence context — por isso o orquestrador pode ler a nota do ator direto de `track.getReviews()` nos 3 caminhos, sem consultar o repositorio de reviews.
+  - `US-005` (resolver o pedido do proprio ator) e `US-006` (limpar ao deletar o track) devem entrar no mesmo `RatingRequestService`/`NotificationRepository`, nao em novos servicos.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha ao baixar o proprio Maven. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
+---

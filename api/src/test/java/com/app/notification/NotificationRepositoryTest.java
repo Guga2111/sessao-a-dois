@@ -143,4 +143,41 @@ class NotificationRepositoryTest {
 		assertThat(notificationRepository.findById(old.getId())).isEmpty();
 		assertThat(notificationRepository.findById(recent.getId())).isPresent();
 	}
+
+	@Test
+	void existsUnreadRatingRequestIsScopedToRecipientCoupleTmdbIdAndType() {
+		Couple couple = persistedCouple();
+		Couple otherCouple = persistedCouple();
+		UUID recipientId = UUID.randomUUID();
+
+		notificationRepository.save(new Notification(couple, recipientId, NotificationType.RATING_REQUEST, 603L,
+				MediaType.MOVIE, "The Matrix", UUID.randomUUID(), UUID.randomUUID()));
+
+		assertThat(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				recipientId, couple.getId(), 603L, NotificationType.RATING_REQUEST)).isTrue();
+		// outro casal, outro titulo, outro destinatario e outro tipo nao contam
+		assertThat(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				recipientId, otherCouple.getId(), 603L, NotificationType.RATING_REQUEST)).isFalse();
+		assertThat(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				recipientId, couple.getId(), 604L, NotificationType.RATING_REQUEST)).isFalse();
+		assertThat(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				UUID.randomUUID(), couple.getId(), 603L, NotificationType.RATING_REQUEST)).isFalse();
+		assertThat(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				recipientId, couple.getId(), 603L, NotificationType.MATCH)).isFalse();
+	}
+
+	@Test
+	void existsUnreadRatingRequestIgnoresAlreadyReadNotifications() {
+		Couple couple = persistedCouple();
+		UUID recipientId = UUID.randomUUID();
+
+		Notification notification = notificationRepository.save(new Notification(couple, recipientId,
+				NotificationType.RATING_REQUEST, 603L, MediaType.MOVIE, "The Matrix", UUID.randomUUID(),
+				UUID.randomUUID()));
+		notification.setRead(true);
+		notificationRepository.save(notification);
+
+		assertThat(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				recipientId, couple.getId(), 603L, NotificationType.RATING_REQUEST)).isFalse();
+	}
 }
