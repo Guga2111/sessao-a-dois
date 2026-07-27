@@ -1,0 +1,80 @@
+# Ralph Progress Log
+# Feature: Sistema de Notificacoes (Match & No-Match) - Sessao a Dois (ralph/sistema-notificacoes)
+# Started: 2026-07-26
+
+## Codebase Patterns
+- User references on entities scoped to a Couple (recipientUserId, actorUserId, MatchLike.userId) are plain UUID @Column fields, not @ManyToOne to User — only the Couple relation is a real JPA association.
+- This sandbox has no JDK/Maven (`mvn`/`java` missing, `./mvnw` can't reach Maven Central) — backend changes here cannot be compiled/tested locally; mirror existing tested code closely and flag verification as pending.
+- Derived Spring Data `deleteBy...` repository methods (e.g. `deleteByCreatedAtBefore`) return a long/int count of deleted rows and need no `@Modifying` — just call them from a `@Transactional` service method.
+- `@CreationTimestamp` fields (like `Notification.createdAt`) can't be set via the constructor in tests; use `ReflectionTestUtils.setField(entity, "createdAt", ...)` after `save()` (then `saveAll`) to backdate a row for retention/expiry tests.
+
+
+## 2026-07-26 - US-001
+- Implemented: com.app.notification package with Notification JPA entity, NotificationType enum (MATCH/NO_MATCH), and NotificationRepository.
+- Files changed:
+  - api/src/main/java/com/app/notification/Notification.java (new)
+  - api/src/main/java/com/app/notification/NotificationType.java (new)
+  - api/src/main/java/com/app/notification/NotificationRepository.java (new)
+  - api/src/test/java/com/app/notification/NotificationRepositoryTest.java (new)
+- **Learnings for future iterations:**
+  - Followed the MatchLike convention: recipientUserId/actorUserId are plain UUID @Column fields (conceptually FK to User), not @ManyToOne relations to User — only Couple gets a real @ManyToOne. Reuse this for any future notification-related entity.
+  - Avoided naming a column `read` (SQL ambiguous/reserved-ish keyword) — mapped the boolean field `read`/`isRead()` to column `is_read` instead. If a future story queries this column directly (native SQL or a raw @Query string), remember it's `is_read` on the DB side.
+  - Composite index for the "list unread notifications for a user" access pattern is declared via `@Table(indexes = @Index(columnList = "recipient_user_id, is_read"))` on the entity, consistent with how MatchLike/MediaTrack express table-level constraints in this codebase (e.g. MatchLike's @UniqueConstraint).
+  - This sandbox has no JDK/Maven available (`mvn`/`java` not found, and `./mvnw` cannot download the wrapper because Maven Central is unreachable) — could not run `./mvnw test`/`package` to verify. Code was written to mirror MatchLikeRepositoryTest/MatchLike exactly (same annotations, same @DataJpaTest + CoupleRepository helper pattern) to minimize risk. Future iterations in this sandbox will hit the same limitation — verify on a machine with JDK 21 + Maven Central access before merging if this matters.
+---
+
+## 2026-07-26 - US-002
+- Implemented: 30-day retention/expiry routine for Notification rows.
+- Files changed:
+  - api/src/main/java/com/app/notification/NotificationRepository.java (added deleteByCreatedAtBefore(LocalDateTime))
+  - api/src/main/java/com/app/notification/NotificationCleanupService.java (new: @Scheduled(cron daily 03:00) + @Transactional expireOldNotifications())
+  - api/src/main/java/com/app/SessaoADoisApplication.java (added @EnableScheduling)
+  - api/src/test/java/com/app/notification/NotificationRepositoryTest.java (added deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff)
+  - api/src/test/java/com/app/notification/NotificationCleanupServiceTest.java (new, Mockito, verifies ~30-day cutoff passed to repository)
+- **Learnings for future iterations:**
+  - See Codebase Patterns at top: derived `deleteBy...` methods need no `@Modifying`, just a `@Transactional` caller; `@CreationTimestamp` fields must be backdated via `ReflectionTestUtils` in tests, not the constructor.
+  - `@EnableScheduling` was not present anywhere in the app yet — added directly on `SessaoADoisApplication` since this is the first `@Scheduled` job in the codebase. Any future scheduled job can reuse it without further config.
+  - Chose 03:00 daily cron (`"0 0 3 * * *"`) as a reasonable off-peak default since the PRD only specified "1x/dia" without a specific time.
+  - Same sandbox limitation as US-001: no JDK/Maven available here (`java`/`mvn` missing, `./mvnw` can't reach Maven Central), so `./mvnw test` could not be run to verify compilation or test pass/fail. Code mirrors existing tested patterns (MatchLikeRepositoryTest style DataJpaTest, Mockito service test style used elsewhere) to minimize risk — verify on a machine with JDK 21 + Maven Central access.
+---
+
+## 2026-07-26 - US-003
+- Implemented: NotificationDto + NotificationService with per-recipient persistence and after-commit STOMP broadcast to /topic/couple/{coupleId}/notifications.
+- Files changed:
+  - api/src/main/java/com/app/notification/NotificationDto.java (new)
+  - api/src/main/java/com/app/notification/NotificationService.java (new)
+  - api/src/main/java/com/app/websocket/WebSocketConfig.java (Javadoc only — /topic broker already covers the new destination, no functional change needed)
+  - api/src/test/java/com/app/notification/NotificationServiceTest.java (new)
+- **Learnings for future iterations:**
+  - `NotificationService.notifyCouple(couple, type, tmdbId, mediaType, title, actorUserId)` is the single entry point future stories (US-004 match flow, US-005 no-match flow) should call from within their existing @Transactional method — it persists one Notification per couple member (from `couple.getUser1Id()`/`getUser2Id()`, skipping null) and returns the list of DTOs.
+  - STOMP broadcast happens inside `TransactionSynchronization.afterCommit()` registered via `TransactionSynchronizationManager.registerSynchronization(...)` when `isSynchronizationActive()` — this defers the push until the enclosing @Transactional method's transaction actually commits, satisfying "notificacao ja existe no banco quando o push chega". Falls back to immediate `broadcast()` if no transaction is active (e.g. called outside a transactional context, or in a plain unit test with Mockito — MockitoExtension has no real transaction, so `isSynchronizationActive()` is false there and the send happens synchronously, which is why NotificationServiceTest can assert on `messagingTemplate` directly without simulating a commit).
+  - actorName is resolved via `UserRepository.findById(actorUserId).map(User::getName).orElse(null)` — reuse this instead of re-querying User elsewhere; falls back to null if the actor user record is somehow missing (should not happen in practice but avoids an NPE/exception path).
+  - One STOMP message is sent per created Notification DTO (so a couple event with 2 recipients sends 2 messages to the same topic) rather than a single combined event — mirrors "creates duas Notification ... retorna os DTOs" from the story literally. Future frontend work (US-008) must be aware both members' STOMP clients will observe both DTOs on the shared topic; frontend must NOT blindly push every incoming DTO into the current user's list without checking it's meant for them if that becomes an issue in practice — revisit if US-008 finds this creates duplicate/wrong entries for a user's own notification.
+  - Same sandbox limitation as prior stories: no JDK/Maven available, so `./mvnw test` could not be run — code mirrors MatchService/MatchServiceTest patterns closely (constructor injection, Mockito unit test with ArgumentCaptor) to minimize risk. Verify on a machine with JDK 21 + Maven Central access.
+---
+
+## 2026-07-26 - US-004
+- Implemented: Match flow now creates MATCH notifications for both couple members via NotificationService.
+- Files changed:
+  - api/src/main/java/com/app/match/MatchService.java (constructor now takes NotificationService; createMatch(couple, request, actorUserId) calls notificationService.notifyCouple(couple, NotificationType.MATCH, tmdbId, mediaType, title, actorUserId) after the MediaTrack save + existing /match STOMP send)
+  - api/src/test/java/com/app/match/MatchServiceTest.java (added NotificationService mock; asserted notifyCouple call args on both match-producing tests, and never-called on the "already matched, no duplicate track" test)
+- **Learnings for future iterations:**
+  - `actor_user_id` for a MATCH notification is the `userId` param of `MatchService.like(coupleId, userId, request)` — i.e. whichever user's `like()` call is the one that discovers the partner already liked the same tmdb_id (closes the match), not the first liker. This is naturally already the `userId` in scope inside `createMatch`, no extra lookup needed.
+  - `createMatch` already ran inside the caller's `@Transactional like()` method, so no new transaction boundary was needed for `NotificationService.notifyCouple(...)` — its own after-commit STOMP scheduling (see Codebase Patterns / api/CLAUDE.md) attaches to that same transaction automatically.
+  - `MatchService`'s existing `/topic/couple/{id}/match` STOMP send (via `messagingTemplate` directly) is unrelated to and unaffected by the new `/topic/couple/{id}/notifications` push from `NotificationService` — both fire for a match event, on two different topics, and the frontend must listen to both (match-celebration modal vs. notification bell/dropdown) per US-011.
+  - This codebase's match tests use `MediaType`/`MatchLike`/`MediaTrack` mocks per-test rather than shared fixtures — when adding a new collaborator (NotificationService) to a service under test, every existing `new MatchService(...)` constructor call site in the test class must be updated, not just one.
+  - Same sandbox limitation as all prior stories: no JDK/Maven available (`java`/`mvn` missing, `./mvnw` cannot reach Maven Central) — could not run `./mvnw test` to verify compilation/pass. Code changes are minimal and mirror the existing tested MatchService/MatchServiceTest structure; verify on a machine with JDK 21 + Maven Central access before merging if this matters.
+---
+
+## 2026-07-26 - US-005
+- Implemented: No-Match flow now creates NO_MATCH notifications for both couple members when a user rejects a title the partner had liked.
+- Files changed:
+  - api/src/main/java/com/app/match/MatchService.java (reject(...) now checks matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot after saving the MatchReject; if the partner liked the same tmdbId, fetches title via mediaDetailsService and calls notificationService.notifyCouple(couple, NotificationType.NO_MATCH, tmdbId, mediaType, title, userId))
+  - api/src/test/java/com/app/match/MatchServiceTest.java (reject_persistsNewReject updated to stub the new lookup + assert notifyCouple never called when partner hasn't liked; added reject_partnerAlreadyLikedCreatesNoMatchNotification)
+- **Learnings for future iterations:**
+  - `actor_user_id` for a NO_MATCH notification is the `userId` param of `MatchService.reject(coupleId, userId, request)` — the user who just passed/rejected the title, mirroring how MATCH's actor is the user whose `like()` call closed the match.
+  - Reused `MatchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot` (already existed for match detection in `like()`) to detect "did the partner like this title" inside `reject()` — no new repository query needed.
+  - `reject()` fetches `MediaDetails` (for the title) only when a NO_MATCH notification is actually needed (partner liked), same "call TMDB only when required" style as `createMatch()`.
+  - Per the story's explicit scope note, the existing MatchReject persistence/idempotency/discard behavior was left completely untouched — the notification call is purely additive after the existing `matchRejectRepository.save(...)`.
+  - Same sandbox limitation as all prior notification stories: no JDK/Maven available here (`java`/`mvn` missing, `./mvnw` cannot reach Maven Central) — could not run `./mvnw test` to verify compilation/pass. Change mirrors the already-tested MATCH-flow pattern in the same file/class closely to minimize risk; verify on a machine with JDK 21 + Maven Central access before merging if this matters.
+---

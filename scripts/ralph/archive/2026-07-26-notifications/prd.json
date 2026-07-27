@@ -34,8 +34,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added NotificationRepository.deleteByCreatedAtBefore(LocalDateTime) derived delete query, NotificationCleanupService with @Scheduled(cron = \"0 0 3 * * *\") + @Transactional expireOldNotifications() (30-day retention), and @EnableScheduling on SessaoADoisApplication. Tests: NotificationRepositoryTest gained deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff (uses ReflectionTestUtils to backdate createdAt since it's a @CreationTimestamp); new NotificationCleanupServiceTest (Mockito) verifies the cutoff passed to the repository is ~30 days ago."
     },
     {
       "id": "US-003",
@@ -51,8 +51,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created NotificationDto record (id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt) and NotificationService.notifyCouple(couple, type, tmdbId, mediaType, title, actorUserId): builds the recipient list from couple.user1Id/user2Id, persists one Notification per recipient, resolves actorName via UserRepository, and broadcasts each resulting DTO to /topic/couple/{coupleId}/notifications. Broadcast is deferred to TransactionSynchronization.afterCommit() when a transaction is active (falls back to immediate send otherwise) so the STOMP push never precedes the DB commit. WebSocketConfig's existing /topic broker already covers the new destination; only its Javadoc was extended to document it. NotificationServiceTest (Mockito) covers: 2 notifications created + 2 STOMP sends for a couple event, and actorName resolving to null when the actor user lookup misses."
     },
     {
       "id": "US-004",
@@ -69,8 +69,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Injected NotificationService into MatchService (constructor param added). MatchService.createMatch(couple, request, actorUserId) now also calls notificationService.notifyCouple(couple, NotificationType.MATCH, tmdbId, mediaType, title, actorUserId) right after the MediaTrack save and the existing /match STOMP send, inside the same @Transactional like() method. actorUserId = userId (the caller of like(), i.e. whoever's like just closed the match) per the story's 'quem fechou o match' rule. NotificationService itself handles the after-commit STOMP push to /topic/couple/{id}/notifications, so no extra transactional wiring was needed here. Updated MatchServiceTest: added a NotificationService mock, verified notifyCouple is called with the right args on both match tests (movie + TV), and verified it's never called when a MediaTrack already exists for that tmdb_id (the 'no duplicate match' test doubles as the no-match-notification case since MatchService has no separate non-match branch to notify from)."
     },
     {
       "id": "US-005",
@@ -86,8 +86,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "MatchService.reject(coupleId, userId, request) now also checks matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, tmdbId, userId) right after persisting the MatchReject; if the partner had liked the same tmdbId, fetches title via mediaDetailsService and calls notificationService.notifyCouple(couple, NotificationType.NO_MATCH, tmdbId, mediaType, title, userId) with actorUserId = userId (whoever just rejected/passed). NotificationService's existing after-commit STOMP broadcast to /topic/couple/{coupleId}/notifications is reused as-is (no new wiring needed). Left the existing MatchReject persistence/idempotency behavior untouched. Updated MatchServiceTest: reject_persistsNewReject now stubs findFirstByCoupleIdAndTmdbIdAndUserIdNot to empty and asserts notifyCouple is never called; added reject_partnerAlreadyLikedCreatesNoMatchNotification asserting the NO_MATCH notifyCouple call args."
     },
     {
       "id": "US-006",

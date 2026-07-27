@@ -17,6 +17,7 @@ import { LandingScreen } from "@/screens/LandingScreen"
 import { MatchScreen } from "@/screens/MatchScreen"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useMatchStore } from "@/stores/useMatchStore"
+import { useNotificationStore } from "@/stores/useNotificationStore"
 
 export function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
@@ -25,6 +26,8 @@ export function App() {
   const hasPartner = useAuthStore((state) => Boolean(state.couple?.partner))
   const connect = useMatchStore((state) => state.connect)
   const disconnect = useMatchStore((state) => state.disconnect)
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications)
+  const fetchUnreadCount = useNotificationStore((state) => state.fetchUnreadCount)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -36,12 +39,22 @@ export function App() {
   useEffect(() => {
     if (isAuthenticated && hasPartner && coupleId) {
       connect(coupleId)
+      void fetchNotifications()
+      void fetchUnreadCount()
     } else {
       disconnect()
     }
 
     return () => disconnect()
-  }, [isAuthenticated, hasPartner, coupleId, connect, disconnect])
+  }, [
+    isAuthenticated,
+    hasPartner,
+    coupleId,
+    connect,
+    disconnect,
+    fetchNotifications,
+    fetchUnreadCount,
+  ])
 
   return (
     <>
