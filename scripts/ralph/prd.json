@@ -31,8 +31,8 @@
         "mvn -q -pl api test passa"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "MediaPage ja existia (US-001); adicionado compact constructor que clampa totalPages a 500 e totalResults a 10000 (teto do TMDB, 500 paginas x 20 itens) sempre que o TMDB reportar valores maiores, aplicando-se automaticamente a qualquer endpoint que construa um MediaPage (trending, e futuramente search/discover). Testes dedicados em MediaPageTest + um teste de clamping em MediaSearchServiceTest.trending_clampsTotalsToTmdbCapWhenTmdbReportsMore."
     },
     {
       "id": "US-003",

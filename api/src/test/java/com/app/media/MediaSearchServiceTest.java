@@ -180,6 +180,21 @@ class MediaSearchServiceTest {
 	}
 
 	@Test
+	void trending_clampsTotalsToTmdbCapWhenTmdbReportsMore() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		TmdbTrendingResponse response = new TmdbTrendingResponse(1, List.of(), 100_000, 999_999);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbTrendingResponse.class))
+			.thenReturn(response);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		MediaPage page = service.trending(1);
+
+		assertThat(page.totalPages()).isEqualTo(500);
+		assertThat(page.totalResults()).isEqualTo(10_000);
+	}
+
+	@Test
 	void trending_throwsTmdbUnavailableWhenTmdbIsDown() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		HttpServerErrorException serverError = HttpServerErrorException.create(

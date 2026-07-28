@@ -5,6 +5,8 @@
 - TMDB `/trending/all/week` devolve itens no mesmo formato de `/search/multi` (mesmos campos `media_type`, `title`/`name`, `poster_path`, etc.) — reaproveite `TmdbMultiSearchItem` para o mapeamento por item; so foi necessario um record novo (`TmdbTrendingResponse`) para os campos extras `page`/`total_pages`/`total_results`.
 - Sandbox deste ambiente Ralph NAO tem JDK/Maven nem acesso a rede (Maven Central bloqueado), entao `./mvnw test` nao pode ser executado aqui — build so pode ser verificado onde JDK 21 + Maven Central estao disponiveis (ver nota em api/CLAUDE.md). Revisar o codigo manualmente com cuidado antes de commitar.
 
+- `MediaPage`'s compact constructor clamps `totalPages`/`totalResults` to the TMDB cap (500 pages, 10000 results) — applies automatically to every construction site, so new paginated endpoints (search, discover) don't need to reimplement the clamp.
+
 ---
 
 ## 2026-07-28 - US-001
@@ -15,4 +17,14 @@
 - **Learnings for future iterations:**
   - MediaPage ja existe e cobre a AC de US-002 (o record em si); US-002 provavelmente so precisara adicionar testes dedicados de mapeamento e, se necessario, o teto de totalResults do TMDB (~10000, 500 paginas) - ainda nao aplicado em nenhum lugar, so retornamos o total_results cru do TMDB.
   - Nao foi possivel rodar `./mvnw -q -pl api test` neste ambiente (sem JDK, sem Maven, sem acesso a repo.maven.apache.org). Codigo foi revisado manualmente linha a linha seguindo os padroes de MediaSearchServiceTest/MediaControllerTest existentes. Proximas iteracoes devem tentar rodar os testes se o ambiente permitir, e reportar aqui se conseguirem.
+---
+
+## 2026-07-28 - US-002
+- MediaPage ja existia desde US-001 (record publico results/page/totalResults/totalPages). Adicionado o unico requisito que faltava: um compact constructor que clampa totalPages a 500 e totalResults a 10000 quando o TMDB reporta valores maiores (teto documentado nas Consideracoes Tecnicas do PRD: Discover limita a ~500 paginas).
+- Criado MediaPageTest (com.app.media) cobrindo: valores dentro do limite ficam inalterados, totalPages e totalResults sao clampados separadamente quando o TMDB reporta acima do teto.
+- Adicionado MediaSearchServiceTest.trending_clampsTotalsToTmdbCapWhenTmdbReportsMore para garantir que o clamp se aplica de ponta a ponta atraves de MediaSearchService.trending(page).
+- Arquivos alterados: api/src/main/java/com/app/media/MediaPage.java, api/src/test/java/com/app/media/MediaPageTest.java (novo), api/src/test/java/com/app/media/MediaSearchServiceTest.java, api/CLAUDE.md, scripts/ralph/prd.json, scripts/ralph/progress.txt.
+- **Learnings for future iterations:**
+  - O clamp fica centralizado no compact constructor do record `MediaPage`, entao qualquer endpoint futuro que monte um MediaPage (US-003 search paginado, US-004 discover) ja herda o comportamento automaticamente, sem precisar chamar nada explicitamente.
+  - Mesma limitacao de ambiente do Ralph que em US-001: sem JDK/Maven/rede aqui, entao `./mvnw -q -pl api test` nao pode ser executado neste sandbox. Codigo revisado manualmente com atencao a sintaxe de record compact constructor (reatribuicao dos parametros implicitos e permitida em Java).
 ---
