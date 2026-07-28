@@ -193,8 +193,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "SearchTab (MatchScreen.tsx) ganhou um novo useEffect de montagem (com o mesmo padrao de deferimento via setTimeout(...,0) + cancelled-flag ja usado no debounce de busca, para nao violar react-hooks/set-state-in-effect) que chama GET /api/media/trending?page=1 assim que a aba Descobrir monta, populando results/totalResults antes de qualquer busca/filtro - sem isso nao havia estado inicial nenhum para o header/contador desta story refletirem (o grid ficava vazio ate o usuario digitar). Novo estado resultsContext ('trending'|'search'|'discover'), setado em cada um dos 4 pontos de fetch (trending no mount, busca debounced, handleSortChange, handleApplyFilters) junto com o novo totalResults (de response.data.totalResults, 0 no catch). Header dinamico (titulo + subtitulo + contador alinhado a direita, formatResultsCount faz a pluralizacao titulo/titulos) renderizado entre o painel de Collapsible e os estados vazios, visivel apenas quando searched===true: hasQuery -> 'Resultados para \"{query}\"'; senao resultsContext==='discover' -> 'Filtros aplicados' (cobre tanto Aplicar filtros quanto so trocar a ordenacao, ja que ambos chamam /discover); senao (resultsContext==='trending') -> 'Em alta esta semana' + subtitulo 'Resultados dinamicos do TMDB - refine com o painel de filtros.' (unico caso com subtitulo). O placeholder antigo 'Comecem digitando...' ganhou o guard extra !searching para nao piscar durante o fetch inicial de trending."
     },
     {
       "id": "US-013",

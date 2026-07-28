@@ -104,6 +104,10 @@ function trackKey(mediaType: string, tmdbId: number): string {
   return `${mediaType}-${tmdbId}`
 }
 
+function formatResultsCount(total: number): string {
+  return `${total} ${total === 1 ? "titulo" : "titulos"}`
+}
+
 function SuggestionsTab() {
   const { pendingQueue, pendingLoading, fetchPending, removePending } =
     useMatchStore()
@@ -270,6 +274,10 @@ function SearchTab() {
   const [runtimeRange, setRuntimeRange] = useState<[number, number]>(
     DEFAULT_RUNTIME_RANGE
   )
+  const [totalResults, setTotalResults] = useState(0)
+  const [resultsContext, setResultsContext] = useState<
+    "trending" | "search" | "discover"
+  >("trending")
   const activeFilterCount =
     selectedDecades.length +
     selectedCertifications.length +
@@ -303,6 +311,37 @@ function SearchTab() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    const timer = setTimeout(() => {
+      setSearching(true)
+      api
+        .get<MediaPage>("/api/media/trending", { params: { page: 1 } })
+        .then((response) => {
+          if (cancelled) return
+          setResults(response.data.results)
+          setTotalResults(response.data.totalResults)
+          setResultsContext("trending")
+          setSearched(true)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setResults([])
+          setTotalResults(0)
+          setResultsContext("trending")
+          setSearched(true)
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false)
+        })
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!query.trim()) {
       return
     }
@@ -317,11 +356,15 @@ function SearchTab() {
         .then((response) => {
           if (cancelled) return
           setResults(response.data.results)
+          setTotalResults(response.data.totalResults)
+          setResultsContext("search")
           setSearched(true)
         })
         .catch(() => {
           if (cancelled) return
           setResults([])
+          setTotalResults(0)
+          setResultsContext("search")
           setSearched(true)
         })
         .finally(() => {
@@ -346,10 +389,14 @@ function SearchTab() {
       })
       .then((response) => {
         setResults(response.data.results)
+        setTotalResults(response.data.totalResults)
+        setResultsContext("discover")
         setSearched(true)
       })
       .catch(() => {
         setResults([])
+        setTotalResults(0)
+        setResultsContext("discover")
         setSearched(true)
       })
       .finally(() => setSearching(false))
@@ -386,10 +433,14 @@ function SearchTab() {
       .get<MediaPage>("/api/media/discover", { params })
       .then((response) => {
         setResults(response.data.results)
+        setTotalResults(response.data.totalResults)
+        setResultsContext("discover")
         setSearched(true)
       })
       .catch(() => {
         setResults([])
+        setTotalResults(0)
+        setResultsContext("discover")
         setSearched(true)
       })
       .finally(() => setSearching(false))
@@ -642,7 +693,30 @@ function SearchTab() {
         </CollapsibleContent>
       </Collapsible>
 
-      {!searched && !query.trim() && (
+      {searched && (
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <div>
+            <h2 className="font-display text-lg font-bold text-[#f6f4ec] sm:text-xl">
+              {hasQuery
+                ? `Resultados para "${query.trim()}"`
+                : resultsContext === "discover"
+                  ? "Filtros aplicados"
+                  : "Em alta esta semana"}
+            </h2>
+            {!hasQuery && resultsContext === "trending" && (
+              <p className="mt-1 text-[13px] text-[#a6a39a]">
+                Resultados dinamicos do TMDB - refine com o painel de
+                filtros.
+              </p>
+            )}
+          </div>
+          <span className="flex-none text-[13px] text-[#a6a39a]">
+            {formatResultsCount(totalResults)}
+          </span>
+        </div>
+      )}
+
+      {!searched && !searching && !query.trim() && (
         <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
           Comecem digitando o nome de um filme ou serie ai em cima.
         </div>
