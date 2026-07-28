@@ -142,4 +142,44 @@ class MediaControllerTest {
 			.andExpect(status().isBadGateway())
 			.andExpect(jsonPath("$.message").value("Nao foi possivel buscar dados no momento. Tente novamente mais tarde."));
 	}
+
+	@Test
+	void trending_returnsPagedResultsForAuthenticatedUser() throws Exception {
+		MediaSearchResult movie = new MediaSearchResult(
+			603, MediaType.MOVIE, "Matrix", 1999, "https://image.tmdb.org/t/p/w500/poster.jpg", "overview", 8.2);
+		MediaPage page = new MediaPage(List.of(movie), 1, 100, 5);
+		when(mediaSearchService.trending(1)).thenReturn(page);
+
+		mockMvc.perform(get("/api/media/trending").with(authentication(authenticatedUser())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.results[0].tmdbId").value(603))
+			.andExpect(jsonPath("$.page").value(1))
+			.andExpect(jsonPath("$.totalResults").value(100))
+			.andExpect(jsonPath("$.totalPages").value(5));
+	}
+
+	@Test
+	void trending_passesRequestedPageToService() throws Exception {
+		when(mediaSearchService.trending(3)).thenReturn(new MediaPage(List.of(), 3, 0, 0));
+
+		mockMvc.perform(get("/api/media/trending").param("page", "3").with(authentication(authenticatedUser())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.page").value(3));
+	}
+
+	@Test
+	void trending_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/media/trending"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void trending_returnsBadGatewayWhenTmdbIsUnavailable() throws Exception {
+		when(mediaSearchService.trending(1))
+			.thenThrow(new TmdbUnavailableException("/trending/all/week", new RuntimeException("boom")));
+
+		mockMvc.perform(get("/api/media/trending").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.message").value("Nao foi possivel buscar dados no momento. Tente novamente mais tarde."));
+	}
 }

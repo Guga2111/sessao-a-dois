@@ -1,195 +1,250 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/nota-media-casal-pedido-avaliacao",
-  "description": "Nota media do casal (com tooltip individual) + fluxo de pedido de avaliacao via notificacao (RATING_REQUEST). Estende o codigo existente sem reconstruir entidades, notificacoes ou o calculo de coupleAvg.",
+  "branchName": "ralph/descobrir-busca-com-filtros",
+  "description": "Descobrir - Busca Avancada, Filtros e Ordenacao (Tela de Match): evolui a aba Descobrir do MatchScreen para descoberta ativa avancada sobre dados do TMDB (trending inicial, busca textual paginada, painel de filtros expansivel, ordenacao, contador de resultados e grid paginado de 20 itens por pagina). A aba Sugestoes nao deve ser alterada.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Adicionar RATING_REQUEST ao NotificationType",
-      "description": "Como desenvolvedor, preciso de um novo tipo de notificacao para representar o pedido de avaliacao.",
+      "title": "Endpoint de 'Em alta esta semana' (trending) paginado",
+      "description": "Como usuario, quero ver titulos em alta ao abrir a aba Descobrir, para ter um ponto de partida sem precisar digitar nada.",
       "acceptanceCriteria": [
-        "NotificationType (api/.../notification/NotificationType.java) passa a ter MATCH, NO_MATCH, RATING_REQUEST",
-        "Enum persistido como EnumType.STRING: salvar RATING_REQUEST grava a string 'RATING_REQUEST' na coluna type, sem migracao de dados dos registros existentes",
-        "Compila (./mvnw -DskipTests package)"
+        "Novo endpoint GET /api/media/trending no MediaController (modulo com.app.media)",
+        "Consome GET /trending/all/week da TMDB v3 usando o RestClient existente (header Bearer, interceptor pt-BR)",
+        "Aceita parametro page (default 1) e repassa ao TMDB; a resposta contem no maximo 20 itens",
+        "Retorna objeto de pagina com results (List<MediaSearchResult>), page, totalResults, totalPages",
+        "Itens de tipo person retornados por trending/all sao filtrados (apenas MOVIE/TV)",
+        "Testes JUnit/Mockito para controller e service (sucesso, TMDB indisponivel, filtragem de pessoas)",
+        "mvn -q -pl api test passa"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "Endpoint GET /api/media/trending implementado em MediaController + MediaSearchService.trending(page), reutilizando TmdbMultiSearchItem via novo TmdbTrendingResponse. Introduz o record publico MediaPage (adiantando parte do contrato de US-002)."
     },
     {
       "id": "US-002",
-      "title": "Carregar mediaTrackId na notificacao (entidade + DTO)",
-      "description": "Como front, preciso saber qual track abrir ao clicar numa RATING_REQUEST, ja que a avaliacao usa PUT /api/tracking/{id}/review por trackId.",
+      "title": "DTO de pagina paginada reutilizavel (MediaPage)",
+      "description": "Como desenvolvedor, quero um contrato de paginacao padrao para busca, descoberta e trending, para o frontend tratar todos igual.",
       "acceptanceCriteria": [
-        "Notification ganha coluna media_track_id UUID nullable (nulo para MATCH/NO_MATCH; preenchido para RATING_REQUEST)",
-        "NotificationDto ganha UUID mediaTrackId (nulo quando nao aplicavel)",
-        "Para uma RATING_REQUEST, o DTO/STOMP serializa mediaTrackId com o id do MediaTrack avaliado",
-        "Para MATCH/NO_MATCH, mediaTrackId serializa como null e o fluxo de match segue identico",
-        "Teste do mapeamento DTO cobrindo os dois casos",
-        "Compila (./mvnw -DskipTests package)"
+        "Novo record MediaPage com List<MediaSearchResult> results, int page, int totalResults, int totalPages",
+        "totalResults limitado ao teto do TMDB quando aplicavel (ver Consideracoes Tecnicas)",
+        "Testes cobrindo o mapeamento a partir da resposta do TMDB",
+        "mvn -q -pl api test passa"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Metodo de notificacao a um unico destinatario (o parceiro)",
-      "description": "Como servico, preciso criar a notificacao so para o parceiro; notifyCouple cria uma por membro, o que nao serve para RATING_REQUEST.",
+      "title": "Migrar GET /api/media/search para resposta paginada",
+      "description": "Como usuario, quero paginar os resultados da busca textual, vendo 20 por vez.",
       "acceptanceCriteria": [
-        "Novo metodo em NotificationService (ex.: notifyRatingRequest(Couple couple, UUID recipientUserId, UUID actorUserId, Long tmdbId, MediaType mediaType, String title, UUID mediaTrackId)) que persiste 1 Notification para recipientUserId",
-        "Reusa o padrao persist-then-push-after-commit (TransactionSynchronizationManager afterCommit) para o broadcast STOMP em /topic/couple/{coupleId}/notifications",
-        "Casal sem parceiro (recipient null): nenhuma notificacao criada e nenhum push enviado",
-        "Teste unitario (Mockito): cria 1 notificacao; push apos commit; caso destinatario nulo",
-        "Compila (./mvnw -DskipTests package)"
+        "GET /api/media/search aceita page (default 1) alem de q",
+        "Retorna MediaPage (20 itens/pagina) em vez de List<MediaSearchResult>",
+        "q continua obrigatorio e nao vazio (mantem InvalidSearchQueryException -> 400)",
+        "Testes existentes de MediaControllerTest/MediaSearchServiceTest atualizados e passando",
+        "mvn -q -pl api test passa"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Disparar RATING_REQUEST ao registrar uma nota (3 caminhos)",
-      "description": "Como parceiro pendente, quero ser notificado quando o outro membro avaliar um titulo que eu ainda nao avaliei.",
+      "title": "Endpoint de descoberta com filtros e ordenacao (TMDB Discover)",
+      "description": "Como usuario, quero filtrar e ordenar o catalogo para encontrar titulos que combinam com o casal.",
       "acceptanceCriteria": [
-        "Metodo orquestrador unico (ex.: RatingRequestService.onRatingRegistered(track, actorUserId)) chamado ao final de markAsWatched, addTrack (quando WATCHED + rating) e upsertReview, na mesma transacao",
-        "Dispara 1 RATING_REQUEST para o parceiro somente se: ator tem rating != null; parceiro existe (user2Id != null); parceiro nao tem UserReview com rating naquele track; nao existe RATING_REQUEST nao lida para (recipient=parceiro, couple, tmdbId)",
-        "title resolvido via MediaDetailsService.getDetails(mediaType, tmdbId).title() com try/catch (RuntimeException) e fallback 'seu titulo'; falha do TMDB nao faz o registro da nota falhar",
-        "Given parceiro ja tinha nota, then nenhuma RATING_REQUEST e criada (D4)",
-        "Given casal sem parceiro, then nenhuma notificacao criada",
-        "Given ja existe RATING_REQUEST nao lida para o parceiro naquele titulo, then nao cria uma segunda (idempotencia)",
-        "Given ator registra sem nota (rating == null), then nenhuma RATING_REQUEST criada",
-        "Testes de servico cobrindo os 3 caminhos + as condicoes acima",
-        "Compila (./mvnw -DskipTests package)"
+        "Novo endpoint GET /api/media/discover no MediaController",
+        "Parametros opcionais (exceto page default 1): mediaType (MOVIE|TV|ambos), genres (CSV de IDs), releaseDecades, certifications, voteAverageMin, voteAverageMax, runtimeMin, runtimeMax, sortBy, page",
+        "Mapeia para /discover/movie e/ou /discover/tv com with_genres, primary_release_date.gte/.lte (movie) e first_air_date.gte/.lte (tv) derivados das decadas, vote_average.gte/.lte, with_runtime.gte/.lte, sort_by",
+        "Multiplas decadas viram um unico intervalo min-max (menor data ate maior data), mesmo nao contiguas (ex.: 2020+2000 -> 2000-01-01..2029-12-31)",
+        "sortBy suporta popularity.desc/asc, vote_average.desc/asc, release_date.desc/asc (mapeando para o campo de data correto por tipo de midia)",
+        "No modo 'ambos', o backend chama /discover/movie e /discover/tv, mescla por sort_by e fatia em 20 por pagina; totalResults e a soma aproximada",
+        "Retorna MediaPage com exatamente 20 itens por pagina",
+        "Valores invalidos de enum (sortBy, mediaType) retornam 400 com mensagem",
+        "Testes JUnit/Mockito cobrindo a construcao da URL do TMDB para cada filtro e ordenacao",
+        "mvn -q -pl api test passa"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Resolver automaticamente a RATING_REQUEST quando o parceiro avalia",
-      "description": "Como parceiro pendente, ao atribuir minha nota, o pedido pendente deve ser marcado como lido sem acao manual.",
+      "title": "Filtro de classificacao indicativa por certificacao BR do TMDB",
+      "description": "Como usuario, quero filtrar por classificacao indicativa brasileira (Livre/10/12/14/16/18).",
       "acceptanceCriteria": [
-        "No mesmo orquestrador, ao registrar a nota do ator, quaisquer RATING_REQUEST nao lidas cujo recipientUserId == actorUserId e mesmo (couple, tmdbId) sao marcadas como lidas",
-        "Vale para os 3 caminhos (markAsWatched, addTrack WATCHED, upsertReview)",
-        "Given o ator tem RATING_REQUEST nao lida para aquele titulo, when ele avalia por qualquer caminho, then a notificacao fica read = true no banco",
-        "Given nao ha RATING_REQUEST pendente para o ator naquele titulo, when avalia, then a operacao nao falha e nada muda em notificacoes",
-        "Query de repositorio dedicada escopada ao casal (findByRecipientUserIdAndTmdbIdAndTypeAndReadFalse ou equivalente); testes cobrindo resolucao e no-op",
-        "Compila (./mvnw -DskipTests package)"
+        "Mapeamento de chips para certificacao TMDB BR: Livre->L, 10->10, 12->12, 14->14, 16->16, 18->18",
+        "Requisicoes de filme enviam certification_country=BR + certification.lte (semantica mais permissiva); com multiplas marcadas usa a maior classificacao selecionada como teto",
+        "Para series (TV) o filtro de certificacao e ignorado (TMDB nao suporta certification em /discover/tv) sem quebrar a requisicao, e isso e documentado",
+        "Testes cobrindo a montagem de certification_country/certification",
+        "mvn -q -pl api test passa"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Remover RATING_REQUEST ao deletar o track",
-      "description": "Como usuario, ao remover um titulo da lista, nao quero pedidos de avaliacao orfaos apontando para um track inexistente.",
+      "title": "Endpoint de metadados de generos",
+      "description": "Como desenvolvedor, quero a lista de generos TMDB (com IDs) para renderizar os chips corretamente.",
       "acceptanceCriteria": [
-        "Em MediaTrackService.deleteTrack (DELETE /api/tracking/{id}), antes/junto da remocao do track, todas as RATING_REQUEST associadas ao mediaTrackId (ou ao par couple+tmdbId) sao apagadas na mesma transacao",
-        "Given existe RATING_REQUEST para o parceiro no titulo, when o titulo e deletado, then essa notificacao nao existe mais no banco",
-        "Given o track nao tem RATING_REQUEST associada, when deletado, then no-op de notificacoes e o comportamento de delete existente preservado",
-        "A limpeza cobre apenas RATING_REQUEST; MATCH/NO_MATCH nao sao afetadas",
-        "Query de delecao dedicada no NotificationRepository escopada por casal; testes cobrindo delecao e no-op",
-        "Compila (./mvnw -DskipTests package)"
+        "Endpoint GET /api/media/genres retornando generos (id + nome pt-BR) de filme e serie, deduplicados por nome quando aplicavel, reutilizando TmdbGenre",
+        "Fonte: GET /genre/movie/list e GET /genre/tv/list do TMDB",
+        "Testes JUnit/Mockito para controller e service",
+        "mvn -q -pl api test passa"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Implementado (deleteByCoupleIdAndTmdbIdAndType + RatingRequestService.onTrackDeleted, chamado de MediaTrackService.deleteTrack, agora @Transactional). Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Tipos TS de notificacao (RATING_REQUEST + mediaTrackId)",
-      "description": "Como front, preciso refletir o novo tipo e o novo campo do DTO.",
+      "title": "Abas Descobrir/Sugestoes e cabecalho da Descobrir (frontend)",
+      "description": "Como usuario, quero abrir a aba Descobrir e ja ver o titulo e o input de busca conforme o layout aprovado.",
       "acceptanceCriteria": [
-        "client/src/types/notification.ts: NotificationType = 'MATCH' | 'NO_MATCH' | 'RATING_REQUEST'",
-        "Interface Notification ganha mediaTrackId: string | null",
-        "tsc passa"
+        "A aba Descobrir (activeTab === 'search') mantem as abas Descobrir/Sugestoes existentes; Sugestoes nao e alterada",
+        "Cabecalho central: eyebrow 'Match a Dois', titulo 'Descubram o proximo juntos', subtitulo",
+        "Input de busca com icone de lupa e placeholder 'Ex.: Coracao de Vidro, Fronteira Norte...'",
+        "Usa a skill frontend-design; tokens do design system (fundo #09090a, card #161513, primario #ffcb2b, texto #f6f4ec, muted #a6a39a, fontes Bricolage/DM Sans)",
+        "Typecheck/lint passa (bun run build / tsc)",
+        "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Implementado. tsc --noEmit passou limpo."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Dialog de avaliacao (shadcn) a partir da notificacao",
-      "description": "Como parceiro pendente, quero abrir um Dialog para dar minha nota e opiniao.",
+      "title": "Botao 'Filtros' com badge e dropdown de ordenacao",
+      "description": "Como usuario, quero abrir/fechar o painel de filtros e escolher a ordenacao.",
       "acceptanceCriteria": [
-        "Usar a skill frontend-design antes de implementar (regra do CLAUDE.md para client/)",
-        "Novo componente (ex.: RatingRequestDialog.tsx) usando o Dialog do shadcn (components/ui/dialog.tsx), com estrelas 1-5 (opcional) e opiniao (opcional), no mesmo visual/tokens do ReviewModal (cores inline do prototipo)",
-        "Submete via PUT /api/tracking/{mediaTrackId}/review com { rating, opinion } (rating null se 0)",
-        "Given o Dialog aberto, when o parceiro salva nota valida, then a chamada retorna o MediaTrackResponse atualizado e o Dialog fecha",
-        "Given o mediaTrackId aponta para track removido, when salva, then a resposta 404 e tratada com mensagem 'Este titulo nao esta mais na sua lista.' e o Dialog nao quebra",
-        "tsc/lint passam",
-        "Verificar no navegador usando a dev-browser skill"
+        "Botao 'Filtros' com icone de sliders, chevron de expandido/recolhido e badge numerico com a quantidade de filtros ativos (oculto quando 0)",
+        "Dropdown de ordenacao com rotulo + seta (ex.: 'Popularidade v') e opcoes: Popularidade (desc/asc), Avaliacao (desc/asc), Data de Lancamento (desc/asc)",
+        "Enquanto houver texto na busca, o botao Filtros e o dropdown ficam desabilitados; ao limpar o texto voltam a ficar ativos",
+        "Selecionar ordenacao re-dispara a descoberta a partir da pagina 1",
+        "Ordenacao usa shadcn Select/DropdownMenu e painel expansivel usa Collapsible (skill shadcn)",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Implementado. RatingRequestDialog.tsx usa Dialog shadcn com os tokens inline do ReviewModal. tsc e build passaram; npm run lint tem 6 erros pre-existentes (baseline, sem relacao com este arquivo) confirmados via teste isolado. Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md); wiring com NotificationDropdown fica para US-009."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Clique na RATING_REQUEST abre o Dialog + resolve a notificacao",
-      "description": "Como parceiro pendente, clicar numa notificacao de pedido deve abrir o Dialog (nao so marcar como lida).",
+      "title": "Painel de filtros expansivel - chips (Data, Classificacao, Generos)",
+      "description": "Como usuario, quero selecionar decadas, classificacao indicativa e generos por chips.",
       "acceptanceCriteria": [
-        "Em NotificationDropdown.tsx, o onSelect diferencia por type: RATING_REQUEST abre RatingRequestDialog com mediaTrackId/title/mediaType da notificacao; demais tipos mantem o comportamento atual (so markAsRead)",
-        "Apos salvar a nota com sucesso, a notificacao correspondente e marcada como lida no useNotificationStore (badge do sino decrementa) e, se a Hub estiver montada, o track exibido e atualizado",
-        "Given uma RATING_REQUEST no dropdown, when clico, then o Dialog abre com o titulo correto; when salvo, then a notificacao vira lida sem novo fetch obrigatorio",
-        "tsc/lint passam",
-        "Verificar no navegador usando a dev-browser skill"
+        "Secao DATA DE LANCAMENTO: chips Anos 2020, Anos 2010, Anos 2000, Anos 1990, Anterior (selecao multipla)",
+        "Secao CLASSIFICACAO INDICATIVA: chips Livre, 10, 12, 14, 16, 18 (selecao multipla)",
+        "Secao GENEROS: chips de multipla escolha carregados de GET /api/media/genres",
+        "Chip ativo usa estado ambar (borda/preenchimento #ffcb2b); inativo usa pilula neutra",
+        "Chips implementados com shadcn ToggleGroup/Toggle (multipla escolha) via skill shadcn",
+        "Estado de filtros e local ate 'Aplicar filtros' (US-011); a contagem do badge reflete a selecao atual",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Implementado. NotificationDropdown.tsx diferencia por type no handleSelect: RATING_REQUEST com mediaTrackId abre o RatingRequestDialog (US-008) em vez de markAsRead direto; demais tipos mantem o comportamento atual. onSuccess do dialog chama markAsRead da notificacao e fecha o dialog. tsc e build passaram; lint com o mesmo baseline de 7 erros pre-existentes (nenhum novo). Atualizacao do track na Hub (se montada) nao implementada: nao ha store global de tracking hoje (Hub usa estado local em HubScreen), so um novo mecanismo de sincronizacao entre dropdown e Hub sairia do escopo desta story. Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Texto e icone da RATING_REQUEST no dropdown",
-      "description": "Como usuario, quero entender que aquela notificacao e um pedido de avaliacao.",
+      "title": "Painel de filtros - range sliders (Nota TMDB e Duracao)",
+      "description": "Como usuario, quero limitar por nota TMDB e por duracao usando sliders de intervalo.",
       "acceptanceCriteria": [
-        "notificationText(...) cobre RATING_REQUEST (ex.: '{actorName} avaliou \"{title}\" - de sua nota tambem.', com fallback 'Seu par' quando actorName e nulo)",
-        "NotificationIcon tem icone proprio para RATING_REQUEST (ex.: estrela), distinto de MATCH (coracao) e NO_MATCH (X)",
-        "tsc/lint passam",
-        "Verificar no navegador usando a dev-browser skill"
+        "NOTA TMDB: range slider de 0 a 10 (passo 0,5) exibindo o intervalo selecionado (ex.: '7,0 - 10')",
+        "DURACAO: range slider de 0 a 240 min exibindo rotulo (ex.: 'ATE 3H') e limites '0 min' / '240 min'",
+        "Ambos com dois thumbs (min e max) e trilha preenchida em ambar",
+        "Implementados com shadcn Slider (modo range/dois thumbs) via skill shadcn",
+        "Alteracoes contam para o badge de filtros ativos",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "Implementado. notificationText cobre RATING_REQUEST ('{actorName} avaliou \"{title}\" — dê sua nota também.', fallback 'Seu par'); NotificationIcon novo variant com Star (lucide-react), badge circular amarelo outline (border/bg/texto #ffcb2b) distinto do gradiente cheio do MATCH e do cinza do NO_MATCH/X. tsc e build passaram; lint no mesmo baseline de 7 erros pre-existentes (nenhum novo). Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Tooltip da nota individual no MediaCard",
-      "description": "Como usuario, quero ver a nota de cada membro ao passar o mouse sobre a nota do card.",
+      "title": "Acoes do painel - 'Limpar tudo' e 'Aplicar filtros'",
+      "description": "Como usuario, quero aplicar os filtros escolhidos ou limpar tudo de uma vez.",
       "acceptanceCriteria": [
-        "Usar a skill frontend-design antes de implementar (regra do CLAUDE.md para client/)",
-        "Adicionar o primitivo shadcn Tooltip (components/ui/tooltip.tsx, hoje inexistente) e envolver o bloco de estrelas+nota do card",
-        "Conteudo do tooltip lista cada membro com sua nota (ex.: 'Ana: 4 estrelas . Leo: 5 estrelas'); membro sem nota aparece como 'Leo: sem nota'. Nomes vem de review.userName",
-        "Given os dois avaliaram, then o card mostra a media (4,0/4,3) e o tooltip mostra as duas notas individuais",
-        "Given so um avaliou, then o card mostra a nota individual desse membro (sem tratar como media) e o tooltip mostra a nota dele e 'sem nota' para o outro",
-        "Formato numerico: uma casa decimal com virgula (coupleAvg.toFixed(1).replace('.', ',')); nada muda no calculo de coupleAvg (D7)",
-        "tsc/lint passam",
-        "Verificar no navegador usando a dev-browser skill"
+        "'Limpar tudo' (text button) reseta todos os filtros e sliders aos padroes; badge zera",
+        "'Aplicar filtros' (primary button ambar) dispara GET /api/media/discover com os filtros selecionados, comecando na pagina 1",
+        "O painel de filtros so esta disponivel quando nao ha texto na busca (modos mutuamente exclusivos); digitar um termo ignora o modo descoberta e usa /search",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Implementado. Novo client/src/components/ui/tooltip.tsx (primitivo shadcn/base-ui @base-ui/react/tooltip, mesmo padrao de popover.tsx). MediaCard.tsx envolve o bloco estrelas+media num Tooltip cujo conteudo lista track.reviews (sempre inclui os dois membros do casal, rating null vira 'sem nota'). tsc/build passaram; lint no baseline pre-existente de 7 erros (nenhum novo)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-012",
-      "title": "Gate do 'Reavaliar' no MediaCard",
-      "description": "Como parceiro que ainda nao avaliou, nao devo poder 'Reavaliar' antes de dar minha nota inicial.",
+      "title": "Area de resultados - header dinamico e contador",
+      "description": "Como usuario, quero um cabecalho que reflete o que estou vendo e quantos titulos retornaram.",
       "acceptanceCriteria": [
-        "Usar a skill frontend-design antes de implementar (regra do CLAUDE.md para client/)",
-        "Para status === 'WATCHED': se o usuario atual nao tem nota (myReview?.rating ausente), o botao e 'Avaliar' e abre o RatingRequestDialog (nota inicial); se ja tem nota, o botao e 'Reavaliar' e mantem o ReviewModal atual",
-        "Given o usuario nao avaliou um titulo ja marcado como visto, when ve o card, then o botao e 'Avaliar'; when salva a nota, then o botao passa a 'Reavaliar'",
-        "Given o usuario ja avaliou, when ve o card, then o botao e 'Reavaliar' (comportamento atual intacto)",
-        "tsc/lint passam",
-        "Verificar no navegador usando a dev-browser skill"
+        "Estado inicial (sem busca/filtros): titulo 'Em alta esta semana' + subtitulo 'Resultados dinamicos do TMDB - refine com o painel de filtros.'",
+        "Ao buscar/filtrar, o header reflete o contexto (ex.: 'Resultados para \"Flash\"' ou 'Filtros aplicados')",
+        "Contador de titulos retornados alinhado a direita (ex.: '128 titulos'), refletindo totalResults",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 12,
-      "passes": true,
-      "notes": "Implementado. MediaCard.tsx: footer WATCHED agora bifurca em myReview?.rating; sem nota mostra botao 'Avaliar' (amarelo, icone Star) que abre um RatingRequestDialog local (novo prop description customizavel, ja que o texto padrao assume que o parceiro avaliou primeiro); com nota mantem 'Reavaliar' + ReviewModal via onReview (comportamento intacto). Novo prop MediaCard.onRated mescla o track atualizado nas sections da HubScreen (mesmo padrao do ReviewModal.onSuccess). tsc/build passaram; lint no baseline pre-existente de 7 erros (nenhum novo)."
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Grid de cards com tipo, nota e botao de curtir",
+      "description": "Como usuario, quero ver cada titulo como card com o tipo (Filme/Serie), a nota TMDB e curtir direto dali.",
+      "acceptanceCriteria": [
+        "Grid responsivo repeat(auto-fill, minmax(250px, 1fr))",
+        "Cada card mostra poster (ou gradiente placeholder atual), badge de tipo ('Filme'/'Serie') no canto superior esquerdo e badge de nota verde (ponto #01b47f + valor, ex.: '8.4') no canto superior direito",
+        "Botao de curtir por card (coracao) que chama POST /api/match/like { tmdbId, mediaType }, reutilizando a logica existente",
+        "Estados do curtir: idle -> loading -> liked/matched/error; titulo ja rastreado aparece como ja curtido (reaproveitar GET /api/tracking)",
+        "Match dispara a celebracao ja existente (sem alterar a logica de match/WebSocket)",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Paginacao de 20 itens no grid (frontend)",
+      "description": "Como usuario, quero navegar entre paginas de 20 titulos.",
+      "acceptanceCriteria": [
+        "O grid renderiza no maximo 20 cards por pagina (uma pagina = uma requisicao)",
+        "Paginador numerico (paginas 1, 2, 3... com anterior/proxima) que solicita a pagina via page; a pagina atual e destacada; o grid e substituido a cada troca",
+        "Implementado com shadcn Pagination via skill shadcn",
+        "page reinicia em 1 sempre que busca, filtros ou ordenacao mudam",
+        "Estado de loading e de 'fim dos resultados' (quando page === totalPages)",
+        "Nao exceder o teto de paginas do TMDB (~500)",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Estados vazios e de erro da Descobrir",
+      "description": "Como usuario, quero feedback claro quando nao ha resultados ou o TMDB falha.",
+      "acceptanceCriteria": [
+        "Busca/filtros sem resultados: mensagem vazia amigavel (mantendo o padrao atual de card tracejado)",
+        "Falha do TMDB (TmdbUnavailableException -> 5xx): mensagem de erro com opcao de tentar de novo, sem quebrar a aba",
+        "Trending indisponivel no load inicial degrada para estado vazio informativo",
+        "Typecheck/lint passa",
+        "Verificar no browser usando a skill dev-browser"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
     }
   ]
 }

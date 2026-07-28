@@ -135,4 +135,63 @@ class MediaSearchServiceTest {
 			.isInstanceOf(TmdbUnavailableException.class)
 			.hasCause(timeout);
 	}
+
+	@Test
+	void trending_returnsMixedMovieAndTvResultsFilteringOutPeople() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		TmdbMultiSearchItem movie = new TmdbMultiSearchItem(
+			603, "movie", "Matrix", null, "1999-03-30", null, "/poster-matrix.jpg", "Um hacker descobre a verdade.", 8.2);
+		TmdbMultiSearchItem tv = new TmdbMultiSearchItem(
+			1668, "tv", null, "Friends", null, "1994-09-22", "/poster-friends.jpg", "Seis amigos em Nova York.", 8.4);
+		TmdbMultiSearchItem person = new TmdbMultiSearchItem(
+			999, "person", "Keanu Reeves", null, null, null, "/keanu.jpg", null, null);
+		TmdbTrendingResponse response = new TmdbTrendingResponse(1, List.of(movie, tv, person), 50, 1000);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbTrendingResponse.class))
+			.thenReturn(response);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		MediaPage page = service.trending(1);
+
+		assertThat(page.results()).hasSize(2);
+		assertThat(page.page()).isEqualTo(1);
+		assertThat(page.totalResults()).isEqualTo(1000);
+		assertThat(page.totalPages()).isEqualTo(50);
+
+		MediaSearchResult movieResult = page.results().get(0);
+		assertThat(movieResult.tmdbId()).isEqualTo(603);
+		assertThat(movieResult.mediaType()).isEqualTo(MediaType.MOVIE);
+		assertThat(movieResult.title()).isEqualTo("Matrix");
+	}
+
+	@Test
+	void trending_returnsEmptyPageWhenTmdbResponseBodyIsNull() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbTrendingResponse.class))
+			.thenReturn(null);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		MediaPage page = service.trending(1);
+
+		assertThat(page.results()).isEmpty();
+		assertThat(page.page()).isEqualTo(1);
+		assertThat(page.totalResults()).isZero();
+		assertThat(page.totalPages()).isZero();
+	}
+
+	@Test
+	void trending_throwsTmdbUnavailableWhenTmdbIsDown() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		HttpServerErrorException serverError = HttpServerErrorException.create(
+			HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", HttpHeaders.EMPTY, new byte[0], StandardCharsets.UTF_8);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbTrendingResponse.class))
+			.thenThrow(serverError);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+
+		assertThatThrownBy(() -> service.trending(1))
+			.isInstanceOf(TmdbUnavailableException.class)
+			.hasCauseInstanceOf(HttpServerErrorException.class);
+	}
 }

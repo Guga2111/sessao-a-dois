@@ -32,6 +32,11 @@ public class MediaController {
 		return ResponseEntity.ok(mediaSearchService.search(q));
 	}
 
+	@GetMapping("/trending")
+	public ResponseEntity<MediaPage> trending(@RequestParam(defaultValue = "1") int page) {
+		return ResponseEntity.ok(mediaSearchService.trending(page));
+	}
+
 	@GetMapping("/{mediaType}/{tmdbId}")
 	public ResponseEntity<MediaDetails> details(@PathVariable String mediaType, @PathVariable long tmdbId) {
 		MediaType type = MediaType.fromPathValue(mediaType);

@@ -14,6 +14,8 @@ public class MediaSearchService {
 
 	private static final String SEARCH_ENDPOINT = "/search/multi";
 
+	private static final String TRENDING_ENDPOINT = "/trending/all/week";
+
 	private final RestClient tmdbRestClient;
 
 	public MediaSearchService(RestClient tmdbRestClient) {
@@ -40,6 +42,30 @@ public class MediaSearchService {
 			.filter(item -> "movie".equals(item.mediaType()) || "tv".equals(item.mediaType()))
 			.map(this::toMediaSearchResult)
 			.toList();
+	}
+
+	public MediaPage trending(int page) {
+		TmdbTrendingResponse response;
+		try {
+			response = tmdbRestClient.get()
+				.uri(uriBuilder -> uriBuilder.path(TRENDING_ENDPOINT).queryParam("page", page).build())
+				.retrieve()
+				.body(TmdbTrendingResponse.class);
+		}
+		catch (RestClientResponseException | ResourceAccessException ex) {
+			throw new TmdbUnavailableException(TRENDING_ENDPOINT, ex);
+		}
+
+		if (response == null || response.results() == null) {
+			return new MediaPage(List.of(), page, 0, 0);
+		}
+
+		List<MediaSearchResult> results = response.results().stream()
+			.filter(item -> "movie".equals(item.mediaType()) || "tv".equals(item.mediaType()))
+			.map(this::toMediaSearchResult)
+			.toList();
+
+		return new MediaPage(results, response.page(), response.totalResults(), response.totalPages());
 	}
 
 	private MediaSearchResult toMediaSearchResult(TmdbMultiSearchItem item) {
