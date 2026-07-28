@@ -16,6 +16,13 @@ export interface MediaDetails extends MediaSearchResult {
   watchProviders: { name: string; logoUrl: string }[]
 }
 
+export interface MediaPage {
+  results: MediaSearchResult[]
+  page: number
+  totalResults: number
+  totalPages: number
+}
+
 export interface PendingMatch {
   tmdbId: number
   mediaType: MediaType

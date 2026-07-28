@@ -128,8 +128,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Botao 'Filtros' (icone SlidersHorizontal + chevron up/down + badge ambar oculto quando activeFilterCount===0) implementado com Collapsible (client/src/components/ui/collapsible.tsx ja existente) controlando um painel placeholder (o conteudo real dos chips/sliders e US-009/US-010/US-011); dropdown de ordenacao com Select novo (client/src/components/ui/select.tsx, escrito a mao sobre @base-ui/react/select pois nao ha acesso de rede a ui.shadcn.com neste sandbox para `npx shadcn add`), com as 6 opcoes de DiscoverSortBy (popularity/vote_average/release_date x desc/asc). Enquanto ha texto em query (hasQuery), o Select fica disabled e o CollapsibleTrigger tambem (disabled nativo do <button>). Selecionar uma opcao chama handleSortChange, que dispara GET /api/media/discover?sortBy=...&page=1 e substitui results (reaproveitando o grid de cards ja existente) quando nao ha busca textual ativa. Corrigido de passagem um bug latente de US-003: o fetch de /api/media/search ainda lia response.data como MediaSearchResult[] (a API ja retorna MediaPage desde US-003) - agora le response.data.results via o novo tipo MediaPage em types/media.ts."
     },
     {
       "id": "US-009",

@@ -1,18 +1,48 @@
 import { useEffect, useState } from "react"
 
-import { Heart, Loader2, Search, Sparkles, X } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronUp,
+  Heart,
+  Loader2,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { PendingDetailModal } from "@/components/PendingDetailModal"
 import { Button } from "@/components/ui/button"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useMatchStore } from "@/stores/useMatchStore"
-import type { MediaSearchResult, PendingMatch } from "@/types/media"
+import type { MediaPage, MediaSearchResult, PendingMatch } from "@/types/media"
 import type { MediaTrackResponse } from "@/types/tracking"
 
 type LikeState = "idle" | "loading" | "liked" | "matched" | "error"
 type ActiveTab = "suggestions" | "search"
+
+const SORT_OPTIONS = [
+  { value: "popularity.desc", label: "Popularidade ↓" },
+  { value: "popularity.asc", label: "Popularidade ↑" },
+  { value: "vote_average.desc", label: "Avaliacao ↓" },
+  { value: "vote_average.asc", label: "Avaliacao ↑" },
+  { value: "release_date.desc", label: "Data de Lancamento ↓" },
+  { value: "release_date.asc", label: "Data de Lancamento ↑" },
+] as const
 
 const TYPE_LABEL: Record<MediaSearchResult["mediaType"], string> = {
   MOVIE: "Filme",
@@ -175,6 +205,12 @@ function SearchTab() {
   const [searched, setSearched] = useState(false)
   const [trackedKeys, setTrackedKeys] = useState<Set<string>>(new Set())
   const [likeStates, setLikeStates] = useState<Record<string, LikeState>>({})
+  const [sortBy, setSortBy] = useState<string>(SORT_OPTIONS[0].value)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  // Nenhum filtro (data/classificacao/generos/nota/duracao) esta disponivel ainda -
+  // implementados nas proximas stories (US-009/US-010/US-011).
+  const activeFilterCount = 0
+  const hasQuery = query.trim().length > 0
 
   useEffect(() => {
     api
@@ -196,12 +232,12 @@ function SearchTab() {
     const timer = setTimeout(() => {
       setSearching(true)
       api
-        .get<MediaSearchResult[]>("/api/media/search", {
+        .get<MediaPage>("/api/media/search", {
           params: { q: query.trim() },
         })
         .then((response) => {
           if (cancelled) return
-          setResults(response.data)
+          setResults(response.data.results)
           setSearched(true)
         })
         .catch(() => {
@@ -219,6 +255,26 @@ function SearchTab() {
       clearTimeout(timer)
     }
   }, [query])
+
+  const handleSortChange = (nextSortBy: string) => {
+    setSortBy(nextSortBy)
+    if (hasQuery) return
+
+    setSearching(true)
+    api
+      .get<MediaPage>("/api/media/discover", {
+        params: { sortBy: nextSortBy, page: 1 },
+      })
+      .then((response) => {
+        setResults(response.data.results)
+        setSearched(true)
+      })
+      .catch(() => {
+        setResults([])
+        setSearched(true)
+      })
+      .finally(() => setSearching(false))
+  }
 
   const handleLike = async (result: MediaSearchResult) => {
     const key = trackKey(result.mediaType, result.tmdbId)
@@ -244,7 +300,7 @@ function SearchTab() {
 
   return (
     <>
-      <div className="mx-auto mb-10 max-w-[520px]">
+      <div className="mx-auto mb-5 max-w-[520px]">
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-[#a6a39a]" />
           <input
@@ -266,6 +322,64 @@ function SearchTab() {
         </div>
       </div>
 
+      <Collapsible
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        className="mx-auto mb-8 max-w-[820px]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <CollapsibleTrigger
+            disabled={hasQuery}
+            className={cn(
+              "flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+              filtersOpen || activeFilterCount > 0
+                ? "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.12)] text-[#ffcb2b]"
+                : "border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06]"
+            )}
+          >
+            <SlidersHorizontal className="size-4" />
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className="flex size-5 items-center justify-center rounded-full bg-[#ffcb2b] text-[11px] font-bold text-[#09090a]">
+                {activeFilterCount}
+              </span>
+            )}
+            {filtersOpen ? (
+              <ChevronUp className="size-4" />
+            ) : (
+              <ChevronDown className="size-4" />
+            )}
+          </CollapsibleTrigger>
+
+          <Select
+            items={SORT_OPTIONS}
+            value={sortBy}
+            onValueChange={handleSortChange}
+            disabled={hasQuery}
+          >
+            <SelectTrigger className="rounded-full border-white/10 bg-[#161513] px-4 py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40 data-[popup-open]:bg-white/[0.06]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="border border-white/10 bg-[#161513] text-[#f6f4ec]">
+              {SORT_OPTIONS.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="data-highlighted:bg-white/[0.08]"
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <CollapsibleContent className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161513] px-5 py-4 text-sm text-[#a6a39a] data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out data-[starting-style]:fade-in">
+          Painel de filtros em construcao (data de lancamento, classificacao,
+          generos, nota e duracao chegam nas proximas atualizacoes).
+        </CollapsibleContent>
+      </Collapsible>
+
       {!searched && !query.trim() && (
         <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
           Comecem digitando o nome de um filme ou serie ai em cima.
@@ -274,7 +388,9 @@ function SearchTab() {
 
       {searched && !searching && results.length === 0 && (
         <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
-          Nada encontrado para "{query.trim()}". Tentem outro termo.
+          {hasQuery
+            ? `Nada encontrado para "${query.trim()}". Tentem outro termo.`
+            : "Nada encontrado com os filtros atuais. Ajustem a ordenacao ou os filtros."}
         </div>
       )}
 
