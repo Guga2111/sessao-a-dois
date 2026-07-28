@@ -26,6 +26,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Slider,
+  SliderControl,
+  SliderIndicator,
+  SliderThumb,
+  SliderTrack,
+} from "@/components/ui/slider"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -71,6 +78,27 @@ const CERTIFICATION_OPTIONS = [
   { value: "16", label: "16" },
   { value: "18", label: "18" },
 ] as const
+
+const DEFAULT_VOTE_RANGE: [number, number] = [0, 10]
+const DEFAULT_RUNTIME_RANGE: [number, number] = [0, 240]
+
+function formatVoteRangeLabel([min, max]: [number, number]): string {
+  const minLabel = min.toFixed(1).replace(".", ",")
+  const maxLabel = max === 10 ? "10" : max.toFixed(1).replace(".", ",")
+  return `${minLabel} - ${maxLabel}`
+}
+
+function formatMinutes(minutes: number): string {
+  if (minutes === 0) return "0 min"
+  if (minutes % 60 === 0) return `${minutes / 60}h`
+  if (minutes > 60) return `${Math.floor(minutes / 60)}h${minutes % 60}`
+  return `${minutes} min`
+}
+
+function formatRuntimeRangeLabel([min, max]: [number, number]): string {
+  if (min === 0) return `Ate ${formatMinutes(max)}`
+  return `${formatMinutes(min)} - ${formatMinutes(max)}`
+}
 
 function trackKey(mediaType: string, tmdbId: number): string {
   return `${mediaType}-${tmdbId}`
@@ -236,10 +264,26 @@ function SearchTab() {
     string[]
   >([])
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
-  // Nota TMDB e duracao (sliders) chegam em US-010; "Aplicar filtros" (US-011)
-  // e o que de fato dispara /api/media/discover com essa selecao.
+  const [voteRange, setVoteRange] = useState<[number, number]>(
+    DEFAULT_VOTE_RANGE
+  )
+  const [runtimeRange, setRuntimeRange] = useState<[number, number]>(
+    DEFAULT_RUNTIME_RANGE
+  )
+  // "Aplicar filtros" (US-011) e o que de fato dispara /api/media/discover
+  // com essa selecao.
   const activeFilterCount =
-    selectedDecades.length + selectedCertifications.length + selectedGenres.length
+    selectedDecades.length +
+    selectedCertifications.length +
+    selectedGenres.length +
+    (voteRange[0] !== DEFAULT_VOTE_RANGE[0] ||
+    voteRange[1] !== DEFAULT_VOTE_RANGE[1]
+      ? 1
+      : 0) +
+    (runtimeRange[0] !== DEFAULT_RUNTIME_RANGE[0] ||
+    runtimeRange[1] !== DEFAULT_RUNTIME_RANGE[1]
+      ? 1
+      : 0)
   const hasQuery = query.trim().length > 0
 
   useEffect(() => {
@@ -466,6 +510,70 @@ function SearchTab() {
               </ToggleGroup>
             </div>
           )}
+
+          <div className="mt-6 grid grid-cols-1 gap-6 border-t border-white/10 pt-5 sm:grid-cols-2">
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+                  Nota TMDB
+                </span>
+                <span className="text-[13px] font-bold text-[#ffcb2b]">
+                  {formatVoteRangeLabel(voteRange)}
+                </span>
+              </div>
+              <Slider
+                min={0}
+                max={10}
+                step={0.5}
+                minStepsBetweenValues={1}
+                value={voteRange}
+                onValueChange={setVoteRange}
+              >
+                <SliderControl>
+                  <SliderTrack>
+                    <SliderIndicator />
+                  </SliderTrack>
+                  <SliderThumb index={0} />
+                  <SliderThumb index={1} />
+                </SliderControl>
+              </Slider>
+              <div className="mt-1.5 flex justify-between text-[11px] text-[#a6a39a]">
+                <span>0</span>
+                <span>10</span>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+                  Duracao
+                </span>
+                <span className="text-[13px] font-bold text-[#ffcb2b] uppercase">
+                  {formatRuntimeRangeLabel(runtimeRange)}
+                </span>
+              </div>
+              <Slider
+                min={0}
+                max={240}
+                step={5}
+                minStepsBetweenValues={1}
+                value={runtimeRange}
+                onValueChange={setRuntimeRange}
+              >
+                <SliderControl>
+                  <SliderTrack>
+                    <SliderIndicator />
+                  </SliderTrack>
+                  <SliderThumb index={0} />
+                  <SliderThumb index={1} />
+                </SliderControl>
+              </Slider>
+              <div className="mt-1.5 flex justify-between text-[11px] text-[#a6a39a]">
+                <span>0 min</span>
+                <span>240 min</span>
+              </div>
+            </div>
+          </div>
         </CollapsibleContent>
       </Collapsible>
 

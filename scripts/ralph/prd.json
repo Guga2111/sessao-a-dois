@@ -163,8 +163,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Novo client/src/components/ui/slider.tsx (Slider/SliderControl/SliderTrack/SliderIndicator/SliderThumb), escrito a mao sobre @base-ui/react/slider (Slider.Root/Control/Track/Indicator/Thumb via namespace import, mesmo padrao de select.tsx) ja que este sandbox nao tem rede para `npx shadcn add slider`. MatchScreen.tsx (SearchTab): adicionados dois sliders de intervalo (dois thumbs cada) no CollapsibleContent do painel de filtros, logo apos a secao Generos, separados por border-t, em grid sm:grid-cols-2 (NOTA TMDB e DURACAO lado a lado): NOTA TMDB (min 0, max 10, step 0.5, label 'X,X - Y' com o maximo mostrando '10' sem decimal quando no teto, ex. '7,0 - 10'); DURACAO (min 0, max 240, step 5, label 'Ate Xh'/'Ate X min' quando o minimo esta em 0, renderizado com classe uppercase para bater com 'ATE 3H' da referencia). Novo estado local voteRange/runtimeRange ([number,number], default [0,10]/[0,240]); activeFilterCount agora soma tambem +1 quando voteRange ou runtimeRange saem do padrao. minStepsBetweenValues={1} em ambos os sliders evita que os dois thumbs se cruzem. Nenhuma chamada a /api/media/discover e disparada ao mover os sliders - reforca o mesmo padrao de US-009 (estado local ate 'Aplicar filtros' em US-011)."
     },
     {
       "id": "US-011",
