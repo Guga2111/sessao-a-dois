@@ -23,6 +23,11 @@ export interface MediaPage {
   totalPages: number
 }
 
+export interface MediaGenre {
+  id: number
+  name: string
+}
+
 export interface PendingMatch {
   tmdbId: number
   mediaType: MediaType

@@ -146,8 +146,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Chips implementados dentro do CollapsibleContent do painel de filtros ja existente em MatchScreen.tsx (SearchTab), em duas colunas (Data de lancamento / Classificacao indicativa) + secao Generos abaixo (largura total, separada por border-t), reproduzindo o layout de docs/design/prints/matchpage-search-with-filters.jpeg. Novo client/src/components/ui/toggle-group.tsx (ToggleGroup/ToggleGroupItem), escrito a mao sobre @base-ui/react/toggle-group e @base-ui/react/toggle (mesmo motivo dos demais primitivos hand-rolled: sem rede para `npx shadcn add` neste sandbox). Estado local (selectedDecades/selectedCertifications/selectedGenres, todos string[]) alimenta activeFilterCount = soma dos 3 arrays (badge do botao Filtros de US-008 agora reflete a selecao real em vez da constante 0). Generos carregados de GET /api/media/genres (novo tipo MediaGenre em types/media.ts) em um useEffect proprio; secao Generos so renderiza quando genres.length > 0. Nenhuma chamada a /api/media/discover e disparada ao clicar em um chip - isso e explicitamente US-011 ('Aplicar filtros'); os valores de decada usados sao os anos-decada que o backend espera (releaseDecades CSV, ver api/CLAUDE.md), com '1900' representando o chip 'Anterior' (decada mais antiga suportada como piso do intervalo min-max)."
     },
     {
       "id": "US-010",

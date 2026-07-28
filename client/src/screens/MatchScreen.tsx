@@ -26,10 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useMatchStore } from "@/stores/useMatchStore"
-import type { MediaPage, MediaSearchResult, PendingMatch } from "@/types/media"
+import type {
+  MediaGenre,
+  MediaPage,
+  MediaSearchResult,
+  PendingMatch,
+} from "@/types/media"
 import type { MediaTrackResponse } from "@/types/tracking"
 
 type LikeState = "idle" | "loading" | "liked" | "matched" | "error"
@@ -48,6 +54,23 @@ const TYPE_LABEL: Record<MediaSearchResult["mediaType"], string> = {
   MOVIE: "Filme",
   TV: "Serie",
 }
+
+const DECADE_OPTIONS = [
+  { value: "2020", label: "Anos 2020" },
+  { value: "2010", label: "Anos 2010" },
+  { value: "2000", label: "Anos 2000" },
+  { value: "1990", label: "Anos 1990" },
+  { value: "1900", label: "Anterior" },
+] as const
+
+const CERTIFICATION_OPTIONS = [
+  { value: "Livre", label: "Livre" },
+  { value: "10", label: "10" },
+  { value: "12", label: "12" },
+  { value: "14", label: "14" },
+  { value: "16", label: "16" },
+  { value: "18", label: "18" },
+] as const
 
 function trackKey(mediaType: string, tmdbId: number): string {
   return `${mediaType}-${tmdbId}`
@@ -207,10 +230,24 @@ function SearchTab() {
   const [likeStates, setLikeStates] = useState<Record<string, LikeState>>({})
   const [sortBy, setSortBy] = useState<string>(SORT_OPTIONS[0].value)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  // Nenhum filtro (data/classificacao/generos/nota/duracao) esta disponivel ainda -
-  // implementados nas proximas stories (US-009/US-010/US-011).
-  const activeFilterCount = 0
+  const [genres, setGenres] = useState<MediaGenre[]>([])
+  const [selectedDecades, setSelectedDecades] = useState<string[]>([])
+  const [selectedCertifications, setSelectedCertifications] = useState<
+    string[]
+  >([])
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  // Nota TMDB e duracao (sliders) chegam em US-010; "Aplicar filtros" (US-011)
+  // e o que de fato dispara /api/media/discover com essa selecao.
+  const activeFilterCount =
+    selectedDecades.length + selectedCertifications.length + selectedGenres.length
   const hasQuery = query.trim().length > 0
+
+  useEffect(() => {
+    api
+      .get<MediaGenre[]>("/api/media/genres")
+      .then((response) => setGenres(response.data))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     api
@@ -374,9 +411,61 @@ function SearchTab() {
           </Select>
         </div>
 
-        <CollapsibleContent className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161513] px-5 py-4 text-sm text-[#a6a39a] data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out data-[starting-style]:fade-in">
-          Painel de filtros em construcao (data de lancamento, classificacao,
-          generos, nota e duracao chegam nas proximas atualizacoes).
+        <CollapsibleContent className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161513] px-5 py-5 data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out data-[starting-style]:fade-in">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+                Data de lancamento
+              </div>
+              <ToggleGroup
+                multiple
+                value={selectedDecades}
+                onValueChange={setSelectedDecades}
+              >
+                {DECADE_OPTIONS.map((option) => (
+                  <ToggleGroupItem key={option.value} value={option.value}>
+                    {option.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+
+            <div>
+              <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+                Classificacao indicativa
+              </div>
+              <ToggleGroup
+                multiple
+                value={selectedCertifications}
+                onValueChange={setSelectedCertifications}
+              >
+                {CERTIFICATION_OPTIONS.map((option) => (
+                  <ToggleGroupItem key={option.value} value={option.value}>
+                    {option.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          </div>
+
+          {genres.length > 0 && (
+            <div className="mt-6 border-t border-white/10 pt-5">
+              <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+                Generos
+              </div>
+              <ToggleGroup
+                multiple
+                value={selectedGenres}
+                onValueChange={setSelectedGenres}
+              >
+                {genres.map((genre) => (
+                  <ToggleGroupItem key={genre.id} value={String(genre.id)}>
+                    {genre.name}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          )}
         </CollapsibleContent>
       </Collapsible>
 
