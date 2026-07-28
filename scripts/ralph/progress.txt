@@ -28,3 +28,14 @@
   - O clamp fica centralizado no compact constructor do record `MediaPage`, entao qualquer endpoint futuro que monte um MediaPage (US-003 search paginado, US-004 discover) ja herda o comportamento automaticamente, sem precisar chamar nada explicitamente.
   - Mesma limitacao de ambiente do Ralph que em US-001: sem JDK/Maven/rede aqui, entao `./mvnw -q -pl api test` nao pode ser executado neste sandbox. Codigo revisado manualmente com atencao a sintaxe de record compact constructor (reatribuicao dos parametros implicitos e permitida em Java).
 ---
+
+## 2026-07-28 - US-003
+- GET /api/media/search migrado para resposta paginada: MediaController.search agora aceita @RequestParam(defaultValue = "1") int page alem de q (continua obrigatorio/nao vazio via InvalidSearchQueryException); MediaSearchService.search(String query, int page) repassa page ao TMDB (queryParam "page") e retorna MediaPage em vez de List<MediaSearchResult>, reaproveitando o clamp automatico do MediaPage.totalPages/totalResults.
+- TmdbMultiSearchResponse ganhou os campos page/total_pages/total_results (antes so tinha results), no mesmo padrao ja usado por TmdbTrendingResponse.
+- Testes atualizados: MediaSearchServiceTest (todos os asserts de search agora leem page.results(), + search_clampsTotalsToTmdbCapWhenTmdbReportsMore novo) e MediaControllerTest (search_passesRequestedPageToService novo, demais testes de search adaptados ao contrato MediaPage).
+- Arquivos alterados: api/src/main/java/com/app/media/{MediaController.java,MediaSearchService.java,TmdbMultiSearchResponse.java}, api/src/test/java/com/app/media/{MediaControllerTest.java,MediaSearchServiceTest.java}, scripts/ralph/prd.json, scripts/ralph/progress.txt.
+- **Learnings for future iterations:**
+  - Essas mudancas ja estavam presentes no working tree (nao commitadas) no inicio desta iteracao — provavelmente de uma tentativa anterior que nao chegou a commitar/marcar o PRD. Sempre vale checar `git diff`/`git status` no inicio da iteracao antes de reimplementar algo do zero.
+  - US-004 (discover) pode seguir o mesmo padrao: reaproveitar MediaPage e o parsing de items ja existente (toMediaSearchResult), so muda o endpoint/params do TMDB e a logica de merge ao combinar /discover/movie + /discover/tv.
+  - Mesma limitacao de ambiente: sem JDK/Maven/rede neste sandbox, `./mvnw -q -pl api test` nao pode ser executado aqui; codigo revisado manualmente linha a linha contra os padroes existentes de MediaSearchServiceTest/MediaControllerTest.
+---

@@ -46,8 +46,8 @@
         "mvn -q -pl api test passa"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "GET /api/media/search agora aceita page (default 1) e retorna MediaPage, reaproveitando TmdbMultiSearchResponse (agora com page/total_pages/total_results) e o clamp automatico do MediaPage. Testes de MediaSearchServiceTest/MediaControllerTest atualizados para o novo contrato paginado."
     },
     {
       "id": "US-004",

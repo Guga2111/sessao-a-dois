@@ -29,15 +29,19 @@ class MediaSearchServiceTest {
 			1668, "tv", null, "Friends", null, "1994-09-22", "/poster-friends.jpg", "Seis amigos em Nova York.", 8.4);
 		TmdbMultiSearchItem person = new TmdbMultiSearchItem(
 			999, "person", "Keanu Reeves", null, null, null, "/keanu.jpg", null, null);
-		TmdbMultiSearchResponse response = new TmdbMultiSearchResponse(List.of(movie, tv, person));
+		TmdbMultiSearchResponse response = new TmdbMultiSearchResponse(1, List.of(movie, tv, person), 10, 190);
 
 		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
 			.thenReturn(response);
 
 		MediaSearchService service = new MediaSearchService(restClient);
-		List<MediaSearchResult> results = service.search("matrix");
+		MediaPage page = service.search("matrix", 1);
+		List<MediaSearchResult> results = page.results();
 
 		assertThat(results).hasSize(2);
+		assertThat(page.page()).isEqualTo(1);
+		assertThat(page.totalResults()).isEqualTo(190);
+		assertThat(page.totalPages()).isEqualTo(10);
 
 		MediaSearchResult movieResult = results.get(0);
 		assertThat(movieResult.tmdbId()).isEqualTo(603);
@@ -57,36 +61,40 @@ class MediaSearchServiceTest {
 	}
 
 	@Test
-	void search_returnsEmptyListWhenTmdbHasNoResults() {
+	void search_returnsEmptyPageWhenTmdbHasNoResults() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
-			.thenReturn(new TmdbMultiSearchResponse(List.of()));
+			.thenReturn(new TmdbMultiSearchResponse(1, List.of(), 0, 0));
 
 		MediaSearchService service = new MediaSearchService(restClient);
 
-		assertThat(service.search("titulo-inexistente")).isEmpty();
+		assertThat(service.search("titulo-inexistente", 1).results()).isEmpty();
 	}
 
 	@Test
-	void search_returnsEmptyListWhenTmdbResponseBodyIsNull() {
+	void search_returnsEmptyPageWhenTmdbResponseBodyIsNull() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
 			.thenReturn(null);
 
 		MediaSearchService service = new MediaSearchService(restClient);
 
-		assertThat(service.search("qualquer-coisa")).isEmpty();
+		MediaPage page = service.search("qualquer-coisa", 1);
+		assertThat(page.results()).isEmpty();
+		assertThat(page.page()).isEqualTo(1);
+		assertThat(page.totalResults()).isZero();
+		assertThat(page.totalPages()).isZero();
 	}
 
 	@Test
-	void search_returnsEmptyListWhenResultsFieldIsNull() {
+	void search_returnsEmptyPageWhenResultsFieldIsNull() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
-			.thenReturn(new TmdbMultiSearchResponse(null));
+			.thenReturn(new TmdbMultiSearchResponse(1, null, 0, 0));
 
 		MediaSearchService service = new MediaSearchService(restClient);
 
-		assertThat(service.search("resposta-sem-results")).isEmpty();
+		assertThat(service.search("resposta-sem-results", 1).results()).isEmpty();
 	}
 
 	@Test
@@ -95,14 +103,29 @@ class MediaSearchServiceTest {
 		TmdbMultiSearchItem movieWithoutExtras = new TmdbMultiSearchItem(
 			1, "movie", "Sem Poster", null, null, null, null, "sem overview", null);
 		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
-			.thenReturn(new TmdbMultiSearchResponse(List.of(movieWithoutExtras)));
+			.thenReturn(new TmdbMultiSearchResponse(1, List.of(movieWithoutExtras), 1, 1));
 
 		MediaSearchService service = new MediaSearchService(restClient);
-		List<MediaSearchResult> results = service.search("sem poster");
+		List<MediaSearchResult> results = service.search("sem poster", 1).results();
 
 		assertThat(results).hasSize(1);
 		assertThat(results.get(0).posterUrl()).isNull();
 		assertThat(results.get(0).year()).isNull();
+	}
+
+	@Test
+	void search_clampsTotalsToTmdbCapWhenTmdbReportsMore() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		TmdbMultiSearchResponse response = new TmdbMultiSearchResponse(1, List.of(), 100_000, 999_999);
+
+		when(restClient.get().uri(any(Function.class)).retrieve().body(TmdbMultiSearchResponse.class))
+			.thenReturn(response);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		MediaPage page = service.search("matrix", 1);
+
+		assertThat(page.totalPages()).isEqualTo(500);
+		assertThat(page.totalResults()).isEqualTo(10_000);
 	}
 
 	@Test
@@ -116,7 +139,7 @@ class MediaSearchServiceTest {
 
 		MediaSearchService service = new MediaSearchService(restClient);
 
-		assertThatThrownBy(() -> service.search("matrix"))
+		assertThatThrownBy(() -> service.search("matrix", 1))
 			.isInstanceOf(TmdbUnavailableException.class)
 			.hasCauseInstanceOf(HttpServerErrorException.class);
 	}
@@ -131,7 +154,7 @@ class MediaSearchServiceTest {
 
 		MediaSearchService service = new MediaSearchService(restClient);
 
-		assertThatThrownBy(() -> service.search("matrix"))
+		assertThatThrownBy(() -> service.search("matrix", 1))
 			.isInstanceOf(TmdbUnavailableException.class)
 			.hasCause(timeout);
 	}

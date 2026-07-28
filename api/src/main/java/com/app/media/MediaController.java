@@ -1,7 +1,5 @@
 package com.app.media;
 
-import java.util.List;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,12 +22,13 @@ public class MediaController {
 	}
 
 	@GetMapping("/search")
-	public ResponseEntity<List<MediaSearchResult>> search(@RequestParam(required = false) String q) {
+	public ResponseEntity<MediaPage> search(
+			@RequestParam(required = false) String q, @RequestParam(defaultValue = "1") int page) {
 		if (!StringUtils.hasText(q)) {
 			throw new InvalidSearchQueryException("O parametro 'q' e obrigatorio e nao pode ser vazio.");
 		}
 
-		return ResponseEntity.ok(mediaSearchService.search(q));
+		return ResponseEntity.ok(mediaSearchService.search(q, page));
 	}
 
 	@GetMapping("/trending")

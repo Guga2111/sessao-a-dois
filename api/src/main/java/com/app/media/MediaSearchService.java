@@ -22,11 +22,14 @@ public class MediaSearchService {
 		this.tmdbRestClient = tmdbRestClient;
 	}
 
-	public List<MediaSearchResult> search(String query) {
+	public MediaPage search(String query, int page) {
 		TmdbMultiSearchResponse response;
 		try {
 			response = tmdbRestClient.get()
-				.uri(uriBuilder -> uriBuilder.path(SEARCH_ENDPOINT).queryParam("query", query).build())
+				.uri(uriBuilder -> uriBuilder.path(SEARCH_ENDPOINT)
+					.queryParam("query", query)
+					.queryParam("page", page)
+					.build())
 				.retrieve()
 				.body(TmdbMultiSearchResponse.class);
 		}
@@ -35,13 +38,15 @@ public class MediaSearchService {
 		}
 
 		if (response == null || response.results() == null) {
-			return List.of();
+			return new MediaPage(List.of(), page, 0, 0);
 		}
 
-		return response.results().stream()
+		List<MediaSearchResult> results = response.results().stream()
 			.filter(item -> "movie".equals(item.mediaType()) || "tv".equals(item.mediaType()))
 			.map(this::toMediaSearchResult)
 			.toList();
+
+		return new MediaPage(results, response.page(), response.totalResults(), response.totalPages());
 	}
 
 	public MediaPage trending(int page) {

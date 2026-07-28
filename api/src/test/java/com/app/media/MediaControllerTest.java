@@ -44,25 +44,39 @@ class MediaControllerTest {
 	void search_returnsMixedResultsForAuthenticatedUser() throws Exception {
 		MediaSearchResult movie = new MediaSearchResult(
 			603, MediaType.MOVIE, "Matrix", 1999, "https://image.tmdb.org/t/p/w500/poster.jpg", "overview", 8.2);
-		when(mediaSearchService.search("matrix")).thenReturn(List.of(movie));
+		MediaPage page = new MediaPage(List.of(movie), 1, 1, 1);
+		when(mediaSearchService.search("matrix", 1)).thenReturn(page);
 
 		mockMvc.perform(get("/api/media/search").param("q", "matrix").with(authentication(authenticatedUser())))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$[0].tmdbId").value(603))
-			.andExpect(jsonPath("$[0].mediaType").value("MOVIE"))
-			.andExpect(jsonPath("$[0].title").value("Matrix"));
+			.andExpect(jsonPath("$.results[0].tmdbId").value(603))
+			.andExpect(jsonPath("$.results[0].mediaType").value("MOVIE"))
+			.andExpect(jsonPath("$.results[0].title").value("Matrix"))
+			.andExpect(jsonPath("$.page").value(1));
 	}
 
 	@Test
-	void search_returnsEmptyListWhenNoResultsFound() throws Exception {
-		when(mediaSearchService.search("titulo-inexistente")).thenReturn(List.of());
+	void search_passesRequestedPageToService() throws Exception {
+		when(mediaSearchService.search("matrix", 2)).thenReturn(new MediaPage(List.of(), 2, 0, 0));
+
+		mockMvc.perform(get("/api/media/search")
+				.param("q", "matrix")
+				.param("page", "2")
+				.with(authentication(authenticatedUser())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.page").value(2));
+	}
+
+	@Test
+	void search_returnsEmptyPageWhenNoResultsFound() throws Exception {
+		when(mediaSearchService.search("titulo-inexistente", 1)).thenReturn(new MediaPage(List.of(), 1, 0, 0));
 
 		mockMvc.perform(get("/api/media/search")
 				.param("q", "titulo-inexistente")
 				.with(authentication(authenticatedUser())))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$").isEmpty());
+			.andExpect(jsonPath("$.results").isArray())
+			.andExpect(jsonPath("$.results").isEmpty());
 	}
 
 	@Test
@@ -126,7 +140,8 @@ class MediaControllerTest {
 
 	@Test
 	void search_returnsBadGatewayWhenTmdbIsUnavailable() throws Exception {
-		when(mediaSearchService.search("matrix")).thenThrow(new TmdbUnavailableException("/search/multi", new RuntimeException("boom")));
+		when(mediaSearchService.search("matrix", 1))
+			.thenThrow(new TmdbUnavailableException("/search/multi", new RuntimeException("boom")));
 
 		mockMvc.perform(get("/api/media/search").param("q", "matrix").with(authentication(authenticatedUser())))
 			.andExpect(status().isBadGateway())
