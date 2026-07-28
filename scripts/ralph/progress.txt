@@ -1,80 +1,196 @@
-# Ralph Progress Log
-Started: Sun Jul 26 14:28:59 PDT 2026
+## Codebase Patterns
+- Backend package base is `com.app` (package-by-feature): user, couple, media, tracking, match, notification, security, websocket.
+- Notifications: `NotificationService.notifyCouple(...)` is the single entry point today; it persists one Notification per couple member and pushes STOMP to `/topic/couple/{coupleId}/notifications` via `TransactionSynchronizationManager.afterCommit()`. Reuse the persist-then-push-after-commit pattern.
+- Enums on entities are always `@Enumerated(EnumType.STRING)`, so adding an enum constant needs no data migration.
+- `api/src/test/resources/application.properties` REPLACES the main one for `@SpringBootTest`; any new required property must be mirrored there.
+- **This sandbox has no JDK and no Maven Central access** (`java` not found, `./mvnw` cannot download Maven). Backend compile/test acceptance criteria cannot be verified here — keep changes conservative and flag verification as pending in the progress log.
+- Frontend rule (CLAUDE.md): any change under `client/` must invoke the `frontend-design` skill first.
+
 ---
 
-## 2026-07-26 - US-006
-- Implemented REST endpoints for notifications: GET /api/notifications (paginated), GET /api/notifications/unread-count, PATCH /api/notifications/{id}/read, PATCH /api/notifications/read-all.
+## 2026-07-27 - US-001
+- Added `RATING_REQUEST` to `NotificationType` (now MATCH, NO_MATCH, RATING_REQUEST). `Notification.type` is already `@Enumerated(EnumType.STRING)`, so the constant persists as the literal string and existing rows are untouched (no migration needed).
+- Added `NotificationRepositoryTest.ratingRequestTypeIsPersistedAsItsEnumName` asserting the raw `type` column stores `'RATING_REQUEST'` and reads back as the enum.
 - Files changed:
-  - api/src/main/java/com/app/notification/NotificationController.java (new)
-  - api/src/main/java/com/app/notification/NotificationExceptionHandler.java (new)
-  - api/src/main/java/com/app/notification/UnreadCountResponse.java (new)
-  - api/src/main/java/com/app/notification/NotificationService.java (listNotifications/unreadCount/markAsRead/markAllAsRead)
-  - api/src/main/java/com/app/notification/NotificationRepository.java (markAllAsReadByRecipientUserId bulk @Modifying query)
-  - api/src/test/java/com/app/notification/NotificationControllerTest.java (new)
-  - api/src/test/java/com/app/notification/NotificationServiceTest.java (extended)
+  - `api/src/main/java/com/app/notification/NotificationType.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
 - **Learnings for future iterations:**
-  - Every feature package in this backend gets its own `@RestControllerAdvice(basePackages = "com.app.X")` handler that maps `com.app.tracking.ResourceNotFoundException` -> 404 and `org.springframework.security.access.AccessDeniedException` -> 403 (see TrackingExceptionHandler/MatchExceptionHandler). Reuse this exact pattern rather than inventing a new exception type per feature.
-  - `com.app.tracking.ResourceNotFoundException` is a shared cross-feature class (already imported by com.app.match) - it's fine to reuse from com.app.notification too instead of creating a notification-specific one.
-  - For a "mark all as read/done" bulk update, prefer a `@Modifying @Query("UPDATE ... SET ... WHERE ...")` on the repository (needs the calling service method annotated `@Transactional`) over fetching all rows and calling save() in a loop.
-  - When a DTO/list endpoint needs a display name resolved from a foreign id per row (e.g. actorName from actorUserId), batch-resolve with `userRepository.findAllById(distinctIds)` into a Map first, then map over the page - avoids N+1 UserRepository.findById calls per row.
-  - This sandbox has no JDK/Maven and no network access to Maven Central (mvnw tries to download the maven distribution and fails) - consistent with the note already in api/CLAUDE.md. Changes here were verified by manual code review only, not by running ./mvnw test. Flag this to a human or a later iteration with build tooling available.
+  - No `switch` over `NotificationType` exists in main code (only `notifyCouple` passing it through and Mockito `any(NotificationType.class)` matchers in tests), so adding a constant does not break exhaustiveness anywhere.
+  - `./mvnw -DskipTests package` could NOT be run in this environment (no JDK, Maven wrapper cannot fetch the distribution). Build/test verification is pending on a machine with JDK 21 + network.
+  - `NotificationRepositoryTest` is a `@DataJpaTest` with an autowired `EntityManager`; native queries against the `notification` table are already used there (see the createdAt-backdating test) — reuse that for column-level assertions.
 ---
 
-## 2026-07-26 - US-007
-- Implemented TypeScript types and Zustand store for notifications.
-- Files changed:
-  - client/src/types/notification.ts (new)
-  - client/src/stores/useNotificationStore.ts (new)
+## 2026-07-27 - US-002
+- `Notification` ganhou coluna nullable `media_track_id` (UUID) + getter e um segundo construtor de 8 args com `mediaTrackId`; o construtor antigo de 7 args delega passando `null`, entao MATCH/NO_MATCH seguem identicos sem tocar em `MatchService`.
+- `NotificationDto` ganhou `UUID mediaTrackId` como ultimo componente do record; `NotificationService.toDto` preenche a partir da entidade (vale tanto para REST quanto para o push STOMP, que serializa o mesmo DTO).
+- Testes: `NotificationServiceTest` (mapeamento do DTO com mediaTrackId preenchido em RATING_REQUEST e null em MATCH), `NotificationRepositoryTest.mediaTrackIdIsPersistedForRatingRequestAndNullForMatch`, e `NotificationControllerTest.dto(...)` ajustado para o novo arity.
+- Arquivos alterados:
+  - `api/src/main/java/com/app/notification/Notification.java`
+  - `api/src/main/java/com/app/notification/NotificationDto.java`
+  - `api/src/main/java/com/app/notification/NotificationService.java`
+  - `api/src/test/java/com/app/notification/NotificationServiceTest.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/src/test/java/com/app/notification/NotificationControllerTest.java`
 - **Learnings for future iterations:**
-  - Frontend paginated list endpoints (Spring Data `Page<T>`) get a `Paged<X>Response` interface mirroring `PagedMediaTrackResponse` (content/totalElements/totalPages/number/size) - reused this shape for `PagedNotificationResponse`.
-  - Store pattern (see useMatchStore/useAuthStore): plain Zustand `create<State>((set, get) => ({...}))`, all HTTP via the shared `api` axios client (src/lib/api.ts) which already attaches the JWT.
-  - For optimistic updates with rollback (markAsRead/markAllAsRead), snapshot the pre-update state at the top of the action, apply the optimistic `set()`, then in the `catch` restore the snapshot via `set()` and rethrow - avoids hand-rolling inverse-operation logic.
-  - `fetchNotifications()` and `fetchUnreadCount()` are kept as two separate store methods (not combined) because US-008's spec calls them independently on app load ("chamar fetchNotifications() e buscar unread-count").
-  - `npm run lint` in client/ currently has 6 pre-existing errors unrelated to notifications work (PendingDetailModal.tsx, ReviewModal.tsx, WatchModal.tsx react-hooks/set-state-in-effect; button.tsx react-refresh/only-export-components) - verified with `npx eslint <new files>` directly that the new files themselves are lint-clean; do not assume `npm run lint` will exit 0 in this repo right now.
+  - `NotificationDto` e um record: adicionar um componente quebra TODA construcao posicional. Hoje o unico ponto fora do service e `NotificationControllerTest.dto(...)` — grepar por `new NotificationDto(` antes de mexer.
+  - Ao adicionar campo opcional a uma entidade com construtor publico usado por outra feature (`MatchService`), preferir sobrecarga: construtor novo completo + o antigo delegando com `null`. Evita tocar em call sites de match.
+  - `ddl-auto=update` (application.properties) cria a coluna nova automaticamente em dev/prod; nao ha Flyway/Liquibase no projeto, entao "migracao" e sempre so adicionar coluna nullable.
+  - Continua valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha no download do proprio Maven. Compilacao/testes do backend seguem pendentes de verificacao em maquina com JDK 21.
 ---
 
-## 2026-07-26 - US-008
-- Subscribed to /topic/couple/{coupleId}/notifications on the existing STOMP connection managed by useMatchStore, and wired notification fetch-on-load into App.tsx.
-- Files changed:
-  - client/src/stores/useMatchStore.ts (client.subscribe to the notifications topic inside onConnect, forwards each message to useNotificationStore.getState().pushIncoming)
-  - client/src/App.tsx (the existing isAuthenticated+hasPartner+coupleId effect now also calls fetchNotifications()/fetchUnreadCount() alongside connect())
+## 2026-07-27 - US-003
+- `NotificationService.notifyRatingRequest(couple, recipientUserId, actorUserId, tmdbId, mediaType, title, mediaTrackId)`: persiste exatamente 1 `Notification` do tipo `RATING_REQUEST` para o parceiro e retorna `Optional<NotificationDto>`. Reusa `scheduleBroadcast(...)` (mesmo `afterCommit` de `notifyCouple`) publicando em `/topic/couple/{coupleId}/notifications`.
+- `recipientUserId == null` (casal sem parceiro): retorna `Optional.empty()` sem salvar nada e sem push — guard antes de qualquer acesso a repositorio.
+- Testes novos em `NotificationServiceTest`: cria 1 notificacao com destinatario/mediaTrackId/actorName corretos; push so acontece depois do `afterCommit` (usando `TransactionSynchronizationManager.initSynchronization()` + disparo manual das synchronizations); caso destinatario nulo e no-op total.
+- Arquivos alterados:
+  - `api/src/main/java/com/app/notification/NotificationService.java`
+  - `api/src/test/java/com/app/notification/NotificationServiceTest.java`
+  - `api/CLAUDE.md`
 - **Learnings for future iterations:**
-  - Cross-store calls from inside a Zustand store body (not a React component) should use `useOtherStore.getState().action(...)` rather than a hook - avoids importing React hook machinery into non-component code and sidesteps any circular-subscription concerns.
-  - No payload transform was needed for the STOMP notification message: NotificationDto (backend) and the `Notification` TS type (client/src/types/notification.ts, from US-007) already have matching field names, so `JSON.parse(message.body) as Notification` is a direct, safe cast.
-  - Sandbox gotcha confirmed still current: `npx vite build` fails with `Cannot find module './rolldown-binding.linux-arm64-gnu.node'` until `npm install @rolldown/binding-linux-arm64-gnu lightningcss-linux-arm64-gnu @tailwindcss/oxide-linux-arm64-gnu` is run locally - but do NOT commit that `npm install` (it dirties package.json/package-lock.json with sandbox-only arm64 optional bindings that were never part of prior commits); `git checkout -- client/package.json client/package-lock.json` after verifying the build to keep the diff clean.
+  - Para testar o `afterCommit` sem Spring: `TransactionSynchronizationManager.initSynchronization()`, chamar o metodo, verificar que `messagingTemplate` NAO foi usado, depois `getSynchronizations().forEach(TransactionSynchronization::afterCommit)` e `clearSynchronization()` num `finally`. Sem `initSynchronization()` o service publica imediatamente — por isso os testes antigos de `notifyCouple` veem o send na hora.
+  - `notificationRepository.save(...)` mockado deve devolver a propria entidade com id setado via `ReflectionTestUtils.setField(n, "id", ...)`; devolver uma entidade fabricada a parte (como `savedNotification`) apaga os campos que o teste quer assertar (mediaTrackId, recipient).
+  - Nova convencao: eventos de destinatario unico usam `Optional<NotificationDto>`; `notifyCouple` (varios destinatarios) continua com `List<NotificationDto>`.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha ao baixar o proprio Maven. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
 ---
 
-## 2026-07-26 - US-009
-- Added NotificationBell icon/badge component and mounted it in the Header, to the left of the couple avatars.
-- Files changed:
-  - client/src/components/NotificationBell.tsx (new)
-  - client/src/components/Header.tsx (import + render inside the existing couple?.partner block)
+## 2026-07-27 - US-004
+- Novo `RatingRequestService` (com.app.tracking) com o orquestrador unico `onRatingRegistered(MediaTrack track, UUID actorUserId)`: resolve o parceiro pelo `Couple`, checa as 4 condicoes (ator tem rating; parceiro existe; parceiro sem rating; sem RATING_REQUEST nao lida) e delega para `NotificationService.notifyRatingRequest(...)`.
+- Chamado nos 3 caminhos: `MediaTrackService.markAsWatched` (sempre), `MediaTrackService.addTrack` (so quando o track nasce `WATCHED`) e `UserReviewService.upsertReview`. As tres passaram a ser `@Transactional` para que a notificacao e o push after-commit fiquem na mesma transacao da escrita da nota.
+- Idempotencia: `NotificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(...)` — derived query escopada por casal (nunca cruza casais que rastreiam o mesmo tmdbId).
+- Titulo via `MediaDetailsService.getDetails(...).title()` em `try/catch (RuntimeException)` com fallback `RatingRequestService.FALLBACK_TITLE` ("seu titulo"); TMDB fora do ar nao derruba o registro da nota.
+- Testes: `RatingRequestServiceTest` (7 casos: notifica com ator=user1 e ator=user2, parceiro ja avaliou, casal sem parceiro, ator sem nota, pedido nao lido ja existente, fallback de titulo), tests de call site nos 3 caminhos (`MediaTrackServiceTest` x3, `UserReviewServiceTest` x1) e 2 casos de repositorio para a nova query.
+- Arquivos alterados:
+  - `api/src/main/java/com/app/tracking/RatingRequestService.java` (novo)
+  - `api/src/main/java/com/app/tracking/MediaTrackService.java`
+  - `api/src/main/java/com/app/tracking/UserReviewService.java`
+  - `api/src/main/java/com/app/notification/NotificationRepository.java`
+  - `api/src/test/java/com/app/tracking/RatingRequestServiceTest.java` (novo)
+  - `api/src/test/java/com/app/tracking/MediaTrackServiceTest.java`
+  - `api/src/test/java/com/app/tracking/UserReviewServiceTest.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/CLAUDE.md`
 - **Learnings for future iterations:**
-  - `npx vite build` worked in this sandbox run without needing the arm64 optional-binding workaround noted after US-008 - the packages must already be present from that prior install. Still remove `dist/` after a manual build check and confirm `git status --short package.json package-lock.json` is empty before committing, just in case.
-  - No Chromium/Playwright in this sandbox (per client/CLAUDE.md), so "verify in browser" for UI stories here means: tsc --noEmit, eslint on the changed files, and a full `npx vite build` as a stronger-than-typecheck signal that the component actually compiles and renders without errors - not a real screenshot. Documented as such per US-009's acceptance criteria fallback clause.
-  - The bell is mounted inside the same `couple?.partner &&` conditional as `CoupleAvatars` in Header.tsx (not rendered when there's no linked partner yet), since notifications are couple-scoped and only make sense once a couple exists. Keep this in mind for US-010's dropdown - it should live in the same conditional block.
+  - Adicionar uma dependencia ao construtor de `MediaTrackService`/`UserReviewService` quebra os testes unitarios (`new MediaTrackService(...)` no `@BeforeEach`) — nao ha `@InjectMocks` nesses testes, a construcao e manual. Grepar por `new MediaTrackService(`/`new UserReviewService(` antes de mexer no construtor.
+  - `MediaTrackService.markAsWatched`/`addTrack` e `UserReviewService.upsertReview` NAO eram `@Transactional` antes desta story; sem transacao ativa o `scheduleBroadcast` do `NotificationService` publica imediatamente (antes do commit). Qualquer novo efeito colateral pos-escrita precisa que o metodo seja transacional.
+  - Em `upsertReview`, a `UserReview` vinda de `userReviewRepository.findByMediaTrackIdAndUserId` e a mesma instancia presente em `track.getReviews()` dentro do mesmo persistence context — por isso o orquestrador pode ler a nota do ator direto de `track.getReviews()` nos 3 caminhos, sem consultar o repositorio de reviews.
+  - `US-005` (resolver o pedido do proprio ator) e `US-006` (limpar ao deletar o track) devem entrar no mesmo `RatingRequestService`/`NotificationRepository`, nao em novos servicos.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` falha ao baixar o proprio Maven. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
 ---
 
-## 2026-07-26 - US-010
-- Added NotificationDropdown.tsx (Popover anchored to NotificationBell) listing notifications, with mark-as-read/mark-all-as-read, "Ver mais" pagination, and per-type/per-recipient contextual text; mounted in Header.tsx in place of the bare NotificationBell.
-- Files changed:
-  - client/src/components/NotificationDropdown.tsx (new)
-  - client/src/components/Header.tsx (renders NotificationDropdown instead of NotificationBell directly)
+## 2026-07-27 - US-005
+- `RatingRequestService.onRatingRegistered` agora tambem resolve os pedidos do proprio ator: logo apos confirmar que o ator tem nota (e antes de decidir sobre notificar o parceiro), marca como lidas todas as RATING_REQUEST nao lidas de `(actorUserId, couple, tmdbId)` via `resolvePendingRequestsFor(...)`. Como o orquestrador ja era chamado em `markAsWatched`, `addTrack` (WATCHED) e `upsertReview`, os 3 caminhos ficam cobertos sem tocar nos call sites.
+- Nova derived query `NotificationRepository.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(...)` (escopada ao casal, espelhando a query de idempotencia `exists...`), seguida de `saveAll` das entidades com `setRead(true)`. Lista vazia = no-op total (nem `saveAll`).
+- Testes: `RatingRequestServiceTest` +3 (resolve o pedido pendente do ator; no-op quando nao ha pendente; nada acontece quando o ator nao deu nota) e `NotificationRepositoryTest` +2 (a query filtra por destinatario/casal/tmdbId/tipo/nao-lida; vazio quando nao ha pendente).
+- Arquivos alterados:
+  - `api/src/main/java/com/app/tracking/RatingRequestService.java`
+  - `api/src/main/java/com/app/notification/NotificationRepository.java`
+  - `api/src/test/java/com/app/tracking/RatingRequestServiceTest.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/CLAUDE.md`
 - **Learnings for future iterations:**
-  - `render={<SomeComponent />}` is this codebase's established composition pattern for base-ui primitives (see ui/dialog.tsx's `DialogPrimitive.Close render={<Button variant="outline" />}`) - used the same way here for `PopoverTrigger render={<NotificationBell />}`. Since `NotificationBell` is already a native `<button>` and `PopoverTrigger`'s default `nativeButton` is `true`, no extra wrapper or `nativeButton={false}` was needed.
-  - `date-fns` v4 (already a dependency) ships a `pt-BR` locale at `date-fns/locale` - used `formatDistanceToNowStrict(date, { addSuffix: true, locale: ptBR })` for "há 2 min"-style relative time; no new dependency required.
-  - `useNotificationStore.markAsRead` is already idempotent (no-ops if the target is already `read`), so item click handlers can call it unconditionally without checking `read` first.
-  - The store's `notifications` list is already capped at one page (20) by `fetchNotifications`/`fetchMore`'s `PAGE_SIZE`, so no dropdown-side slicing/truncation was needed for the "20 most recent" requirement - just render the store's list as-is.
-  - Still no Chromium/JDK/Maven in this sandbox, consistent with prior notes - verification here is tsc/eslint/`vite build` only, not a real rendered screenshot or a live backend. Flag for a human/CI pass with real browser + backend before considering the UI fully verified.
+  - A resolucao tem que vir ANTES do `return` do "parceiro ja avaliou": o caso mais comum (ator e o parceiro pendente respondendo ao pedido) e justamente aquele em que o outro membro ja tem nota, entao colocar a resolucao depois dessa guarda nunca resolveria nada.
+  - Em teste Mockito, metodo de repositorio que retorna `List` devolve lista vazia por padrao — os testes antigos que agora passam pelo novo `find...` continuam verdes sem stub adicional. Nao vale para retorno `Optional`/objeto.
+  - US-006 (limpar RATING_REQUEST ao deletar o track) deve reusar `NotificationRepository` com uma query de delecao escopada por casal e ser chamada de `MediaTrackService.deleteTrack`, que precisa ser `@Transactional`.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` nao roda. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
 ---
 
-## 2026-07-26 - US-011
-- Wired the MATCH notification (STOMP) to also trigger the existing Match celebration modal, with dedup so a client never sees the celebration twice for the same match.
-- Files changed:
-  - client/src/stores/useMatchStore.ts (module-level `celebratedMatchKeys` Set + new `celebrateMatch(event, dedupeKey)` action; /match STOMP handler now routes through it)
-  - client/src/stores/useNotificationStore.ts (pushIncoming calls `useMatchStore.getState().celebrateMatch(...)` for MATCH-type notifications, using the same `tmdb:{tmdbId}` dedupe key as the /match handler)
+## 2026-07-27 - US-006
+- `NotificationRepository.deleteByCoupleIdAndTmdbIdAndType(coupleId, tmdbId, type)` (derived delete query, escopada por casal e tipo) + `RatingRequestService.onTrackDeleted(track)`, que chama essa query com `NotificationType.RATING_REQUEST` — nunca toca MATCH/NO_MATCH nem outro casal que rastreie o mesmo tmdbId.
+- `MediaTrackService.deleteTrack` passou a ser `@Transactional` e chama `ratingRequestService.onTrackDeleted(track)` antes de `mediaTrackRepository.delete(track)`, na mesma transacao.
+- Testes: `NotificationRepositoryTest` +2 (apaga so as RATING_REQUEST daquele casal+titulo, ignorando MATCH/outro titulo/outro casal; no-op quando nao ha nenhuma), `RatingRequestServiceTest` +1 (delega para o repositorio com os ids certos, sem tocar em `notificationService`), `MediaTrackServiceTest` +2 (`verify(ratingRequestService).onTrackDeleted(track)` no caminho feliz; `verify(ratingRequestService, never())...` quando o track nao existe).
+- Arquivos alterados:
+  - `api/src/main/java/com/app/notification/NotificationRepository.java`
+  - `api/src/main/java/com/app/tracking/MediaTrackService.java`
+  - `api/src/main/java/com/app/tracking/RatingRequestService.java`
+  - `api/src/test/java/com/app/notification/NotificationRepositoryTest.java`
+  - `api/src/test/java/com/app/tracking/MediaTrackServiceTest.java`
+  - `api/src/test/java/com/app/tracking/RatingRequestServiceTest.java`
 - **Learnings for future iterations:**
-  - The backend already sends two independent STOMP messages per match (/topic/couple/{id}/match with a MatchEvent, and /topic/couple/{id}/notifications with a MATCH Notification) - both reach every subscriber. Any client-side reaction driven by "a match happened" that listens to both topics needs a shared dedupe key (we used `tmdb:{tmdbId}`) so the first message to arrive wins and the second is a no-op, rather than firing twice.
-  - useMatchStore -> useNotificationStore -> useMatchStore is now a two-directional circular import between the two store files. This is safe in this codebase specifically because both sides only touch the other store inside callback bodies (STOMP message handlers, pushIncoming), never during module init/store creation - if a future change needs the other store's state synchronously at creation time, this circularity would need breaking up (e.g. an event bus) instead.
-  - Confirmed via the frontend-design skill that not every client/ story needs new visual design - pure state/logic stories (no new component, no visual change) still route through the skill per CLAUDE.md, but the skill itself will say "no design guidance needed" when the acceptance criteria is logic-only.
+  - Este era o ultimo item backend do epico; US-007 em diante e tudo `client/` — invocar a skill `frontend-design` antes de qualquer implementacao ali, por regra do `CLAUDE.md` da raiz.
+  - `deleteByCoupleIdAndTmdbIdAndType` roda ANTES de `mediaTrackRepository.delete(track)` em `deleteTrack`, nao depois — a limpeza de notificacoes nao depende do track ainda existir (usa `couple.getId()`/`track.getTmdbId()`, nao o id do track), mas manter a ordem "notificacoes primeiro" segue o mesmo padrao dos outros orquestradores do `RatingRequestService`.
+  - Segue valendo: sem JDK/Maven Central neste sandbox — `./mvnw -DskipTests package` nao roda. Compilacao/testes pendentes de verificacao em maquina com JDK 21.
+---
+
+## 2026-07-27 - US-007
+- `client/src/types/notification.ts`: `NotificationType` ganhou `"RATING_REQUEST"` e a interface `Notification` ganhou `mediaTrackId: string | null`, espelhando o `NotificationDto` do backend (US-002).
+- Nao ha nenhuma construcao de objeto `Notification` por literal no client (so `import type` e uso via API/store), entao nenhum outro arquivo precisou mudar.
+- Arquivos alterados:
+  - `client/src/types/notification.ts`
+- **Learnings for future iterations:**
+  - `client` roda com `npm` neste sandbox (nao ha `bun` instalado, apesar do `docs/ARCHITECTURE.md` mencionar Bun como package manager do projeto); `npm run typecheck` (`tsc --noEmit`) funciona e passou limpo aqui.
+  - Story puramente de tipos, sem skill `frontend-design` necessaria (nao ha UI/componente/pagina visivel envolvido) — a regra do CLAUDE.md da raiz sobre `frontend-design` se aplica a partir de US-008 (Dialog) em diante.
+  - `docs/` (regra obrigatoria do CLAUDE.md raiz) foi conferido: `ARCHITECTURE.md` tem contexto de arquitetura relevante; `support.js`/`Sessao a Dois.dc.html` sao artefatos gerados de um runtime de design (dc-runtime), sem instrucoes de projeto — so codigo de renderizacao de prototipo.
+---
+
+## 2026-07-27 - US-008
+- Novo `client/src/components/RatingRequestDialog.tsx`: usa o `Dialog`/`DialogContent` shadcn (`components/ui/dialog.tsx`, primitiva `@base-ui/react/dialog`) em vez do backdrop manual do `ReviewModal`, mas reaproveita 1:1 os tokens visuais inline dele (bg `#161513`, texto `#f6f4ec`, estrelas `#ffb443`/`rgba(255,255,255,.18)`, textarea `#201e18` com foco `#ffcb2b`, botao salvar com borda/bg/texto amarelos, erro em vermelho `#ff6b6b`). Controlado via `mediaTrackId: string | null` (dialog aberto quando nao-null), nao por um trigger interno — pensado para ser aberto de fora (US-009 vai controla-lo a partir do `NotificationDropdown`).
+- Estrelas 1-5 e opiniao opcionais (mesma logica de toggle do `ReviewModal`: clicar na estrela atual zera a nota). Submete `PUT /api/tracking/{mediaTrackId}/review` com `{ rating: rating > 0 ? rating : null, opinion: opinion.trim() || null }`; em sucesso chama `onSuccess(track)` (quem monta decide o que fazer, ex. fechar + marcar notificacao como lida).
+- Erro 404 tratado explicitamente (`caught.response?.status === 404`) com a mensagem fixa "Este título não está mais na sua lista."; qualquer outro erro cai no fallback generico (`caught.response?.data?.message` ou mensagem padrao), igual ao `ReviewModal`. O Dialog nao fecha sozinho no erro, so limpa `saving`.
+- Arquivos alterados:
+  - `client/src/components/RatingRequestDialog.tsx` (novo)
+- **Learnings for future iterations:**
+  - Confirmar `npm run lint` ANTES de mexer em componentes de modal: ha 6 erros pre-existentes de baseline (`react-hooks/set-state-in-effect` em `ReviewModal.tsx`, `WatchModal.tsx`, `PendingDetailModal.tsx` + `react-refresh/only-export-components` em `ui/button.tsx`), nao relacionados a esta story. Testado isolando o arquivo novo (`mv` para fora do `src/`, rodar lint, `mv` de volta) — o count sobe de 6 para 7 so por seguir o MESMO padrao de `useEffect` + `setState` do `ReviewModal` (inevitavel ao espelhar o padrao existente). `npm run typecheck` e `npm run build` sao a barra de qualidade real aqui; lint ja estava vermelho antes desta mudanca.
+  - `DialogContent` (shadcn) ja centraliza e anima o popup sozinho; para replicar o visual "hand-rolled" do `ReviewModal` dentro dele, passar `showCloseButton={false}` e colocar as classes de largura/cor direto no `className` do `DialogContent` (ele aceita className livremente, ver `client/CLAUDE.md` secao "Modal patterns" — os dois padroes de modal podem ser misturados: primitiva shadcn por fora, estilo hand-rolled por dentro).
+  - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente para quem tiver Chromium disponivel; so build/typecheck confirmados aqui.
+  - US-009 precisa importar este componente no `NotificationDropdown.tsx` e controlar `mediaTrackId` a partir do estado local (ex. `useState<Notification | null>`), chamando `onSuccess` para fechar E marcar a notificacao como lida no `useNotificationStore`.
+---
+
+## 2026-07-27 - US-009
+- `NotificationDropdown.tsx`: `handleSelect(id)` agora olha o `type` da notificacao antes de decidir a acao. Para `RATING_REQUEST` com `mediaTrackId` preenchido, guarda a notificacao inteira em `useState<Notification | null>` (`ratingRequest`) e abre o `RatingRequestDialog` (US-008) em vez de chamar `markAsRead` direto. Para os demais tipos (MATCH/NO_MATCH), o clique continua so chamando `markAsRead` como antes.
+- `RatingRequestDialog` foi movido para fora do `<Popover>` (como irmao, dentro de um Fragment `<>`) — ele e controlado via `mediaTrackId`/`title` derivados de `ratingRequest`, e nao precisa (nem deve) ficar dentro da arvore do Popover, que so espera Trigger/Content.
+- `onSuccess` do dialog: chama `markAsRead(ratingRequest.id)` (que ja faz o PATCH `/api/notifications/{id}/read` e atualiza `notifications`/`unreadCount` no `useNotificationStore` local, sem novo fetch) e fecha o dialog (`setRatingRequest(null)`).
+- Texto/icone especificos de `RATING_REQUEST` no dropdown (`notificationText`/`NotificationIcon`) ficam para US-010 — hoje uma RATING_REQUEST cai no branch "else" (texto/icone de NO_MATCH), o que e cosmeticamente errado mas fora do escopo desta story.
+- Arquivos alterados:
+  - `client/src/components/NotificationDropdown.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - `Popover` (base-ui) so deve conter `PopoverTrigger`/`PopoverContent` como filhos diretos; qualquer outro modal/dialog controlado pelo mesmo componente pai deve ficar como irmao (fora do `<Popover>`), tipicamente envolvendo o retorno num Fragment `<>...</>`.
+  - Nao existe store global de tracking (Hub usa `useState` local dentro de `HubScreen.tsx`, sem zustand) — "atualizar o track na Hub se estiver montada" (mencionado no PRD) nao tem um mecanismo pronto para isso hoje; ficou fora do escopo. Se uma story futura pedir isso de verdade, provavelmente exige promover o estado de tracks da Hub para um store (ex. `useTrackingStore`), que nenhuma story anterior criou.
+  - `npm run lint` continua com o mesmo baseline de 7 erros pre-existentes (ReviewModal/WatchModal/RatingRequestDialog `react-hooks/set-state-in-effect` + `ui/button.tsx` `react-refresh/only-export-components`) — nenhum novo introduzido por esta story.
+  - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
+---
+
+## 2026-07-27 - US-010
+- `NotificationDropdown.tsx`: `notificationText(...)` ganhou um branch para `RATING_REQUEST` (`'{actorName} avaliou "{title}" — dê sua nota também.'`, fallback `'Seu par'` quando `actorName` e nulo, mesmo padrao ja usado no branch de NO_MATCH). `NotificationIcon` ganhou um terceiro variant: `Star` (lucide-react) preenchido, badge circular com outline amarelo (`border-[#ffcb2b]/40 bg-[#ffcb2b]/[0.1] text-[#ffcb2b]`) — deliberadamente distinto do gradiente cheio amarelo/laranja do MATCH (coracao) e do cinza translucido do NO_MATCH/X, mas ainda na mesma familia de cor (amarelo = "acao pendente do parceiro").
+- Arquivos alterados:
+  - `client/src/components/NotificationDropdown.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - Mudanca pequena e contida num componente ja estabelecido: a skill `frontend-design` foi invocada (regra do CLAUDE.md raiz para qualquer edicao em `client/`), mas o resultado correto foi seguir os tokens/padroes JA existentes no arquivo (mesmo `size-9`, mesmo padrao de badge circular com `border`+`bg`+`text` na cor do tipo) em vez de introduzir uma paleta nova — nem toda story de UI pede um novo sistema visual, so precisa ser consistente com o que ja existe.
+  - `npm run lint` continua no mesmo baseline de 7 erros pre-existentes (ReviewModal/WatchModal `react-hooks/set-state-in-effect` + `RatingRequestDialog` idem + `ui/button.tsx` `react-refresh/only-export-components`) — nenhum novo introduzido por esta story.
+  - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
+  - Proxima story (US-011, tooltip da nota individual no MediaCard) tambem exige `frontend-design` e mexe num componente diferente (`MediaCard`, nao `NotificationDropdown`) — sem overlap de arquivos com esta.
+---
+
+## 2026-07-27 - US-011
+- Novo `client/src/components/ui/tooltip.tsx`: primitivo shadcn/base-ui a partir de `@base-ui/react/tooltip` (`Tooltip`, `TooltipTrigger`, `TooltipContent`, `TooltipProvider`), seguindo 1:1 a estrutura de `popover.tsx` ja existente (Portal > Positioner > Popup, mesmas classes de animacao `data-open/data-closed`).
+- `MediaCard.tsx`: o bloco "Estrelas + media" (renderizado quando `showRatings && coupleAvg !== null`) agora fica dentro de `TooltipProvider > Tooltip > TooltipTrigger (render={<div/>}) + TooltipContent`. O conteudo do tooltip mapeia `track.reviews` (sempre tem 1 entrada por membro do casal, vindo do backend — `MediaTrackService.toResponse` gera `ReviewDto` pra cada `memberId`, com `rating`/`opinion` null quando esse membro nao avaliou) e mostra `"{userName}: {rating} estrela(s)"` ou `"{userName}: sem nota"` via helper novo `reviewRatingLabel(rating)`.
+- Nao precisou de logica nova para o caso "so um avaliou": `coupleAvg` ja e a media de `ratedReviews` (so as reviews com rating != null), entao quando so 1 rating existe a "media" ja e exatamente aquela nota — nenhuma mudanca no calculo de `coupleAvg` (D7 do PRD, intocado).
+- Arquivos alterados:
+  - `client/src/components/ui/tooltip.tsx` (novo)
+  - `client/src/components/MediaCard.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - `@base-ui/react/tooltip` ja esta disponivel no `node_modules` (mesma lib `@base-ui/react` de `popover.tsx`/`dialog.tsx`), so faltava o wrapper em `components/ui/`. Padrao de `TooltipTrigger` para envolver um elemento nao-botao: `<TooltipTrigger render={<div className="..." />}>{children}</TooltipTrigger>` — o `render` element vira o DOM node real (aqui um `div`, evitando que vire `<button>` default dentro do card), os `children` passados ao `TooltipTrigger` renderizam dentro dele. Mesmo padrao ja usado em `dialog.tsx` (`<DialogPrimitive.Close render={<Button .../>}>Close</DialogPrimitive.Close>`) e `NotificationDropdown.tsx` (`<PopoverTrigger render={<NotificationBell />} />`).
+  - `track.reviews` do backend SEMPRE tem uma entrada por membro do casal (nunca so por quem avaliou) — ver `MediaTrackService.toResponse`/`toReviewDto` em `api/CLAUDE.md`. Isso significa que qualquer feature de front que precise "nome + nota de cada membro" pode iterar direto em `track.reviews` sem se preocupar em achar o nome do parceiro que ainda nao avaliou.
+  - `tsc -b` (rodado pelo `npm run build`) e mais estrito que `tsc --noEmit` (`npm run typecheck`) sobre imports nao usados (`TS6133`) — `import * as React from "react"` sem uso de `React.*` no arquivo (JSX moderno nao precisa) falha no build mesmo com `typecheck` limpo. Sempre rodar `npm run build`, nao so `typecheck`, antes de considerar uma story de UI pronta.
+  - `npm run lint` continua no mesmo baseline de 7 erros pre-existentes (nenhum novo introduzido por `tooltip.tsx`/`MediaCard.tsx`).
+  - Sem browser no sandbox (ver `client/CLAUDE.md`) — verificacao visual real fica pendente.
+  - Proxima story (US-012, gate do "Reavaliar" no MediaCard) mexe no mesmo arquivo (`MediaCard.tsx`, footer WATCHED) e tambem exige `frontend-design` — ha overlap de arquivo com esta story, mas nao de trecho de codigo (footer vs. bloco de rating).
+---
+
+## 2026-07-27 - US-012
+- `MediaCard.tsx`: footer do status `WATCHED` bifurca em `myReview?.rating`. Sem nota (`myReview?.rating` ausente): botao "Avaliar" (destaque amarelo `#ffcb2b`, icone `Star` do lucide-react) que abre um `RatingRequestDialog` (US-008) renderizado localmente dentro do proprio `MediaCard`, controlado por `useState<boolean> rateOpen` e `mediaTrackId={rateOpen ? track.id : null}`. Com nota: mantido 100% o botao "Reavaliar" + `onReview?.(track)` (abre o `ReviewModal` existente via `HubScreen`).
+- `RatingRequestDialog.tsx` ganhou um prop opcional `description` (default = a mensagem original "Seu par já avaliou..."), porque essa frase assume que o parceiro avaliou primeiro — nao vale para o caso de nota inicial gatilhada pelo proprio `MediaCard` (o parceiro pode nao ter avaliado ainda). `MediaCard` passa uma `description` neutra ("Dê sua nota e opinião sobre este título — ambas são opcionais.").
+- `MediaCard` ganhou um novo prop `onRated?: (track: MediaTrackResponse) => void`, chamado no `onSuccess` do dialog local. `HubScreen.tsx` implementa `onRated` mesclando o track atualizado em `sections` (mesmo padrao de merge do `ReviewModal.onSuccess` — `items.map((t) => t.id === updated.id ? updated : t)`), o que faz o card re-renderizar com `myReview.rating` preenchido e o botao virar "Reavaliar" automaticamente, sem novo fetch da lista inteira.
+- O `<RatingRequestDialog>` teve que ser movido para FORA (irmao) da `<div onClick={() => onClick?.(track)}>` do card — envolvendo o retorno do componente num Fragment `<>...</>` — porque React Portals ainda borbulham eventos sintenticos pela arvore de componentes (nao pela arvore DOM); se o Dialog ficasse dentro da div clicavel, qualquer clique dentro dele (mesmo renderizado via Portal fora do DOM da div) acionaria `onClick?.(track)` e abriria o `MediaDetailModal` por cima do dialog de nota.
+- Arquivos alterados:
+  - `client/src/components/MediaCard.tsx`
+  - `client/src/components/RatingRequestDialog.tsx`
+  - `client/src/screens/HubScreen.tsx`
+  - `scripts/ralph/prd.json`
+- **Learnings for future iterations:**
+  - Padrao reutilizavel: quando um componente de lista (`MediaCard`) precisa abrir um modal/dialog PROPRIO (nao delegado ao pai via callback, como `onReview`/`onClick` fazem), e esse componente tem uma `div` clicavel envolvendo tudo, o dialog deve ser um IRMAO dessa div (Fragment no retorno), nunca um filho — vale tanto para `Dialog` (shadcn/base-ui, via Portal) quanto qualquer outro overlay. Mesma logica ja documentada em `client/CLAUDE.md` para `Popover`+`Dialog` sibling, agora tambem se aplica a "card clicavel" + `Dialog` filho.
+  - Ao reusar um componente de dialog escrito para um fluxo especifico (aqui, `RatingRequestDialog` foi escrito para o caso "parceiro ja avaliou, agora avalie voce") em um segundo contexto com premissa diferente (aqui, "ninguem sabe se o parceiro ja avaliou"), extrair a copy fixa como prop opcional com default é mais barato do que duplicar o componente — o resto (estrelas, textarea, erro 404, submit) e identico nos dois fluxos.
+  - Este era o ultimo item do PRD (`US-012`, priority 12) — todas as 12 stories de `scripts/ralph/prd.json` estao `passes: true` apos esta.
 ---

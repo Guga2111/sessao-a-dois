@@ -49,12 +49,15 @@ class MediaTrackServiceTest {
 	@Mock
 	private MediaDetailsService mediaDetailsService;
 
+	@Mock
+	private RatingRequestService ratingRequestService;
+
 	private MediaTrackService mediaTrackService;
 
 	@BeforeEach
 	void setUp() {
 		mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleRepository, userRepository,
-				mediaDetailsService);
+				mediaDetailsService, ratingRequestService);
 	}
 
 	private Couple coupleWithMembers(UUID user1Id, UUID user2Id) {
@@ -300,6 +303,72 @@ class MediaTrackServiceTest {
 	}
 
 	@Test
+	void markAsWatchedTriggersRatingRequestOrchestrator() {
+		UUID trackId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user, "id", userId);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		WatchRequest request = new WatchRequest(4, "Curti");
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(mediaTrackRepository.save(any(MediaTrack.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		mediaTrackService.markAsWatched(trackId, coupleId, userId, request);
+
+		verify(ratingRequestService).onRatingRegistered(track, userId);
+	}
+
+	@Test
+	void addTrackTriggersRatingRequestOrchestratorWhenWatched() {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
+		User user = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user, "id", userId);
+		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
+			603L, MediaType.MOVIE, MediaStatus.WATCHED, LocalDate.now(), 136, 5, "Otimo");
+
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
+		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null,
+					List.of(28), null, 136, null));
+		ArgumentCaptor<MediaTrack> trackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
+		when(mediaTrackRepository.save(trackCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		mediaTrackService.addTrack(coupleId, userId, request);
+
+		verify(ratingRequestService).onRatingRegistered(trackCaptor.getValue(), userId);
+	}
+
+	@Test
+	void addTrackDoesNotTriggerRatingRequestWhenNotWatched() {
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
+		User user = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user, "id", userId);
+		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
+			603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE, null, null, null, null);
+
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
+		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null,
+					List.of(28), null, 136, null));
+		when(mediaTrackRepository.save(any(MediaTrack.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		mediaTrackService.addTrack(coupleId, userId, request);
+
+		verify(ratingRequestService, never()).onRatingRegistered(any(), any());
+	}
+
+	@Test
 	void addTrackRejectsRatingWhenStatusIsNotWatched() {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
@@ -354,6 +423,7 @@ class MediaTrackServiceTest {
 
 		mediaTrackService.deleteTrack(trackId, coupleId);
 
+		verify(ratingRequestService).onTrackDeleted(track);
 		verify(mediaTrackRepository, times(1)).delete(track);
 	}
 
@@ -381,6 +451,7 @@ class MediaTrackServiceTest {
 		assertThatThrownBy(() -> mediaTrackService.deleteTrack(trackId, coupleId))
 			.isInstanceOf(ResourceNotFoundException.class);
 		verify(mediaTrackRepository, never()).delete(any(MediaTrack.class));
+		verify(ratingRequestService, never()).onTrackDeleted(any());
 	}
 
 	@Test

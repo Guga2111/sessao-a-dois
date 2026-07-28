@@ -5,6 +5,7 @@ import com.app.user.UserRepository;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -15,15 +16,19 @@ public class UserReviewService {
 	private final MediaTrackRepository mediaTrackRepository;
 	private final UserRepository userRepository;
 	private final MediaTrackService mediaTrackService;
+	private final RatingRequestService ratingRequestService;
 
 	public UserReviewService(UserReviewRepository userReviewRepository, MediaTrackRepository mediaTrackRepository,
-			UserRepository userRepository, MediaTrackService mediaTrackService) {
+			UserRepository userRepository, MediaTrackService mediaTrackService,
+			RatingRequestService ratingRequestService) {
 		this.userReviewRepository = userReviewRepository;
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.userRepository = userRepository;
 		this.mediaTrackService = mediaTrackService;
+		this.ratingRequestService = ratingRequestService;
 	}
 
+	@Transactional
 	public MediaTrackResponse upsertReview(UUID trackId, UUID userId, UUID coupleId, UpsertReviewRequest request) {
 		MediaTrack track = mediaTrackRepository.findById(trackId)
 			.orElseThrow(() -> new ResourceNotFoundException("titulo nao encontrado"));
@@ -46,6 +51,8 @@ public class UserReviewService {
 					userReviewRepository.save(review);
 					track.getReviews().add(review);
 				});
+
+		ratingRequestService.onRatingRegistered(track, userId);
 
 		return mediaTrackService.toResponse(track);
 	}

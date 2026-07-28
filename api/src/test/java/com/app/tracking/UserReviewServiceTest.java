@@ -39,12 +39,15 @@ class UserReviewServiceTest {
 	@Mock
 	private MediaTrackService mediaTrackService;
 
+	@Mock
+	private RatingRequestService ratingRequestService;
+
 	private UserReviewService userReviewService;
 
 	@BeforeEach
 	void setUp() {
 		userReviewService = new UserReviewService(userReviewRepository, mediaTrackRepository, userRepository,
-			mediaTrackService);
+			mediaTrackService, ratingRequestService);
 	}
 
 	private Couple coupleOwnedBy(UUID coupleId) {
@@ -104,6 +107,25 @@ class UserReviewServiceTest {
 		assertThat(track.getReviews()).hasSize(0);
 		verify(userReviewRepository, times(1)).save(existingReview);
 		verify(userRepository, never()).findById(any(UUID.class));
+	}
+
+	@Test
+	void upsertReviewTriggersRatingRequestOrchestrator() {
+		UUID trackId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple couple = coupleOwnedBy(coupleId);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
+		User user = new User("Ana", "ana@example.com", "hash");
+		UserReview existingReview = new UserReview(track, user, 2, "Regular");
+		UpsertReviewRequest request = new UpsertReviewRequest(5, "Adorei");
+
+		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
+		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.of(existingReview));
+
+		userReviewService.upsertReview(trackId, userId, coupleId, request);
+
+		verify(ratingRequestService).onRatingRegistered(track, userId);
 	}
 
 	@Test

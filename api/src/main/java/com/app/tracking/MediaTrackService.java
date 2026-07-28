@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -32,15 +33,19 @@ public class MediaTrackService {
 	private final CoupleRepository coupleRepository;
 	private final UserRepository userRepository;
 	private final MediaDetailsService mediaDetailsService;
+	private final RatingRequestService ratingRequestService;
 
 	public MediaTrackService(MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
-			UserRepository userRepository, MediaDetailsService mediaDetailsService) {
+			UserRepository userRepository, MediaDetailsService mediaDetailsService,
+			RatingRequestService ratingRequestService) {
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.coupleRepository = coupleRepository;
 		this.userRepository = userRepository;
 		this.mediaDetailsService = mediaDetailsService;
+		this.ratingRequestService = ratingRequestService;
 	}
 
+	@Transactional
 	public MediaTrackResponse addTrack(UUID coupleId, UUID userId, CreateMediaTrackRequest request) {
 		if (request.status() != MediaStatus.WATCHED
 				&& (request.rating() != null
@@ -62,6 +67,9 @@ public class MediaTrackService {
 		track.getReviews().add(review);
 
 		MediaTrack saved = mediaTrackRepository.save(track);
+		if (saved.getStatus() == MediaStatus.WATCHED) {
+			ratingRequestService.onRatingRegistered(saved, userId);
+		}
 		return toResponse(saved);
 	}
 
@@ -87,6 +95,7 @@ public class MediaTrackService {
 			.map(this::toResponse);
 	}
 
+	@Transactional
 	public MediaTrackResponse markAsWatched(UUID trackId, UUID coupleId, UUID userId, WatchRequest request) {
 		MediaTrack track = findOwnedTrack(trackId, coupleId);
 		User user = userRepository.findById(userId)
@@ -106,7 +115,9 @@ public class MediaTrackService {
 				() -> track.getReviews().add(new UserReview(track, user, request.rating(), request.opinion()))
 			);
 
-		return toResponse(mediaTrackRepository.save(track));
+		MediaTrack saved = mediaTrackRepository.save(track);
+		ratingRequestService.onRatingRegistered(saved, userId);
+		return toResponse(saved);
 	}
 
 	/**
@@ -127,8 +138,10 @@ public class MediaTrackService {
 		return toResponse(mediaTrackRepository.save(track));
 	}
 
+	@Transactional
 	public void deleteTrack(UUID trackId, UUID coupleId) {
 		MediaTrack track = findOwnedTrack(trackId, coupleId);
+		ratingRequestService.onTrackDeleted(track);
 		mediaTrackRepository.delete(track);
 	}
 

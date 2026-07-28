@@ -19,6 +19,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +29,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -111,6 +114,81 @@ class NotificationServiceTest {
 	}
 
 	@Test
+	void notifyRatingRequest_createsSingleNotificationForThePartner() {
+		UUID coupleId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		UUID mediaTrackId = UUID.randomUUID();
+		Couple couple = couple(coupleId, actorId, partnerId);
+
+		when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> {
+			Notification n = inv.getArgument(0);
+			ReflectionTestUtils.setField(n, "id", UUID.randomUUID());
+			return n;
+		});
+		when(userRepository.findById(actorId)).thenReturn(Optional.of(new User("Ana", "ana@x.com", "hash")));
+
+		Optional<NotificationDto> dto = notificationService.notifyRatingRequest(couple, partnerId, actorId, 603L,
+				MediaType.MOVIE, "Matrix", mediaTrackId);
+
+		assertThat(dto).isPresent();
+		assertThat(dto.get().type()).isEqualTo(NotificationType.RATING_REQUEST);
+		assertThat(dto.get().recipientUserId()).isEqualTo(partnerId);
+		assertThat(dto.get().mediaTrackId()).isEqualTo(mediaTrackId);
+		assertThat(dto.get().actorName()).isEqualTo("Ana");
+
+		ArgumentCaptor<Notification> savedCaptor = ArgumentCaptor.forClass(Notification.class);
+		verify(notificationRepository, times(1)).save(savedCaptor.capture());
+		assertThat(savedCaptor.getValue().getRecipientUserId()).isEqualTo(partnerId);
+		verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/couple/" + coupleId + "/notifications"),
+				any(Object.class));
+	}
+
+	@Test
+	void notifyRatingRequest_pushesOnlyAfterCommitWhenTransactionIsActive() {
+		UUID coupleId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		Couple couple = couple(coupleId, actorId, partnerId);
+
+		when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> {
+			Notification n = inv.getArgument(0);
+			ReflectionTestUtils.setField(n, "id", UUID.randomUUID());
+			return n;
+		});
+		when(userRepository.findById(actorId)).thenReturn(Optional.empty());
+
+		TransactionSynchronizationManager.initSynchronization();
+		try {
+			notificationService.notifyRatingRequest(couple, partnerId, actorId, 603L, MediaType.MOVIE, "Matrix",
+					UUID.randomUUID());
+
+			verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
+
+			TransactionSynchronizationManager.getSynchronizations()
+				.forEach(TransactionSynchronization::afterCommit);
+		}
+		finally {
+			TransactionSynchronizationManager.clearSynchronization();
+		}
+
+		verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/couple/" + coupleId + "/notifications"),
+				any(Object.class));
+	}
+
+	@Test
+	void notifyRatingRequest_doesNothingWhenCoupleHasNoPartner() {
+		Couple couple = couple(UUID.randomUUID(), UUID.randomUUID(), null);
+
+		Optional<NotificationDto> dto = notificationService.notifyRatingRequest(couple, null, couple.getUser1Id(), 603L,
+				MediaType.MOVIE, "Matrix", UUID.randomUUID());
+
+		assertThat(dto).isEmpty();
+		verify(notificationRepository, never()).save(any(Notification.class));
+		verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
+	}
+
+	@Test
 	void listNotifications_returnsPageWithResolvedActorNames() {
 		UUID coupleId = UUID.randomUUID();
 		UUID recipientId = UUID.randomUUID();
@@ -128,6 +206,43 @@ class NotificationServiceTest {
 
 		assertThat(page.getContent()).hasSize(1);
 		assertThat(page.getContent().get(0).actorName()).isEqualTo("Ana");
+	}
+
+	@Test
+	void listNotifications_mapsMediaTrackIdForRatingRequest() {
+		UUID recipientId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		UUID mediaTrackId = UUID.randomUUID();
+		Couple couple = couple(UUID.randomUUID(), recipientId, actorId);
+		Notification notification = new Notification(couple, recipientId, NotificationType.RATING_REQUEST, 603L,
+				MediaType.MOVIE, "Matrix", actorId, mediaTrackId);
+		ReflectionTestUtils.setField(notification, "id", UUID.randomUUID());
+
+		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
+			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of());
+
+		NotificationDto dto = notificationService.listNotifications(recipientId, 0, 20).getContent().get(0);
+
+		assertThat(dto.type()).isEqualTo(NotificationType.RATING_REQUEST);
+		assertThat(dto.mediaTrackId()).isEqualTo(mediaTrackId);
+	}
+
+	@Test
+	void listNotifications_mediaTrackIdIsNullForMatchNotifications() {
+		UUID recipientId = UUID.randomUUID();
+		UUID actorId = UUID.randomUUID();
+		Couple couple = couple(UUID.randomUUID(), recipientId, actorId);
+		Notification notification = savedNotification(couple, recipientId, actorId);
+
+		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
+			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of());
+
+		NotificationDto dto = notificationService.listNotifications(recipientId, 0, 20).getContent().get(0);
+
+		assertThat(dto.type()).isEqualTo(NotificationType.MATCH);
+		assertThat(dto.mediaTrackId()).isNull();
 	}
 
 	@Test

@@ -1,201 +1,195 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/sistema-notificacoes",
-  "description": "Sistema de Notificacoes (Match & No-Match) - notifica ambos os membros do casal em tempo real via STOMP + persistencia, com icone/badge no Header e dropdown de listagem.",
+  "branchName": "ralph/nota-media-casal-pedido-avaliacao",
+  "description": "Nota media do casal (com tooltip individual) + fluxo de pedido de avaliacao via notificacao (RATING_REQUEST). Estende o codigo existente sem reconstruir entidades, notificacoes ou o calculo de coupleAvg.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Entidade e persistencia de Notification (Backend)",
-      "description": "Como desenvolvedor, preciso persistir notificacoes no banco para que o historico sobreviva a refresh e a periodos offline.",
+      "title": "Adicionar RATING_REQUEST ao NotificationType",
+      "description": "Como desenvolvedor, preciso de um novo tipo de notificacao para representar o pedido de avaliacao.",
       "acceptanceCriteria": [
-        "Criar entidade JPA `Notification` no pacote `com.app.notification`",
-        "Campos: id, couple_id (FK Couple), recipient_user_id (FK User), type (enum MATCH|NO_MATCH), tmdb_id (Long), media_type (enum MOVIE|TV), title (String), actor_user_id (FK User), read (boolean default false), created_at (timestamp)",
-        "Criar `NotificationRepository` com consulta de listagem por recipient_user_id ordenada por created_at desc e contagem de nao-lidas",
-        "Adicionar indice em (recipient_user_id, read)",
-        "Tabela criada automaticamente via JPA/Hibernate na subida da aplicacao",
-        "Testes unitarios (JUnit 5 + Mockito) do repositorio/servico passam",
-        "Tests pass",
-        "Typecheck passes"
+        "NotificationType (api/.../notification/NotificationType.java) passa a ter MATCH, NO_MATCH, RATING_REQUEST",
+        "Enum persistido como EnumType.STRING: salvar RATING_REQUEST grava a string 'RATING_REQUEST' na coluna type, sem migracao de dados dos registros existentes",
+        "Compila (./mvnw -DskipTests package)"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Created com.app.notification package: Notification JPA entity (couple FK via @ManyToOne, recipientUserId/actorUserId as plain UUID columns matching the MatchLike.userId convention rather than a User @ManyToOne join), NotificationType enum (MATCH/NO_MATCH), and NotificationRepository with findByRecipientUserIdOrderByCreatedAtDesc + countByRecipientUserIdAndReadFalse. Composite index on (recipient_user_id, is_read) via @Table(indexes=...). Renamed the 'read' field's column to is_read to avoid the SQL reserved-word ambiguity around READ. DataJpaTest repository test added following MatchLikeRepositoryTest's pattern (persistedCouple() helper, H2 in-memory)."
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Rotina de retencao: expirar notificacoes com mais de 30 dias (Backend)",
-      "description": "Como sistema, quero remover automaticamente notificacoes antigas para nao crescer a tabela indefinidamente.",
+      "title": "Carregar mediaTrackId na notificacao (entidade + DTO)",
+      "description": "Como front, preciso saber qual track abrir ao clicar numa RATING_REQUEST, ja que a avaliacao usa PUT /api/tracking/{id}/review por trackId.",
       "acceptanceCriteria": [
-        "Adicionar consulta no `NotificationRepository` que remove notificacoes com created_at anterior a 30 dias",
-        "Criar rotina `@Scheduled` (executa 1x/dia) que chama essa limpeza",
-        "Habilitar `@EnableScheduling` na aplicacao caso ainda nao esteja",
-        "Teste unitario cobrindo a consulta de expiracao (notificacao > 30 dias e removida; <= 30 dias permanece)",
-        "Tests pass",
-        "Typecheck passes"
+        "Notification ganha coluna media_track_id UUID nullable (nulo para MATCH/NO_MATCH; preenchido para RATING_REQUEST)",
+        "NotificationDto ganha UUID mediaTrackId (nulo quando nao aplicavel)",
+        "Para uma RATING_REQUEST, o DTO/STOMP serializa mediaTrackId com o id do MediaTrack avaliado",
+        "Para MATCH/NO_MATCH, mediaTrackId serializa como null e o fluxo de match segue identico",
+        "Teste do mapeamento DTO cobrindo os dois casos",
+        "Compila (./mvnw -DskipTests package)"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Added NotificationRepository.deleteByCreatedAtBefore(LocalDateTime) derived delete query, NotificationCleanupService with @Scheduled(cron = \"0 0 3 * * *\") + @Transactional expireOldNotifications() (30-day retention), and @EnableScheduling on SessaoADoisApplication. Tests: NotificationRepositoryTest gained deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff (uses ReflectionTestUtils to backdate createdAt since it's a @CreationTimestamp); new NotificationCleanupServiceTest (Mockito) verifies the cutoff passed to the repository is ~30 days ago."
+      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
     },
     {
       "id": "US-003",
-      "title": "NotificationService + DTO e broadcast STOMP (Backend)",
-      "description": "Como desenvolvedor, preciso de um servico central que crie notificacoes, retorne o DTO e emita o evento STOMP para o topico do casal.",
+      "title": "Metodo de notificacao a um unico destinatario (o parceiro)",
+      "description": "Como servico, preciso criar a notificacao so para o parceiro; notifyCouple cria uma por membro, o que nao serve para RATING_REQUEST.",
       "acceptanceCriteria": [
-        "Criar `NotificationDto` com campos: id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt",
-        "Criar `NotificationService` com metodo que cria duas Notification (uma por recipient_user_id do casal) para um dado evento e retorna os DTOs",
-        "Registrar/estender o destino STOMP `/topic/couple/{coupleId}/notifications` na config de WebSocket existente",
-        "Emitir o DTO via `SimpMessagingTemplate` APOS o commit da persistencia (notificacao ja existe no banco quando o push chega)",
-        "Teste unitario verificando que o `SimpMessagingTemplate` e chamado com o destino e payload corretos",
-        "Tests pass",
-        "Typecheck passes"
+        "Novo metodo em NotificationService (ex.: notifyRatingRequest(Couple couple, UUID recipientUserId, UUID actorUserId, Long tmdbId, MediaType mediaType, String title, UUID mediaTrackId)) que persiste 1 Notification para recipientUserId",
+        "Reusa o padrao persist-then-push-after-commit (TransactionSynchronizationManager afterCommit) para o broadcast STOMP em /topic/couple/{coupleId}/notifications",
+        "Casal sem parceiro (recipient null): nenhuma notificacao criada e nenhum push enviado",
+        "Teste unitario (Mockito): cria 1 notificacao; push apos commit; caso destinatario nulo",
+        "Compila (./mvnw -DskipTests package)"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Created NotificationDto record (id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt) and NotificationService.notifyCouple(couple, type, tmdbId, mediaType, title, actorUserId): builds the recipient list from couple.user1Id/user2Id, persists one Notification per recipient, resolves actorName via UserRepository, and broadcasts each resulting DTO to /topic/couple/{coupleId}/notifications. Broadcast is deferred to TransactionSynchronization.afterCommit() when a transaction is active (falls back to immediate send otherwise) so the STOMP push never precedes the DB commit. WebSocketConfig's existing /topic broker already covers the new destination; only its Javadoc was extended to document it. NotificationServiceTest (Mockito) covers: 2 notifications created + 2 STOMP sends for a couple event, and actorName resolving to null when the actor user lookup misses."
+      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
     },
     {
       "id": "US-004",
-      "title": "Gerar notificacoes no fluxo de Match (Backend)",
-      "description": "Como membro do casal, quero ser notificado quando um Match acontece, para saber que um titulo entrou na nossa lista.",
+      "title": "Disparar RATING_REQUEST ao registrar uma nota (3 caminhos)",
+      "description": "Como parceiro pendente, quero ser notificado quando o outro membro avaliar um titulo que eu ainda nao avaliei.",
       "acceptanceCriteria": [
-        "Quando a logica de match confirma que ambos curtiram o mesmo tmdb_id, chamar o NotificationService para criar duas Notification do tipo MATCH (uma por membro)",
-        "actor_user_id = usuario que deu o segundo like (quem fechou o match)",
-        "A criacao das notificacoes ocorre na mesma transacao da criacao do MediaTrack (status WANT_TO_SEE)",
-        "Apos persistir, o evento STOMP e emitido para /topic/couple/{coupleId}/notifications",
-        "Fluxo existente de adicionar o titulo a 'Queremos Ver' continua sem regressao",
-        "Testes unitarios: match cria 2 notificacoes MATCH + emite evento; nao-match nao cria notificacao de match",
-        "Tests pass",
-        "Typecheck passes"
+        "Metodo orquestrador unico (ex.: RatingRequestService.onRatingRegistered(track, actorUserId)) chamado ao final de markAsWatched, addTrack (quando WATCHED + rating) e upsertReview, na mesma transacao",
+        "Dispara 1 RATING_REQUEST para o parceiro somente se: ator tem rating != null; parceiro existe (user2Id != null); parceiro nao tem UserReview com rating naquele track; nao existe RATING_REQUEST nao lida para (recipient=parceiro, couple, tmdbId)",
+        "title resolvido via MediaDetailsService.getDetails(mediaType, tmdbId).title() com try/catch (RuntimeException) e fallback 'seu titulo'; falha do TMDB nao faz o registro da nota falhar",
+        "Given parceiro ja tinha nota, then nenhuma RATING_REQUEST e criada (D4)",
+        "Given casal sem parceiro, then nenhuma notificacao criada",
+        "Given ja existe RATING_REQUEST nao lida para o parceiro naquele titulo, then nao cria uma segunda (idempotencia)",
+        "Given ator registra sem nota (rating == null), then nenhuma RATING_REQUEST criada",
+        "Testes de servico cobrindo os 3 caminhos + as condicoes acima",
+        "Compila (./mvnw -DskipTests package)"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Injected NotificationService into MatchService (constructor param added). MatchService.createMatch(couple, request, actorUserId) now also calls notificationService.notifyCouple(couple, NotificationType.MATCH, tmdbId, mediaType, title, actorUserId) right after the MediaTrack save and the existing /match STOMP send, inside the same @Transactional like() method. actorUserId = userId (the caller of like(), i.e. whoever's like just closed the match) per the story's 'quem fechou o match' rule. NotificationService itself handles the after-commit STOMP push to /topic/couple/{id}/notifications, so no extra transactional wiring was needed here. Updated MatchServiceTest: added a NotificationService mock, verified notifyCouple is called with the right args on both match tests (movie + TV), and verified it's never called when a MediaTrack already exists for that tmdb_id (the 'no duplicate match' test doubles as the no-match-notification case since MatchService has no separate non-match branch to notify from)."
+      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
     },
     {
       "id": "US-005",
-      "title": "Gerar notificacao no fluxo de No-Match (Backend)",
-      "description": "Como membro do casal, quero ser notificado quando ha divergencia (o parceiro passou um titulo que eu curti).",
+      "title": "Resolver automaticamente a RATING_REQUEST quando o parceiro avalia",
+      "description": "Como parceiro pendente, ao atribuir minha nota, o pedido pendente deve ser marcado como lido sem acao manual.",
       "acceptanceCriteria": [
-        "Quando um usuario passa um titulo que o parceiro havia curtido, criar duas Notification do tipo NO_MATCH (uma por membro) via NotificationService",
-        "actor_user_id = usuario que passou o titulo",
-        "Evento STOMP emitido para /topic/couple/{coupleId}/notifications",
-        "NAO alterar a regra existente de descarte/ocultacao do titulo recusado (fora de escopo)",
-        "Testes unitarios cobrindo geracao de 2 notificacoes NO_MATCH e emissao do evento",
-        "Tests pass",
-        "Typecheck passes"
+        "No mesmo orquestrador, ao registrar a nota do ator, quaisquer RATING_REQUEST nao lidas cujo recipientUserId == actorUserId e mesmo (couple, tmdbId) sao marcadas como lidas",
+        "Vale para os 3 caminhos (markAsWatched, addTrack WATCHED, upsertReview)",
+        "Given o ator tem RATING_REQUEST nao lida para aquele titulo, when ele avalia por qualquer caminho, then a notificacao fica read = true no banco",
+        "Given nao ha RATING_REQUEST pendente para o ator naquele titulo, when avalia, then a operacao nao falha e nada muda em notificacoes",
+        "Query de repositorio dedicada escopada ao casal (findByRecipientUserIdAndTmdbIdAndTypeAndReadFalse ou equivalente); testes cobrindo resolucao e no-op",
+        "Compila (./mvnw -DskipTests package)"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "MatchService.reject(coupleId, userId, request) now also checks matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, tmdbId, userId) right after persisting the MatchReject; if the partner had liked the same tmdbId, fetches title via mediaDetailsService and calls notificationService.notifyCouple(couple, NotificationType.NO_MATCH, tmdbId, mediaType, title, userId) with actorUserId = userId (whoever just rejected/passed). NotificationService's existing after-commit STOMP broadcast to /topic/couple/{coupleId}/notifications is reused as-is (no new wiring needed). Left the existing MatchReject persistence/idempotency behavior untouched. Updated MatchServiceTest: reject_persistsNewReject now stubs findFirstByCoupleIdAndTmdbIdAndUserIdNot to empty and asserts notifyCouple is never called; added reject_partnerAlreadyLikedCreatesNoMatchNotification asserting the NO_MATCH notifyCouple call args."
+      "notes": "Implementado. Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
     },
     {
       "id": "US-006",
-      "title": "Endpoints REST de notificacoes (Backend)",
-      "description": "Como frontend, preciso listar notificacoes, contar nao-lidas e marca-las como lidas.",
+      "title": "Remover RATING_REQUEST ao deletar o track",
+      "description": "Como usuario, ao remover um titulo da lista, nao quero pedidos de avaliacao orfaos apontando para um track inexistente.",
       "acceptanceCriteria": [
-        "GET /api/notifications?page=&size= lista as notificacoes do usuario autenticado, created_at desc, paginado",
-        "GET /api/notifications/unread-count retorna { count: number } de nao-lidas do usuario autenticado",
-        "PATCH /api/notifications/{id}/read marca uma notificacao do usuario como lida; retorna 403 se nao pertencer ao usuario",
-        "PATCH /api/notifications/read-all marca todas as nao-lidas do usuario como lidas",
-        "Todos exigem JWT valido e escopam por recipient_user_id = usuario autenticado",
-        "Testes de Controller (MockMvc) cobrindo os quatro endpoints, incluindo o caso 403",
-        "Tests pass",
-        "Typecheck passes"
+        "Em MediaTrackService.deleteTrack (DELETE /api/tracking/{id}), antes/junto da remocao do track, todas as RATING_REQUEST associadas ao mediaTrackId (ou ao par couple+tmdbId) sao apagadas na mesma transacao",
+        "Given existe RATING_REQUEST para o parceiro no titulo, when o titulo e deletado, then essa notificacao nao existe mais no banco",
+        "Given o track nao tem RATING_REQUEST associada, when deletado, then no-op de notificacoes e o comportamento de delete existente preservado",
+        "A limpeza cobre apenas RATING_REQUEST; MATCH/NO_MATCH nao sao afetadas",
+        "Query de delecao dedicada no NotificationRepository escopada por casal; testes cobrindo delecao e no-op",
+        "Compila (./mvnw -DskipTests package)"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Added NotificationController (GET /api/notifications paginated via existing findByRecipientUserIdOrderByCreatedAtDesc, GET /api/notifications/unread-count returning UnreadCountResponse record, PATCH /api/notifications/{id}/read, PATCH /api/notifications/read-all), all scoped to @AuthenticationPrincipal userId. NotificationService gained listNotifications/unreadCount/markAsRead/markAllAsRead: markAsRead throws com.app.tracking.ResourceNotFoundException (404) when the id doesn't exist and org.springframework.security.access.AccessDeniedException (403) when recipientUserId doesn't match the caller; NotificationExceptionHandler (@RestControllerAdvice basePackages=com.app.notification) maps both, following the per-feature handler pattern already used by TrackingExceptionHandler/MatchExceptionHandler. markAllAsRead uses a new @Modifying bulk UPDATE query (NotificationRepository.markAllAsReadByRecipientUserId) instead of load+save-per-row. listNotifications batches actor-name resolution via userRepository.findAllById(distinct actorIds) to avoid N+1 lookups across a page. Added NotificationControllerTest (WebMvcTest + SecurityConfig, mirrors MatchControllerTest) and extended NotificationServiceTest with the four new methods. Could not run ./mvnw (no JDK/Maven and no network to Maven Central in this sandbox, per api/CLAUDE.md) - verified by careful manual review only; needs a real build/test run to confirm."
+      "notes": "Implementado (deleteByCoupleIdAndTmdbIdAndType + RatingRequestService.onTrackDeleted, chamado de MediaTrackService.deleteTrack, agora @Transactional). Build/test nao verificados neste sandbox (sem JDK/Maven Central)."
     },
     {
       "id": "US-007",
-      "title": "Tipagens e store de notificacoes (Frontend)",
-      "description": "Como desenvolvedor frontend, preciso de tipos TypeScript e um estado global (Zustand) para gerenciar notificacoes.",
+      "title": "Tipos TS de notificacao (RATING_REQUEST + mediaTrackId)",
+      "description": "Como front, preciso refletir o novo tipo e o novo campo do DTO.",
       "acceptanceCriteria": [
-        "Criar tipos em client/src/types/notification.ts: NotificationType ('MATCH'|'NO_MATCH'), MediaType ('MOVIE'|'TV') e interface Notification (id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt)",
-        "Criar `useNotificationStore` (Zustand) com estado: notifications, unreadCount, page, hasMore",
-        "Store expoe: fetchNotifications() (1a pagina size=20), fetchMore() (proximo lote, atualiza hasMore), markAsRead(id), markAllAsRead(), pushIncoming(n)",
-        "fetchNotifications e unread-count usam o cliente Axios com interceptor JWT ja configurado",
-        "markAsRead/markAllAsRead fazem atualizacao otimista + chamada REST (revertem em erro)",
-        "Typecheck passes"
+        "client/src/types/notification.ts: NotificationType = 'MATCH' | 'NO_MATCH' | 'RATING_REQUEST'",
+        "Interface Notification ganha mediaTrackId: string | null",
+        "tsc passa"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Created client/src/types/notification.ts (Notification interface + NotificationType/PagedNotificationResponse mirroring the backend NotificationDto and Spring Data Page<T> shape) and client/src/stores/useNotificationStore.ts (Zustand). Store state: notifications, unreadCount, page, hasMore. Exposes fetchNotifications() (page=0,size=20, replaces list), fetchMore() (next page, appends, updates hasMore from totalPages), fetchUnreadCount() (separate GET /api/notifications/unread-count, since US-008 calls it independently from fetchNotifications on app load), markAsRead(id) and markAllAsRead() (optimistic update then PATCH, revert to pre-update snapshot on error), and pushIncoming(notification) (prepend + increment unreadCount, for the STOMP wiring in US-008). All requests go through the existing `api` axios client (src/lib/api.ts), same as useMatchStore/useAuthStore."
+      "notes": "Implementado. tsc --noEmit passou limpo."
     },
     {
       "id": "US-008",
-      "title": "Assinar topico STOMP de notificacoes reusando a conexao existente (Frontend)",
-      "description": "Como frontend, quero receber novas notificacoes em tempo real pela conexao STOMP ja aberta pelo useMatchStore.",
+      "title": "Dialog de avaliacao (shadcn) a partir da notificacao",
+      "description": "Como parceiro pendente, quero abrir um Dialog para dar minha nota e opiniao.",
       "acceptanceCriteria": [
-        "Assinar /topic/couple/{coupleId}/notifications no mesmo ponto onde useMatchStore ja assina /match (reusar a conexao unica, sem abrir uma segunda)",
-        "Ao receber evento, chamar pushIncoming(n): prepend na lista e incrementa unreadCount",
-        "Ao carregar a app (autenticado + casal vinculado), chamar fetchNotifications() e buscar unread-count",
-        "Payload STOMP tem o mesmo shape do DTO REST (sem transformacao divergente)",
-        "Typecheck passes"
+        "Usar a skill frontend-design antes de implementar (regra do CLAUDE.md para client/)",
+        "Novo componente (ex.: RatingRequestDialog.tsx) usando o Dialog do shadcn (components/ui/dialog.tsx), com estrelas 1-5 (opcional) e opiniao (opcional), no mesmo visual/tokens do ReviewModal (cores inline do prototipo)",
+        "Submete via PUT /api/tracking/{mediaTrackId}/review com { rating, opinion } (rating null se 0)",
+        "Given o Dialog aberto, when o parceiro salva nota valida, then a chamada retorna o MediaTrackResponse atualizado e o Dialog fecha",
+        "Given o mediaTrackId aponta para track removido, when salva, then a resposta 404 e tratada com mensagem 'Este titulo nao esta mais na sua lista.' e o Dialog nao quebra",
+        "tsc/lint passam",
+        "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "useMatchStore.connect() now also subscribes to /topic/couple/{coupleId}/notifications on the same STOMP client (right after the existing /match subscription, before client.activate()/set()), parsing each message as the shared Notification type and forwarding it to useNotificationStore.getState().pushIncoming(notification) - no second connection opened. App.tsx's existing 'authenticated + coupled' effect (the one that already calls connect(coupleId)/disconnect()) now also calls fetchNotifications() and fetchUnreadCount() from useNotificationStore when that condition is true, so both fire together on app load. Confirmed the STOMP payload needs no transform: NotificationDto (backend, US-003) and the Notification TS interface (US-007) both already share the same field names/shapes, so JSON.parse(message.body) is used as-is."
+      "notes": "Implementado. RatingRequestDialog.tsx usa Dialog shadcn com os tokens inline do ReviewModal. tsc e build passaram; npm run lint tem 6 erros pre-existentes (baseline, sem relacao com este arquivo) confirmados via teste isolado. Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md); wiring com NotificationDropdown fica para US-009."
     },
     {
       "id": "US-009",
-      "title": "Icone de notificacoes no Header (Frontend)",
-      "description": "Como membro do casal, quero ver um icone de notificacoes no Header, ao lado do avatar do casal, indicando quando ha notificacoes nao-lidas.",
+      "title": "Clique na RATING_REQUEST abre o Dialog + resolve a notificacao",
+      "description": "Como parceiro pendente, clicar numa notificacao de pedido deve abrir o Dialog (nao so marcar como lida).",
       "acceptanceCriteria": [
-        "Usar a skill frontend-design antes de implementar (obrigatorio para client/)",
-        "Criar componente NotificationBell.tsx e monta-lo no Header.tsx imediatamente a esquerda do avatar do casal (bloco direito)",
-        "Estado sem nao-lidas: sino neutro, sem badge",
-        "Estado com nao-lidas: badge com a contagem (unreadCount); exibir '9+' quando > 9",
-        "Visual consistente com o design (tema escuro, acentos #ffcb2b/#ff9e2c, fontes Bricolage Grotesque/DM Sans)",
-        "Acessivel: aria-label descritivo (ex: 'Notificacoes, 3 nao lidas') e navegavel por teclado",
-        "Typecheck passes (tsc --noEmit)",
-        "Lint passes (eslint)",
-        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
+        "Em NotificationDropdown.tsx, o onSelect diferencia por type: RATING_REQUEST abre RatingRequestDialog com mediaTrackId/title/mediaType da notificacao; demais tipos mantem o comportamento atual (so markAsRead)",
+        "Apos salvar a nota com sucesso, a notificacao correspondente e marcada como lida no useNotificationStore (badge do sino decrementa) e, se a Hub estiver montada, o track exibido e atualizado",
+        "Given uma RATING_REQUEST no dropdown, when clico, then o Dialog abre com o titulo correto; when salvo, then a notificacao vira lida sem novo fetch obrigatorio",
+        "tsc/lint passam",
+        "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Created client/src/components/NotificationBell.tsx: a button styled like Header.tsx's existing MobileNav trigger (size-9.5, rounded-[10px], border-white/[0.06], bg-white/[0.05]) with a lucide Bell icon, reading unreadCount from useNotificationStore. No unread: plain bell, no badge. Unread > 0: small gradient badge (from-[#ffcb2b] to-[#ff9e2c], dark text) top-right showing the count, '9+' when >9, plus a subtle animate-ping dot (motion-reduce:animate-none) as the one signature touch signalling 'something new' without overdoing it. aria-label is dynamic ('Notificacoes' vs 'Notificacoes, N nao lida(s)'), badge itself is aria-hidden since the label already states the count; being a native <button> it's keyboard-focusable by default with a visible focus-visible ring in the brand yellow. Mounted in Header.tsx immediately to the left of CoupleAvatars, inside the same couple?.partner conditional block (bell only makes sense once linked, matching where notifications are couple-scoped). Click has no handler yet (dropdown listing is US-010). Verified with tsc --noEmit, eslint on both changed files, and a full `npx vite build` (succeeded without needing the arm64 optional-binding workaround this time - dist/ removed after, package.json/lock untouched) - no Chromium available in this sandbox so no real screenshot, but a full production build compiling and rendering the new component with no console errors during build is a stronger signal than typecheck alone."
+      "notes": "Implementado. NotificationDropdown.tsx diferencia por type no handleSelect: RATING_REQUEST com mediaTrackId abre o RatingRequestDialog (US-008) em vez de markAsRead direto; demais tipos mantem o comportamento atual. onSuccess do dialog chama markAsRead da notificacao e fecha o dialog. tsc e build passaram; lint com o mesmo baseline de 7 erros pre-existentes (nenhum novo). Atualizacao do track na Hub (se montada) nao implementada: nao ha store global de tracking hoje (Hub usa estado local em HubScreen), so um novo mecanismo de sincronizacao entre dropdown e Hub sairia do escopo desta story. Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md)."
     },
     {
       "id": "US-010",
-      "title": "Dropdown de listagem de notificacoes (Frontend)",
-      "description": "Como membro do casal, quero abrir um dropdown com minhas notificacoes e marca-las como lidas.",
+      "title": "Texto e icone da RATING_REQUEST no dropdown",
+      "description": "Como usuario, quero entender que aquela notificacao e um pedido de avaliacao.",
       "acceptanceCriteria": [
-        "Usar a skill frontend-design antes de implementar",
-        "Criar NotificationDropdown.tsx (Shadcn popover/dropdown) ancorado ao sino, listando as 20 mais recentes (mais recentes primeiro)",
-        "Botao 'Ver mais' ao fim da lista chama fetchMore(); some quando hasMore for false",
-        "Cada item mostra icone/cor por tipo (MATCH comemorativo, NO_MATCH neutro), titulo, texto contextual e tempo relativo (ex: 'ha 2 min')",
-        "Texto do NO_MATCH depende do destinatario: quem passou ve texto neutro ('Sem match desta vez em {titulo}'); o parceiro ve com nome ('{actorName} passou {titulo} - sem match desta vez'). Front decide comparando actorUserId com o usuario atual",
-        "Item nao-lido tem indicador visual (ponto/realce); item lido e atenuado",
-        "Acao 'Marcar todas como lidas' no topo do dropdown chama markAllAsRead",
-        "Abrir o dropdown NAO marca tudo como lido automaticamente; marcar acontece por clique no item ou no 'marcar todas'",
-        "Estado vazio: mensagem amigavel quando nao ha notificacoes",
-        "Fecha ao clicar fora e com Esc",
-        "Typecheck passes (tsc --noEmit)",
-        "Lint passes (eslint)",
-        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
+        "notificationText(...) cobre RATING_REQUEST (ex.: '{actorName} avaliou \"{title}\" - de sua nota tambem.', com fallback 'Seu par' quando actorName e nulo)",
+        "NotificationIcon tem icone proprio para RATING_REQUEST (ex.: estrela), distinto de MATCH (coracao) e NO_MATCH (X)",
+        "tsc/lint passam",
+        "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 10,
       "passes": true,
-      "notes": "Created client/src/components/NotificationDropdown.tsx: a Popover (base-ui, ui/popover.tsx) anchored to the bell via PopoverTrigger render={<NotificationBell />} (existing render={<Element/>} composition pattern already used in ui/dialog.tsx - PopoverTrigger renders a native button by default and NotificationBell already is one, so props/aria/ref merge cleanly, no extra wrapper). Header.tsx now mounts NotificationDropdown instead of the bare NotificationBell (bell itself unchanged/still used standalone as the trigger). Header content: title + conditional 'Marcar todas como lidas' (only shown when unreadCount>0) calling markAllAsRead; scrollable list (max-h-[420px] overflow-y-auto) of the loaded notifications (already capped at 20/page by useNotificationStore's PAGE_SIZE from US-007); each row shows a per-type icon (MATCH: gradient heart circle, NO_MATCH: neutral bordered X circle), title, contextual body text, and relative time via date-fns formatDistanceToNowStrict + ptBR locale (date-fns v4 already a dependency, ptBR locale exists at date-fns/locale). Unread rows get a subtle #ffcb2b-tinted background + a small dot indicator; read rows are dimmed via a lighter text color. Row click calls markAsRead(id) (idempotent no-op if already read, per useNotificationStore). 'Ver mais' button calls fetchMore() and is only rendered when hasMore is true. Empty state (BellOff icon + message) shown when notifications.length === 0. NO_MATCH text branches on notification.actorUserId === currentUserId (from useAuthStore user.id): actor sees a neutral 'Sem match desta vez em X', partner sees '{actorName} passou X - sem match desta vez'. Outside-click/Esc-to-close and focus handling all come from the base-ui Popover primitive, no custom logic needed. Verified with tsc --noEmit (clean), eslint on both changed files (clean), and a full npx vite build (succeeded, no dist/ or package.json/lock changes committed). No Chromium in this sandbox (per client/CLAUDE.md) so no real screenshot/browser verification was possible - visual check is pending a human/real-browser pass."
+      "notes": "Implementado. notificationText cobre RATING_REQUEST ('{actorName} avaliou \"{title}\" — dê sua nota também.', fallback 'Seu par'); NotificationIcon novo variant com Star (lucide-react), badge circular amarelo outline (border/bg/texto #ffcb2b) distinto do gradiente cheio do MATCH e do cinza do NO_MATCH/X. tsc e build passaram; lint no mesmo baseline de 7 erros pre-existentes (nenhum novo). Verificacao no navegador nao disponivel (sem browser no sandbox, ver client/CLAUDE.md)."
     },
     {
       "id": "US-011",
-      "title": "Celebracao de Match reutilizando a notificacao (Frontend)",
-      "description": "Como casal, quero que o modal de comemoracao de Match continue aparecendo e fique coerente com a nova notificacao.",
+      "title": "Tooltip da nota individual no MediaCard",
+      "description": "Como usuario, quero ver a nota de cada membro ao passar o mouse sobre a nota do card.",
       "acceptanceCriteria": [
-        "Usar a skill frontend-design antes de implementar",
-        "Ao receber um evento de notificacao MATCH pelo STOMP, o modal/celebracao de Match existente continua sendo disparado (sem regressao)",
-        "A notificacao MATCH tambem aparece no dropdown e conta no badge",
-        "Evitar duplicidade: um mesmo match nao gera duas celebracoes no cliente que fez a acao (deduplicar por notification.id ou tmdb_id)",
-        "Typecheck passes (tsc --noEmit)",
-        "Lint passes (eslint)",
-        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
+        "Usar a skill frontend-design antes de implementar (regra do CLAUDE.md para client/)",
+        "Adicionar o primitivo shadcn Tooltip (components/ui/tooltip.tsx, hoje inexistente) e envolver o bloco de estrelas+nota do card",
+        "Conteudo do tooltip lista cada membro com sua nota (ex.: 'Ana: 4 estrelas . Leo: 5 estrelas'); membro sem nota aparece como 'Leo: sem nota'. Nomes vem de review.userName",
+        "Given os dois avaliaram, then o card mostra a media (4,0/4,3) e o tooltip mostra as duas notas individuais",
+        "Given so um avaliou, then o card mostra a nota individual desse membro (sem tratar como media) e o tooltip mostra a nota dele e 'sem nota' para o outro",
+        "Formato numerico: uma casa decimal com virgula (coupleAvg.toFixed(1).replace('.', ',')); nada muda no calculo de coupleAvg (D7)",
+        "tsc/lint passam",
+        "Verificar no navegador usando a dev-browser skill"
       ],
       "priority": 11,
       "passes": true,
-      "notes": "No new visual UI needed (confirmed via frontend-design skill) - MatchCelebrationModal.tsx's existing design is untouched, this was pure state-wiring. Root cause: backend already emits TWO separate STOMP messages for one match (/topic/couple/{id}/match with a MatchEvent, and /topic/couple/{id}/notifications with a MATCH-type Notification) - useMatchStore previously only reacted to the first, so nothing was actually broken, but the story asks the celebration to also react to the notification event (reuse it) while staying dedup-safe. Added a module-level `celebratedMatchKeys` Set in useMatchStore.ts plus a new `celebrateMatch(event, dedupeKey)` action: the /match handler calls it with key `tmdb:{tmdbId}`, and useNotificationStore.pushIncoming now calls `useMatchStore.getState().celebrateMatch(...)` with the SAME key (`tmdb:{tmdbId}`, built from the notification's own tmdbId/title/mediaType) whenever notification.type === 'MATCH'. Whichever of the two STOMP messages arrives first opens the modal; the second is a no-op since the key is already in the Set. This creates a circular import (useMatchStore <-> useNotificationStore, already existed one-directionally since US-008) - safe here because both stores only reference each other inside callback bodies (STOMP handlers / pushIncoming), never at module top-level/store-init time, so load order doesn't matter. Verified with tsc --noEmit (clean), eslint on both changed files (clean), and npx vite build (succeeded, dist/ removed after, no package.json/package-lock.json diff)."
+      "notes": "Implementado. Novo client/src/components/ui/tooltip.tsx (primitivo shadcn/base-ui @base-ui/react/tooltip, mesmo padrao de popover.tsx). MediaCard.tsx envolve o bloco estrelas+media num Tooltip cujo conteudo lista track.reviews (sempre inclui os dois membros do casal, rating null vira 'sem nota'). tsc/build passaram; lint no baseline pre-existente de 7 erros (nenhum novo)."
+    },
+    {
+      "id": "US-012",
+      "title": "Gate do 'Reavaliar' no MediaCard",
+      "description": "Como parceiro que ainda nao avaliou, nao devo poder 'Reavaliar' antes de dar minha nota inicial.",
+      "acceptanceCriteria": [
+        "Usar a skill frontend-design antes de implementar (regra do CLAUDE.md para client/)",
+        "Para status === 'WATCHED': se o usuario atual nao tem nota (myReview?.rating ausente), o botao e 'Avaliar' e abre o RatingRequestDialog (nota inicial); se ja tem nota, o botao e 'Reavaliar' e mantem o ReviewModal atual",
+        "Given o usuario nao avaliou um titulo ja marcado como visto, when ve o card, then o botao e 'Avaliar'; when salva a nota, then o botao passa a 'Reavaliar'",
+        "Given o usuario ja avaliou, when ve o card, then o botao e 'Reavaliar' (comportamento atual intacto)",
+        "tsc/lint passam",
+        "Verificar no navegador usando a dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Implementado. MediaCard.tsx: footer WATCHED agora bifurca em myReview?.rating; sem nota mostra botao 'Avaliar' (amarelo, icone Star) que abre um RatingRequestDialog local (novo prop description customizavel, ja que o texto padrao assume que o parceiro avaliou primeiro); com nota mantem 'Reavaliar' + ReviewModal via onReview (comportamento intacto). Novo prop MediaCard.onRated mescla o track atualizado nas sections da HubScreen (mesmo padrao do ReviewModal.onSuccess). tsc/build passaram; lint no baseline pre-existente de 7 erros (nenhum novo)."
     }
   ]
 }
