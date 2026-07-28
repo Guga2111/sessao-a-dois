@@ -228,8 +228,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Novo client/src/components/ui/pagination.tsx (Pagination/PaginationContent/PaginationItem/PaginationLink/PaginationPrevious/PaginationNext/PaginationEllipsis), escrito a mao como botoes simples sobre buttonVariants de components/ui/button.tsx (sem primitivo @base-ui, ja que a Pagination do shadcn nao usa um - so <nav>/<ul>/<li>/<button>, mesmo motivo de sandbox sem rede documentado para os demais primitivos hand-rolled). MatchScreen.tsx (SearchTab): novo estado page/totalPages (MediaPage.page/totalPages, ja existiam no tipo mas nao eram lidos ate agora) + lastFetchRef (ref com {url, params, context} do ultimo fetch bem-sucedido, sem o parametro page). Os 4 pontos que populam `results` (trending no mount, busca debounada, handleSortChange, handleApplyFilters) agora sempre pedem page=1 explicitamente (reiniciando a paginacao a cada busca/filtro/ordenacao) e gravam lastFetchRef.current apos sucesso. Novo handlePageChange(nextPage) reusa lastFetchRef para re-chamar o mesmo endpoint/params com page=clamp(nextPage, totalPages, TMDB_MAX_PAGE=500), sem alterar nenhum outro estado de filtro/busca. Paginador renderizado abaixo do grid (so quando totalPages>1): Anterior/Proxima + paginas numericas com uma janela current-1..current+1 e ellipsis via nova funcao paginationRange(current,total), pagina atual destacada em ambar (#ffcb2b); mensagem 'Voces chegaram ao fim dos resultados.' quando page===min(totalPages,500)."
     },
     {
       "id": "US-015",

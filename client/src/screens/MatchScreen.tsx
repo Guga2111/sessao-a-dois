@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import {
   ChevronDown,
@@ -19,6 +19,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import {
   Select,
   SelectContent,
@@ -106,6 +115,30 @@ function trackKey(mediaType: string, tmdbId: number): string {
 
 function formatResultsCount(total: number): string {
   return `${total} ${total === 1 ? "titulo" : "titulos"}`
+}
+
+const TMDB_MAX_PAGE = 500
+
+function paginationRange(
+  current: number,
+  total: number
+): (number | "ellipsis")[] {
+  const pages: (number | "ellipsis")[] = []
+  const add = (value: number | "ellipsis") => pages.push(value)
+
+  add(1)
+  if (current - 1 > 2) add("ellipsis")
+  for (
+    let page = Math.max(2, current - 1);
+    page <= Math.min(total - 1, current + 1);
+    page++
+  ) {
+    add(page)
+  }
+  if (current + 1 < total - 1) add("ellipsis")
+  if (total > 1) add(total)
+
+  return pages
 }
 
 function SuggestionsTab() {
@@ -278,6 +311,13 @@ function SearchTab() {
   const [resultsContext, setResultsContext] = useState<
     "trending" | "search" | "discover"
   >("trending")
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const lastFetchRef = useRef<{
+    url: string
+    params: Record<string, string | number>
+    context: "trending" | "search" | "discover"
+  } | null>(null)
   const activeFilterCount =
     selectedDecades.length +
     selectedCertifications.length +
@@ -320,13 +360,21 @@ function SearchTab() {
           if (cancelled) return
           setResults(response.data.results)
           setTotalResults(response.data.totalResults)
+          setTotalPages(response.data.totalPages)
+          setPage(response.data.page)
           setResultsContext("trending")
           setSearched(true)
+          lastFetchRef.current = {
+            url: "/api/media/trending",
+            params: {},
+            context: "trending",
+          }
         })
         .catch(() => {
           if (cancelled) return
           setResults([])
           setTotalResults(0)
+          setTotalPages(1)
           setResultsContext("trending")
           setSearched(true)
         })
@@ -349,21 +397,30 @@ function SearchTab() {
     let cancelled = false
     const timer = setTimeout(() => {
       setSearching(true)
+      const trimmed = query.trim()
       api
         .get<MediaPage>("/api/media/search", {
-          params: { q: query.trim() },
+          params: { q: trimmed, page: 1 },
         })
         .then((response) => {
           if (cancelled) return
           setResults(response.data.results)
           setTotalResults(response.data.totalResults)
+          setTotalPages(response.data.totalPages)
+          setPage(response.data.page)
           setResultsContext("search")
           setSearched(true)
+          lastFetchRef.current = {
+            url: "/api/media/search",
+            params: { q: trimmed },
+            context: "search",
+          }
         })
         .catch(() => {
           if (cancelled) return
           setResults([])
           setTotalResults(0)
+          setTotalPages(1)
           setResultsContext("search")
           setSearched(true)
         })
@@ -383,19 +440,28 @@ function SearchTab() {
     if (hasQuery) return
 
     setSearching(true)
+    const params = { sortBy: nextSortBy }
     api
       .get<MediaPage>("/api/media/discover", {
-        params: { sortBy: nextSortBy, page: 1 },
+        params: { ...params, page: 1 },
       })
       .then((response) => {
         setResults(response.data.results)
         setTotalResults(response.data.totalResults)
+        setTotalPages(response.data.totalPages)
+        setPage(response.data.page)
         setResultsContext("discover")
         setSearched(true)
+        lastFetchRef.current = {
+          url: "/api/media/discover",
+          params,
+          context: "discover",
+        }
       })
       .catch(() => {
         setResults([])
         setTotalResults(0)
+        setTotalPages(1)
         setResultsContext("discover")
         setSearched(true)
       })
@@ -405,7 +471,7 @@ function SearchTab() {
   const handleApplyFilters = () => {
     if (hasQuery) return
 
-    const params: Record<string, string | number> = { sortBy, page: 1 }
+    const params: Record<string, string | number> = { sortBy }
     if (selectedDecades.length) {
       params.releaseDecades = selectedDecades.join(",")
     }
@@ -430,18 +496,47 @@ function SearchTab() {
 
     setSearching(true)
     api
-      .get<MediaPage>("/api/media/discover", { params })
+      .get<MediaPage>("/api/media/discover", { params: { ...params, page: 1 } })
       .then((response) => {
         setResults(response.data.results)
         setTotalResults(response.data.totalResults)
+        setTotalPages(response.data.totalPages)
+        setPage(response.data.page)
         setResultsContext("discover")
         setSearched(true)
+        lastFetchRef.current = {
+          url: "/api/media/discover",
+          params,
+          context: "discover",
+        }
       })
       .catch(() => {
         setResults([])
         setTotalResults(0)
+        setTotalPages(1)
         setResultsContext("discover")
         setSearched(true)
+      })
+      .finally(() => setSearching(false))
+  }
+
+  const handlePageChange = (nextPage: number) => {
+    const last = lastFetchRef.current
+    const clamped = Math.min(nextPage, totalPages, TMDB_MAX_PAGE)
+    if (!last || searching || clamped === page || clamped < 1) return
+
+    setSearching(true)
+    api
+      .get<MediaPage>(last.url, { params: { ...last.params, page: clamped } })
+      .then((response) => {
+        setResults(response.data.results)
+        setTotalResults(response.data.totalResults)
+        setTotalPages(response.data.totalPages)
+        setPage(response.data.page)
+      })
+      .catch(() => {
+        setResults([])
+        setTotalResults(0)
       })
       .finally(() => setSearching(false))
   }
@@ -842,6 +937,58 @@ function SearchTab() {
           )
         })}
       </div>
+
+      {searched && results.length > 0 && totalPages > 1 && (
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page <= 1 || searching}
+                  className="border border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
+                />
+              </PaginationItem>
+              {paginationRange(page, Math.min(totalPages, TMDB_MAX_PAGE)).map(
+                (item, index) =>
+                  item === "ellipsis" ? (
+                    <PaginationItem key={`ellipsis-${index}`}>
+                      <PaginationEllipsis className="text-[#a6a39a]" />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        isActive={item === page}
+                        onClick={() => handlePageChange(item)}
+                        disabled={searching}
+                        className={cn(
+                          item === page
+                            ? "bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffdd7a]"
+                            : "border border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06]",
+                          "disabled:pointer-events-none disabled:opacity-40"
+                        )}
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= Math.min(totalPages, TMDB_MAX_PAGE) || searching}
+                  className="border border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+          {page >= Math.min(totalPages, TMDB_MAX_PAGE) && (
+            <p className="text-[12.5px] text-[#a6a39a]">
+              Voces chegaram ao fim dos resultados.
+            </p>
+          )}
+        </div>
+      )}
     </>
   )
 }
