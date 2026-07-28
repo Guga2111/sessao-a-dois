@@ -409,12 +409,25 @@ export function MatchScreen() {
             Descubram o proximo juntos
           </h1>
           <p className="mt-2 text-[15px] text-[#a6a39a]">
-            Busquem um titulo e curtam. Quando os dois curtirem o mesmo, vira um
-            match — ele entra direto na lista de voces.
+            Filtrem o catalogo do TMDB e curtam. Quando os dois curtirem o
+            mesmo, vira um match.
           </p>
         </div>
 
         <div className="mx-auto mb-10 flex w-fit gap-1 rounded-xl bg-[rgba(255,255,255,.06)] p-1">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setActiveTab("search")}
+            className={cn(
+              "cursor-pointer rounded-lg px-4 py-2 text-[13px] font-semibold transition-colors",
+              activeTab === "search"
+                ? "bg-[#ffcb2b] text-[#09090a]"
+                : "text-[#a6a39a] hover:text-[#f6f4ec]"
+            )}
+          >
+            Descobrir
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -427,19 +440,6 @@ export function MatchScreen() {
             )}
           >
             Sugestoes
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setActiveTab("search")}
-            className={cn(
-              "cursor-pointer rounded-lg px-4 py-2 text-[13px] font-semibold transition-colors",
-              activeTab === "search"
-                ? "bg-[#ffcb2b] text-[#09090a]"
-                : "text-[#a6a39a] hover:text-[#f6f4ec]"
-            )}
-          >
-            Buscar
           </Button>
         </div>
 

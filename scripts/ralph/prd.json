@@ -111,8 +111,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "MatchScreen ja tinha o cabecalho central (eyebrow/titulo) e o input de busca com icone de lupa + placeholder corretos desde antes desta story; ajustado apenas o subtitulo para o texto do design de referencia (docs/design/prints/matchpage-search-with-filters.jpeg) e renomeada a aba 'Buscar' para 'Descobrir' (reordenada para vir antes de 'Sugestoes', igual a referencia). Sugestoes nao foi alterada."
     },
     {
       "id": "US-008",
