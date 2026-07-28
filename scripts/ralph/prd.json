@@ -210,8 +210,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "O grid de cards em SearchTab (MatchScreen.tsx) ja tinha, de US-008..US-012, o badge de tipo (Filme/Serie) top-left, o botao de curtir full-width com estados idle/loading/liked/matched/error (POST /api/match/like, GET /api/tracking para trackedKeys/alreadyTracked) e a celebracao de match global (MatchCelebrationModal, montado em App.tsx, escuta useMatchStore via WebSocket - nao depende do SearchTab, entao ja funciona sem alteracao). O unico item faltante da AC era o badge de nota TMDB (ponto verde #01b47f + valor, ex. '8.4') no canto superior direito do poster: adicionado como uma segunda pill (mesmo estilo bg-[rgba(9,9,10,.6)] backdrop-blur-md do badge de tipo), renderizada so quando result.voteAverage != null, com result.voteAverage.toFixed(1). Comparado contra docs/design/prints/matchpage-search-with-filters.jpeg (mostra exatamente essa pill dupla topo do poster: tipo a esquerda, nota com ponto verde a direita)."
     },
     {
       "id": "US-014",

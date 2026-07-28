@@ -767,6 +767,12 @@ function SearchTab() {
                 <div className="absolute top-2.5 left-2.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
                   {TYPE_LABEL[result.mediaType]}
                 </div>
+                {result.voteAverage != null && (
+                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+                    <span className="size-1.5 rounded-full bg-[#01b47f]" />
+                    {result.voteAverage.toFixed(1)}
+                  </div>
+                )}
               </div>
 
               <div className="p-4">

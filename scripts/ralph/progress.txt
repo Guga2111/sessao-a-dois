@@ -13,6 +13,16 @@
 
 ---
 
+## 2026-07-28 - US-013
+- MatchScreen.tsx (SearchTab): o grid de resultados ja tinha (de US-008..US-012) o badge de tipo top-left, o botao de curtir com todos os estados (idle/loading/liked/matched/error) reutilizando POST /api/match/like e GET /api/tracking, e a celebracao de match e global (MatchCelebrationModal em App.tsx, ouvindo useMatchStore/WebSocket independente do SearchTab) - nada disso precisou mudar. So faltava o badge de nota TMDB: adicionada uma pill no canto superior direito do poster (mesmo estilo visual do badge de tipo: `bg-[rgba(9,9,10,.6)] backdrop-blur-md`), com um ponto verde `#01b47f` (`size-1.5 rounded-full`) + `result.voteAverage.toFixed(1)`, renderizada condicionalmente quando `voteAverage != null`. Verificado contra docs/design/prints/matchpage-search-with-filters.jpeg (screenshot mostra exatamente as duas pills lado a lado no topo do poster).
+- Arquivos alterados: client/src/screens/MatchScreen.tsx, scripts/ralph/prd.json, scripts/ralph/progress.txt.
+- Verificacao: `npx tsc --noEmit`, `npx eslint src/screens/MatchScreen.tsx` e `npx vite build` todos passaram sem erros/warnings. Sem browser neste sandbox (ver client/CLAUDE.md) - verificacao visual real fica pendente.
+- **Learnings for future iterations:**
+  - `MediaSearchResult.voteAverage` (client/src/types/media.ts) ja existia desde antes desta story (espelha o campo do backend) - nao foi necessario mudar nenhum tipo, so consumir o campo que ja chegava em `results`.
+  - Boa parte da AC de US-013 (badge de tipo, botao curtir com estados, deteccao de ja-rastreado, celebracao de match) ja tinha sido implementada incidentalmente em stories anteriores (US-008/US-012) enquanto o grid de cards era construido - vale sempre conferir o que ja existe no arquivo antes de reimplementar do zero, a AC pode estar parcialmente satisfeita.
+  - Sem browser/Chromium neste sandbox (confirmado novamente) - verificacao ficou em tsc/eslint/vite build; checagem visual real (badge posicionado corretamente sobre o poster, contraste do ponto verde) fica pendente para quando houver ambiente com browser disponivel.
+---
+
 ## 2026-07-28 - US-001
 - Implementado GET /api/media/trending (MediaController) consumindo GET /trending/all/week do TMDB via MediaSearchService.trending(page); filtra itens media_type=person; mapeia para MediaSearchResult reaproveitando TmdbMultiSearchItem.
 - Criado com.app.media.MediaPage (record publico results/page/totalResults/totalPages) e com.app.media.TmdbTrendingResponse (record package-private com os campos extras da resposta de trending).
