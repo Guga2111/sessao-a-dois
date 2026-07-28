@@ -178,8 +178,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Adicionados os botoes 'Limpar tudo' (text button, desabilitado quando activeFilterCount===0) e 'Aplicar filtros' (Button primario ambar, desabilitado quando ha texto na busca ou uma requisicao em andamento) no rodape do CollapsibleContent do painel de filtros em MatchScreen.tsx (SearchTab), separados por border-t igual as demais secoes. handleClearFilters reseta selectedDecades/selectedCertifications/selectedGenres para [] e voteRange/runtimeRange para os defaults (activeFilterCount zera automaticamente, ja que e derivado desse estado). handleApplyFilters monta os params de GET /api/media/discover a partir da selecao atual (releaseDecades/certifications/genres como CSV quando nao vazios; voteAverageMin/voteAverageMax/runtimeMin/runtimeMax so quando diferentes do default; sortBy sempre; page sempre 1) e substitui `results`, reaproveitando o mesmo tratamento de erro/loading de handleSortChange. A exclusividade busca-texto vs. painel de filtros ja estava garantida desde US-008 (CollapsibleTrigger e Select desabilitados quando hasQuery); handleApplyFilters tambem faz early-return quando hasQuery por seguranca (o botao Aplicar ja fica disabled nesse caso, mas o guard evita uma race caso o usuario digite entre o clique e a resposta)."
     },
     {
       "id": "US-012",

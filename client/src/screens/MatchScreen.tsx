@@ -270,8 +270,6 @@ function SearchTab() {
   const [runtimeRange, setRuntimeRange] = useState<[number, number]>(
     DEFAULT_RUNTIME_RANGE
   )
-  // "Aplicar filtros" (US-011) e o que de fato dispara /api/media/discover
-  // com essa selecao.
   const activeFilterCount =
     selectedDecades.length +
     selectedCertifications.length +
@@ -355,6 +353,54 @@ function SearchTab() {
         setSearched(true)
       })
       .finally(() => setSearching(false))
+  }
+
+  const handleApplyFilters = () => {
+    if (hasQuery) return
+
+    const params: Record<string, string | number> = { sortBy, page: 1 }
+    if (selectedDecades.length) {
+      params.releaseDecades = selectedDecades.join(",")
+    }
+    if (selectedCertifications.length) {
+      params.certifications = selectedCertifications.join(",")
+    }
+    if (selectedGenres.length) {
+      params.genres = selectedGenres.join(",")
+    }
+    if (voteRange[0] !== DEFAULT_VOTE_RANGE[0]) {
+      params.voteAverageMin = voteRange[0]
+    }
+    if (voteRange[1] !== DEFAULT_VOTE_RANGE[1]) {
+      params.voteAverageMax = voteRange[1]
+    }
+    if (runtimeRange[0] !== DEFAULT_RUNTIME_RANGE[0]) {
+      params.runtimeMin = runtimeRange[0]
+    }
+    if (runtimeRange[1] !== DEFAULT_RUNTIME_RANGE[1]) {
+      params.runtimeMax = runtimeRange[1]
+    }
+
+    setSearching(true)
+    api
+      .get<MediaPage>("/api/media/discover", { params })
+      .then((response) => {
+        setResults(response.data.results)
+        setSearched(true)
+      })
+      .catch(() => {
+        setResults([])
+        setSearched(true)
+      })
+      .finally(() => setSearching(false))
+  }
+
+  const handleClearFilters = () => {
+    setSelectedDecades([])
+    setSelectedCertifications([])
+    setSelectedGenres([])
+    setVoteRange(DEFAULT_VOTE_RANGE)
+    setRuntimeRange(DEFAULT_RUNTIME_RANGE)
   }
 
   const handleLike = async (result: MediaSearchResult) => {
@@ -573,6 +619,25 @@ function SearchTab() {
                 <span>240 min</span>
               </div>
             </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/10 pt-5">
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              disabled={activeFilterCount === 0}
+              className="text-[13px] font-semibold text-[#a6a39a] transition-colors hover:text-[#f6f4ec] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Limpar tudo
+            </button>
+            <Button
+              type="button"
+              onClick={handleApplyFilters}
+              disabled={hasQuery || searching}
+              className="rounded-full bg-[#ffcb2b] px-5 py-2.5 text-[13px] font-bold text-[#09090a] hover:bg-[#ffdd7a] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Aplicar filtros
+            </Button>
           </div>
         </CollapsibleContent>
       </Collapsible>
