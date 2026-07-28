@@ -430,6 +430,55 @@ class MediaSearchServiceTest {
 	}
 
 	@Test
+	void genres_mergesMovieAndTvGenresDeduplicatingByName() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		TmdbGenreListResponse movieGenres = new TmdbGenreListResponse(
+			List.of(new TmdbGenre(28, "Acao"), new TmdbGenre(18, "Drama")));
+		TmdbGenreListResponse tvGenres = new TmdbGenreListResponse(
+			List.of(new TmdbGenre(10759, "Acao"), new TmdbGenre(35, "Comedia")));
+
+		when(restClient.get().uri("/genre/movie/list").retrieve().body(TmdbGenreListResponse.class))
+			.thenReturn(movieGenres);
+		when(restClient.get().uri("/genre/tv/list").retrieve().body(TmdbGenreListResponse.class))
+			.thenReturn(tvGenres);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		List<MediaGenre> genres = service.genres();
+
+		assertThat(genres).containsExactly(
+			new MediaGenre(28, "Acao"), new MediaGenre(18, "Drama"), new MediaGenre(35, "Comedia"));
+	}
+
+	@Test
+	void genres_returnsEmptyListWhenTmdbResponseBodyIsNull() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		when(restClient.get().uri("/genre/movie/list").retrieve().body(TmdbGenreListResponse.class))
+			.thenReturn(null);
+		when(restClient.get().uri("/genre/tv/list").retrieve().body(TmdbGenreListResponse.class))
+			.thenReturn(null);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+
+		assertThat(service.genres()).isEmpty();
+	}
+
+	@Test
+	void genres_throwsTmdbUnavailableWhenTmdbIsDown() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		HttpServerErrorException serverError = HttpServerErrorException.create(
+			HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", HttpHeaders.EMPTY, new byte[0], StandardCharsets.UTF_8);
+
+		when(restClient.get().uri("/genre/movie/list").retrieve().body(TmdbGenreListResponse.class))
+			.thenThrow(serverError);
+
+		MediaSearchService service = new MediaSearchService(restClient);
+
+		assertThatThrownBy(service::genres)
+			.isInstanceOf(TmdbUnavailableException.class)
+			.hasCauseInstanceOf(HttpServerErrorException.class);
+	}
+
+	@Test
 	void discover_throwsTmdbUnavailableWhenTmdbIsDown() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		HttpServerErrorException serverError = HttpServerErrorException.create(

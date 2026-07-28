@@ -202,6 +202,33 @@ class MediaControllerTest {
 	}
 
 	@Test
+	void genres_returnsMergedGenresForAuthenticatedUser() throws Exception {
+		when(mediaSearchService.genres())
+			.thenReturn(List.of(new MediaGenre(28, "Acao"), new MediaGenre(35, "Comedia")));
+
+		mockMvc.perform(get("/api/media/genres").with(authentication(authenticatedUser())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].id").value(28))
+			.andExpect(jsonPath("$[0].name").value("Acao"))
+			.andExpect(jsonPath("$[1].name").value("Comedia"));
+	}
+
+	@Test
+	void genres_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/media/genres")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void genres_returnsBadGatewayWhenTmdbIsUnavailable() throws Exception {
+		when(mediaSearchService.genres())
+			.thenThrow(new TmdbUnavailableException("/genre/movie/list", new RuntimeException("boom")));
+
+		mockMvc.perform(get("/api/media/genres").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.message").value("Nao foi possivel buscar dados no momento. Tente novamente mais tarde."));
+	}
+
+	@Test
 	void discover_returnsPagedResultsForAuthenticatedUser() throws Exception {
 		MediaSearchResult movie = new MediaSearchResult(
 			603, MediaType.MOVIE, "Matrix", 1999, "https://image.tmdb.org/t/p/w500/poster.jpg", "overview", 8.2);

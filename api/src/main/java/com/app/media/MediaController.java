@@ -1,5 +1,7 @@
 package com.app.media;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -61,6 +63,11 @@ public class MediaController {
 			page);
 
 		return ResponseEntity.ok(mediaSearchService.discover(filters));
+	}
+
+	@GetMapping("/genres")
+	public ResponseEntity<List<MediaGenre>> genres() {
+		return ResponseEntity.ok(mediaSearchService.genres());
 	}
 
 	@GetMapping("/{mediaType}/{tmdbId}")

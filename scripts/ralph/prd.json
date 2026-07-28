@@ -95,8 +95,8 @@
         "mvn -q -pl api test passa"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "GET /api/media/genres implementado em MediaController + MediaSearchService.genres(). Chama /genre/movie/list e /genre/tv/list (novo record package-private TmdbGenreListResponse, {genres: [TmdbGenre...]}, reutilizando TmdbGenre ja existente), mescla os dois resultados e deduplica por name() com um LinkedHashMap.putIfAbsent (filmes inseridos primeiro, entao empatam para o genero de filme quando o mesmo nome existe nos dois). Novo record publico MediaGenre(id, name) e o DTO exposto pelo endpoint (nunca o TmdbGenre package-private). Falhas do TMDB em qualquer um dos dois GETs propagam TmdbUnavailableException (502), igual aos outros endpoints de com.app.media."
     },
     {
       "id": "US-007",

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -24,6 +25,10 @@ public class MediaSearchService {
 	private static final String DISCOVER_MOVIE_ENDPOINT = "/discover/movie";
 
 	private static final String DISCOVER_TV_ENDPOINT = "/discover/tv";
+
+	private static final String GENRE_MOVIE_ENDPOINT = "/genre/movie/list";
+
+	private static final String GENRE_TV_ENDPOINT = "/genre/tv/list";
 
 	private static final int PAGE_SIZE = 20;
 
@@ -141,6 +146,33 @@ public class MediaSearchService {
 		int totalPages = (int) Math.ceil(totalResults / (double) PAGE_SIZE);
 
 		return new MediaPage(results, filters.page(), totalResults, totalPages);
+	}
+
+	/**
+	 * Generos de filme e serie do TMDB (pt-BR), mesclados e deduplicados por nome
+	 * (mantendo a primeira ocorrencia, filmes antes de series).
+	 */
+	public List<MediaGenre> genres() {
+		List<TmdbGenre> movieGenres = fetchGenreList(GENRE_MOVIE_ENDPOINT);
+		List<TmdbGenre> tvGenres = fetchGenreList(GENRE_TV_ENDPOINT);
+
+		LinkedHashMap<String, TmdbGenre> byName = new LinkedHashMap<>();
+		movieGenres.forEach(genre -> byName.putIfAbsent(genre.name(), genre));
+		tvGenres.forEach(genre -> byName.putIfAbsent(genre.name(), genre));
+
+		return byName.values().stream().map(genre -> new MediaGenre(genre.id(), genre.name())).toList();
+	}
+
+	private List<TmdbGenre> fetchGenreList(String endpoint) {
+		TmdbGenreListResponse response;
+		try {
+			response = tmdbRestClient.get().uri(endpoint).retrieve().body(TmdbGenreListResponse.class);
+		}
+		catch (RestClientResponseException | ResourceAccessException ex) {
+			throw new TmdbUnavailableException(endpoint, ex);
+		}
+
+		return response == null || response.genres() == null ? List.of() : response.genres();
 	}
 
 	private TmdbDiscoverResponse callDiscover(MediaType mediaType, DiscoverFilters filters, DateRange dateRange) {
