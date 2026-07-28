@@ -66,8 +66,8 @@
         "mvn -q -pl api test passa"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "GET /api/media/discover implementado em MediaController + MediaSearchService.discover(DiscoverFilters). Novo record DiscoverFilters agrega os 9 parametros opcionais (mediaType nulo = ambos); DiscoverSortBy (enum) valida sortBy e mapeia release_date.* para primary_release_date/first_air_date conforme o tipo de midia; MediaType.fromQueryValueOrNull trata mediaType ausente/vazio como 'ambos'. Novos TmdbDiscoverItem/TmdbDiscoverResponse (com popularity, ausente em TmdbMultiSearchItem) usados para mapear /discover/movie e /discover/tv. Decadas viram um unico intervalo min-max (menor decada..maior decada+9). Modo 'ambos' chama movie+tv na mesma pagina, mescla por sort_by (popularity/vote_average/release_date, asc/desc) e fatia em 20; totalResults e a soma dos dois, totalPages = ceil(totalResults/20). certifications e aceito no contrato (DiscoverFilters.certifications) mas ainda nao mapeado para o TMDB - fica para US-005. Valores invalidos de mediaType/sortBy lancam InvalidMediaTypeException/InvalidSortByException (400), tratados em MediaExceptionHandler."
     },
     {
       "id": "US-005",

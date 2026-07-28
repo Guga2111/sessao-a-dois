@@ -7,6 +7,7 @@ import com.app.security.JwtService;
 import com.app.security.SecurityConfig;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -14,6 +15,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -194,6 +197,94 @@ class MediaControllerTest {
 			.thenThrow(new TmdbUnavailableException("/trending/all/week", new RuntimeException("boom")));
 
 		mockMvc.perform(get("/api/media/trending").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadGateway())
+			.andExpect(jsonPath("$.message").value("Nao foi possivel buscar dados no momento. Tente novamente mais tarde."));
+	}
+
+	@Test
+	void discover_returnsPagedResultsForAuthenticatedUser() throws Exception {
+		MediaSearchResult movie = new MediaSearchResult(
+			603, MediaType.MOVIE, "Matrix", 1999, "https://image.tmdb.org/t/p/w500/poster.jpg", "overview", 8.2);
+		MediaPage page = new MediaPage(List.of(movie), 1, 40, 2);
+		when(mediaSearchService.discover(any())).thenReturn(page);
+
+		mockMvc.perform(get("/api/media/discover").with(authentication(authenticatedUser())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.results[0].tmdbId").value(603))
+			.andExpect(jsonPath("$.totalResults").value(40))
+			.andExpect(jsonPath("$.totalPages").value(2));
+	}
+
+	@Test
+	void discover_passesParsedFiltersToService() throws Exception {
+		ArgumentCaptor<DiscoverFilters> captor = ArgumentCaptor.forClass(DiscoverFilters.class);
+		when(mediaSearchService.discover(captor.capture())).thenReturn(new MediaPage(List.of(), 2, 0, 0));
+
+		mockMvc.perform(get("/api/media/discover")
+				.param("mediaType", "movie")
+				.param("genres", "28,12")
+				.param("releaseDecades", "2020,2000")
+				.param("voteAverageMin", "7.0")
+				.param("voteAverageMax", "9.5")
+				.param("runtimeMin", "60")
+				.param("runtimeMax", "180")
+				.param("sortBy", "vote_average.asc")
+				.param("page", "2")
+				.with(authentication(authenticatedUser())))
+			.andExpect(status().isOk());
+
+		DiscoverFilters filters = captor.getValue();
+		assertThat(filters.mediaType()).isEqualTo(MediaType.MOVIE);
+		assertThat(filters.genres()).isEqualTo("28,12");
+		assertThat(filters.releaseDecades()).isEqualTo("2020,2000");
+		assertThat(filters.voteAverageMin()).isEqualTo(7.0);
+		assertThat(filters.voteAverageMax()).isEqualTo(9.5);
+		assertThat(filters.runtimeMin()).isEqualTo(60);
+		assertThat(filters.runtimeMax()).isEqualTo(180);
+		assertThat(filters.sortBy()).isEqualTo(DiscoverSortBy.VOTE_AVERAGE_ASC);
+		assertThat(filters.page()).isEqualTo(2);
+	}
+
+	@Test
+	void discover_defaultsToNullMediaTypeAndPopularityDescWhenOmitted() throws Exception {
+		ArgumentCaptor<DiscoverFilters> captor = ArgumentCaptor.forClass(DiscoverFilters.class);
+		when(mediaSearchService.discover(captor.capture())).thenReturn(new MediaPage(List.of(), 1, 0, 0));
+
+		mockMvc.perform(get("/api/media/discover").with(authentication(authenticatedUser())))
+			.andExpect(status().isOk());
+
+		DiscoverFilters filters = captor.getValue();
+		assertThat(filters.mediaType()).isNull();
+		assertThat(filters.sortBy()).isEqualTo(DiscoverSortBy.POPULARITY_DESC);
+		assertThat(filters.page()).isEqualTo(1);
+	}
+
+	@Test
+	void discover_rejectsInvalidMediaTypeWithBadRequest() throws Exception {
+		mockMvc.perform(get("/api/media/discover").param("mediaType", "song").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").exists());
+	}
+
+	@Test
+	void discover_rejectsInvalidSortByWithBadRequest() throws Exception {
+		mockMvc.perform(get("/api/media/discover").param("sortBy", "random").with(authentication(authenticatedUser())))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").exists());
+	}
+
+	@Test
+	void discover_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/media/discover"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void discover_returnsBadGatewayWhenTmdbIsUnavailable() throws Exception {
+		when(mediaSearchService.discover(any()))
+			.thenThrow(new TmdbUnavailableException("/discover/movie", new RuntimeException("boom")));
+
+		mockMvc.perform(get("/api/media/discover").with(authentication(authenticatedUser())))
 			.andExpect(status().isBadGateway())
 			.andExpect(jsonPath("$.message").value("Nao foi possivel buscar dados no momento. Tente novamente mais tarde."));
 	}
