@@ -81,8 +81,8 @@
         "mvn -q -pl api test passa"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Adicionado MediaSearchService.certificationCeilingFor(String), que parseia o CSV de chips (mapeando 'Livre' para 'L', case-insensitive), ignora chips desconhecidos e resolve para a maior classificacao valida marcada (usando CERTIFICATION_ORDER = [L,10,12,14,16,18]). callDiscover so aplica certification_country=BR + certification.lte quando mediaType == MOVIE; TV nunca recebe esses parametros (bloco 'if (mediaType == MediaType.MOVIE)' dedicado), preservando o filtro de decadas/genero/nota/duracao ja existentes. DiscoverFilters.certifications continua sendo o mesmo campo CSV de US-004; so seu javadoc foi atualizado para descrever o comportamento agora implementado."
     },
     {
       "id": "US-006",

@@ -271,6 +271,87 @@ class MediaSearchServiceTest {
 	}
 
 	@Test
+	void discover_movieOnly_withCertifications_usesHighestSelectedAsCeiling() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		ArgumentCaptor<Function<UriBuilder, URI>> captor = uriCaptor();
+		when(restClient.get().uri(captor.capture()).retrieve().body(TmdbDiscoverResponse.class))
+			.thenReturn(new TmdbDiscoverResponse(1, List.of(), 1, 0));
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		DiscoverFilters filters = new DiscoverFilters(
+			MediaType.MOVIE, null, null, "Livre,12,16", null, null, null, null, DiscoverSortBy.POPULARITY_DESC, 1);
+
+		service.discover(filters);
+
+		URI uri = captor.getValue().apply(UriComponentsBuilder.newInstance());
+		var query = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
+
+		assertThat(query.getFirst("certification_country")).isEqualTo("BR");
+		assertThat(query.getFirst("certification.lte")).isEqualTo("16");
+	}
+
+	@Test
+	void discover_movieOnly_withOnlyLivreChip_usesLAsCeiling() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		ArgumentCaptor<Function<UriBuilder, URI>> captor = uriCaptor();
+		when(restClient.get().uri(captor.capture()).retrieve().body(TmdbDiscoverResponse.class))
+			.thenReturn(new TmdbDiscoverResponse(1, List.of(), 1, 0));
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		DiscoverFilters filters = new DiscoverFilters(
+			MediaType.MOVIE, null, null, "Livre", null, null, null, null, DiscoverSortBy.POPULARITY_DESC, 1);
+
+		service.discover(filters);
+
+		URI uri = captor.getValue().apply(UriComponentsBuilder.newInstance());
+		var query = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
+
+		assertThat(query.getFirst("certification_country")).isEqualTo("BR");
+		assertThat(query.getFirst("certification.lte")).isEqualTo("L");
+	}
+
+	@Test
+	void discover_movieOnly_withoutCertifications_omitsCertificationParams() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		ArgumentCaptor<Function<UriBuilder, URI>> captor = uriCaptor();
+		when(restClient.get().uri(captor.capture()).retrieve().body(TmdbDiscoverResponse.class))
+			.thenReturn(new TmdbDiscoverResponse(1, List.of(), 1, 0));
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		DiscoverFilters filters = new DiscoverFilters(
+			MediaType.MOVIE, null, null, null, null, null, null, null, DiscoverSortBy.POPULARITY_DESC, 1);
+
+		service.discover(filters);
+
+		URI uri = captor.getValue().apply(UriComponentsBuilder.newInstance());
+		var query = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
+
+		assertThat(query.containsKey("certification_country")).isFalse();
+		assertThat(query.containsKey("certification.lte")).isFalse();
+	}
+
+	@Test
+	void discover_tvOnly_ignoresCertificationsEvenWhenProvided() {
+		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
+		ArgumentCaptor<Function<UriBuilder, URI>> captor = uriCaptor();
+		when(restClient.get().uri(captor.capture()).retrieve().body(TmdbDiscoverResponse.class))
+			.thenReturn(new TmdbDiscoverResponse(1, List.of(), 1, 0));
+
+		MediaSearchService service = new MediaSearchService(restClient);
+		DiscoverFilters filters = new DiscoverFilters(
+			MediaType.TV, null, null, "Livre,18", null, null, null, null, DiscoverSortBy.POPULARITY_DESC, 1);
+
+		service.discover(filters);
+
+		URI uri = captor.getValue().apply(UriComponentsBuilder.newInstance());
+		var query = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
+
+		assertThat(uri.getPath()).isEqualTo("/discover/tv");
+		assertThat(query.containsKey("certification_country")).isFalse();
+		assertThat(query.containsKey("certification.lte")).isFalse();
+	}
+
+	@Test
 	void discover_tvOnly_usesFirstAirDateForDecadesAndReleaseDateSort() {
 		RestClient restClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
 		ArgumentCaptor<Function<UriBuilder, URI>> captor = uriCaptor();

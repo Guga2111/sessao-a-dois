@@ -27,6 +27,12 @@ public class MediaSearchService {
 
 	private static final int PAGE_SIZE = 20;
 
+	/**
+	 * Chips de classificacao indicativa BR, do mais permissivo ao mais restritivo.
+	 * TMDB usa exatamente estes codigos como certification_country=BR.
+	 */
+	private static final List<String> CERTIFICATION_ORDER = List.of("L", "10", "12", "14", "16", "18");
+
 	private final RestClient tmdbRestClient;
 
 	public MediaSearchService(RestClient tmdbRestClient) {
@@ -167,6 +173,13 @@ public class MediaSearchService {
 						uriBuilder.queryParam(datePrefix + ".gte", dateRange.gte())
 							.queryParam(datePrefix + ".lte", dateRange.lte());
 					}
+					if (mediaType == MediaType.MOVIE) {
+						String certificationCeiling = certificationCeilingFor(filters.certifications());
+						if (certificationCeiling != null) {
+							uriBuilder.queryParam("certification_country", "BR")
+								.queryParam("certification.lte", certificationCeiling);
+						}
+					}
 
 					return uriBuilder.build();
 				})
@@ -176,6 +189,25 @@ public class MediaSearchService {
 		catch (RestClientResponseException | ResourceAccessException ex) {
 			throw new TmdbUnavailableException(endpoint, ex);
 		}
+	}
+
+	/**
+	 * Resolve os chips de classificacao indicativa selecionados (CSV, ex.: "Livre,16,18")
+	 * para um unico teto TMDB (certification.lte), usando a classificacao mais restritiva
+	 * marcada (semantica "ate esta classificacao"). Chips desconhecidos sao ignorados;
+	 * retorna null quando nao ha nenhum chip valido selecionado.
+	 */
+	private String certificationCeilingFor(String certifications) {
+		if (!StringUtils.hasText(certifications)) {
+			return null;
+		}
+
+		return Arrays.stream(certifications.split(","))
+			.map(String::trim)
+			.map(value -> "Livre".equalsIgnoreCase(value) ? "L" : value)
+			.filter(CERTIFICATION_ORDER::contains)
+			.max(Comparator.comparingInt(CERTIFICATION_ORDER::indexOf))
+			.orElse(null);
 	}
 
 	private DateRange dateRangeFromDecades(String releaseDecades) {
