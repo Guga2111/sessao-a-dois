@@ -1,250 +1,192 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/descobrir-busca-com-filtros",
-  "description": "Descobrir - Busca Avancada, Filtros e Ordenacao (Tela de Match): evolui a aba Descobrir do MatchScreen para descoberta ativa avancada sobre dados do TMDB (trending inicial, busca textual paginada, painel de filtros expansivel, ordenacao, contador de resultados e grid paginado de 20 itens por pagina). A aba Sugestoes nao deve ser alterada.",
+  "branchName": "ralph/global-skeletons",
+  "description": "Skeletons Globais de Carregamento (Shadcn UI) - substituir spinners de leitura (GET/FETCH) por skeletons layout-aware com anti-flicker em todo o app. Botoes de acao (POST) mantem seu feedback atual.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Endpoint de 'Em alta esta semana' (trending) paginado",
-      "description": "Como usuario, quero ver titulos em alta ao abrir a aba Descobrir, para ter um ponto de partida sem precisar digitar nada.",
+      "title": "Adicionar e adaptar o primitivo Skeleton da Shadcn UI",
+      "description": "Como desenvolvedor, quero um componente Skeleton global e alinhado ao tema, para reutilizar em todo o app.",
       "acceptanceCriteria": [
-        "Novo endpoint GET /api/media/trending no MediaController (modulo com.app.media)",
-        "Consome GET /trending/all/week da TMDB v3 usando o RestClient existente (header Bearer, interceptor pt-BR)",
-        "Aceita parametro page (default 1) e repassa ao TMDB; a resposta contem no maximo 20 itens",
-        "Retorna objeto de pagina com results (List<MediaSearchResult>), page, totalResults, totalPages",
-        "Itens de tipo person retornados por trending/all sao filtrados (apenas MOVIE/TV)",
-        "Testes JUnit/Mockito para controller e service (sucesso, TMDB indisponivel, filtragem de pessoas)",
-        "mvn -q -pl api test passa"
+        "Criar src/components/ui/skeleton.tsx ESCRITO A MAO (sandbox sem rede para 'bunx shadcn add' - ver client/CLAUDE.md), seguindo o padrao dos demais primitivos: data-slot='skeleton' e cn(...) para merge de classes",
+        "Base de estilo com token do tema (bg-accent ou bg-white/[0.06]), cantos arredondados e animate-pulse (animacao padrao confirmada)",
+        "Componente importavel via alias @/components/ui/skeleton",
+        "Typecheck passes",
+        "Lint passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Endpoint GET /api/media/trending implementado em MediaController + MediaSearchService.trending(page), reutilizando TmdbMultiSearchItem via novo TmdbTrendingResponse. Introduz o record publico MediaPage (adiantando parte do contrato de US-002)."
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "DTO de pagina paginada reutilizavel (MediaPage)",
-      "description": "Como desenvolvedor, quero um contrato de paginacao padrao para busca, descoberta e trending, para o frontend tratar todos igual.",
+      "title": "Hook anti-flicker useDelayedLoading",
+      "description": "Como usuario, nao quero ver o skeleton piscar quando a resposta e muito rapida.",
       "acceptanceCriteria": [
-        "Novo record MediaPage com List<MediaSearchResult> results, int page, int totalResults, int totalPages",
-        "totalResults limitado ao teto do TMDB quando aplicavel (ver Consideracoes Tecnicas)",
-        "Testes cobrindo o mapeamento a partir da resposta do TMDB",
-        "mvn -q -pl api test passa"
+        "Criar src/lib/useDelayedLoading.ts exportando um hook useDelayedLoading(loading: boolean, opts?: { delayMs?: number; minVisibleMs?: number }) que retorna showSkeleton: boolean",
+        "Defaults: delayMs=150 e minVisibleMs=400",
+        "showSkeleton so vira true se loading continuar true por mais de delayMs",
+        "Uma vez visivel, showSkeleton permanece true por no minimo minVisibleMs, mesmo que loading vire false antes",
+        "Cleanup de todos os timers no useEffect (sem leaks nem updates apos unmount)",
+        "Respeita o lint gotcha set-state-in-effect do client/CLAUDE.md (nao chamar setState direto no corpo do effect)",
+        "Typecheck passes",
+        "Lint passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "MediaPage ja existia (US-001); adicionado compact constructor que clampa totalPages a 500 e totalResults a 10000 (teto do TMDB, 500 paginas x 20 itens) sempre que o TMDB reportar valores maiores, aplicando-se automaticamente a qualquer endpoint que construa um MediaPage (trending, e futuramente search/discover). Testes dedicados em MediaPageTest + um teste de clamping em MediaSearchServiceTest.trending_clampsTotalsToTmdbCapWhenTmdbReportsMore."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Migrar GET /api/media/search para resposta paginada",
-      "description": "Como usuario, quero paginar os resultados da busca textual, vendo 20 por vez.",
+      "title": "Biblioteca de skeletons layout-aware reutilizaveis",
+      "description": "Como desenvolvedor, quero skeletons que espelham cada formato de UI, para reuso consistente entre telas.",
       "acceptanceCriteria": [
-        "GET /api/media/search aceita page (default 1) alem de q",
-        "Retorna MediaPage (20 itens/pagina) em vez de List<MediaSearchResult>",
-        "q continua obrigatorio e nao vazio (mantem InvalidSearchQueryException -> 400)",
-        "Testes existentes de MediaControllerTest/MediaSearchServiceTest atualizados e passando",
-        "mvn -q -pl api test passa"
+        "Criar src/components/skeletons/ com composicoes baseadas no primitivo Skeleton: MediaCardSkeleton, KpiCardSkeleton, ChartSkeleton, NotificationRowSkeleton, DetailModalSkeleton, SearchResultSkeleton",
+        "Cada skeleton reproduz as dimensoes/proporcoes do componente real (ex.: MediaCardSkeleton usa aspect-[3/4] e o mesmo card container, incl. min-w-[72vw] mobile e grid desktop)",
+        "MediaCardSkeleton substitui o SkeletonCard artesanal inline do HubScreen.tsx (remover a versao inline e importar o novo componente)",
+        "Estilo alinhado ao tema (bg-[#161513], borda rgba(255,255,255,.07), raio 18px, blocos bg-white/[0.06])",
+        "Typecheck passes",
+        "Lint passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "GET /api/media/search agora aceita page (default 1) e retorna MediaPage, reaproveitando TmdbMultiSearchResponse (agora com page/total_pages/total_results) e o clamp automatico do MediaPage. Testes de MediaSearchServiceTest/MediaControllerTest atualizados para o novo contrato paginado."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Endpoint de descoberta com filtros e ordenacao (TMDB Discover)",
-      "description": "Como usuario, quero filtrar e ordenar o catalogo para encontrar titulos que combinam com o casal.",
+      "title": "Hub - skeletons nas 3 listas e no infinite scroll",
+      "description": "Como usuario, ao abrir o Hub quero ver o layout das listas se formando (skeletons) em vez de vazio/spinner.",
       "acceptanceCriteria": [
-        "Novo endpoint GET /api/media/discover no MediaController",
-        "Parametros opcionais (exceto page default 1): mediaType (MOVIE|TV|ambos), genres (CSV de IDs), releaseDecades, certifications, voteAverageMin, voteAverageMax, runtimeMin, runtimeMax, sortBy, page",
-        "Mapeia para /discover/movie e/ou /discover/tv com with_genres, primary_release_date.gte/.lte (movie) e first_air_date.gte/.lte (tv) derivados das decadas, vote_average.gte/.lte, with_runtime.gte/.lte, sort_by",
-        "Multiplas decadas viram um unico intervalo min-max (menor data ate maior data), mesmo nao contiguas (ex.: 2020+2000 -> 2000-01-01..2029-12-31)",
-        "sortBy suporta popularity.desc/asc, vote_average.desc/asc, release_date.desc/asc (mapeando para o campo de data correto por tipo de midia)",
-        "No modo 'ambos', o backend chama /discover/movie e /discover/tv, mescla por sort_by e fatia em 20 por pagina; totalResults e a soma aproximada",
-        "Retorna MediaPage com exatamente 20 itens por pagina",
-        "Valores invalidos de enum (sortBy, mediaType) retornam 400 com mensagem",
-        "Testes JUnit/Mockito cobrindo a construcao da URL do TMDB para cada filtro e ordenacao",
-        "mvn -q -pl api test passa"
+        "Cada secao (Assistindo, Queremos Ver, Ja Vimos) mostra um grid de MediaCardSkeleton (mesma contagem de placeholders de hoje) enquanto loading",
+        "O contador do cabecalho mostra um skeleton curto no lugar de '...' enquanto carrega",
+        "O carregamento incremental (infinite scroll / 'Carregar mais') mostra MediaCardSkeleton no lugar do texto 'Carregando...'",
+        "Skeletons controlados pelo hook useDelayedLoading",
+        "Nenhum spinner de leitura remanescente no HubScreen.tsx",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "GET /api/media/discover implementado em MediaController + MediaSearchService.discover(DiscoverFilters). Novo record DiscoverFilters agrega os 9 parametros opcionais (mediaType nulo = ambos); DiscoverSortBy (enum) valida sortBy e mapeia release_date.* para primary_release_date/first_air_date conforme o tipo de midia; MediaType.fromQueryValueOrNull trata mediaType ausente/vazio como 'ambos'. Novos TmdbDiscoverItem/TmdbDiscoverResponse (com popularity, ausente em TmdbMultiSearchItem) usados para mapear /discover/movie e /discover/tv. Decadas viram um unico intervalo min-max (menor decada..maior decada+9). Modo 'ambos' chama movie+tv na mesma pagina, mescla por sort_by (popularity/vote_average/release_date, asc/desc) e fatia em 20; totalResults e a soma dos dois, totalPages = ceil(totalResults/20). certifications e aceito no contrato (DiscoverFilters.certifications) mas ainda nao mapeado para o TMDB - fica para US-005. Valores invalidos de mediaType/sortBy lancam InvalidMediaTypeException/InvalidSortByException (400), tratados em MediaExceptionHandler."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Filtro de classificacao indicativa por certificacao BR do TMDB",
-      "description": "Como usuario, quero filtrar por classificacao indicativa brasileira (Livre/10/12/14/16/18).",
+      "title": "Dashboard - skeletons de KPIs e graficos",
+      "description": "Como usuario, quero ver o esqueleto dos cards e graficos do Dashboard enquanto as estatisticas carregam.",
       "acceptanceCriteria": [
-        "Mapeamento de chips para certificacao TMDB BR: Livre->L, 10->10, 12->12, 14->14, 16->16, 18->18",
-        "Requisicoes de filme enviam certification_country=BR + certification.lte (semantica mais permissiva); com multiplas marcadas usa a maior classificacao selecionada como teto",
-        "Para series (TV) o filtro de certificacao e ignorado (TMDB nao suporta certification em /discover/tv) sem quebrar a requisicao, e isso e documentado",
-        "Testes cobrindo a montagem de certification_country/certification",
-        "mvn -q -pl api test passa"
+        "Os 4 KPIs (tempo juntos, filmes vs series, genero favorito, total assistido) mostram KpiCardSkeleton enquanto loading",
+        "Os graficos (barras por mes, donut, barras de genero) mostram ChartSkeleton enquanto loading",
+        "Substitui o tratamento atual do flag loading do DashboardScreen.tsx",
+        "Estado vazio (isEmpty) continua funcionando apos o carregamento e nao conflita com o skeleton",
+        "Anti-flicker via useDelayedLoading",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Adicionado MediaSearchService.certificationCeilingFor(String), que parseia o CSV de chips (mapeando 'Livre' para 'L', case-insensitive), ignora chips desconhecidos e resolve para a maior classificacao valida marcada (usando CERTIFICATION_ORDER = [L,10,12,14,16,18]). callDiscover so aplica certification_country=BR + certification.lte quando mediaType == MOVIE; TV nunca recebe esses parametros (bloco 'if (mediaType == MediaType.MOVIE)' dedicado), preservando o filtro de decadas/genero/nota/duracao ja existentes. DiscoverFilters.certifications continua sendo o mesmo campo CSV de US-004; so seu javadoc foi atualizado para descrever o comportamento agora implementado."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Endpoint de metadados de generos",
-      "description": "Como desenvolvedor, quero a lista de generos TMDB (com IDs) para renderizar os chips corretamente.",
+      "title": "Match - skeleton da fila pendente e da busca TMDB",
+      "description": "Como usuario, quero skeletons no Match (fila de sugestoes e resultados de busca) em vez de spinners de leitura.",
       "acceptanceCriteria": [
-        "Endpoint GET /api/media/genres retornando generos (id + nome pt-BR) de filme e serie, deduplicados por nome quando aplicavel, reutilizando TmdbGenre",
-        "Fonte: GET /genre/movie/list e GET /genre/tv/list do TMDB",
-        "Testes JUnit/Mockito para controller e service",
-        "mvn -q -pl api test passa"
+        "O pendingLoading da fila de sugestoes renderiza um skeleton em formato de card de swipe no lugar do Loader2 central (aprox. linha 192-195 de MatchScreen.tsx)",
+        "A busca TMDB mostra SearchResultSkeleton (linhas de resultado) no lugar do Loader2 do input (aprox. linha 527)",
+        "Os spinners de leitura da fila e da busca sao removidos",
+        "MANTIDO: o botao 'Curtir/Curtindo...' (POST) continua com seu Loader2/estado atual - e acao do usuario, nao leitura",
+        "Anti-flicker via useDelayedLoading nas leituras",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "GET /api/media/genres implementado em MediaController + MediaSearchService.genres(). Chama /genre/movie/list e /genre/tv/list (novo record package-private TmdbGenreListResponse, {genres: [TmdbGenre...]}, reutilizando TmdbGenre ja existente), mescla os dois resultados e deduplica por name() com um LinkedHashMap.putIfAbsent (filmes inseridos primeiro, entao empatam para o genero de filme quando o mesmo nome existe nos dois). Novo record publico MediaGenre(id, name) e o DTO exposto pelo endpoint (nunca o TmdbGenre package-private). Falhas do TMDB em qualquer um dos dois GETs propagam TmdbUnavailableException (502), igual aos outros endpoints de com.app.media."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Abas Descobrir/Sugestoes e cabecalho da Descobrir (frontend)",
-      "description": "Como usuario, quero abrir a aba Descobrir e ja ver o titulo e o input de busca conforme o layout aprovado.",
+      "title": "TitleModal - skeleton nos resultados de busca",
+      "description": "Como usuario, ao buscar um titulo no modal de adicionar, quero skeletons nos resultados em vez de spinner.",
       "acceptanceCriteria": [
-        "A aba Descobrir (activeTab === 'search') mantem as abas Descobrir/Sugestoes existentes; Sugestoes nao e alterada",
-        "Cabecalho central: eyebrow 'Match a Dois', titulo 'Descubram o proximo juntos', subtitulo",
-        "Input de busca com icone de lupa e placeholder 'Ex.: Coracao de Vidro, Fronteira Norte...'",
-        "Usa a skill frontend-design; tokens do design system (fundo #09090a, card #161513, primario #ffcb2b, texto #f6f4ec, muted #a6a39a, fontes Bricolage/DM Sans)",
-        "Typecheck/lint passa (bun run build / tsc)",
-        "Verificar no browser usando a skill dev-browser"
+        "A busca do TitleModal.tsx mostra SearchResultSkeleton no lugar do Loader2 do input (aprox. linha 260)",
+        "MANTIDO: o botao 'Salvar Titulo' (POST) permanece com seu estado atual",
+        "Anti-flicker via useDelayedLoading",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "MatchScreen ja tinha o cabecalho central (eyebrow/titulo) e o input de busca com icone de lupa + placeholder corretos desde antes desta story; ajustado apenas o subtitulo para o texto do design de referencia (docs/design/prints/matchpage-search-with-filters.jpeg) e renomeada a aba 'Buscar' para 'Descobrir' (reordenada para vir antes de 'Sugestoes', igual a referencia). Sugestoes nao foi alterada."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Botao 'Filtros' com badge e dropdown de ordenacao",
-      "description": "Como usuario, quero abrir/fechar o painel de filtros e escolher a ordenacao.",
+      "title": "Modais de detalhe - skeleton de leitura",
+      "description": "Como usuario, ao abrir o detalhe de um titulo quero ver o esqueleto do conteudo enquanto os dados carregam.",
       "acceptanceCriteria": [
-        "Botao 'Filtros' com icone de sliders, chevron de expandido/recolhido e badge numerico com a quantidade de filtros ativos (oculto quando 0)",
-        "Dropdown de ordenacao com rotulo + seta (ex.: 'Popularidade v') e opcoes: Popularidade (desc/asc), Avaliacao (desc/asc), Data de Lancamento (desc/asc)",
-        "Enquanto houver texto na busca, o botao Filtros e o dropdown ficam desabilitados; ao limpar o texto voltam a ficar ativos",
-        "Selecionar ordenacao re-dispara a descoberta a partir da pagina 1",
-        "Ordenacao usa shadcn Select/DropdownMenu e painel expansivel usa Collapsible (skill shadcn)",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
+        "MediaDetailModal.tsx e PendingDetailModal.tsx exibem DetailModalSkeleton (poster + blocos de metadados + sinopse) enquanto os dados de leitura carregam",
+        "MANTIDO: botoes de acao dentro dos modais (POST) permanecem com estado proprio",
+        "Anti-flicker via useDelayedLoading",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Botao 'Filtros' (icone SlidersHorizontal + chevron up/down + badge ambar oculto quando activeFilterCount===0) implementado com Collapsible (client/src/components/ui/collapsible.tsx ja existente) controlando um painel placeholder (o conteudo real dos chips/sliders e US-009/US-010/US-011); dropdown de ordenacao com Select novo (client/src/components/ui/select.tsx, escrito a mao sobre @base-ui/react/select pois nao ha acesso de rede a ui.shadcn.com neste sandbox para `npx shadcn add`), com as 6 opcoes de DiscoverSortBy (popularity/vote_average/release_date x desc/asc). Enquanto ha texto em query (hasQuery), o Select fica disabled e o CollapsibleTrigger tambem (disabled nativo do <button>). Selecionar uma opcao chama handleSortChange, que dispara GET /api/media/discover?sortBy=...&page=1 e substitui results (reaproveitando o grid de cards ja existente) quando nao ha busca textual ativa. Corrigido de passagem um bug latente de US-003: o fetch de /api/media/search ainda lia response.data como MediaSearchResult[] (a API ja retorna MediaPage desde US-003) - agora le response.data.results via o novo tipo MediaPage em types/media.ts."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Painel de filtros expansivel - chips (Data, Classificacao, Generos)",
-      "description": "Como usuario, quero selecionar decadas, classificacao indicativa e generos por chips.",
+      "title": "Notificacoes - skeleton do dropdown",
+      "description": "Como usuario, ao abrir o sino de notificacoes quero ver linhas-skeleton enquanto a lista carrega.",
       "acceptanceCriteria": [
-        "Secao DATA DE LANCAMENTO: chips Anos 2020, Anos 2010, Anos 2000, Anos 1990, Anterior (selecao multipla)",
-        "Secao CLASSIFICACAO INDICATIVA: chips Livre, 10, 12, 14, 16, 18 (selecao multipla)",
-        "Secao GENEROS: chips de multipla escolha carregados de GET /api/media/genres",
-        "Chip ativo usa estado ambar (borda/preenchimento #ffcb2b); inativo usa pilula neutra",
-        "Chips implementados com shadcn ToggleGroup/Toggle (multipla escolha) via skill shadcn",
-        "Estado de filtros e local ate 'Aplicar filtros' (US-011); a contagem do badge reflete a selecao atual",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
+        "NotificationDropdown.tsx mostra uma lista de NotificationRowSkeleton enquanto o GET de notificacoes (useNotificationStore) esta em andamento",
+        "Empty state de 'sem notificacoes' continua funcionando apos carregamento",
+        "Anti-flicker via useDelayedLoading",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Chips implementados dentro do CollapsibleContent do painel de filtros ja existente em MatchScreen.tsx (SearchTab), em duas colunas (Data de lancamento / Classificacao indicativa) + secao Generos abaixo (largura total, separada por border-t), reproduzindo o layout de docs/design/prints/matchpage-search-with-filters.jpeg. Novo client/src/components/ui/toggle-group.tsx (ToggleGroup/ToggleGroupItem), escrito a mao sobre @base-ui/react/toggle-group e @base-ui/react/toggle (mesmo motivo dos demais primitivos hand-rolled: sem rede para `npx shadcn add` neste sandbox). Estado local (selectedDecades/selectedCertifications/selectedGenres, todos string[]) alimenta activeFilterCount = soma dos 3 arrays (badge do botao Filtros de US-008 agora reflete a selecao real em vez da constante 0). Generos carregados de GET /api/media/genres (novo tipo MediaGenre em types/media.ts) em um useEffect proprio; secao Generos so renderiza quando genres.length > 0. Nenhuma chamada a /api/media/discover e disparada ao clicar em um chip - isso e explicitamente US-011 ('Aplicar filtros'); os valores de decada usados sao os anos-decada que o backend espera (releaseDecades CSV, ver api/CLAUDE.md), com '1900' representando o chip 'Anterior' (decada mais antiga suportada como piso do intervalo min-max)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Painel de filtros - range sliders (Nota TMDB e Duracao)",
-      "description": "Como usuario, quero limitar por nota TMDB e por duracao usando sliders de intervalo.",
+      "title": "Bootstrap do App - gate de skeleton enquanto carrega o casal",
+      "description": "Como usuario autenticado, ao abrir o app quero ver skeleton enquanto os dados do casal (/api/couple/me) carregam, evitando flash de conteudo sem casal ou redirecionamento indevido.",
       "acceptanceCriteria": [
-        "NOTA TMDB: range slider de 0 a 10 (passo 0,5) exibindo o intervalo selecionado (ex.: '7,0 - 10')",
-        "DURACAO: range slider de 0 a 240 min exibindo rotulo (ex.: 'ATE 3H') e limites '0 min' / '240 min'",
-        "Ambos com dois thumbs (min e max) e trilha preenchida em ambar",
-        "Implementados com shadcn Slider (modo range/dois thumbs) via skill shadcn",
-        "Alteracoes contam para o badge de filtros ativos",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
+        "Adicionar estado de loading no useAuthStore (ou no App) que fique true durante loadCurrentUser() e false ao concluir/errar",
+        "O unico GET de bootstrap e loadCurrentUser() -> GET /api/couple/me, disparado em App.tsx:34 no mount quando isAuthenticated",
+        "Enquanto o loading estiver ativo (sob useDelayedLoading), o App exibe um skeleton de layout (Header + area de conteudo) em vez de renderizar guards/telas",
+        "Apos a resolucao, guards (guards.tsx) e rotas funcionam normalmente sem flash de estado incorreto",
+        "MANTIDO: submits de login/registro/join (POST) mantem feedback de botao atual",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "Novo client/src/components/ui/slider.tsx (Slider/SliderControl/SliderTrack/SliderIndicator/SliderThumb), escrito a mao sobre @base-ui/react/slider (Slider.Root/Control/Track/Indicator/Thumb via namespace import, mesmo padrao de select.tsx) ja que este sandbox nao tem rede para `npx shadcn add slider`. MatchScreen.tsx (SearchTab): adicionados dois sliders de intervalo (dois thumbs cada) no CollapsibleContent do painel de filtros, logo apos a secao Generos, separados por border-t, em grid sm:grid-cols-2 (NOTA TMDB e DURACAO lado a lado): NOTA TMDB (min 0, max 10, step 0.5, label 'X,X - Y' com o maximo mostrando '10' sem decimal quando no teto, ex. '7,0 - 10'); DURACAO (min 0, max 240, step 5, label 'Ate Xh'/'Ate X min' quando o minimo esta em 0, renderizado com classe uppercase para bater com 'ATE 3H' da referencia). Novo estado local voteRange/runtimeRange ([number,number], default [0,10]/[0,240]); activeFilterCount agora soma tambem +1 quando voteRange ou runtimeRange saem do padrao. minStepsBetweenValues={1} em ambos os sliders evita que os dois thumbs se cruzem. Nenhuma chamada a /api/media/discover e disparada ao mover os sliders - reforca o mesmo padrao de US-009 (estado local ate 'Aplicar filtros' em US-011)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Acoes do painel - 'Limpar tudo' e 'Aplicar filtros'",
-      "description": "Como usuario, quero aplicar os filtros escolhidos ou limpar tudo de uma vez.",
+      "title": "Varredura final - remover spinners de leitura remanescentes",
+      "description": "Como desenvolvedor, quero garantir que nenhum spinner de leitura sobrou no app e documentar o padrao.",
       "acceptanceCriteria": [
-        "'Limpar tudo' (text button) reseta todos os filtros e sliders aos padroes; badge zera",
-        "'Aplicar filtros' (primary button ambar) dispara GET /api/media/discover com os filtros selecionados, comecando na pagina 1",
-        "O painel de filtros so esta disponivel quando nao ha texto na busca (modos mutuamente exclusivos); digitar um termo ignora o modo descoberta e usa /search",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
+        "grep por 'animate-spin'/'Loader2' mostra ocorrencias apenas em botoes de acao (POST), nunca em fluxo de leitura GET/FETCH",
+        "Nenhuma referencia ao SkeletonCard inline antigo permanece (migrado para MediaCardSkeleton)",
+        "Documentar em client/CLAUDE.md o padrao: 'toda leitura usa Skeleton + useDelayedLoading; acoes POST mantem feedback de botao'",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Adicionados os botoes 'Limpar tudo' (text button, desabilitado quando activeFilterCount===0) e 'Aplicar filtros' (Button primario ambar, desabilitado quando ha texto na busca ou uma requisicao em andamento) no rodape do CollapsibleContent do painel de filtros em MatchScreen.tsx (SearchTab), separados por border-t igual as demais secoes. handleClearFilters reseta selectedDecades/selectedCertifications/selectedGenres para [] e voteRange/runtimeRange para os defaults (activeFilterCount zera automaticamente, ja que e derivado desse estado). handleApplyFilters monta os params de GET /api/media/discover a partir da selecao atual (releaseDecades/certifications/genres como CSV quando nao vazios; voteAverageMin/voteAverageMax/runtimeMin/runtimeMax so quando diferentes do default; sortBy sempre; page sempre 1) e substitui `results`, reaproveitando o mesmo tratamento de erro/loading de handleSortChange. A exclusividade busca-texto vs. painel de filtros ja estava garantida desde US-008 (CollapsibleTrigger e Select desabilitados quando hasQuery); handleApplyFilters tambem faz early-return quando hasQuery por seguranca (o botao Aplicar ja fica disabled nesse caso, mas o guard evita uma race caso o usuario digite entre o clique e a resposta)."
-    },
-    {
-      "id": "US-012",
-      "title": "Area de resultados - header dinamico e contador",
-      "description": "Como usuario, quero um cabecalho que reflete o que estou vendo e quantos titulos retornaram.",
-      "acceptanceCriteria": [
-        "Estado inicial (sem busca/filtros): titulo 'Em alta esta semana' + subtitulo 'Resultados dinamicos do TMDB - refine com o painel de filtros.'",
-        "Ao buscar/filtrar, o header reflete o contexto (ex.: 'Resultados para \"Flash\"' ou 'Filtros aplicados')",
-        "Contador de titulos retornados alinhado a direita (ex.: '128 titulos'), refletindo totalResults",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "SearchTab (MatchScreen.tsx) ganhou um novo useEffect de montagem (com o mesmo padrao de deferimento via setTimeout(...,0) + cancelled-flag ja usado no debounce de busca, para nao violar react-hooks/set-state-in-effect) que chama GET /api/media/trending?page=1 assim que a aba Descobrir monta, populando results/totalResults antes de qualquer busca/filtro - sem isso nao havia estado inicial nenhum para o header/contador desta story refletirem (o grid ficava vazio ate o usuario digitar). Novo estado resultsContext ('trending'|'search'|'discover'), setado em cada um dos 4 pontos de fetch (trending no mount, busca debounced, handleSortChange, handleApplyFilters) junto com o novo totalResults (de response.data.totalResults, 0 no catch). Header dinamico (titulo + subtitulo + contador alinhado a direita, formatResultsCount faz a pluralizacao titulo/titulos) renderizado entre o painel de Collapsible e os estados vazios, visivel apenas quando searched===true: hasQuery -> 'Resultados para \"{query}\"'; senao resultsContext==='discover' -> 'Filtros aplicados' (cobre tanto Aplicar filtros quanto so trocar a ordenacao, ja que ambos chamam /discover); senao (resultsContext==='trending') -> 'Em alta esta semana' + subtitulo 'Resultados dinamicos do TMDB - refine com o painel de filtros.' (unico caso com subtitulo). O placeholder antigo 'Comecem digitando...' ganhou o guard extra !searching para nao piscar durante o fetch inicial de trending."
-    },
-    {
-      "id": "US-013",
-      "title": "Grid de cards com tipo, nota e botao de curtir",
-      "description": "Como usuario, quero ver cada titulo como card com o tipo (Filme/Serie), a nota TMDB e curtir direto dali.",
-      "acceptanceCriteria": [
-        "Grid responsivo repeat(auto-fill, minmax(250px, 1fr))",
-        "Cada card mostra poster (ou gradiente placeholder atual), badge de tipo ('Filme'/'Serie') no canto superior esquerdo e badge de nota verde (ponto #01b47f + valor, ex.: '8.4') no canto superior direito",
-        "Botao de curtir por card (coracao) que chama POST /api/match/like { tmdbId, mediaType }, reutilizando a logica existente",
-        "Estados do curtir: idle -> loading -> liked/matched/error; titulo ja rastreado aparece como ja curtido (reaproveitar GET /api/tracking)",
-        "Match dispara a celebracao ja existente (sem alterar a logica de match/WebSocket)",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "O grid de cards em SearchTab (MatchScreen.tsx) ja tinha, de US-008..US-012, o badge de tipo (Filme/Serie) top-left, o botao de curtir full-width com estados idle/loading/liked/matched/error (POST /api/match/like, GET /api/tracking para trackedKeys/alreadyTracked) e a celebracao de match global (MatchCelebrationModal, montado em App.tsx, escuta useMatchStore via WebSocket - nao depende do SearchTab, entao ja funciona sem alteracao). O unico item faltante da AC era o badge de nota TMDB (ponto verde #01b47f + valor, ex. '8.4') no canto superior direito do poster: adicionado como uma segunda pill (mesmo estilo bg-[rgba(9,9,10,.6)] backdrop-blur-md do badge de tipo), renderizada so quando result.voteAverage != null, com result.voteAverage.toFixed(1). Comparado contra docs/design/prints/matchpage-search-with-filters.jpeg (mostra exatamente essa pill dupla topo do poster: tipo a esquerda, nota com ponto verde a direita)."
-    },
-    {
-      "id": "US-014",
-      "title": "Paginacao de 20 itens no grid (frontend)",
-      "description": "Como usuario, quero navegar entre paginas de 20 titulos.",
-      "acceptanceCriteria": [
-        "O grid renderiza no maximo 20 cards por pagina (uma pagina = uma requisicao)",
-        "Paginador numerico (paginas 1, 2, 3... com anterior/proxima) que solicita a pagina via page; a pagina atual e destacada; o grid e substituido a cada troca",
-        "Implementado com shadcn Pagination via skill shadcn",
-        "page reinicia em 1 sempre que busca, filtros ou ordenacao mudam",
-        "Estado de loading e de 'fim dos resultados' (quando page === totalPages)",
-        "Nao exceder o teto de paginas do TMDB (~500)",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Novo client/src/components/ui/pagination.tsx (Pagination/PaginationContent/PaginationItem/PaginationLink/PaginationPrevious/PaginationNext/PaginationEllipsis), escrito a mao como botoes simples sobre buttonVariants de components/ui/button.tsx (sem primitivo @base-ui, ja que a Pagination do shadcn nao usa um - so <nav>/<ul>/<li>/<button>, mesmo motivo de sandbox sem rede documentado para os demais primitivos hand-rolled). MatchScreen.tsx (SearchTab): novo estado page/totalPages (MediaPage.page/totalPages, ja existiam no tipo mas nao eram lidos ate agora) + lastFetchRef (ref com {url, params, context} do ultimo fetch bem-sucedido, sem o parametro page). Os 4 pontos que populam `results` (trending no mount, busca debounada, handleSortChange, handleApplyFilters) agora sempre pedem page=1 explicitamente (reiniciando a paginacao a cada busca/filtro/ordenacao) e gravam lastFetchRef.current apos sucesso. Novo handlePageChange(nextPage) reusa lastFetchRef para re-chamar o mesmo endpoint/params com page=clamp(nextPage, totalPages, TMDB_MAX_PAGE=500), sem alterar nenhum outro estado de filtro/busca. Paginador renderizado abaixo do grid (so quando totalPages>1): Anterior/Proxima + paginas numericas com uma janela current-1..current+1 e ellipsis via nova funcao paginationRange(current,total), pagina atual destacada em ambar (#ffcb2b); mensagem 'Voces chegaram ao fim dos resultados.' quando page===min(totalPages,500)."
-    },
-    {
-      "id": "US-015",
-      "title": "Estados vazios e de erro da Descobrir",
-      "description": "Como usuario, quero feedback claro quando nao ha resultados ou o TMDB falha.",
-      "acceptanceCriteria": [
-        "Busca/filtros sem resultados: mensagem vazia amigavel (mantendo o padrao atual de card tracejado)",
-        "Falha do TMDB (TmdbUnavailableException -> 5xx): mensagem de erro com opcao de tentar de novo, sem quebrar a aba",
-        "Trending indisponivel no load inicial degrada para estado vazio informativo",
-        "Typecheck/lint passa",
-        "Verificar no browser usando a skill dev-browser"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "Introduzido um helper unico runFetch(url, params, context, isCancelled?) (useCallback) em SearchTab (MatchScreen.tsx) que centraliza os 5 pontos que antes duplicavam a mesma logica de fetch (trending no mount, busca debounced, handleSortChange, handleApplyFilters, handlePageChange); alem de results/totalResults/totalPages/page/resultsContext/searched, agora tambem seta um novo estado fetchError (bem-sucedido -> false, catch -> true). Novo lastAttemptRef (guarda {url, params, context} de toda tentativa, sucesso ou falha, diferente de lastFetchRef que so grava em sucesso e sem o page - usado pela paginacao) alimenta handleRetry, que rechama exatamente a ultima tentativa (funciona mesmo quando a falha e a carga inicial de trending, que nunca chegou a popular lastFetchRef). Novo card de erro (borda/fundo vermelho translucido, icone TriangleAlert, botao 'Tentar novamente' com RefreshCw) renderizado quando searched && !searching && fetchError, mutuamente exclusivo com o header de contagem (agora exigem !fetchError) e com o card de vazio legitimo (agora exige !fetchError). Mensagem do card de erro varia entre 'Nao foi possivel carregar os titulos em alta agora.' (falha do trending no mount, resultsContext==='trending' && !hasQuery) e 'Algo deu errado ao buscar no TMDB.' (falha de busca/discover) - cobre as 3 ACs (busca/filtros sem resultado ja existia; falha do TMDB agora tem card dedicado com retry; trending indisponivel no load inicial cai no mesmo card de erro em vez do card de vazio generico, ja que e uma falha real e nao um resultado vazio legitimo)."
+      "passes": false,
+      "notes": ""
     }
   ]
 }
