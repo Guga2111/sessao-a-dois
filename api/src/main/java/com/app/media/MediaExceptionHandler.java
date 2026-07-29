@@ -24,6 +24,11 @@ public class MediaExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
 	}
 
+	@ExceptionHandler(InvalidSortByException.class)
+	public ResponseEntity<Map<String, String>> handleInvalidSortBy(InvalidSortByException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+	}
+
 	@ExceptionHandler(MediaNotFoundException.class)
 	public ResponseEntity<Map<String, String>> handleMediaNotFound(MediaNotFoundException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));

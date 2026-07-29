@@ -89,14 +89,14 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
     const timer = setTimeout(() => {
       setState((s) => ({ ...s, searching: true }))
       api
-        .get<MediaSearchResult[]>("/api/media/search", {
+        .get<{ results: MediaSearchResult[] }>("/api/media/search", {
           params: { q: query.trim() },
         })
         .then((response) => {
           if (cancelled) return
           setState((s) => ({
             ...s,
-            results: response.data,
+            results: response.data.results,
             searching: false,
             searchOpen: true,
           }))

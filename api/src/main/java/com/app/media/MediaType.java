@@ -1,5 +1,7 @@
 package com.app.media;
 
+import org.springframework.util.StringUtils;
+
 public enum MediaType {
 	MOVIE("movie"),
 	TV("tv");
@@ -22,5 +24,18 @@ public enum MediaType {
 		}
 
 		throw new InvalidMediaTypeException(value);
+	}
+
+	/**
+	 * Like {@link #fromPathValue(String)}, but a blank/absent value means "no
+	 * restriction" (used by GET /api/media/discover, where omitting mediaType
+	 * means both movie and tv).
+	 */
+	public static MediaType fromQueryValueOrNull(String value) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+
+		return fromPathValue(value);
 	}
 }

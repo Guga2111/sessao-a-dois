@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-record TmdbMultiSearchResponse(
+record TmdbTrendingResponse(
 		int page,
 		List<TmdbMultiSearchItem> results,
 		@JsonProperty("total_pages") int totalPages,
