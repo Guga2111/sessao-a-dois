@@ -9,10 +9,12 @@ import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
 import { MediaCardSkeleton } from "@/components/skeletons/MediaCardSkeleton"
 import { ReviewModal } from "@/components/ReviewModal"
+import { Skeleton } from "@/components/ui/skeleton"
 import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { api } from "@/lib/api"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { useIsMobile } from "@/lib/useIsMobile"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { MediaStatus, MediaTrackResponse, PagedMediaTrackResponse } from "@/types/tracking"
@@ -181,6 +183,18 @@ export function HubScreen() {
     reloadAllFirstPages()
   }
 
+  const showSectionSkeleton: Record<MediaStatus, boolean> = {
+    WATCHING: useDelayedLoading(sections.WATCHING.loading),
+    WANT_TO_SEE: useDelayedLoading(sections.WANT_TO_SEE.loading),
+    WATCHED: useDelayedLoading(sections.WATCHED.loading),
+  }
+
+  const showLoadMoreSkeleton: Record<MediaStatus, boolean> = {
+    WATCHING: useDelayedLoading(sections.WATCHING.loadingMore),
+    WANT_TO_SEE: useDelayedLoading(sections.WANT_TO_SEE.loadingMore),
+    WATCHED: useDelayedLoading(sections.WATCHED.loadingMore),
+  }
+
   return (
     <div
       className="font-auth-body min-h-svh text-[#f6f4ec]"
@@ -218,6 +232,8 @@ export function HubScreen() {
           const { items, loading, loadingMore, total } = state
           const hasMore = !loading && items.length < total
           const isOpen = openSections[section.status]
+          const showSkeleton = showSectionSkeleton[section.status]
+          const showLoadMore = showLoadMoreSkeleton[section.status]
           return (
             <Collapsible
               key={section.status}
@@ -236,8 +252,8 @@ export function HubScreen() {
                   }}
                 />
                 <h2 className="font-display text-xl tracking-tight">{section.title}</h2>
-                <span className="rounded-full bg-white/[0.05] px-2.5 py-0.5 text-[13px] text-[#a6a39a]">
-                  {loading ? "…" : total}
+                <span className="flex items-center rounded-full bg-white/[0.05] px-2.5 py-0.5 text-[13px] text-[#a6a39a]">
+                  {showSkeleton ? <Skeleton className="h-3 w-4" /> : total}
                 </span>
                 <ChevronDown
                   className="ml-auto size-4 text-[#a6a39a] transition-transform duration-200"
@@ -246,7 +262,7 @@ export function HubScreen() {
               </CollapsibleTrigger>
 
               <CollapsibleContent>
-                {loading ? (
+                {showSkeleton ? (
                   <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
                     <MediaCardSkeleton />
                     <MediaCardSkeleton />
@@ -287,7 +303,7 @@ export function HubScreen() {
                           />
                         </div>
                       ))}
-                      {loadingMore && <MediaCardSkeleton />}
+                      {showLoadMore && <MediaCardSkeleton />}
                       {isMobile && hasMore && (
                         <LoadMoreSentinel
                           status={section.status}
@@ -299,14 +315,20 @@ export function HubScreen() {
                     </div>
                     {hasMore && (
                       <div className="mt-6 hidden justify-center md:flex">
-                        <Button
-                          type="button"
-                          onClick={() => handleLoadMore(section.status)}
-                          disabled={loadingMore}
-                          className="h-auto cursor-pointer rounded-full border border-white/10 bg-white/[0.04] px-6 py-2.5 text-[13px] font-semibold text-[#f6f4ec] transition-colors hover:border-[rgba(255,203,43,.4)] hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {loadingMore ? "Carregando…" : "Carregar mais"}
-                        </Button>
+                        {showLoadMore ? (
+                          <div className="w-[220px]">
+                            <MediaCardSkeleton />
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => handleLoadMore(section.status)}
+                            disabled={loadingMore}
+                            className="h-auto cursor-pointer rounded-full border border-white/10 bg-white/[0.04] px-6 py-2.5 text-[13px] font-semibold text-[#f6f4ec] transition-colors hover:border-[rgba(255,203,43,.4)] hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Carregar mais
+                          </Button>
+                        )}
                       </div>
                     )}
                   </>

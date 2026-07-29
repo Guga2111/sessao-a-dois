@@ -33,3 +33,13 @@
   - Skeleton library components take no props for "is this loading" — screens call `useDelayedLoading` themselves and conditionally render the skeleton vs. the real content, same as the existing `loading ? <SkeletonCard /> : ...` pattern in `HubScreen`.
   - This story was UI-shaped per the Ralph instructions (new files under `src/components/`) so `frontend-design` was invoked before implementing; the skill's guidance was to not introduce a new visual language since the brief is to mirror an already-established design system (`bg-[#161513]`, `rgba(255,255,255,.07)` borders, `bg-white/[0.06]` blocks) exactly, not originate a new aesthetic — implementation followed the existing token values as literal spec rather than inventing new ones.
 ---
+
+## 2026-07-29 - US-004
+- Wired the existing `MediaCardSkeleton`/`useDelayedLoading` into `HubScreen.tsx`: each of the 3 fixed sections (WATCHING/WANT_TO_SEE/WATCHED) now calls `useDelayedLoading` twice (once for `loading`, once for `loadingMore`), producing `showSectionSkeleton`/`showLoadMoreSkeleton` lookup records keyed by `MediaStatus` (hooks called explicitly per fixed status, not in a loop, to satisfy rules-of-hooks).
+- The section grid, header count badge (`Skeleton` instead of the `"…"` text), and the desktop "Carregar mais" button (renders a `MediaCardSkeleton` instead of "Carregando…" text while `showLoadMore` is true) all now branch on the delayed `showSkeleton`/`showLoadMore` flags instead of the raw `loading`/`loadingMore` booleans. `hasMore` intentionally still derives from raw `loading` (not delayed) since it's a data-correctness check, not a visual gate.
+- Files changed: `client/src/screens/HubScreen.tsx`.
+- **Learnings for future iterations:**
+  - When a screen has a small **fixed** set of parallel loading flags (here, 3 known `MediaStatus` values), call `useDelayedLoading` once per fixed key directly in the component body (not inside `.map()` or dynamically) and collect the results into a `Record<Key, boolean>` — keeps hook call order stable across renders while still supporting per-section anti-flicker state.
+  - `MediaCardSkeleton` renders fine standalone outside the grid (e.g. in the desktop load-more slot) as long as it's wrapped in a fixed-width container (`w-[220px]` used here) — its own classes assume either a flex/grid item context or an explicit width, it has no default block width.
+  - This story was pure wiring of already-existing components (`MediaCardSkeleton` from US-003, `useDelayedLoading` from US-002) into an already-existing conditional-render structure — no new visual language, so the `frontend-design` skill invocation confirmed reuse-as-is rather than producing new design decisions.
+---
