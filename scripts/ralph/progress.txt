@@ -11,3 +11,13 @@
   - `bg-white/[0.06]` was chosen over a `bg-accent` theme token since the app doesn't define a `--accent` that matches the prototype's skeleton-block look; screens can override via `className` same as other primitives.
   - No Playwright/browser available in this sandbox (see client/CLAUDE.md's Vite gotcha) — only `tsc`/`eslint` verification possible for this primitive-only story.
 ---
+
+## 2026-07-29 - US-002
+- Implemented `src/lib/useDelayedLoading.ts`: hook `useDelayedLoading(loading, { delayMs = 150, minVisibleMs = 400 })` returning `showSkeleton: boolean`, using a `shownAtRef` timestamp ref plus one `setTimeout` per effect run (show-timer when `loading` turns true, hide-timer computed from `minVisibleMs - elapsed` when it turns false).
+- Files changed: `client/src/lib/useDelayedLoading.ts` (new).
+- **Learnings for future iterations:**
+  - All `setShowSkeleton(...)` calls live inside the `setTimeout` callback, never as a direct statement in the effect body, so `react-hooks/set-state-in-effect` doesn't fire — same pattern as the `client/CLAUDE.md` "fetching data on mount" gotcha, just applied to a boolean-toggle hook instead of a fetch.
+  - When `loading` flips to `false` before `shownAtRef.current` was ever set (skeleton never became visible because it resolved faster than `delayMs`), the effect returns early with no `setState` call at all — `showSkeleton` is already `false`, so there's nothing to reset and no direct-call lint risk.
+  - Every effect branch returns a cleanup that clears its own timer, so unmounting or re-triggering (`loading` flips again before a timer fires) never lets a stale timer call `setState` after the fact.
+  - This is a plain hook with no visible UI, so it didn't need the `frontend-design` skill — reserve that skill for stories where output renders in the browser (US-003 onward).
+---
