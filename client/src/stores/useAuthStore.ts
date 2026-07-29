@@ -53,6 +53,7 @@ interface AuthState {
   user: AuthUser | null
   couple: Couple | null
   isAuthenticated: boolean
+  loading: boolean
   login: (credentials: LoginCredentials) => Promise<void>
   register: (data: RegisterData) => Promise<void>
   logout: () => void
@@ -89,6 +90,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: initialSession.user,
   couple: initialSession.couple,
   isAuthenticated: Boolean(initialToken),
+  loading: Boolean(initialToken),
 
   login: async ({ email, password }) => {
     const { data } = await api.post<LoginResponse>("/api/auth/login", {
@@ -140,7 +142,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loadCurrentUser: async () => {
     const token = getAuthToken()
     if (!token) {
-      set({ token: null, isAuthenticated: false })
+      set({ token: null, isAuthenticated: false, loading: false })
       return
     }
 
@@ -157,6 +159,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
       throw error
+    } finally {
+      set({ loading: false })
     }
   },
 }))

@@ -2,6 +2,8 @@ import { useEffect } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
 
 import { MatchCelebrationModal } from "@/components/MatchCelebrationModal"
+import { AppShellSkeleton } from "@/components/skeletons/AppShellSkeleton"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { JoinPage } from "@/routes/auth/JoinPage"
 import { LoginPage } from "@/routes/auth/LoginPage"
 import { RegisterPage } from "@/routes/auth/RegisterPage"
@@ -22,6 +24,7 @@ import { useNotificationStore } from "@/stores/useNotificationStore"
 export function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser)
+  const bootstrapLoading = useAuthStore((state) => state.loading)
   const coupleId = useAuthStore((state) => state.couple?.id)
   const hasPartner = useAuthStore((state) => Boolean(state.couple?.partner))
   const connect = useMatchStore((state) => state.connect)
@@ -55,6 +58,12 @@ export function App() {
     fetchNotifications,
     fetchUnreadCount,
   ])
+
+  const showBootstrapSkeleton = useDelayedLoading(bootstrapLoading)
+
+  if (showBootstrapSkeleton) {
+    return <AppShellSkeleton />
+  }
 
   return (
     <>

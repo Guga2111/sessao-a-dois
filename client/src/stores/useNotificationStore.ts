@@ -15,6 +15,7 @@ interface NotificationState {
   unreadCount: number
   page: number
   hasMore: boolean
+  loading: boolean
   fetchNotifications: () => Promise<void>
   fetchMore: () => Promise<void>
   fetchUnreadCount: () => Promise<void>
@@ -28,16 +29,22 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
   page: 0,
   hasMore: false,
+  loading: true,
 
   fetchNotifications: async () => {
-    const { data } = await api.get<PagedNotificationResponse>("/api/notifications", {
-      params: { page: 0, size: PAGE_SIZE },
-    })
-    set({
-      notifications: data.content,
-      page: data.number,
-      hasMore: data.number + 1 < data.totalPages,
-    })
+    set({ loading: true })
+    try {
+      const { data } = await api.get<PagedNotificationResponse>("/api/notifications", {
+        params: { page: 0, size: PAGE_SIZE },
+      })
+      set({
+        notifications: data.content,
+        page: data.number,
+        hasMore: data.number + 1 < data.totalPages,
+      })
+    } finally {
+      set({ loading: false })
+    }
   },
 
   fetchMore: async () => {

@@ -2,7 +2,10 @@ import { Heart } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { Header } from "@/components/Header"
+import { ChartSkeleton } from "@/components/skeletons/ChartSkeleton"
+import { KpiCardSkeleton } from "@/components/skeletons/KpiCardSkeleton"
 import { api } from "@/lib/api"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import type { MonthlyStatDto, StatsResponse } from "@/types/stats"
 
 const MONTH_LABELS = [
@@ -190,19 +193,10 @@ function KpiCard({
   )
 }
 
-function KpiSkeleton() {
-  return (
-    <div className="rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] p-5.5">
-      <div className="h-3.5 w-2/3 animate-pulse rounded bg-white/[0.06]" />
-      <div className="mt-3 h-9 w-1/2 animate-pulse rounded bg-white/[0.08]" />
-      <div className="mt-2.5 h-3 w-3/4 animate-pulse rounded bg-white/[0.06]" />
-    </div>
-  )
-}
-
 export function DashboardScreen() {
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const showSkeleton = useDelayedLoading(loading)
 
   useEffect(() => {
     api
@@ -247,12 +241,12 @@ export function DashboardScreen() {
           </div>
         ) : (
           <div className="mb-5.5 grid grid-cols-1 gap-4.5 md:grid-cols-2 lg:grid-cols-4">
-            {loading || !stats ? (
+            {showSkeleton || !stats ? (
               <>
-                <KpiSkeleton />
-                <KpiSkeleton />
-                <KpiSkeleton />
-                <KpiSkeleton />
+                <KpiCardSkeleton />
+                <KpiCardSkeleton />
+                <KpiCardSkeleton />
+                <KpiCardSkeleton />
               </>
             ) : (
               <>
@@ -316,7 +310,16 @@ export function DashboardScreen() {
           </div>
         )}
 
-        {!isEmpty && !loading && stats && (
+        {!isEmpty && (showSkeleton || !stats ? (
+          <>
+            <div className="mb-4.5 grid grid-cols-1 gap-4.5 lg:grid-cols-[1.6fr_1fr]">
+              <ChartSkeleton variant="bars" className="min-w-0" />
+              <ChartSkeleton variant="donut" />
+            </div>
+
+            <ChartSkeleton variant="genre-bars" />
+          </>
+        ) : (
           <>
             <div className="mb-4.5 grid grid-cols-1 gap-4.5 lg:grid-cols-[1.6fr_1fr]">
               <MonthlyBarsChart monthlySeries={stats.monthlySeries} />
@@ -331,7 +334,7 @@ export function DashboardScreen() {
 
             <GenreBarsChart topGenres={stats.topGenres} />
           </>
-        )}
+        ))}
       </main>
     </div>
   )
