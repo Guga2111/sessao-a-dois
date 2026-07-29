@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { DetailModalSkeleton } from "@/components/skeletons/DetailModalSkeleton"
 import { api } from "@/lib/api"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import type { MediaDetails } from "@/types/media"
 import type { MediaTrackResponse } from "@/types/tracking"
 
@@ -62,42 +64,6 @@ function Stars({ count, total = 5 }: { count: number; total?: number }) {
   )
 }
 
-function SkeletonDetail() {
-  return (
-    <div className="flex flex-col gap-5 animate-pulse">
-      <div className="flex gap-4">
-        <div className="flex flex-col gap-1.5">
-          <div className="h-3 w-10 rounded bg-white/[0.06]" />
-          <div className="h-5 w-12 rounded bg-white/[0.06]" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <div className="h-3 w-16 rounded bg-white/[0.06]" />
-          <div className="h-5 w-20 rounded bg-white/[0.06]" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <div className="h-3 w-14 rounded bg-white/[0.06]" />
-          <div className="h-5 w-16 rounded bg-white/[0.06]" />
-        </div>
-      </div>
-      <div>
-        <div className="mb-2 h-3 w-16 rounded bg-white/[0.06]" />
-        <div className="flex gap-2">
-          <div className="h-6 w-16 rounded-full bg-white/[0.06]" />
-          <div className="h-6 w-20 rounded-full bg-white/[0.06]" />
-        </div>
-      </div>
-      <div>
-        <div className="mb-2 h-3 w-24 rounded bg-white/[0.06]" />
-        <div className="space-y-1.5">
-          <div className="h-3.5 w-full rounded bg-white/[0.06]" />
-          <div className="h-3.5 w-5/6 rounded bg-white/[0.06]" />
-          <div className="h-3.5 w-4/6 rounded bg-white/[0.06]" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function MediaDetailModal({
   track,
   myUserId,
@@ -106,21 +72,29 @@ export function MediaDetailModal({
 }: MediaDetailModalProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
+  const showSkeleton = useDelayedLoading(!details)
 
   useEffect(() => {
-    if (!track) {
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (cancelled) return
       setDetails(null)
-      return
+      if (!track) return
+
+      api
+        .get<MediaDetails>(
+          `/api/media/${track.mediaType.toLowerCase()}/${track.tmdbId}`
+        )
+        .then((res) => {
+          if (!cancelled) setDetails(res.data)
+        })
+        .catch(() => {})
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
-
-    setDetails(null)
-
-    api
-      .get<MediaDetails>(
-        `/api/media/${track.mediaType.toLowerCase()}/${track.tmdbId}`
-      )
-      .then((res) => setDetails(res.data))
-      .catch(() => {})
   }, [track])
 
   useEffect(() => {
@@ -172,7 +146,7 @@ export function MediaDetailModal({
         <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/90 px-6 pt-6 pb-4 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              {!details ? (
+              {showSkeleton ? (
                 <div className="h-7 w-48 animate-pulse rounded-lg bg-white/[0.08]" />
               ) : (
                 <h2 className="font-display text-[clamp(18px,3vw,24px)] font-bold leading-tight tracking-tight">
@@ -190,7 +164,7 @@ export function MediaDetailModal({
                 >
                   {STATUS_LABEL[track.status]}
                 </span>
-                {!details ? (
+                {showSkeleton ? (
                   <div className="h-4 w-32 animate-pulse rounded bg-white/[0.06]" />
                 ) : (
                   <>
@@ -225,18 +199,22 @@ export function MediaDetailModal({
               className="w-full overflow-hidden rounded-[14px]"
               style={{
                 aspectRatio: "3/4",
-                background: details?.posterUrl ? undefined : posterFallback,
+                background:
+                  !showSkeleton && details?.posterUrl ? undefined : posterFallback,
                 boxShadow: `0 8px 32px ${glow}, 0 2px 8px rgba(0,0,0,.5)`,
               }}
             >
-              {details?.posterUrl && (
+              {showSkeleton && (
+                <div className="h-full w-full animate-pulse bg-white/[0.04]" />
+              )}
+              {!showSkeleton && details?.posterUrl && (
                 <img
                   src={details.posterUrl}
                   alt={details.title}
                   className="h-full w-full object-cover"
                 />
               )}
-              {!details?.posterUrl && !!details && (
+              {!showSkeleton && !details?.posterUrl && !!details && (
                 <div
                   className="h-full w-full"
                   style={{
@@ -245,16 +223,13 @@ export function MediaDetailModal({
                   }}
                 />
               )}
-              {!details && (
-                <div className="h-full w-full animate-pulse bg-white/[0.04]" />
-              )}
             </div>
           </div>
 
           {/* Details */}
           <div className="min-w-0 flex-1">
-            {!details ? (
-              <SkeletonDetail />
+            {showSkeleton ? (
+              <DetailModalSkeleton showPoster={false} />
             ) : (
               <div className="flex flex-col gap-5">
                 {/* Stats row */}

@@ -1,9 +1,17 @@
 import { Skeleton } from "@/components/ui/skeleton"
 
-export function DetailModalSkeleton() {
+interface DetailModalSkeletonProps {
+  showPoster?: boolean
+}
+
+export function DetailModalSkeleton({
+  showPoster = true,
+}: DetailModalSkeletonProps) {
   return (
     <div className="flex flex-col gap-5">
-      <Skeleton className="aspect-[2/3] w-28 flex-none rounded-[14px] sm:w-32" />
+      {showPoster && (
+        <Skeleton className="aspect-[2/3] w-28 flex-none rounded-[14px] sm:w-32" />
+      )}
       <div className="flex gap-4">
         <div className="flex flex-col gap-1.5">
           <Skeleton className="h-3 w-10" />
