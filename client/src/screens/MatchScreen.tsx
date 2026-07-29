@@ -15,6 +15,7 @@ import {
 
 import { Header } from "@/components/Header"
 import { PendingDetailModal } from "@/components/PendingDetailModal"
+import { SearchResultSkeleton } from "@/components/skeletons/SearchResultSkeleton"
 import { Button } from "@/components/ui/button"
 import {
   Collapsible,
@@ -44,8 +45,10 @@ import {
   SliderThumb,
   SliderTrack,
 } from "@/components/ui/slider"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api } from "@/lib/api"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { cn } from "@/lib/utils"
 import { useMatchStore } from "@/stores/useMatchStore"
 import type {
@@ -148,6 +151,7 @@ function SuggestionsTab() {
     useMatchStore()
   const [actionLoading, setActionLoading] = useState(false)
   const [detailItem, setDetailItem] = useState<PendingMatch | null>(null)
+  const showPendingSkeleton = useDelayedLoading(pendingLoading)
 
   useEffect(() => {
     fetchPending()
@@ -189,10 +193,23 @@ function SuggestionsTab() {
     }
   }
 
-  if (pendingLoading) {
+  if (showPendingSkeleton) {
     return (
-      <div className="flex justify-center pt-16">
-        <Loader2 className="size-6 animate-spin text-[#a6a39a]" />
+      <div className="flex flex-col items-center">
+        <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
+          <div className="overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-[#161513]">
+            <Skeleton className="aspect-[2/3] rounded-none" />
+          </div>
+
+          <div className="mt-6 flex items-center justify-center gap-6">
+            <Skeleton className="size-14 rounded-full" />
+            <Skeleton className="size-14 rounded-full" />
+          </div>
+
+          <div className="mt-4 flex justify-center">
+            <Skeleton className="h-3.5 w-32" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -323,6 +340,7 @@ function SearchTab() {
   }
   const lastFetchRef = useRef<FetchAttempt | null>(null)
   const lastAttemptRef = useRef<FetchAttempt | null>(null)
+  const showSearchSkeleton = useDelayedLoading(searching)
   const activeFilterCount =
     selectedDecades.length +
     selectedCertifications.length +
@@ -523,9 +541,6 @@ function SearchTab() {
               placeholder="Ex.: Coracao de Vidro, Fronteira Norte..."
               className="w-full rounded-2xl border border-white/10 bg-[#161513] py-3.5 pr-4 pl-11 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
             />
-            {searching && (
-              <Loader2 className="absolute top-1/2 right-4 size-4.5 -translate-y-1/2 animate-spin text-[#a6a39a]" />
-            )}
           </div>
 
           <div className="ml-auto flex items-center gap-3">
@@ -740,13 +755,15 @@ function SearchTab() {
         </div>
       )}
 
-      {!searched && !searching && !query.trim() && (
+      {!searched && !showSearchSkeleton && !query.trim() && (
         <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
           Comecem digitando o nome de um filme ou serie ai em cima.
         </div>
       )}
 
-      {searched && !searching && fetchError && (
+      {showSearchSkeleton && <SearchResultSkeleton rows={6} />}
+
+      {searched && !showSearchSkeleton && fetchError && (
         <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-6 py-10 text-center">
           <TriangleAlert className="size-6 text-[#ffb3b3]" />
           <p className="text-sm text-[#f6f4ec]">
@@ -765,7 +782,7 @@ function SearchTab() {
         </div>
       )}
 
-      {searched && !searching && !fetchError && results.length === 0 && (
+      {searched && !showSearchSkeleton && !fetchError && results.length === 0 && (
         <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
           {hasQuery
             ? `Nada encontrado para "${query.trim()}". Tentem outro termo.`
@@ -773,7 +790,12 @@ function SearchTab() {
         </div>
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5">
+      <div
+        className={cn(
+          "grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-5.5",
+          showSearchSkeleton && "hidden"
+        )}
+      >
         {results.map((result) => {
           const key = trackKey(result.mediaType, result.tmdbId)
           const alreadyTracked = trackedKeys.has(key)
@@ -886,7 +908,7 @@ function SearchTab() {
         })}
       </div>
 
-      {searched && results.length > 0 && totalPages > 1 && (
+      {searched && !showSearchSkeleton && results.length > 0 && totalPages > 1 && (
         <div className="mt-8 flex flex-col items-center gap-3">
           <Pagination>
             <PaginationContent>
