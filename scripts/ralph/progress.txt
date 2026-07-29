@@ -21,3 +21,15 @@
   - Every effect branch returns a cleanup that clears its own timer, so unmounting or re-triggering (`loading` flips again before a timer fires) never lets a stale timer call `setState` after the fact.
   - This is a plain hook with no visible UI, so it didn't need the `frontend-design` skill — reserve that skill for stories where output renders in the browser (US-003 onward).
 ---
+
+## 2026-07-29 - US-003
+- Created `src/components/skeletons/`: `MediaCardSkeleton`, `KpiCardSkeleton`, `ChartSkeleton` (variant prop: `bars` | `donut` | `genre-bars`, mirroring `MonthlyBarsChart`/`MovieTvDonutChart`/`GenreBarsChart`), `NotificationRowSkeleton`, `DetailModalSkeleton` (poster block + metadata + synopsis), `SearchResultSkeleton` (rows prop, default 3). All built on the `Skeleton` primitive from US-001.
+- Replaced the inline `SkeletonCard` in `HubScreen.tsx` with `MediaCardSkeleton` (5 call sites: 4 in the initial grid, 1 in the load-more sentinel).
+- Files changed: `client/src/components/skeletons/MediaCardSkeleton.tsx`, `KpiCardSkeleton.tsx`, `ChartSkeleton.tsx`, `NotificationRowSkeleton.tsx`, `DetailModalSkeleton.tsx`, `SearchResultSkeleton.tsx` (all new); `client/src/screens/HubScreen.tsx` (removed inline `SkeletonCard`, import + usages swapped).
+- **Learnings for future iterations:**
+  - `DashboardScreen.tsx` already has an inline `KpiSkeleton` and `MediaDetailModal.tsx`/`PendingDetailModal.tsx` already have an inline `SkeletonDetail` (pre-existing, predates this PRD) — US-005/US-008 should replace those inline versions with `KpiCardSkeleton`/`DetailModalSkeleton` the same way US-003 did for `HubScreen`'s `SkeletonCard`, not leave both versions coexisting.
+  - `DetailModalSkeleton` adds a poster placeholder block that the existing inline `SkeletonDetail` versions don't have (PRD explicitly asked for poster + metadata + synopsis) — when swapping it in during US-008, check the modal's actual poster container classes (size/aspect ratio) so the new block matches, don't just paste the library version verbatim.
+  - `ChartSkeleton`'s three variants are for the three `DashboardScreen` chart shapes (monthly bars, movie/tv donut, genre bars) — US-005 picks the matching `variant` per chart, doesn't need a new component per chart.
+  - Skeleton library components take no props for "is this loading" — screens call `useDelayedLoading` themselves and conditionally render the skeleton vs. the real content, same as the existing `loading ? <SkeletonCard /> : ...` pattern in `HubScreen`.
+  - This story was UI-shaped per the Ralph instructions (new files under `src/components/`) so `frontend-design` was invoked before implementing; the skill's guidance was to not introduce a new visual language since the brief is to mirror an already-established design system (`bg-[#161513]`, `rgba(255,255,255,.07)` borders, `bg-white/[0.06]` blocks) exactly, not originate a new aesthetic — implementation followed the existing token values as literal spec rather than inventing new ones.
+---

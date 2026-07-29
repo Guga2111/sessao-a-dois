@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { DeleteTrackDialog } from "@/components/DeleteTrackDialog"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
+import { MediaCardSkeleton } from "@/components/skeletons/MediaCardSkeleton"
 import { ReviewModal } from "@/components/ReviewModal"
 import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
@@ -64,18 +65,6 @@ function emptySections(): Record<MediaStatus, SectionState> {
     WANT_TO_SEE: emptySectionState(),
     WATCHED: emptySectionState(),
   }
-}
-
-function SkeletonCard() {
-  return (
-    <div className="min-w-[72vw] max-w-[72vw] shrink-0 overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] md:min-w-0 md:max-w-none md:shrink">
-      <div className="aspect-[3/4] animate-pulse bg-white/[0.04]" />
-      <div className="space-y-2.5 p-3.5">
-        <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/[0.06]" />
-        <div className="h-3 w-1/2 animate-pulse rounded bg-white/[0.06]" />
-      </div>
-    </div>
-  )
 }
 
 interface LoadMoreSentinelProps {
@@ -259,10 +248,10 @@ export function HubScreen() {
               <CollapsibleContent>
                 {loading ? (
                   <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
-                    <SkeletonCard />
-                    <SkeletonCard />
-                    <SkeletonCard />
-                    <SkeletonCard />
+                    <MediaCardSkeleton />
+                    <MediaCardSkeleton />
+                    <MediaCardSkeleton />
+                    <MediaCardSkeleton />
                   </div>
                 ) : items.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-[#a6a39a]">
@@ -298,7 +287,7 @@ export function HubScreen() {
                           />
                         </div>
                       ))}
-                      {loadingMore && <SkeletonCard />}
+                      {loadingMore && <MediaCardSkeleton />}
                       {isMobile && hasMore && (
                         <LoadMoreSentinel
                           status={section.status}
