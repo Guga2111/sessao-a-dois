@@ -403,31 +403,22 @@ function SearchTab() {
 
   useEffect(() => {
     let cancelled = false
-    const timer = setTimeout(() => {
-      runFetch("/api/media/trending", { page: 1 }, "trending", () => cancelled)
-    }, 0)
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [runFetch])
-
-  useEffect(() => {
-    if (!query.trim()) {
-      return
-    }
-
-    let cancelled = false
-    const timer = setTimeout(() => {
-      const trimmed = query.trim()
-      runFetch(
-        "/api/media/search",
-        { q: trimmed, page: 1 },
-        "search",
-        () => cancelled
-      )
-    }, 400)
+    const trimmed = query.trim()
+    const timer = setTimeout(
+      () => {
+        if (trimmed) {
+          runFetch(
+            "/api/media/search",
+            { q: trimmed, page: 1 },
+            "search",
+            () => cancelled
+          )
+        } else {
+          runFetch("/api/media/trending", { page: 1 }, "trending", () => cancelled)
+        }
+      },
+      trimmed ? 400 : 0
+    )
 
     return () => {
       cancelled = true
@@ -511,78 +502,78 @@ function SearchTab() {
 
   return (
     <>
-      <div className="mx-auto mb-5 max-w-[520px]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-[#a6a39a]" />
-          <input
-            value={query}
-            onChange={(event) => {
-              const value = event.target.value
-              setQuery(value)
-              if (!value.trim()) {
-                setResults([])
-                setSearched(false)
-              }
-            }}
-            placeholder="Ex.: Coracao de Vidro, Fronteira Norte..."
-            className="w-full rounded-2xl border border-white/10 bg-[#161513] py-4 pr-4 pl-11 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
-          />
-          {searching && (
-            <Loader2 className="absolute top-1/2 right-4 size-4.5 -translate-y-1/2 animate-spin text-[#a6a39a]" />
-          )}
-        </div>
-      </div>
-
       <Collapsible
         open={filtersOpen}
         onOpenChange={setFiltersOpen}
         className="mx-auto mb-8 max-w-[820px]"
       >
-        <div className="flex items-center justify-between gap-3">
-          <CollapsibleTrigger
-            disabled={hasQuery}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-              filtersOpen || activeFilterCount > 0
-                ? "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.12)] text-[#ffcb2b]"
-                : "border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06]"
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-[#a6a39a]" />
+            <input
+              value={query}
+              onChange={(event) => {
+                const value = event.target.value
+                setQuery(value)
+                if (!value.trim()) {
+                  setResults([])
+                  setSearched(false)
+                }
+              }}
+              placeholder="Ex.: Coracao de Vidro, Fronteira Norte..."
+              className="w-full rounded-2xl border border-white/10 bg-[#161513] py-3.5 pr-4 pl-11 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+            />
+            {searching && (
+              <Loader2 className="absolute top-1/2 right-4 size-4.5 -translate-y-1/2 animate-spin text-[#a6a39a]" />
             )}
-          >
-            <SlidersHorizontal className="size-4" />
-            Filtros
-            {activeFilterCount > 0 && (
-              <span className="flex size-5 items-center justify-center rounded-full bg-[#ffcb2b] text-[11px] font-bold text-[#09090a]">
-                {activeFilterCount}
-              </span>
-            )}
-            {filtersOpen ? (
-              <ChevronUp className="size-4" />
-            ) : (
-              <ChevronDown className="size-4" />
-            )}
-          </CollapsibleTrigger>
+          </div>
 
-          <Select
-            items={SORT_OPTIONS}
-            value={sortBy}
-            onValueChange={handleSortChange}
-            disabled={hasQuery}
-          >
-            <SelectTrigger className="rounded-full border-white/10 bg-[#161513] px-4 py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40 data-[popup-open]:bg-white/[0.06]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="border border-white/10 bg-[#161513] text-[#f6f4ec]">
-              {SORT_OPTIONS.map((option) => (
-                <SelectItem
-                  key={option.value}
-                  value={option.value}
-                  className="data-highlighted:bg-white/[0.08]"
-                >
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="ml-auto flex items-center gap-3">
+            <Select
+              items={SORT_OPTIONS}
+              value={sortBy}
+              onValueChange={handleSortChange}
+              disabled={hasQuery}
+            >
+              <SelectTrigger className="rounded-full border-white/10 bg-[#161513] px-4 py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40 data-[popup-open]:bg-white/[0.06]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border border-white/10 bg-[#161513] text-[#f6f4ec]">
+                {SORT_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="data-highlighted:bg-white/[0.08]"
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <CollapsibleTrigger
+              disabled={hasQuery}
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                filtersOpen || activeFilterCount > 0
+                  ? "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.12)] text-[#ffcb2b]"
+                  : "border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06]"
+              )}
+            >
+              <SlidersHorizontal className="size-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span className="flex size-5 items-center justify-center rounded-full bg-[#ffcb2b] text-[11px] font-bold text-[#09090a]">
+                  {activeFilterCount}
+                </span>
+              )}
+              {filtersOpen ? (
+                <ChevronUp className="size-4" />
+              ) : (
+                <ChevronDown className="size-4" />
+              )}
+            </CollapsibleTrigger>
+          </div>
         </div>
 
         <CollapsibleContent className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161513] px-5 py-5 data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out data-[starting-style]:fade-in">
