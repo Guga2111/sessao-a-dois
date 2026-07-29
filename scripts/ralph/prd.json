@@ -243,8 +243,8 @@
         "Verificar no browser usando a skill dev-browser"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Introduzido um helper unico runFetch(url, params, context, isCancelled?) (useCallback) em SearchTab (MatchScreen.tsx) que centraliza os 5 pontos que antes duplicavam a mesma logica de fetch (trending no mount, busca debounced, handleSortChange, handleApplyFilters, handlePageChange); alem de results/totalResults/totalPages/page/resultsContext/searched, agora tambem seta um novo estado fetchError (bem-sucedido -> false, catch -> true). Novo lastAttemptRef (guarda {url, params, context} de toda tentativa, sucesso ou falha, diferente de lastFetchRef que so grava em sucesso e sem o page - usado pela paginacao) alimenta handleRetry, que rechama exatamente a ultima tentativa (funciona mesmo quando a falha e a carga inicial de trending, que nunca chegou a popular lastFetchRef). Novo card de erro (borda/fundo vermelho translucido, icone TriangleAlert, botao 'Tentar novamente' com RefreshCw) renderizado quando searched && !searching && fetchError, mutuamente exclusivo com o header de contagem (agora exigem !fetchError) e com o card de vazio legitimo (agora exige !fetchError). Mensagem do card de erro varia entre 'Nao foi possivel carregar os titulos em alta agora.' (falha do trending no mount, resultsContext==='trending' && !hasQuery) e 'Algo deu errado ao buscar no TMDB.' (falha de busca/discover) - cobre as 3 ACs (busca/filtros sem resultado ja existia; falha do TMDB agora tem card dedicado com retry; trending indisponivel no load inicial cai no mesmo card de erro em vez do card de vazio generico, ja que e uma falha real e nao um resultado vazio legitimo)."
     }
   ]
 }

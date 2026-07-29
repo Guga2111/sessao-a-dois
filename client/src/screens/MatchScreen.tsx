@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
   ChevronDown,
   ChevronUp,
   Heart,
   Loader2,
+  RefreshCw,
   Search,
   SlidersHorizontal,
   Sparkles,
+  TriangleAlert,
   X,
 } from "lucide-react"
 
@@ -311,13 +313,16 @@ function SearchTab() {
   const [resultsContext, setResultsContext] = useState<
     "trending" | "search" | "discover"
   >("trending")
+  const [fetchError, setFetchError] = useState(false)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const lastFetchRef = useRef<{
+  type FetchAttempt = {
     url: string
     params: Record<string, string | number>
     context: "trending" | "search" | "discover"
-  } | null>(null)
+  }
+  const lastFetchRef = useRef<FetchAttempt | null>(null)
+  const lastAttemptRef = useRef<FetchAttempt | null>(null)
   const activeFilterCount =
     selectedDecades.length +
     selectedCertifications.length +
@@ -331,6 +336,52 @@ function SearchTab() {
       ? 1
       : 0)
   const hasQuery = query.trim().length > 0
+
+  const runFetch = useCallback(
+    (
+      url: string,
+      params: Record<string, string | number>,
+      context: "trending" | "search" | "discover",
+      isCancelled: () => boolean = () => false
+    ) => {
+      setSearching(true)
+      lastAttemptRef.current = { url, params, context }
+      return api
+        .get<MediaPage>(url, { params })
+        .then((response) => {
+          if (isCancelled()) return
+          setResults(response.data.results)
+          setTotalResults(response.data.totalResults)
+          setTotalPages(response.data.totalPages)
+          setPage(response.data.page)
+          setResultsContext(context)
+          setSearched(true)
+          setFetchError(false)
+          const paramsWithoutPage = { ...params }
+          delete paramsWithoutPage.page
+          lastFetchRef.current = { url, params: paramsWithoutPage, context }
+        })
+        .catch(() => {
+          if (isCancelled()) return
+          setResults([])
+          setTotalResults(0)
+          setTotalPages(1)
+          setResultsContext(context)
+          setSearched(true)
+          setFetchError(true)
+        })
+        .finally(() => {
+          if (!isCancelled()) setSearching(false)
+        })
+    },
+    []
+  )
+
+  const handleRetry = () => {
+    const attempt = lastAttemptRef.current
+    if (!attempt || searching) return
+    runFetch(attempt.url, attempt.params, attempt.context)
+  }
 
   useEffect(() => {
     api
@@ -353,41 +404,14 @@ function SearchTab() {
   useEffect(() => {
     let cancelled = false
     const timer = setTimeout(() => {
-      setSearching(true)
-      api
-        .get<MediaPage>("/api/media/trending", { params: { page: 1 } })
-        .then((response) => {
-          if (cancelled) return
-          setResults(response.data.results)
-          setTotalResults(response.data.totalResults)
-          setTotalPages(response.data.totalPages)
-          setPage(response.data.page)
-          setResultsContext("trending")
-          setSearched(true)
-          lastFetchRef.current = {
-            url: "/api/media/trending",
-            params: {},
-            context: "trending",
-          }
-        })
-        .catch(() => {
-          if (cancelled) return
-          setResults([])
-          setTotalResults(0)
-          setTotalPages(1)
-          setResultsContext("trending")
-          setSearched(true)
-        })
-        .finally(() => {
-          if (!cancelled) setSearching(false)
-        })
+      runFetch("/api/media/trending", { page: 1 }, "trending", () => cancelled)
     }, 0)
 
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [])
+  }, [runFetch])
 
   useEffect(() => {
     if (!query.trim()) {
@@ -396,76 +420,26 @@ function SearchTab() {
 
     let cancelled = false
     const timer = setTimeout(() => {
-      setSearching(true)
       const trimmed = query.trim()
-      api
-        .get<MediaPage>("/api/media/search", {
-          params: { q: trimmed, page: 1 },
-        })
-        .then((response) => {
-          if (cancelled) return
-          setResults(response.data.results)
-          setTotalResults(response.data.totalResults)
-          setTotalPages(response.data.totalPages)
-          setPage(response.data.page)
-          setResultsContext("search")
-          setSearched(true)
-          lastFetchRef.current = {
-            url: "/api/media/search",
-            params: { q: trimmed },
-            context: "search",
-          }
-        })
-        .catch(() => {
-          if (cancelled) return
-          setResults([])
-          setTotalResults(0)
-          setTotalPages(1)
-          setResultsContext("search")
-          setSearched(true)
-        })
-        .finally(() => {
-          if (!cancelled) setSearching(false)
-        })
+      runFetch(
+        "/api/media/search",
+        { q: trimmed, page: 1 },
+        "search",
+        () => cancelled
+      )
     }, 400)
 
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query])
+  }, [query, runFetch])
 
   const handleSortChange = (nextSortBy: string) => {
     setSortBy(nextSortBy)
     if (hasQuery) return
 
-    setSearching(true)
-    const params = { sortBy: nextSortBy }
-    api
-      .get<MediaPage>("/api/media/discover", {
-        params: { ...params, page: 1 },
-      })
-      .then((response) => {
-        setResults(response.data.results)
-        setTotalResults(response.data.totalResults)
-        setTotalPages(response.data.totalPages)
-        setPage(response.data.page)
-        setResultsContext("discover")
-        setSearched(true)
-        lastFetchRef.current = {
-          url: "/api/media/discover",
-          params,
-          context: "discover",
-        }
-      })
-      .catch(() => {
-        setResults([])
-        setTotalResults(0)
-        setTotalPages(1)
-        setResultsContext("discover")
-        setSearched(true)
-      })
-      .finally(() => setSearching(false))
+    runFetch("/api/media/discover", { sortBy: nextSortBy, page: 1 }, "discover")
   }
 
   const handleApplyFilters = () => {
@@ -494,30 +468,7 @@ function SearchTab() {
       params.runtimeMax = runtimeRange[1]
     }
 
-    setSearching(true)
-    api
-      .get<MediaPage>("/api/media/discover", { params: { ...params, page: 1 } })
-      .then((response) => {
-        setResults(response.data.results)
-        setTotalResults(response.data.totalResults)
-        setTotalPages(response.data.totalPages)
-        setPage(response.data.page)
-        setResultsContext("discover")
-        setSearched(true)
-        lastFetchRef.current = {
-          url: "/api/media/discover",
-          params,
-          context: "discover",
-        }
-      })
-      .catch(() => {
-        setResults([])
-        setTotalResults(0)
-        setTotalPages(1)
-        setResultsContext("discover")
-        setSearched(true)
-      })
-      .finally(() => setSearching(false))
+    runFetch("/api/media/discover", { ...params, page: 1 }, "discover")
   }
 
   const handlePageChange = (nextPage: number) => {
@@ -525,20 +476,7 @@ function SearchTab() {
     const clamped = Math.min(nextPage, totalPages, TMDB_MAX_PAGE)
     if (!last || searching || clamped === page || clamped < 1) return
 
-    setSearching(true)
-    api
-      .get<MediaPage>(last.url, { params: { ...last.params, page: clamped } })
-      .then((response) => {
-        setResults(response.data.results)
-        setTotalResults(response.data.totalResults)
-        setTotalPages(response.data.totalPages)
-        setPage(response.data.page)
-      })
-      .catch(() => {
-        setResults([])
-        setTotalResults(0)
-      })
-      .finally(() => setSearching(false))
+    runFetch(last.url, { ...last.params, page: clamped }, last.context)
   }
 
   const handleClearFilters = () => {
@@ -788,7 +726,7 @@ function SearchTab() {
         </CollapsibleContent>
       </Collapsible>
 
-      {searched && (
+      {searched && !fetchError && (
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <div>
             <h2 className="font-display text-lg font-bold text-[#f6f4ec] sm:text-xl">
@@ -817,7 +755,26 @@ function SearchTab() {
         </div>
       )}
 
-      {searched && !searching && results.length === 0 && (
+      {searched && !searching && fetchError && (
+        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-6 py-10 text-center">
+          <TriangleAlert className="size-6 text-[#ffb3b3]" />
+          <p className="text-sm text-[#f6f4ec]">
+            {resultsContext === "trending" && !hasQuery
+              ? "Nao foi possivel carregar os titulos em alta agora."
+              : "Algo deu errado ao buscar no TMDB."}{" "}
+            Tentem novamente em instantes.
+          </p>
+          <Button
+            type="button"
+            onClick={handleRetry}
+            className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-2 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+          >
+            <RefreshCw className="size-4" /> Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {searched && !searching && !fetchError && results.length === 0 && (
         <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
           {hasQuery
             ? `Nada encontrado para "${query.trim()}". Tentem outro termo.`
