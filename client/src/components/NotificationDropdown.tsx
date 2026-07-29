@@ -11,7 +11,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { NotificationBell } from "@/components/NotificationBell"
 import { RatingRequestDialog } from "@/components/RatingRequestDialog"
+import { NotificationRowSkeleton } from "@/components/skeletons/NotificationRowSkeleton"
 import { cn } from "@/lib/utils"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useNotificationStore } from "@/stores/useNotificationStore"
 import type { Notification } from "@/types/notification"
@@ -122,11 +124,13 @@ export function NotificationDropdown() {
   const notifications = useNotificationStore((s) => s.notifications)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const hasMore = useNotificationStore((s) => s.hasMore)
+  const loading = useNotificationStore((s) => s.loading)
   const fetchMore = useNotificationStore((s) => s.fetchMore)
   const markAsRead = useNotificationStore((s) => s.markAsRead)
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
   const currentUserId = useAuthStore((s) => s.user?.id)
   const [ratingRequest, setRatingRequest] = useState<Notification | null>(null)
+  const showSkeleton = useDelayedLoading(loading)
 
   const handleSelect = (id: string) => {
     const notification = notifications.find((n) => n.id === id)
@@ -163,7 +167,13 @@ export function NotificationDropdown() {
 
           <ScrollArea viewportClassName="max-h-[420px]">
             <div className="p-2">
-              {notifications.length === 0 ? (
+              {showSkeleton ? (
+                <div className="flex flex-col gap-1">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <NotificationRowSkeleton key={index} />
+                  ))}
+                </div>
+              ) : notifications.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
                   <div className="grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#a6a39a]">
                     <BellOff className="size-5" />

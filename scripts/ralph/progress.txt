@@ -87,3 +87,13 @@
   - If a `useEffect` resets state (`setDetails(null)`) synchronously in its body on a guard-clause early return (`if (!track) { setDetails(null); return }`) as well as its main path, both branches need to move inside the `setTimeout(..., 0)` wrapper, not just the main one — the lint rule flags the direct call regardless of which branch it's in.
   - `tsc --noEmit` and `npx eslint` (all three changed files) passed clean; no Playwright/browser in this sandbox (see client/CLAUDE.md's Vite gotcha) — manual browser verification of US-008 is still needed.
 ---
+
+## 2026-07-29 - US-009
+- `useNotificationStore.ts`: added a `loading` field (initialized `true`, since `fetchNotifications()` is expected to run right after auth/couple resolve in `App.tsx`) and wrapped `fetchNotifications`'s body in `try { ... } finally { set({ loading: false }) }`, setting `loading: true` at the start. `fetchMore` (pagination) intentionally left untouched — the PRD only asked for the initial dropdown-open GET to show a skeleton, not "Ver mais" pagination.
+- `NotificationDropdown.tsx`: added `const showSkeleton = useDelayedLoading(loading)`; the results area now branches three ways — `showSkeleton` renders 4 stacked `NotificationRowSkeleton` rows, else the existing `notifications.length === 0` empty state, else the existing list. `hasMore`/"Ver mais" button untouched (starts `false` until a real fetch completes, so it can't show mid-skeleton anyway).
+- Files changed: `client/src/stores/useNotificationStore.ts`, `client/src/components/NotificationDropdown.tsx`.
+- **Learnings for future iterations:**
+  - Unlike US-004/US-005/US-006 (screens with their own local `loading` state), this store had no loading flag at all — had to add one to the Zustand store itself (`try/finally` around the existing `api.get` call), not just to the consuming component. Check whether a "loading" concept already exists in the store vs. component before wiring `useDelayedLoading` — for store-backed screens it may need adding at the store level so any future consumer of that store also benefits.
+  - The fetch this story targets (`fetchNotifications`) only runs once, in `App.tsx`'s effect when `isAuthenticated && hasPartner && coupleId` — not re-triggered when the notification `Popover` opens. So `loading` initializes to `true` (not `false`) to cover the brief window between mount and that effect's fetch resolving, matching the "GET em andamento" wording in the PRD rather than only covering re-opens.
+  - `tsc --noEmit` and `npx eslint` (both changed files) passed clean; no Playwright/browser in this sandbox (see client/CLAUDE.md's Vite gotcha) — manual browser verification of US-009 is still needed.
+---
