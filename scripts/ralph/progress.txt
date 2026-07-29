@@ -43,3 +43,13 @@
   - `MediaCardSkeleton` renders fine standalone outside the grid (e.g. in the desktop load-more slot) as long as it's wrapped in a fixed-width container (`w-[220px]` used here) — its own classes assume either a flex/grid item context or an explicit width, it has no default block width.
   - This story was pure wiring of already-existing components (`MediaCardSkeleton` from US-003, `useDelayedLoading` from US-002) into an already-existing conditional-render structure — no new visual language, so the `frontend-design` skill invocation confirmed reuse-as-is rather than producing new design decisions.
 ---
+
+## 2026-07-29 - US-005
+- Wired the existing `KpiCardSkeleton` (US-003) and `ChartSkeleton` (US-003, all three variants) into `DashboardScreen.tsx`, replacing the inline `KpiSkeleton` function (deleted) and the previous "hide charts entirely while loading" behavior.
+- Added `const showSkeleton = useDelayedLoading(loading)`; both the KPI grid and the charts section now branch on `showSkeleton || !stats` (same `X || !stats` shape the KPI section already used with raw `loading`) instead of the raw `loading` flag. `isEmpty` intentionally still derives from raw `loading` (data-correctness gate, not a visual one) — same rule US-004 used for `hasMore`.
+- Files changed: `client/src/screens/DashboardScreen.tsx`.
+- **Learnings for future iterations:**
+  - `ChartSkeleton`'s three variants map 1:1 to `DashboardScreen`'s three charts as predicted in US-003's notes: `variant="bars"` for `MonthlyBarsChart`, `variant="donut"` for `MovieTvDonutChart`, `variant="genre-bars"` for `GenreBarsChart` — no new skeleton components needed.
+  - When a screen already has an inline skeleton component *and* a delayed-loading gate is being added in the same story, replace the inline component's condition (`loading || !stats`) with `showSkeleton || !stats` rather than just `showSkeleton` — keeps the pre-existing "wait for stats to be non-null too" safety net intact.
+  - No Playwright/browser available in this sandbox (see client/CLAUDE.md's Vite gotcha) — only `tsc --noEmit` / `npx eslint` verification possible; manual browser verification of US-005 is still needed.
+---
