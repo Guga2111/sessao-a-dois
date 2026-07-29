@@ -65,3 +65,13 @@
   - When a screen keeps old data visible under a `hidden` class instead of unmounting it during a loading transition (here: the results grid while `showSearchSkeleton` is true), use `cn(baseClasses, condition && "hidden")` rather than wrapping the whole block in `{!condition && (...)}` — avoids duplicating the grid's className string and keeps the results grid mounted (state like scroll position isn't lost) while the skeleton overlays the space above it.
   - `tsc --noEmit` and `npx eslint src/screens/MatchScreen.tsx` both passed clean; no Playwright/browser in this sandbox (see client/CLAUDE.md's Vite gotcha) — manual browser verification of US-006 is still needed.
 ---
+
+## 2026-07-29 - US-007
+- `TitleModal.tsx`: added `showSearchSkeleton = useDelayedLoading(searching)`; removed the `Loader2` spinner from inside the search input entirely (dropped the now-unused `Loader2` import). While `showSearchSkeleton` is true, the results-dropdown position now renders `SearchResultSkeleton rows={3}` (same container classes as the real dropdown, minus the `py-1.5` since the skeleton has its own internal padding); the real results dropdown condition gained a `!showSearchSkeleton &&` guard so the two never render at once.
+- Kept the "Salvar Título" button's `saving`/`"Salvando…"` state untouched per the PRD's MANTIDO clause.
+- Files changed: `client/src/components/TitleModal.tsx`.
+- **Learnings for future iterations:**
+  - `SearchResultSkeleton` (from US-003/US-006) needed no changes to reuse here — same row-list shape works for both `MatchScreen`'s search tab and `TitleModal`'s dropdown, confirming it's genuinely the shared "search results loading" component the PRD intended.
+  - This modal has no `results.length > 0` gate on the skeleton (unlike the real dropdown) — the skeleton shows purely off `showSearchSkeleton`/`searching`, since during the fetch there's nothing yet to check the length of; only the *real* dropdown needs the `results.length > 0` check.
+  - `tsc --noEmit` and `npx eslint src/components/TitleModal.tsx` both passed clean; no Playwright/browser in this sandbox (see client/CLAUDE.md's Vite gotcha) — manual browser verification of US-007 is still needed.
+---

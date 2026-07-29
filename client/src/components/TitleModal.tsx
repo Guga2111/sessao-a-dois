@@ -1,5 +1,5 @@
 import { isAxiosError } from "axios"
-import { Loader2, Search, X } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { SearchResultSkeleton } from "@/components/skeletons/SearchResultSkeleton"
 import { api } from "@/lib/api"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { cn } from "@/lib/utils"
 import type { MediaSearchResult } from "@/types/media"
 import type { MediaStatus, MediaTrackResponse } from "@/types/tracking"
@@ -81,6 +83,8 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
     setState(initialState())
     onClose()
   }
+
+  const showSearchSkeleton = useDelayedLoading(searching)
 
   useEffect(() => {
     if (!open || selected || !query.trim()) return
@@ -256,11 +260,13 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
               placeholder="Ex.: Coração de Vidro, Fronteira Norte…"
               className="w-full rounded-xl border border-white/10 bg-[#201e18] py-3.5 pr-3.5 pl-10 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
             />
-            {searching && (
-              <Loader2 className="absolute top-1/2 right-3.5 size-4 -translate-y-1/2 animate-spin text-[#a6a39a]" />
+            {showSearchSkeleton && (
+              <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-[#201e18] shadow-[0_18px_40px_rgba(0,0,0,.5)]">
+                <SearchResultSkeleton rows={3} />
+              </div>
             )}
 
-            {searchOpen && results.length > 0 && (
+            {!showSearchSkeleton && searchOpen && results.length > 0 && (
               <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-[#201e18] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,.5)]">
                 <ScrollArea className="h-full max-h-64 [&_[data-slot=scroll-area-viewport]]:max-h-64">
                   {results.map((result) => (
