@@ -9,6 +9,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useIsMobile } from "@/lib/useIsMobile"
 import { cn } from "@/lib/utils"
@@ -335,7 +336,7 @@ export function ComparisonDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-y-auto rounded-[22px] border border-white/10 bg-[#161513] p-0 text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:w-full sm:max-w-[880px]"
+        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-[22px] border border-white/10 bg-[#161513] p-0 text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:w-full sm:max-w-[880px]"
       >
         <DialogTitle className="sr-only">Comparar títulos</DialogTitle>
         <DialogDescription className="sr-only">
@@ -344,82 +345,84 @@ export function ComparisonDialog({
             : "Carregando os detalhes dos títulos selecionados para comparação."}
         </DialogDescription>
 
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/95 px-6 py-5 backdrop-blur-sm">
-          <div className="min-w-0">
-            <div className="text-[12px] font-semibold tracking-[.14em] text-[#ffcb2b] uppercase">
-              Comparação
+        <ScrollArea className="max-h-[90svh] **:data-[slot=scroll-area-thumb]:bg-[#2b2920]">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/95 px-6 py-5 backdrop-blur-sm">
+            <div className="min-w-0">
+              <div className="text-[12px] font-semibold tracking-[.14em] text-[#ffcb2b] uppercase">
+                Comparação
+              </div>
+              {left && right ? (
+                <p className="font-display mt-1 truncate text-[19px] font-bold tracking-tight">
+                  {left.title} <span className="text-[#a6a39a]">vs</span>{" "}
+                  {right.title}
+                </p>
+              ) : (
+                <p className="font-display mt-1 text-[19px] font-bold tracking-tight text-[#a6a39a]">
+                  Carregando comparação…
+                </p>
+              )}
             </div>
-            {left && right ? (
-              <p className="font-display mt-1 truncate text-[19px] font-bold tracking-tight">
-                {left.title} <span className="text-[#a6a39a]">vs</span>{" "}
-                {right.title}
-              </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={() => onOpenChange(false)}
+              aria-label="Fechar comparação"
+              className="mt-0.5 flex-none rounded-[10px] border-white/10 text-[#a6a39a] hover:bg-white/[0.06] hover:text-white"
+            >
+              <X className="size-4.5" />
+            </Button>
+          </div>
+
+          <div
+            className={cn(
+              "relative flex gap-8 p-6",
+              isMobile ? "flex-col" : "flex-row"
+            )}
+          >
+            {left ? (
+              <ComparisonColumn
+                item={left}
+                side="left"
+                sharedGenres={sharedGenres}
+                sharedProviders={sharedProviders}
+                coupleWinner={coupleWinner}
+                tmdbWinner={tmdbWinner}
+              />
             ) : (
-              <p className="font-display mt-1 text-[19px] font-bold tracking-tight text-[#a6a39a]">
-                Carregando comparação…
-              </p>
+              <ComparisonColumnSkeleton />
+            )}
+
+            {isMobile ? (
+              <div className="relative flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="grid size-8 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[11px] font-black text-[#111]">
+                  VS
+                </span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+            ) : (
+              <div className="relative w-px flex-none self-stretch bg-white/10">
+                <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[11px] font-black text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]">
+                  VS
+                </span>
+              </div>
+            )}
+
+            {right ? (
+              <ComparisonColumn
+                item={right}
+                side="right"
+                sharedGenres={sharedGenres}
+                sharedProviders={sharedProviders}
+                coupleWinner={coupleWinner}
+                tmdbWinner={tmdbWinner}
+              />
+            ) : (
+              <ComparisonColumnSkeleton />
             )}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() => onOpenChange(false)}
-            aria-label="Fechar comparação"
-            className="mt-0.5 flex-none rounded-[10px] border-white/10 text-[#a6a39a] hover:bg-white/[0.06] hover:text-white"
-          >
-            <X className="size-4.5" />
-          </Button>
-        </div>
-
-        <div
-          className={cn(
-            "relative flex gap-8 p-6",
-            isMobile ? "flex-col" : "flex-row"
-          )}
-        >
-          {left ? (
-            <ComparisonColumn
-              item={left}
-              side="left"
-              sharedGenres={sharedGenres}
-              sharedProviders={sharedProviders}
-              coupleWinner={coupleWinner}
-              tmdbWinner={tmdbWinner}
-            />
-          ) : (
-            <ComparisonColumnSkeleton />
-          )}
-
-          {isMobile ? (
-            <div className="relative flex items-center gap-3 py-1">
-              <div className="h-px flex-1 bg-white/10" />
-              <span className="grid size-8 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[11px] font-black text-[#111]">
-                VS
-              </span>
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
-          ) : (
-            <div className="relative w-px flex-none self-stretch bg-white/10">
-              <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[11px] font-black text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]">
-                VS
-              </span>
-            </div>
-          )}
-
-          {right ? (
-            <ComparisonColumn
-              item={right}
-              side="right"
-              sharedGenres={sharedGenres}
-              sharedProviders={sharedProviders}
-              coupleWinner={coupleWinner}
-              tmdbWinner={tmdbWinner}
-            />
-          ) : (
-            <ComparisonColumnSkeleton />
-          )}
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )
