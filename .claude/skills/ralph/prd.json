@@ -95,8 +95,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Criado docs/FLYWAY.md explicando o comportamento de baseline-on-migrate=true + baseline-version=1: em producao (schema existente sem flyway_schema_history), o Flyway cria o historico, marca V1 como baseline SEM executar V1__baseline.sql, e aplica apenas V2__create_notification.sql; em dev/test (banco limpo) V1 executa normalmente do zero. Inclui tabela comparativa dos dois ambientes, checklist pos-deploy (conferir flyway_schema_history com as duas versoes, contagem de linhas das 7 tabelas antigas inalterada, notification criada vazia com o indice idx_notification_recipient_read, logs sem FlywayException/erro de validacao do Hibernate) e recomendacao de snapshot/backup do Supabase (Database > Backups) antes do primeiro deploy com Flyway. Historia puramente documental: nenhum codigo/SQL foi alterado, entao 'Typecheck passes' e trivialmente satisfeito (nada para compilar); nao ha CI de lint de markdown neste repo (unico workflow em .github/workflows e o de testes Maven do api/, que nao roda para mudancas so em docs/)."
     },
     {
       "id": "US-007",
