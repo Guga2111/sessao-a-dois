@@ -1,0 +1,201 @@
+{
+  "project": "Sessao a Dois",
+  "branchName": "ralph/sistema-notificacoes",
+  "description": "Sistema de Notificacoes (Match & No-Match) - notifica ambos os membros do casal em tempo real via STOMP + persistencia, com icone/badge no Header e dropdown de listagem.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Entidade e persistencia de Notification (Backend)",
+      "description": "Como desenvolvedor, preciso persistir notificacoes no banco para que o historico sobreviva a refresh e a periodos offline.",
+      "acceptanceCriteria": [
+        "Criar entidade JPA `Notification` no pacote `com.app.notification`",
+        "Campos: id, couple_id (FK Couple), recipient_user_id (FK User), type (enum MATCH|NO_MATCH), tmdb_id (Long), media_type (enum MOVIE|TV), title (String), actor_user_id (FK User), read (boolean default false), created_at (timestamp)",
+        "Criar `NotificationRepository` com consulta de listagem por recipient_user_id ordenada por created_at desc e contagem de nao-lidas",
+        "Adicionar indice em (recipient_user_id, read)",
+        "Tabela criada automaticamente via JPA/Hibernate na subida da aplicacao",
+        "Testes unitarios (JUnit 5 + Mockito) do repositorio/servico passam",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Created com.app.notification package: Notification JPA entity (couple FK via @ManyToOne, recipientUserId/actorUserId as plain UUID columns matching the MatchLike.userId convention rather than a User @ManyToOne join), NotificationType enum (MATCH/NO_MATCH), and NotificationRepository with findByRecipientUserIdOrderByCreatedAtDesc + countByRecipientUserIdAndReadFalse. Composite index on (recipient_user_id, is_read) via @Table(indexes=...). Renamed the 'read' field's column to is_read to avoid the SQL reserved-word ambiguity around READ. DataJpaTest repository test added following MatchLikeRepositoryTest's pattern (persistedCouple() helper, H2 in-memory)."
+    },
+    {
+      "id": "US-002",
+      "title": "Rotina de retencao: expirar notificacoes com mais de 30 dias (Backend)",
+      "description": "Como sistema, quero remover automaticamente notificacoes antigas para nao crescer a tabela indefinidamente.",
+      "acceptanceCriteria": [
+        "Adicionar consulta no `NotificationRepository` que remove notificacoes com created_at anterior a 30 dias",
+        "Criar rotina `@Scheduled` (executa 1x/dia) que chama essa limpeza",
+        "Habilitar `@EnableScheduling` na aplicacao caso ainda nao esteja",
+        "Teste unitario cobrindo a consulta de expiracao (notificacao > 30 dias e removida; <= 30 dias permanece)",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "NotificationService + DTO e broadcast STOMP (Backend)",
+      "description": "Como desenvolvedor, preciso de um servico central que crie notificacoes, retorne o DTO e emita o evento STOMP para o topico do casal.",
+      "acceptanceCriteria": [
+        "Criar `NotificationDto` com campos: id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt",
+        "Criar `NotificationService` com metodo que cria duas Notification (uma por recipient_user_id do casal) para um dado evento e retorna os DTOs",
+        "Registrar/estender o destino STOMP `/topic/couple/{coupleId}/notifications` na config de WebSocket existente",
+        "Emitir o DTO via `SimpMessagingTemplate` APOS o commit da persistencia (notificacao ja existe no banco quando o push chega)",
+        "Teste unitario verificando que o `SimpMessagingTemplate` e chamado com o destino e payload corretos",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Gerar notificacoes no fluxo de Match (Backend)",
+      "description": "Como membro do casal, quero ser notificado quando um Match acontece, para saber que um titulo entrou na nossa lista.",
+      "acceptanceCriteria": [
+        "Quando a logica de match confirma que ambos curtiram o mesmo tmdb_id, chamar o NotificationService para criar duas Notification do tipo MATCH (uma por membro)",
+        "actor_user_id = usuario que deu o segundo like (quem fechou o match)",
+        "A criacao das notificacoes ocorre na mesma transacao da criacao do MediaTrack (status WANT_TO_SEE)",
+        "Apos persistir, o evento STOMP e emitido para /topic/couple/{coupleId}/notifications",
+        "Fluxo existente de adicionar o titulo a 'Queremos Ver' continua sem regressao",
+        "Testes unitarios: match cria 2 notificacoes MATCH + emite evento; nao-match nao cria notificacao de match",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Gerar notificacao no fluxo de No-Match (Backend)",
+      "description": "Como membro do casal, quero ser notificado quando ha divergencia (o parceiro passou um titulo que eu curti).",
+      "acceptanceCriteria": [
+        "Quando um usuario passa um titulo que o parceiro havia curtido, criar duas Notification do tipo NO_MATCH (uma por membro) via NotificationService",
+        "actor_user_id = usuario que passou o titulo",
+        "Evento STOMP emitido para /topic/couple/{coupleId}/notifications",
+        "NAO alterar a regra existente de descarte/ocultacao do titulo recusado (fora de escopo)",
+        "Testes unitarios cobrindo geracao de 2 notificacoes NO_MATCH e emissao do evento",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Endpoints REST de notificacoes (Backend)",
+      "description": "Como frontend, preciso listar notificacoes, contar nao-lidas e marca-las como lidas.",
+      "acceptanceCriteria": [
+        "GET /api/notifications?page=&size= lista as notificacoes do usuario autenticado, created_at desc, paginado",
+        "GET /api/notifications/unread-count retorna { count: number } de nao-lidas do usuario autenticado",
+        "PATCH /api/notifications/{id}/read marca uma notificacao do usuario como lida; retorna 403 se nao pertencer ao usuario",
+        "PATCH /api/notifications/read-all marca todas as nao-lidas do usuario como lidas",
+        "Todos exigem JWT valido e escopam por recipient_user_id = usuario autenticado",
+        "Testes de Controller (MockMvc) cobrindo os quatro endpoints, incluindo o caso 403",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Tipagens e store de notificacoes (Frontend)",
+      "description": "Como desenvolvedor frontend, preciso de tipos TypeScript e um estado global (Zustand) para gerenciar notificacoes.",
+      "acceptanceCriteria": [
+        "Criar tipos em client/src/types/notification.ts: NotificationType ('MATCH'|'NO_MATCH'), MediaType ('MOVIE'|'TV') e interface Notification (id, type, tmdbId, mediaType, title, actorUserId, actorName, read, createdAt)",
+        "Criar `useNotificationStore` (Zustand) com estado: notifications, unreadCount, page, hasMore",
+        "Store expoe: fetchNotifications() (1a pagina size=20), fetchMore() (proximo lote, atualiza hasMore), markAsRead(id), markAllAsRead(), pushIncoming(n)",
+        "fetchNotifications e unread-count usam o cliente Axios com interceptor JWT ja configurado",
+        "markAsRead/markAllAsRead fazem atualizacao otimista + chamada REST (revertem em erro)",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Assinar topico STOMP de notificacoes reusando a conexao existente (Frontend)",
+      "description": "Como frontend, quero receber novas notificacoes em tempo real pela conexao STOMP ja aberta pelo useMatchStore.",
+      "acceptanceCriteria": [
+        "Assinar /topic/couple/{coupleId}/notifications no mesmo ponto onde useMatchStore ja assina /match (reusar a conexao unica, sem abrir uma segunda)",
+        "Ao receber evento, chamar pushIncoming(n): prepend na lista e incrementa unreadCount",
+        "Ao carregar a app (autenticado + casal vinculado), chamar fetchNotifications() e buscar unread-count",
+        "Payload STOMP tem o mesmo shape do DTO REST (sem transformacao divergente)",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Icone de notificacoes no Header (Frontend)",
+      "description": "Como membro do casal, quero ver um icone de notificacoes no Header, ao lado do avatar do casal, indicando quando ha notificacoes nao-lidas.",
+      "acceptanceCriteria": [
+        "Usar a skill frontend-design antes de implementar (obrigatorio para client/)",
+        "Criar componente NotificationBell.tsx e monta-lo no Header.tsx imediatamente a esquerda do avatar do casal (bloco direito)",
+        "Estado sem nao-lidas: sino neutro, sem badge",
+        "Estado com nao-lidas: badge com a contagem (unreadCount); exibir '9+' quando > 9",
+        "Visual consistente com o design (tema escuro, acentos #ffcb2b/#ff9e2c, fontes Bricolage Grotesque/DM Sans)",
+        "Acessivel: aria-label descritivo (ex: 'Notificacoes, 3 nao lidas') e navegavel por teclado",
+        "Typecheck passes (tsc --noEmit)",
+        "Lint passes (eslint)",
+        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Dropdown de listagem de notificacoes (Frontend)",
+      "description": "Como membro do casal, quero abrir um dropdown com minhas notificacoes e marca-las como lidas.",
+      "acceptanceCriteria": [
+        "Usar a skill frontend-design antes de implementar",
+        "Criar NotificationDropdown.tsx (Shadcn popover/dropdown) ancorado ao sino, listando as 20 mais recentes (mais recentes primeiro)",
+        "Botao 'Ver mais' ao fim da lista chama fetchMore(); some quando hasMore for false",
+        "Cada item mostra icone/cor por tipo (MATCH comemorativo, NO_MATCH neutro), titulo, texto contextual e tempo relativo (ex: 'ha 2 min')",
+        "Texto do NO_MATCH depende do destinatario: quem passou ve texto neutro ('Sem match desta vez em {titulo}'); o parceiro ve com nome ('{actorName} passou {titulo} - sem match desta vez'). Front decide comparando actorUserId com o usuario atual",
+        "Item nao-lido tem indicador visual (ponto/realce); item lido e atenuado",
+        "Acao 'Marcar todas como lidas' no topo do dropdown chama markAllAsRead",
+        "Abrir o dropdown NAO marca tudo como lido automaticamente; marcar acontece por clique no item ou no 'marcar todas'",
+        "Estado vazio: mensagem amigavel quando nao ha notificacoes",
+        "Fecha ao clicar fora e com Esc",
+        "Typecheck passes (tsc --noEmit)",
+        "Lint passes (eslint)",
+        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Celebracao de Match reutilizando a notificacao (Frontend)",
+      "description": "Como casal, quero que o modal de comemoracao de Match continue aparecendo e fique coerente com a nova notificacao.",
+      "acceptanceCriteria": [
+        "Usar a skill frontend-design antes de implementar",
+        "Ao receber um evento de notificacao MATCH pelo STOMP, o modal/celebracao de Match existente continua sendo disparado (sem regressao)",
+        "A notificacao MATCH tambem aparece no dropdown e conta no badge",
+        "Evitar duplicidade: um mesmo match nao gera duas celebracoes no cliente que fez a acao (deduplicar por notification.id ou tmdb_id)",
+        "Typecheck passes (tsc --noEmit)",
+        "Lint passes (eslint)",
+        "Se dev-browser/build Vite estiverem disponiveis no ambiente, verificar no browser com a skill dev-browser; caso contrario (rolldown quebrado neste sandbox), verificar por inspecao de codigo e documentar no progress.txt que a verificacao visual ficou pendente"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

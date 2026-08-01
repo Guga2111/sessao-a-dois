@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
-import { X } from "lucide-react"
+import { ArrowUp, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -38,6 +38,30 @@ const TYPE_LABEL: Record<MediaType, string> = {
   TV: "Série",
 }
 
+type Side = "left" | "right"
+
+function sharedNames(a: string[], b: string[]): Set<string> {
+  const bLower = new Set(b.map((name) => name.toLowerCase()))
+  return new Set(
+    a.filter((name) => bLower.has(name.toLowerCase())).map((name) => name.toLowerCase())
+  )
+}
+
+function higherSide(left: number | null, right: number | null): Side | null {
+  if (left === null || right === null) return null
+  if (left > right) return "left"
+  if (right > left) return "right"
+  return null
+}
+
+function RatingWinnerBadge() {
+  return (
+    <span className="inline-flex items-center text-[#ffcb2b]" aria-hidden>
+      <ArrowUp className="size-3.5" strokeWidth={3} />
+    </span>
+  )
+}
+
 function CoupleStars({ rating }: { rating: number }) {
   const filled = Math.round(rating)
   return (
@@ -48,8 +72,24 @@ function CoupleStars({ rating }: { rating: number }) {
   )
 }
 
-function ComparisonColumn({ item }: { item: ComparisonItem }) {
+function ComparisonColumn({
+  item,
+  side,
+  sharedGenres,
+  sharedProviders,
+  coupleWinner,
+  tmdbWinner,
+}: {
+  item: ComparisonItem
+  side: Side
+  sharedGenres: Set<string>
+  sharedProviders: Set<string>
+  coupleWinner: Side | null
+  tmdbWinner: Side | null
+}) {
   const [expanded, setExpanded] = useState(false)
+  const isCoupleWinner = coupleWinner === side
+  const isTmdbWinner = tmdbWinner === side
   const hue = item.tmdbId % 360
   const posterFallback = `linear-gradient(160deg, hsl(${hue} 42% 24%), hsl(${hue} 46% 11%))`
 
@@ -102,9 +142,15 @@ function ComparisonColumn({ item }: { item: ComparisonItem }) {
           {item.coupleRating !== null ? (
             <div className="flex items-center gap-1.5">
               <CoupleStars rating={item.coupleRating} />
-              <span className="text-[13px] font-semibold text-[#f6f4ec]">
+              <span
+                className={cn(
+                  "text-[13px] font-semibold",
+                  isCoupleWinner ? "text-[#ffcb2b]" : "text-[#f6f4ec]"
+                )}
+              >
                 {item.coupleRating.toFixed(1).replace(".", ",")} / 5
               </span>
+              {isCoupleWinner && <RatingWinnerBadge />}
             </div>
           ) : (
             <span className="text-[13px] text-[#a6a39a]">Sem avaliação</span>
@@ -119,13 +165,19 @@ function ComparisonColumn({ item }: { item: ComparisonItem }) {
               className="size-2 rounded-full"
               style={{ background: "#3ddc97" }}
             />
-            <span className="text-[15px] font-bold text-[#f6f4ec]">
+            <span
+              className={cn(
+                "text-[15px] font-bold",
+                isTmdbWinner ? "text-[#ffcb2b]" : "text-[#f6f4ec]"
+              )}
+            >
               {item.voteAverage != null ? item.voteAverage.toFixed(1) : "—"}
               <span className="text-[12px] font-normal text-[#a6a39a]">
                 {" "}
                 /10
               </span>
             </span>
+            {isTmdbWinner && <RatingWinnerBadge />}
           </div>
         </div>
       </div>
@@ -140,7 +192,12 @@ function ComparisonColumn({ item }: { item: ComparisonItem }) {
             {item.genres.map((genre) => (
               <span
                 key={genre}
-                className="rounded-full border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-3 py-0.5 text-[12px] text-[#d6d2c8]"
+                className={cn(
+                  "rounded-full border px-3 py-0.5 text-[12px]",
+                  sharedGenres.has(genre.toLowerCase())
+                    ? "border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] text-[#ffdd7a]"
+                    : "border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#d6d2c8]"
+                )}
               >
                 {genre}
               </span>
@@ -182,26 +239,34 @@ function ComparisonColumn({ item }: { item: ComparisonItem }) {
             Onde Assistir
           </span>
           <div className="flex flex-wrap gap-2">
-            {item.watchProviders.map((provider) => (
-              <span
-                key={provider.name}
-                className="flex items-center gap-1.5 rounded-full border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-3 py-1 text-[12px] text-[#d6d2c8]"
-              >
-                {provider.logoUrl ? (
-                  <img
-                    src={provider.logoUrl}
-                    alt=""
-                    className="size-3.5 rounded-sm object-cover"
-                  />
-                ) : (
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ background: "#ffcb2b" }}
-                  />
-                )}
-                {provider.name}
-              </span>
-            ))}
+            {item.watchProviders.map((provider) => {
+              const isShared = sharedProviders.has(provider.name.toLowerCase())
+              return (
+                <span
+                  key={provider.name}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px]",
+                    isShared
+                      ? "border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] text-[#ffdd7a]"
+                      : "border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#d6d2c8]"
+                  )}
+                >
+                  {provider.logoUrl ? (
+                    <img
+                      src={provider.logoUrl}
+                      alt=""
+                      className="size-3.5 rounded-sm object-cover"
+                    />
+                  ) : (
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ background: isShared ? "#ffcb2b" : "#a6a39a" }}
+                    />
+                  )}
+                  {provider.name}
+                </span>
+              )
+            })}
           </div>
         </div>
       )}
@@ -216,6 +281,21 @@ export function ComparisonDialog({
   right,
 }: ComparisonDialogProps) {
   const isMobile = useIsMobile()
+
+  const sharedGenres = useMemo(
+    () => sharedNames(left.genres, right.genres),
+    [left.genres, right.genres]
+  )
+  const sharedProviders = useMemo(
+    () =>
+      sharedNames(
+        left.watchProviders.map((p) => p.name),
+        right.watchProviders.map((p) => p.name)
+      ),
+    [left.watchProviders, right.watchProviders]
+  )
+  const coupleWinner = higherSide(left.coupleRating, right.coupleRating)
+  const tmdbWinner = higherSide(left.voteAverage, right.voteAverage)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -256,7 +336,14 @@ export function ComparisonDialog({
             isMobile ? "flex-col" : "flex-row"
           )}
         >
-          <ComparisonColumn item={left} />
+          <ComparisonColumn
+            item={left}
+            side="left"
+            sharedGenres={sharedGenres}
+            sharedProviders={sharedProviders}
+            coupleWinner={coupleWinner}
+            tmdbWinner={tmdbWinner}
+          />
 
           {isMobile ? (
             <div className="relative flex items-center gap-3 py-1">
@@ -274,7 +361,14 @@ export function ComparisonDialog({
             </div>
           )}
 
-          <ComparisonColumn item={right} />
+          <ComparisonColumn
+            item={right}
+            side="right"
+            sharedGenres={sharedGenres}
+            sharedProviders={sharedProviders}
+            coupleWinner={coupleWinner}
+            tmdbWinner={tmdbWinner}
+          />
         </div>
       </DialogContent>
     </Dialog>
