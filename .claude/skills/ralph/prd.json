@@ -1,94 +1,116 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/comparacao-de-titulos",
-  "description": "Comparacao de Titulos (Lado a Lado) - modo de selecao nas telas MatchScreen e HubScreen que permite escolher exatamente 2 titulos e abrir um ComparisonDialog comparando poster, nota do casal, nota TMDB, generos, sinopse e onde assistir, destacando o que os dois tem em comum. Frontend-only, reutiliza GET /api/media/{movie|tv}/{tmdbId}.",
+  "branchName": "ralph/flyway-migrations",
+  "description": "Migracao de ddl-auto=update para Flyway com dados em producao. Baseline de producao = origin/main (e0f3d36). Unica diferenca de schema para o estado-alvo (branch create-migrations) e a nova tabela notification; todas as demais tabelas (users, couples, media_track, media_track_genre, user_review, match_like, match_reject) ja existem em producao. Estrategia: V1 = baseline do schema existente (nao executado em prod via baseline-on-migrate), V2 = criar notification. Zero perda de dados; nenhum DROP/TRUNCATE.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Componente base ComparisonDialog (duas colunas)",
-      "description": "Como desenvolvedor, quero um componente ComparisonDialog que receba 2 titulos ja resolvidos e os renderize lado a lado, para isolar a UI de comparacao da logica de selecao de cada tela.",
+      "title": "Validar o schema real de producao antes de escrever o baseline",
+      "description": "As a developer, I want to confirm the actual physical schema of production (created by ddl-auto=update) so that the V1 baseline is faithful to what really exists.",
       "acceptanceCriteria": [
-        "Criar novo arquivo client/src/components/ComparisonDialog.tsx",
-        "Usa o primitivo Dialog de client/src/components/ui/dialog.tsx",
-        "Exporta um tipo ComparisonItem com no minimo: tmdbId, mediaType, title, year, posterUrl, overview, voteAverage (0-10), coupleRating (number 1-5 | null), genres: string[], watchProviders: { name; logoUrl }[]",
-        "Props: open: boolean, onOpenChange: (open: boolean) => void, e os dois ComparisonItem (ex: left/right)",
-        "Layout duas colunas no desktop e empilhado com scroll vertical no mobile, usando o hook useIsMobile de client/src/lib/useIsMobile.ts",
-        "Cada coluna renderiza: Poster (imagem quando posterUrl existir, senao gradient fallback padrao do app), Titulo, Ano, badge de tipo 'Filme'/'Serie' (via TYPE_LABEL), Nota do Casal (estrelas 1-5 ou 'Sem avaliacao' quando coupleRating for null), Nota TMDB (0-10), Generos (pills), Sinopse com line-clamp e botao expandir, e Onde Assistir (lista de watchProviders)",
-        "Botao fechar (X) no canto superior direito com aria-label",
-        "Fecha com Escape e trava foco (comportamento nativo do Dialog)",
-        "Sizing responsivo do modal: w-[calc(100vw-32px)] no mobile, largura fixa em sm:, com max-h-[90svh] overflow-y-auto",
-        "Cores/tipografia seguem o prototipo: bg #161513, texto #f6f4ec, accent #ffcb2b, font-display para titulos e font-auth-body para corpo",
-        "Passar pela skill frontend-design antes de implementar",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Confirmar o schema real: preferir information_schema do Postgres de producao (Supabase); se indisponivel, subir a app no commit origin/main (e0f3d36) contra um Postgres limpo e capturar o schema gerado pelo Hibernate",
+        "Registrar tabelas, colunas, tipos, defaults, PKs (UUID), FKs, unique constraints e indices auto-gerados",
+        "Confirmar que existem: users, couples, media_track, media_track_genre, user_review, match_like, match_reject",
+        "Confirmar que a tabela notification NAO existe em producao",
+        "Documentar o resultado como base autoritativa para o V1 (ex.: nota no PR ou arquivo em docs/)",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "Sem acesso a Supabase de producao nem a docker/java/mvn/psql neste ambiente (confirmado); schema derivado por analise estatica das entidades JPA de origin/main + git diff/ls-tree confirmando que User/Couple/MediaTrack/UserReview/MatchLike/MatchReject sao identicas a origin/main e que Notification e a unica tabela nova. Documentado em docs/SCHEMA_BASELINE.md, que recomenda validar contra information_schema real antes do deploy."
     },
     {
       "id": "US-002",
-      "title": "Destaques de comparacao (generos, streamings e notas em comum)",
-      "description": "Como usuario, quero ver o que os dois titulos tem em comum destacado no ComparisonDialog, para comparar mais rapido.",
+      "title": "Adicionar a dependencia do Flyway ao pom.xml",
+      "description": "As a developer, I want Flyway available in the build so I can version the schema.",
       "acceptanceCriteria": [
-        "No ComparisonDialog, generos presentes nos DOIS titulos usam cor de destaque dourada #ffcb2b; generos exclusivos ficam em cinza/neutro",
-        "Streamings (watchProviders) presentes nos DOIS titulos recebem destaque similar; exclusivos ficam neutros",
-        "A comparacao de generos e streamings e case-insensitive por nome",
-        "Para a linha Nota do Casal e para a linha Nota TMDB, a coluna com o valor MAIOR recebe um indicador sutil (seta para cima ou cor mais vibrante); empate nao destaca nenhuma coluna",
-        "Nota do Casal ausente (coupleRating null) nao conta como maior nem menor",
-        "Passar pela skill frontend-design antes de implementar",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Adicionar flyway-core e flyway-database-postgresql ao api/pom.xml SEM tag <version> (versao gerenciada pelo BOM do Spring Boot 4.1.0)",
+        "./mvnw -f api/pom.xml compile executa sem erros de resolucao de dependencia",
+        "Nenhuma outra dependencia do projeto e alterada",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Modo de comparacao e Dialog na HubScreen",
-      "description": "Como usuario na HubScreen, quero ativar o modo de comparacao, selecionar 2 titulos de qualquer secao e ver o ComparisonDialog.",
+      "title": "Configurar Flyway e ddl-auto=validate (application.properties main + test)",
+      "description": "As a developer, I want Flyway to be the schema mechanism in all environments with Hibernate only validating, so the schema is never mutated by Hibernate.",
       "acceptanceCriteria": [
-        "Botao 'Comparar' (icone de balanca/colunas, com aria-label) aparece no header/toolbar da HubScreen",
-        "Tooltip (client/src/components/ui/tooltip.tsx) no hover do botao com o texto: 'Selecione 2 titulos para comparar informacoes como notas, generos e onde assistir.'",
-        "Ao ativar o modo, os cards ganham visual de selecionavel (borda tracejada/overlay sutil) e o clique no card passa a SELECIONAR em vez de abrir o detalhe",
-        "Selecao permitida entre quaisquer cards visiveis, misturando as secoes 'Assistindo Atualmente', 'Queremos Ver' e 'Ja Vimos'",
-        "Chip/badge flutuante no topo mostra 'N/2 selecionados' e inclui um botao 'X' que limpa a selecao (zera para 0/2) sem sair do modo",
-        "Cards selecionados recebem borda dourada #ffcb2b e um badge com numero '1'/'2' indicando a ordem; clicar num card ja selecionado o desseleciona",
-        "Ao selecionar o 2o titulo, buscar detalhes de ambos via GET /api/media/${mediaType.toLowerCase()}/${tmdbId} (MediaDetails), montar os ComparisonItem (coupleRating = media dos reviews[].rating nao-nulos do MediaTrackResponse, ou null se nenhum) e abrir o ComparisonDialog",
-        "Enquanto os detalhes carregam, o dialog mostra skeleton via useDelayedLoading (nunca spinner)",
-        "Se o fetch de qualquer um dos dois titulos falhar, o dialog NAO abre: exibir mensagem de erro geral e manter os 2 titulos selecionados para nova tentativa",
-        "Botao 'Cancelar' e tecla Escape saem do modo de selecao limpando a selecao; fechar o dialog desativa o modo automaticamente",
-        "O clique normal dos cards (abrir detalhe) permanece inalterado quando o modo esta desativado; nao modificar MediaCard.tsx alem de adicionar o handler condicional/estilo via props",
-        "Estado do modo/selecao e useState local da HubScreen, sem tocar em stores Zustand",
-        "Evitar setState sincrono direto no corpo de useEffect (wrapper setTimeout(...,0) + flag cancelled no fetch)",
-        "Passar pela skill frontend-design antes de implementar",
+        "Em api/src/main/resources/application.properties: spring.jpa.hibernate.ddl-auto=validate, spring.flyway.enabled=true, spring.flyway.baseline-on-migrate=true, spring.flyway.baseline-version=1, spring.flyway.locations=classpath:db/migration",
+        "api/src/test/resources/application.properties espelha as mesmas propriedades do Flyway (mirror), ajustado ao banco de teste",
+        "Substituir/remover explicitamente spring.jpa.hibernate.ddl-auto=update onde existir",
+        "A aplicacao sobe localmente (banco limpo) aplicando V1 e V2 sem erro e passa na validacao do Hibernate",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Tests pass"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Modo de comparacao e Dialog na MatchScreen (abas Search e Sugestoes)",
-      "description": "Como usuario na MatchScreen, quero comparar 2 titulos tanto na aba Search quanto na aba Sugestoes.",
+      "title": "Criar V1__baseline.sql (schema completo de producao)",
+      "description": "As a developer, I want a baseline migration reproducing the exact production schema so it is created from scratch in dev/test and recognized (not executed) in production.",
       "acceptanceCriteria": [
-        "Botao 'Comparar' (com aria-label) + Tooltip (mesma mensagem da US-003) no toolbar da MatchScreen",
-        "Mesmo fluxo de selecao/badge/chip-com-X/cancelar/Escape da US-003",
-        "Aba Search: monta ComparisonItem a partir de MediaSearchResult (title, year, voteAverage, overview, posterUrl) + fetch de MediaDetails para generos/watchProviders; coupleRating = null (exibe 'Sem avaliacao')",
-        "Aba Sugestoes: PendingMatch tem dados limitados (tmdbId, mediaType, title, posterUrl) entao faz fetch completo de MediaDetails para ambos; coupleRating = null ('Sem avaliacao')",
-        "Trocar de aba (Search <-> Sugestoes) RESETA a selecao em andamento (usar remount via key={abaAtiva} num subcomponente, nao setState-in-effect)",
-        "Enquanto carrega detalhes, skeleton via useDelayedLoading; se algum fetch falhar, nao abre e mantem selecao (igual US-003)",
-        "Fechar o dialog / Escape / Cancelar desativa o modo, como na US-003",
-        "Estado local com useState, sem tocar em stores Zustand; nao alterar os cards do Match alem do handler condicional/estilo",
-        "Passar pela skill frontend-design antes de implementar",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Criar o diretorio api/src/main/resources/db/migration/",
+        "V1__baseline.sql cria: users (unique email), couples (unique invite_code, colunas user1_id/user2_id), media_track (FK couple_id; colunas tmdb_id/media_type/status/watched_date/runtime/created_at), media_track_genre (FK media_track_id, coluna genre_id), user_review (unique media_track_id+user_id), match_like e match_reject (unique couple_id+user_id+tmdb_id)",
+        "IDs como UUID; enums (media_type, status) como VARCHAR/STRING; PKs, FKs e unique constraints conforme US-001",
+        "Usa CREATE TABLE IF NOT EXISTS; nenhum DROP/TRUNCATE",
+        "NAO contem a tabela notification",
+        "Em banco limpo, aplicar V1 gera schema equivalente ao gerado por ddl-auto em origin/main",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Criar V2__create_notification.sql",
+      "description": "As a developer, I want the migration that adds the notification table, applicable safely over the existing production database.",
+      "acceptanceCriteria": [
+        "V2__create_notification.sql usa CREATE TABLE IF NOT EXISTS para a tabela notification com colunas: id (UUID PK), couple_id (UUID NOT NULL, FK para couples), recipient_user_id (UUID NOT NULL), type (VARCHAR NOT NULL), tmdb_id (BIGINT NOT NULL), media_type (VARCHAR NOT NULL), title (VARCHAR NOT NULL), actor_user_id (UUID NOT NULL), media_track_id (UUID nullable), is_read (BOOLEAN NOT NULL default false), created_at (TIMESTAMP NOT NULL)",
+        "Cria o indice idx_notification_recipient_read sobre (recipient_user_id, is_read)",
+        "Nenhum DROP/TRUNCATE; tabela nasce vazia",
+        "Sintaxe valida para PostgreSQL do Supabase (pooler 6543, prepareThreshold=0)",
+        "Apos aplicar V1+V2 em banco limpo, o Hibernate validate passa contra as entidades de create-migrations sem discrepancias",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Documentar estrategia de baseline e procedimento de deploy",
+      "description": "As the deploy owner, I want documentation of how the Flyway baseline works so I can run the next production deploy safely.",
+      "acceptanceCriteria": [
+        "Criar docs/FLYWAY.md explicando que com baseline-on-migrate=true + baseline-version=1 o Flyway, no primeiro run em prod (schema existente sem flyway_schema_history), cria o historico, marca V1 como baseline SEM executar V1__baseline.sql e aplica apenas V2",
+        "Documentar o comportamento em dev/test (banco limpo executa V1 normalmente) e a diferenca vs producao",
+        "Incluir checklist pos-deploy: conferir flyway_schema_history, confirmar que nenhuma tabela existente foi recriada, dados intactos, notification criada",
+        "Recomendar snapshot/backup do Supabase antes do primeiro deploy com Flyway",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Avaliar e propor (para aprovacao) mudancas em arquivos sensiveis de deploy",
+      "description": "As the project owner, I want to pre-approve any change to sensitive infra files before they are applied.",
+      "acceptanceCriteria": [
+        "Avaliar se scripts/deploy.sh, api/Dockerfile e docker-compose-prod.yml precisam de alteracao para o Flyway funcionar (esperado: nenhuma, pois o Flyway roda embutido no startup do Spring Boot)",
+        "Se alguma mudanca for necessaria, escrever a proposta (diff + justificativa) e NAO alterar esses arquivos diretamente sem aprovacao explicita",
+        "Se nenhuma mudanca for necessaria, registrar essa conclusao explicitamente (ex.: nota no PR)",
+        "Nao modificar scripts/deploy.sh, api/Dockerfile nem docker-compose-prod.yml sem aprovacao",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
       "notes": ""
     }
   ]
