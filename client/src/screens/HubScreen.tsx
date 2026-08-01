@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Columns2, X } from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { Button } from "@/components/ui/button"
+import { ComparisonDialog, type ComparisonItem } from "@/components/ComparisonDialog"
 import { DeleteTrackDialog } from "@/components/DeleteTrackDialog"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
@@ -13,11 +14,44 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { useIsMobile } from "@/lib/useIsMobile"
 import { useAuthStore } from "@/stores/useAuthStore"
+import type { MediaDetails } from "@/types/media"
 import type { MediaStatus, MediaTrackResponse, PagedMediaTrackResponse } from "@/types/tracking"
+
+const COMPARE_TOOLTIP =
+  "Selecione 2 títulos para comparar informações como notas, gêneros e onde assistir."
+
+function buildComparisonItem(track: MediaTrackResponse): Promise<ComparisonItem> {
+  return api
+    .get<MediaDetails>(`/api/media/${track.mediaType.toLowerCase()}/${track.tmdbId}`)
+    .then((res) => {
+      const details = res.data
+      const ratedReviews = track.reviews.filter(
+        (review) => review.rating !== null && review.rating !== undefined
+      )
+      const coupleRating =
+        ratedReviews.length > 0
+          ? ratedReviews.reduce((sum, review) => sum + review.rating!, 0) /
+            ratedReviews.length
+          : null
+      return {
+        tmdbId: track.tmdbId,
+        mediaType: track.mediaType,
+        title: details.title,
+        year: details.year,
+        posterUrl: details.posterUrl,
+        overview: details.overview,
+        voteAverage: details.voteAverage,
+        coupleRating,
+        genres: details.genres,
+        watchProviders: details.watchProviders,
+      }
+    })
+}
 
 interface Section {
   status: MediaStatus
@@ -127,6 +161,84 @@ export function HubScreen() {
     WATCHED: true,
   })
 
+  const [compareMode, setCompareMode] = useState(false)
+  const [selectedForCompare, setSelectedForCompare] = useState<MediaTrackResponse[]>([])
+  const [compareLeft, setCompareLeft] = useState<ComparisonItem | null>(null)
+  const [compareRight, setCompareRight] = useState<ComparisonItem | null>(null)
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [compareError, setCompareError] = useState<string | null>(null)
+  const compareDialogOpen = compareLoading || (compareLeft !== null && compareRight !== null)
+
+  const exitCompareMode = useCallback(() => {
+    setCompareMode(false)
+    setSelectedForCompare([])
+    setCompareLeft(null)
+    setCompareRight(null)
+    setCompareLoading(false)
+    setCompareError(null)
+  }, [])
+
+  const clearCompareSelection = useCallback(() => {
+    setSelectedForCompare([])
+    setCompareLeft(null)
+    setCompareRight(null)
+    setCompareLoading(false)
+    setCompareError(null)
+  }, [])
+
+  // Re-triggers the fetch effect below by giving `selectedForCompare` a new
+  // array identity (same 2 tracks) — used by the "Tentar novamente" retry.
+  const retryCompareFetch = useCallback(() => {
+    setSelectedForCompare((prev) => [...prev])
+  }, [])
+
+  const toggleCompareSelection = useCallback((track: MediaTrackResponse) => {
+    setSelectedForCompare((prev) => {
+      if (prev.some((t) => t.id === track.id)) {
+        return prev.filter((t) => t.id !== track.id)
+      }
+      if (prev.length >= 2) return prev
+      return [...prev, track]
+    })
+  }, [])
+
+  useEffect(() => {
+    if (selectedForCompare.length !== 2) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      setCompareLoading(true)
+      setCompareError(null)
+      Promise.all(selectedForCompare.map(buildComparisonItem))
+        .then(([left, right]) => {
+          if (cancelled) return
+          setCompareLeft(left)
+          setCompareRight(right)
+          setCompareLoading(false)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setCompareError(
+            "Não foi possível carregar os detalhes para comparação. Tente novamente."
+          )
+          setCompareLoading(false)
+        })
+    }, 0)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [selectedForCompare])
+
+  useEffect(() => {
+    if (!compareMode) return
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") exitCompareMode()
+    }
+    window.addEventListener("keydown", handleKey)
+    return () => window.removeEventListener("keydown", handleKey)
+  }, [compareMode, exitCompareMode])
+
   const fetchSectionPage = useCallback((status: MediaStatus, page: number) => {
     return api
       .get<PagedMediaTrackResponse>("/api/tracking", {
@@ -218,13 +330,49 @@ export function HubScreen() {
               estão acompanhando, em um só lugar.
             </p>
           </div>
-          <Button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5 sm:w-auto"
-          >
-            <span className="text-[19px] leading-none">＋</span> Adicionar Título
-          </Button>
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        compareMode ? exitCompareMode() : setCompareMode(true)
+                      }
+                      aria-label={
+                        compareMode ? "Cancelar comparação" : "Comparar títulos"
+                      }
+                      className={
+                        compareMode
+                          ? "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-[rgba(255,203,43,.35)] bg-[rgba(255,203,43,.12)] px-4.5 py-3.5 text-[14px] font-semibold text-[#ffcb2b] hover:bg-[rgba(255,203,43,.18)] hover:text-[#ffcb2b]"
+                          : "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-white/12 bg-transparent px-4.5 py-3.5 text-[14px] font-semibold text-[#f6f4ec] hover:bg-white/[0.06] hover:text-[#f6f4ec]"
+                      }
+                    />
+                  }
+                >
+                  {compareMode ? (
+                    <X className="size-4" />
+                  ) : (
+                    <Columns2 className="size-4" />
+                  )}
+                  {compareMode ? "Cancelar" : "Comparar"}
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] rounded-lg border border-[rgba(255,255,255,.1)] bg-[#201e18] px-3 py-2 text-[#f6f4ec] shadow-xl">
+                  {COMPARE_TOOLTIP}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5 sm:flex-none"
+            >
+              <span className="text-[19px] leading-none">＋</span> Adicionar Título
+            </Button>
+          </div>
         </div>
 
         {SECTIONS.map((section) => {
@@ -300,6 +448,15 @@ export function HubScreen() {
                             }}
                             onClick={setDetailTrack}
                             onDelete={setDeleteTrack}
+                            compareMode={compareMode}
+                            compareSelected={selectedForCompare.some(
+                              (t) => t.id === track.id
+                            )}
+                            compareOrder={
+                              selectedForCompare.findIndex((t) => t.id === track.id) + 1 ||
+                              null
+                            }
+                            onCompareToggle={toggleCompareSelection}
                           />
                         </div>
                       ))}
@@ -338,6 +495,47 @@ export function HubScreen() {
           )
         })}
       </main>
+
+      {compareMode && (
+        <div className="fixed inset-x-0 bottom-8 z-[35] flex justify-center px-4">
+          <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-[#161513]/95 px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,.5)] backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <span className="text-[13.5px] font-semibold text-[#f6f4ec]">
+                {selectedForCompare.length}/2 selecionados
+              </span>
+              <button
+                type="button"
+                onClick={clearCompareSelection}
+                aria-label="Limpar seleção"
+                className="grid size-6 cursor-pointer place-items-center rounded-full bg-white/[0.08] text-[#a6a39a] transition hover:bg-white/[0.14] hover:text-[#f6f4ec]"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+            {compareError && (
+              <div className="flex items-center gap-2.5 text-[12.5px] text-[#ffb3b3]">
+                <span>{compareError}</span>
+                <button
+                  type="button"
+                  onClick={retryCompareFetch}
+                  className="cursor-pointer font-semibold text-[#ffcb2b] hover:text-[#ffe08a]"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <ComparisonDialog
+        open={compareDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) exitCompareMode()
+        }}
+        left={compareLeft}
+        right={compareRight}
+      />
 
       <Button
         type="button"

@@ -25,6 +25,12 @@ interface MediaCardProps {
   onRated?: (track: MediaTrackResponse) => void
   onClick?: (track: MediaTrackResponse) => void
   onDelete?: (track: MediaTrackResponse) => void
+  /** When true, the card is in comparison-selection mode: clicking it toggles
+   *  selection (via `onCompareToggle`) instead of opening the detail view. */
+  compareMode?: boolean
+  compareSelected?: boolean
+  compareOrder?: number | null
+  onCompareToggle?: (track: MediaTrackResponse) => void
 }
 
 const TYPE_LABEL: Record<MediaTrackResponse["mediaType"], string> = {
@@ -68,6 +74,10 @@ export function MediaCard({
   onRated,
   onClick,
   onDelete,
+  compareMode = false,
+  compareSelected = false,
+  compareOrder = null,
+  onCompareToggle,
 }: MediaCardProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
   const [startingWatch, setStartingWatch] = useState(false)
@@ -120,10 +130,15 @@ export function MediaCard({
   return (
     <>
     <div
-      onClick={() => onClick?.(track)}
+      onClick={() => (compareMode ? onCompareToggle?.(track) : onClick?.(track))}
+      aria-pressed={compareMode ? compareSelected : undefined}
       className={cn(
-        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] text-[#f6f4ec] transition-transform duration-[.18s] ease-out hover:-translate-y-1",
-        STATUS_BORDER_HOVER[track.status]
+        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-[#161513] text-[#f6f4ec] transition-transform duration-[.18s] ease-out hover:-translate-y-1",
+        compareMode
+          ? compareSelected
+            ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+            : "border-dashed border-white/20 hover:border-white/35"
+          : cn("border-[rgba(255,255,255,.07)]", STATUS_BORDER_HOVER[track.status])
       )}
     >
       <div
@@ -156,17 +171,25 @@ export function MediaCard({
               <Check className="size-3.5" strokeWidth={3} />
             </div>
           )}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onDelete?.(track)
-            }}
-            aria-label="Excluir título"
-            className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-[rgba(9,9,10,.6)] text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-[rgba(255,107,107,.85)] hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[#ff6b6b]"
-          >
-            <Trash2 className="size-3.5" />
-          </button>
+          {compareMode ? (
+            compareSelected && (
+              <div className="grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+                {compareOrder}
+              </div>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete?.(track)
+              }}
+              aria-label="Excluir título"
+              className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-[rgba(9,9,10,.6)] text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-[rgba(255,107,107,.85)] hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[#ff6b6b]"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
         </div>
         {track.status === "WANT_TO_SEE" && !details?.posterUrl && (
           <div className="absolute inset-0 grid place-items-center text-[34px] opacity-50">
@@ -261,8 +284,9 @@ export function MediaCard({
           )}
         </div>
 
-        {/* Footer / CTA */}
-        {track.status === "WANT_TO_SEE" && (
+        {/* Footer / CTA — hidden during comparison selection so it can't be
+            accidentally triggered instead of selecting the card */}
+        {!compareMode && track.status === "WANT_TO_SEE" && (
           <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
             <Button
               variant="outline"
@@ -280,7 +304,7 @@ export function MediaCard({
             )}
           </div>
         )}
-        {track.status === "WATCHING" && (
+        {!compareMode && track.status === "WATCHING" && (
           <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
             <Button
               variant="outline"
@@ -294,7 +318,7 @@ export function MediaCard({
             </Button>
           </div>
         )}
-        {track.status === "WATCHED" &&
+        {!compareMode && track.status === "WATCHED" &&
           (myReview?.rating ? (
             <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
               <Button

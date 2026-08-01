@@ -9,6 +9,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useIsMobile } from "@/lib/useIsMobile"
 import { cn } from "@/lib/utils"
 import type { MediaType } from "@/types/tracking"
@@ -29,8 +30,9 @@ export interface ComparisonItem {
 interface ComparisonDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  left: ComparisonItem
-  right: ComparisonItem
+  /** `null` while details are still being fetched — renders a skeleton column instead. */
+  left: ComparisonItem | null
+  right: ComparisonItem | null
 }
 
 const TYPE_LABEL: Record<MediaType, string> = {
@@ -274,6 +276,37 @@ function ComparisonColumn({
   )
 }
 
+function ComparisonColumnSkeleton() {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <Skeleton className="w-full rounded-[14px]" style={{ aspectRatio: "2/3" }} />
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-4 w-1/3" />
+      </div>
+      <div className="flex flex-wrap gap-x-6 gap-y-3">
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-5 w-16" />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <Skeleton className="h-6 w-16 rounded-full" />
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-5/6" />
+        <Skeleton className="h-3.5 w-4/6" />
+      </div>
+    </div>
+  )
+}
+
 export function ComparisonDialog({
   open,
   onOpenChange,
@@ -282,20 +315,21 @@ export function ComparisonDialog({
 }: ComparisonDialogProps) {
   const isMobile = useIsMobile()
 
-  const sharedGenres = useMemo(
-    () => sharedNames(left.genres, right.genres),
-    [left.genres, right.genres]
-  )
-  const sharedProviders = useMemo(
-    () =>
-      sharedNames(
-        left.watchProviders.map((p) => p.name),
-        right.watchProviders.map((p) => p.name)
-      ),
-    [left.watchProviders, right.watchProviders]
-  )
-  const coupleWinner = higherSide(left.coupleRating, right.coupleRating)
-  const tmdbWinner = higherSide(left.voteAverage, right.voteAverage)
+  const sharedGenres = useMemo(() => {
+    if (!left || !right) return new Set<string>()
+    return sharedNames(left.genres, right.genres)
+  }, [left, right])
+  const sharedProviders = useMemo(() => {
+    if (!left || !right) return new Set<string>()
+    return sharedNames(
+      left.watchProviders.map((p) => p.name),
+      right.watchProviders.map((p) => p.name)
+    )
+  }, [left, right])
+  const coupleWinner =
+    left && right ? higherSide(left.coupleRating, right.coupleRating) : null
+  const tmdbWinner =
+    left && right ? higherSide(left.voteAverage, right.voteAverage) : null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -305,7 +339,9 @@ export function ComparisonDialog({
       >
         <DialogTitle className="sr-only">Comparar títulos</DialogTitle>
         <DialogDescription className="sr-only">
-          Comparação lado a lado entre {left.title} e {right.title}.
+          {left && right
+            ? `Comparação lado a lado entre ${left.title} e ${right.title}.`
+            : "Carregando os detalhes dos títulos selecionados para comparação."}
         </DialogDescription>
 
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/95 px-6 py-5 backdrop-blur-sm">
@@ -313,10 +349,16 @@ export function ComparisonDialog({
             <div className="text-[12px] font-semibold tracking-[.14em] text-[#ffcb2b] uppercase">
               Comparação
             </div>
-            <p className="font-display mt-1 truncate text-[19px] font-bold tracking-tight">
-              {left.title} <span className="text-[#a6a39a]">vs</span>{" "}
-              {right.title}
-            </p>
+            {left && right ? (
+              <p className="font-display mt-1 truncate text-[19px] font-bold tracking-tight">
+                {left.title} <span className="text-[#a6a39a]">vs</span>{" "}
+                {right.title}
+              </p>
+            ) : (
+              <p className="font-display mt-1 text-[19px] font-bold tracking-tight text-[#a6a39a]">
+                Carregando comparação…
+              </p>
+            )}
           </div>
           <Button
             type="button"
@@ -336,14 +378,18 @@ export function ComparisonDialog({
             isMobile ? "flex-col" : "flex-row"
           )}
         >
-          <ComparisonColumn
-            item={left}
-            side="left"
-            sharedGenres={sharedGenres}
-            sharedProviders={sharedProviders}
-            coupleWinner={coupleWinner}
-            tmdbWinner={tmdbWinner}
-          />
+          {left ? (
+            <ComparisonColumn
+              item={left}
+              side="left"
+              sharedGenres={sharedGenres}
+              sharedProviders={sharedProviders}
+              coupleWinner={coupleWinner}
+              tmdbWinner={tmdbWinner}
+            />
+          ) : (
+            <ComparisonColumnSkeleton />
+          )}
 
           {isMobile ? (
             <div className="relative flex items-center gap-3 py-1">
@@ -361,14 +407,18 @@ export function ComparisonDialog({
             </div>
           )}
 
-          <ComparisonColumn
-            item={right}
-            side="right"
-            sharedGenres={sharedGenres}
-            sharedProviders={sharedProviders}
-            coupleWinner={coupleWinner}
-            tmdbWinner={tmdbWinner}
-          />
+          {right ? (
+            <ComparisonColumn
+              item={right}
+              side="right"
+              sharedGenres={sharedGenres}
+              sharedProviders={sharedProviders}
+              coupleWinner={coupleWinner}
+              tmdbWinner={tmdbWinner}
+            />
+          ) : (
+            <ComparisonColumnSkeleton />
+          )}
         </div>
       </DialogContent>
     </Dialog>
