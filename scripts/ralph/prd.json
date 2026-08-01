@@ -110,8 +110,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Avaliados scripts/deploy.sh, api/Dockerfile e docker-compose-prod.yml (lidos integralmente). Conclusao: NENHUMA alteracao e necessaria nos tres. O Flyway roda embutido no startup do Spring Boot (spring.flyway.enabled=true), sem etapa extra de deploy; api/src/main/resources/db/migration/*.sql e um recurso Maven padrao, entao ja e empacotado dentro do jar pelo build normal (COPY src/ src/ no Dockerfile ja copia db/migration junto, nenhum COPY adicional necessario); docker-compose-prod.yml so repassa DB_URL/DB_USER/DB_PASSWORD, que ja sao as mesmas credenciais usadas por Hibernate/Flyway (mesma datasource); deploy.sh nao tem nenhuma etapa de schema/migration para ajustar. Nenhum dos tres arquivos foi modificado. Achado relacionado (fora do escopo dos 3 arquivos, mas relevante para 'o Flyway funcionar'): DB_URL de producao usa o Connection Pooler do Supabase em modo Transaction (porta 6543, conforme docs/DEPLOY.md Passo 1), e o Flyway depende de advisory locks do Postgres, que modo Transaction nao suporta de forma confiavel (mesma classe de problema que ja motivou o ?prepareThreshold=0 existente em DB_URL, mas para um mecanismo diferente). Documentada a ressalva e a recomendacao (usar temporariamente conexao direta porta 5432 ou pooler em modo Session so para o deploy com a nova migration) em docs/FLYWAY.md, secao 'Risco conhecido: connection pooler em modo Transaction (Supabase)' -- nao um arquivo sensivel de infra, entao nao precisou de aprovacao previa para ser editado. Nao modificado nem proposto qualquer alteracao a scripts/deploy.sh, api/Dockerfile ou docker-compose-prod.yml. Typecheck passes: nenhum codigo/SQL alterado nesta historia (apenas docs/FLYWAY.md), nada para compilar."
     }
   ]
 }

@@ -46,6 +46,16 @@ Apos rodar `./scripts/deploy.sh` pela primeira vez com Flyway habilitado, confir
 - [ ] Logs da API (`docker compose -f docker-compose-prod.yml logs api`, ver `docs/DEPLOY.md`) nao mostram erro de `FlywayException` nem de validacao do Hibernate na inicializacao.
 - [ ] A aplicacao responde normalmente (`GET /api/health` ou equivalente) e uma leitura simples (ex.: login de um usuario existente) confirma que os dados antigos continuam acessiveis.
 
+## Risco conhecido: connection pooler em modo Transaction (Supabase)
+
+`docs/DEPLOY.md` (Passo 1) instrui a copiar a connection string do **Connection Pooler em modo Transaction** (porta 6543) para `DB_URL`. Isso e adequado para o trafego normal da API, mas e um risco especifico para o Flyway:
+
+- O Flyway usa **advisory locks** do PostgreSQL (`pg_advisory_lock`) para impedir migrations concorrentes. Advisory locks sao amarrados a sessao fisica da conexao.
+- O PgBouncer em **modo Transaction** nao garante a mesma conexao fisica entre statements/transacoes distintas — e o proprio motivo pelo qual `DB_URL` ja usa `?prepareThreshold=0` (workaround para prepared statements, um problema diferente e ja resolvido). Advisory locks tem o mesmo tipo de incompatibilidade estrutural com esse modo.
+- Na pratica, isso pode fazer o Flyway falhar ao obter o lock de migration no primeiro deploy (startup trava ou lanca erro), mesmo sem nenhuma migration concorrente real — o problema e o pooler, nao concorrencia.
+
+**Recomendacao:** para o primeiro deploy com Flyway (ou qualquer deploy que rode uma nova migration), usar temporariamente em `DB_URL` a **connection string direta** (porta 5432) ou o **Connection Pooler em modo Session** do Supabase, em vez do modo Transaction (6543), especificamente para essa execucao. O modo Transaction pode voltar a ser usado depois, ja que o Flyway so faz um trabalho real de migration na inicializacao com uma nova versao pendente. Isso nao exige alterar `scripts/deploy.sh`, `api/Dockerfile` ou `docker-compose-prod.yml` (nenhum dos tres fixa a porta ou o modo do pooler) — e apenas o valor de `DB_URL` no `.env`, que ja e editado manualmente a cada deploy conforme `docs/DEPLOY.md`.
+
 ## Recomendacao: backup antes do primeiro deploy com Flyway
 
 Antes de rodar o primeiro deploy com Flyway contra o banco de producao no Supabase, tirar um snapshot/backup do banco (Supabase oferece backups automaticos no dashboard do projeto, em **Database > Backups**; um backup manual/on-demand adicional e recomendado para este deploy especifico). Isso garante um ponto de restauracao caso o baseline nao se comporte como esperado (ex.: `baseline-version` incorreta, ou schema real divergente do que `docs/SCHEMA_BASELINE.md` documenta — ver a ressalva de validacao contra `information_schema` la registrada).
