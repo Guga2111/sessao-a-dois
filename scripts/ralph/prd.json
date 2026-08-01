@@ -30,8 +30,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Adicionadas as dependencias flyway-core e flyway-database-postgresql ao api/pom.xml (sem <version>, gerenciadas pelo BOM do spring-boot-starter-parent 4.1.0), logo apos a dependencia postgresql. Nao foi possivel rodar './mvnw -f api/pom.xml compile' neste sandbox (sem java/mvn/docker, ver api/CLAUDE.md); verificado apenas que o XML resultante e bem formado. Nenhuma outra dependencia foi alterada."
     },
     {
       "id": "US-003",

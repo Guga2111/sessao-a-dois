@@ -13,3 +13,11 @@
   - US-001's "confirm via information_schema or a clean Postgres boot" acceptance criteria were satisfied via static JPA-entity analysis instead, since neither prerequisite (DB network access, JDK) is available — this is a documented, deliberate fallback, not a skipped step. Whoever runs the actual production deploy should re-run the `information_schema` query in docs/SCHEMA_BASELINE.md against Supabase first.
   - Next story is US-002 (add flyway-core/flyway-database-postgresql to api/pom.xml, no `<version>` tag) — this only needs a text edit to pom.xml; the "`./mvnw -f api/pom.xml compile` executes without error" criterion cannot be run here, so it'll need the same caveat.
 ---
+
+## [2026-08-01] - US-002
+- Implemented: added `org.flywaydb:flyway-core` and `org.flywaydb:flyway-database-postgresql` to `api/pom.xml`, immediately after the existing `org.postgresql:postgresql` dependency, with no `<version>` tag (both are managed by the `spring-boot-starter-parent:4.1.0` BOM). No other dependency in the file was touched.
+- Files changed: `api/pom.xml`, `scripts/ralph/prd.json` (US-002 `passes: true`), `.claude/skills/ralph/prd.json` (mirrored, per the Codebase Patterns note above), `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - Confirmed again (per `api/CLAUDE.md`): no `java`/`mvn`/`docker` in this sandbox, so `./mvnw -f api/pom.xml compile` could not be run. Verified only that the edited `pom.xml` is well-formed XML (`python3 -c "import xml.dom.minidom as m; m.parse(...)"`). Whoever has a real JDK/Maven Central access should run the compile before merging, as a sanity check that the BOM does manage both artifacts without an explicit version.
+  - Next story is US-003 (configure `spring.jpa.hibernate.ddl-auto=validate` + `spring.flyway.*` properties in both `api/src/main/resources/application.properties` and `api/src/test/resources/application.properties`). Recall from `api/CLAUDE.md`: the test properties file *replaces* the main one entirely for `@SpringBootTest`, it does not layer on top of it — so every property needed at startup (not just the Flyway ones) must already be mirrored there; don't assume flyway props alone need copying, verify the full file.
+---
