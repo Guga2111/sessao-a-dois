@@ -17,7 +17,7 @@ The `eslint-plugin-react-hooks` config here forbids calling `setState` synchrono
 ## Modal patterns
 
 Two structural patterns exist for modals/dialogs, don't assume they're all the same:
-- shadcn/base-ui `Dialog` (currently only `TitleModal.tsx`) — width/height controlled via the `className` prop on `DialogContent` (`src/components/ui/dialog.tsx`), which already centers the popup itself.
+- shadcn/base-ui `Dialog` (`TitleModal.tsx`, `ComparisonDialog.tsx`) — width/height controlled via the `className` prop on `DialogContent` (`src/components/ui/dialog.tsx`), which already centers the popup itself. Pass `showCloseButton={false}` and roll your own close `Button` with a Portuguese `aria-label` (e.g. `"Fechar"`) instead of the default English "Close" one; also add `<DialogTitle className="sr-only">…</DialogTitle>` (+ `DialogDescription` if useful) since base-ui's `Dialog.Popup` expects an accessible name.
 - Hand-rolled `fixed inset-0` backdrop `<div>` with a plain inner `<div>` (`MediaDetailModal`, `PendingDetailModal`, `ReviewModal`, `WatchModal`, `DeleteTrackDialog`) — has its own click-outside/Escape-key handling; width/height go directly on the inner div.
 
 For mobile-responsive sizing on either pattern, use `w-[calc(100vw-32px)] max-w-[calc(100vw-32px)]` as the mobile default and restore the desktop fixed width at `sm:` (e.g. `sm:w-full sm:max-w-[420px]`), plus `max-h-[90svh] overflow-y-auto` for vertical overflow — unless the modal already has its own internal scroll region (like `TitleModal`'s body div), in which case don't double up scrolling on the outer container.
