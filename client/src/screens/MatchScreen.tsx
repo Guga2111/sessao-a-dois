@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 import {
   ChevronDown,
   ChevronUp,
+  Columns2,
   Heart,
   Loader2,
   RefreshCw,
@@ -13,6 +14,7 @@ import {
   X,
 } from "lucide-react"
 
+import { ComparisonDialog, type ComparisonItem } from "@/components/ComparisonDialog"
 import { Header } from "@/components/Header"
 import { PendingDetailModal } from "@/components/PendingDetailModal"
 import { SearchResultSkeleton } from "@/components/skeletons/SearchResultSkeleton"
@@ -47,17 +49,19 @@ import {
 } from "@/components/ui/slider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { cn } from "@/lib/utils"
 import { useMatchStore } from "@/stores/useMatchStore"
 import type {
+  MediaDetails,
   MediaGenre,
   MediaPage,
   MediaSearchResult,
   PendingMatch,
 } from "@/types/media"
-import type { MediaTrackResponse } from "@/types/tracking"
+import type { MediaTrackResponse, MediaType } from "@/types/tracking"
 
 type LikeState = "idle" | "loading" | "liked" | "matched" | "error"
 type ActiveTab = "suggestions" | "search"
@@ -146,12 +150,256 @@ function paginationRange(
   return pages
 }
 
+const COMPARE_TOOLTIP =
+  "Selecione 2 títulos para comparar informações como notas, gêneros e onde assistir."
+
+function keyOfCompareItem(item: { mediaType: MediaType; tmdbId: number }): string {
+  return trackKey(item.mediaType, item.tmdbId)
+}
+
+function buildComparisonItemFromDetails(
+  mediaType: MediaType,
+  tmdbId: number
+): Promise<ComparisonItem> {
+  return api
+    .get<MediaDetails>(`/api/media/${mediaType.toLowerCase()}/${tmdbId}`)
+    .then((response) => {
+      const details = response.data
+      return {
+        tmdbId,
+        mediaType,
+        title: details.title,
+        year: details.year,
+        posterUrl: details.posterUrl,
+        overview: details.overview,
+        voteAverage: details.voteAverage,
+        coupleRating: null,
+        genres: details.genres,
+        watchProviders: details.watchProviders,
+      }
+    })
+}
+
+function buildComparisonItemFromPending(item: PendingMatch): Promise<ComparisonItem> {
+  return buildComparisonItemFromDetails(item.mediaType, item.tmdbId)
+}
+
+function buildComparisonItemFromSearchResult(
+  result: MediaSearchResult
+): Promise<ComparisonItem> {
+  return api
+    .get<MediaDetails>(
+      `/api/media/${result.mediaType.toLowerCase()}/${result.tmdbId}`
+    )
+    .then((response) => ({
+      tmdbId: result.tmdbId,
+      mediaType: result.mediaType,
+      title: result.title,
+      year: result.year,
+      posterUrl: result.posterUrl,
+      overview: result.overview,
+      voteAverage: result.voteAverage,
+      coupleRating: null,
+      genres: response.data.genres,
+      watchProviders: response.data.watchProviders,
+    }))
+}
+
+/** Selection-mode state for the "compare 2 titles" flow, shared by SearchTab
+ *  and SuggestionsTab. Each tab keeps its own instance so switching tabs
+ *  (which unmounts the previous tab component entirely) resets it for free,
+ *  same effect as the key-remount pattern without needing an explicit key. */
+function useCompareSelection<T>(
+  buildItem: (item: T) => Promise<ComparisonItem>,
+  keyOf: (item: T) => string
+) {
+  const [compareMode, setCompareModeState] = useState(false)
+  const [selected, setSelected] = useState<T[]>([])
+  const [left, setLeft] = useState<ComparisonItem | null>(null)
+  const [right, setRight] = useState<ComparisonItem | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const enterCompareMode = useCallback(() => setCompareModeState(true), [])
+
+  const exitCompareMode = useCallback(() => {
+    setCompareModeState(false)
+    setSelected([])
+    setLeft(null)
+    setRight(null)
+    setLoading(false)
+    setError(null)
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setSelected([])
+    setLeft(null)
+    setRight(null)
+    setLoading(false)
+    setError(null)
+  }, [])
+
+  const retry = useCallback(() => {
+    setSelected((prev) => [...prev])
+  }, [])
+
+  const toggle = useCallback(
+    (item: T) => {
+      setSelected((prev) => {
+        const key = keyOf(item)
+        if (prev.some((p) => keyOf(p) === key)) {
+          return prev.filter((p) => keyOf(p) !== key)
+        }
+        if (prev.length >= 2) return prev
+        return [...prev, item]
+      })
+    },
+    [keyOf]
+  )
+
+  useEffect(() => {
+    if (selected.length !== 2) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      setLoading(true)
+      setError(null)
+      Promise.all(selected.map(buildItem))
+        .then(([nextLeft, nextRight]) => {
+          if (cancelled) return
+          setLeft(nextLeft)
+          setRight(nextRight)
+          setLoading(false)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setError(
+            "Não foi possível carregar os detalhes para comparação. Tente novamente."
+          )
+          setLoading(false)
+        })
+    }, 0)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [selected, buildItem])
+
+  useEffect(() => {
+    if (!compareMode) return
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") exitCompareMode()
+    }
+    window.addEventListener("keydown", handleKey)
+    return () => window.removeEventListener("keydown", handleKey)
+  }, [compareMode, exitCompareMode])
+
+  return {
+    compareMode,
+    enterCompareMode,
+    exitCompareMode,
+    clearSelection,
+    retry,
+    toggle,
+    selected,
+    left,
+    right,
+    error,
+    dialogOpen: loading || (left !== null && right !== null),
+  }
+}
+
+function CompareToggleButton({
+  active,
+  onToggle,
+}: {
+  active: boolean
+  onToggle: () => void
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onToggle}
+              aria-label={active ? "Cancelar comparação" : "Comparar títulos"}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors",
+                active
+                  ? "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.12)] text-[#ffcb2b] hover:bg-[rgba(255,203,43,.18)] hover:text-[#ffcb2b]"
+                  : "border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06]"
+              )}
+            />
+          }
+        >
+          {active ? <X className="size-4" /> : <Columns2 className="size-4" />}
+          {active ? "Cancelar" : "Comparar"}
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[240px] rounded-lg border border-[rgba(255,255,255,.1)] bg-[#201e18] px-3 py-2 text-[#f6f4ec] shadow-xl">
+          {COMPARE_TOOLTIP}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function CompareSelectionChip({
+  count,
+  onClear,
+  error,
+  onRetry,
+}: {
+  count: number
+  onClear: () => void
+  error: string | null
+  onRetry: () => void
+}) {
+  return (
+    <div className="fixed inset-x-0 bottom-8 z-[35] flex justify-center px-4">
+      <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-[#161513]/95 px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,.5)] backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <span className="text-[13.5px] font-semibold text-[#f6f4ec]">
+            {count}/2 selecionados
+          </span>
+          <button
+            type="button"
+            onClick={onClear}
+            aria-label="Limpar seleção"
+            className="grid size-6 cursor-pointer place-items-center rounded-full bg-white/[0.08] text-[#a6a39a] transition hover:bg-white/[0.14] hover:text-[#f6f4ec]"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+        {error && (
+          <div className="flex items-center gap-2.5 text-[12.5px] text-[#ffb3b3]">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="cursor-pointer font-semibold text-[#ffcb2b] hover:text-[#ffe08a]"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SuggestionsTab() {
   const { pendingQueue, pendingLoading, fetchPending, removePending } =
     useMatchStore()
   const [actionLoading, setActionLoading] = useState(false)
   const [detailItem, setDetailItem] = useState<PendingMatch | null>(null)
   const showPendingSkeleton = useDelayedLoading(pendingLoading)
+  const compare = useCompareSelection<PendingMatch>(
+    buildComparisonItemFromPending,
+    keyOfCompareItem
+  )
 
   useEffect(() => {
     fetchPending()
@@ -214,85 +462,170 @@ function SuggestionsTab() {
     )
   }
 
-  if (!current) {
-    return (
-      <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
-        Nenhuma sugestao pendente. Voltem a buscar titulos na aba "Buscar".
-      </div>
-    )
-  }
+  const hue = current?.tmdbId ? current.tmdbId % 360 : 0
 
-  const hue = current.tmdbId % 360
+  const compareToggleButton: ReactNode = (
+    <CompareToggleButton
+      active={compare.compareMode}
+      onToggle={() =>
+        compare.compareMode ? compare.exitCompareMode() : compare.enterCompareMode()
+      }
+    />
+  )
 
   return (
     <>
-      <div className="flex flex-col items-center">
-        <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
-          <div
-            className="cursor-pointer overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-[#161513] transition-shadow hover:shadow-[0_0_0_2px_rgba(255,203,43,.25)]"
-            onClick={() => setDetailItem(current)}
-          >
-            <div
-              className="relative aspect-[2/3]"
-              style={{
-                background: `linear-gradient(160deg, hsl(${hue} 42% 24%), hsl(${hue} 46% 11%))`,
-              }}
-            >
-              {current.posterUrl ? (
-                <img
-                  src={current.posterUrl}
-                  alt={current.title}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <p className="text-[13px] text-[#a6a39a]">
+          {pendingQueue.length > 0
+            ? `${pendingQueue.length} ${
+                pendingQueue.length === 1 ? "sugestão pendente" : "sugestões pendentes"
+              }`
+            : "Nenhuma sugestão pendente"}
+        </p>
+        {compareToggleButton}
+      </div>
+
+      {compare.compareMode ? (
+        pendingQueue.length === 0 ? (
+          <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
+            Nenhuma sugestão pendente para comparar.
+          </div>
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
+            {pendingQueue.map((item) => {
+              const key = keyOfCompareItem(item)
+              const isSelected = compare.selected.some(
+                (selectedItem) => keyOfCompareItem(selectedItem) === key
+              )
+              const order =
+                compare.selected.findIndex(
+                  (selectedItem) => keyOfCompareItem(selectedItem) === key
+                ) + 1 || null
+              const itemHue = item.tmdbId % 360
+              return (
                 <div
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage:
-                      "repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 8px, transparent 8px 16px)",
-                  }}
-                />
-              )}
-              <div className="absolute top-3 left-3 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
-                {TYPE_LABEL[current.mediaType]}
-              </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#09090a] via-[rgba(9,9,10,.85)] to-transparent px-5 pt-16 pb-5">
-                <h2 className="font-display text-[22px] font-bold leading-tight tracking-tight">
-                  {current.title}
-                </h2>
+                  key={key}
+                  onClick={() => compare.toggle(item)}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "cursor-pointer overflow-hidden rounded-[16px] border bg-[#161513] transition-colors",
+                    isSelected
+                      ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+                      : "border-dashed border-white/20 hover:border-white/35"
+                  )}
+                >
+                  <div
+                    className="relative aspect-[2/3]"
+                    style={{
+                      background: `linear-gradient(160deg, hsl(${itemHue} 42% 24%), hsl(${itemHue} 46% 11%))`,
+                    }}
+                  >
+                    {item.posterUrl ? (
+                      <img
+                        src={item.posterUrl}
+                        alt={item.title}
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          backgroundImage:
+                            "repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 8px, transparent 8px 16px)",
+                        }}
+                      />
+                    )}
+                    <div className="absolute top-2 left-2 rounded-lg bg-[rgba(9,9,10,.6)] px-2 py-0.5 text-[10px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+                      {TYPE_LABEL[item.mediaType]}
+                    </div>
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+                        {order}
+                      </div>
+                    )}
+                  </div>
+                  <div className="truncate p-2.5 text-[12.5px] font-semibold text-[#f6f4ec]">
+                    {item.title}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      ) : !current ? (
+        <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
+          Nenhuma sugestao pendente. Voltem a buscar titulos na aba "Buscar".
+        </div>
+      ) : (
+        <div className="flex flex-col items-center">
+          <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
+            <div
+              className="cursor-pointer overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-[#161513] transition-shadow hover:shadow-[0_0_0_2px_rgba(255,203,43,.25)]"
+              onClick={() => setDetailItem(current)}
+            >
+              <div
+                className="relative aspect-[2/3]"
+                style={{
+                  background: `linear-gradient(160deg, hsl(${hue} 42% 24%), hsl(${hue} 46% 11%))`,
+                }}
+              >
+                {current.posterUrl ? (
+                  <img
+                    src={current.posterUrl}
+                    alt={current.title}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage:
+                        "repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 8px, transparent 8px 16px)",
+                    }}
+                  />
+                )}
+                <div className="absolute top-3 left-3 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+                  {TYPE_LABEL[current.mediaType]}
+                </div>
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#09090a] via-[rgba(9,9,10,.85)] to-transparent px-5 pt-16 pb-5">
+                  <h2 className="font-display text-[22px] font-bold leading-tight tracking-tight">
+                    {current.title}
+                  </h2>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="mt-6 flex items-center justify-center gap-6">
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon-lg"
-              onClick={handleReject}
-              disabled={actionLoading}
-              className="size-14 rounded-full border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] text-[#ff6b6b] hover:bg-[rgba(255,107,107,.16)]"
-            >
-              <X className="size-6" strokeWidth={2.5} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-lg"
-              onClick={handleLike}
-              disabled={actionLoading}
-              className="size-14 rounded-full border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] text-[#3ddc97] hover:bg-[rgba(61,220,151,.16)]"
-            >
-              <Heart className="size-6" strokeWidth={2.5} />
-            </Button>
-          </div>
+            <div className="mt-6 flex items-center justify-center gap-6">
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon-lg"
+                onClick={handleReject}
+                disabled={actionLoading}
+                className="size-14 rounded-full border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] text-[#ff6b6b] hover:bg-[rgba(255,107,107,.16)]"
+              >
+                <X className="size-6" strokeWidth={2.5} />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-lg"
+                onClick={handleLike}
+                disabled={actionLoading}
+                className="size-14 rounded-full border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] text-[#3ddc97] hover:bg-[rgba(61,220,151,.16)]"
+              >
+                <Heart className="size-6" strokeWidth={2.5} />
+              </Button>
+            </div>
 
-          <p className="mt-4 text-center text-[13px] text-[#a6a39a]">
-            1 de {pendingQueue.length}{" "}
-            {pendingQueue.length === 1 ? "sugestao" : "sugestoes"}
-          </p>
+            <p className="mt-4 text-center text-[13px] text-[#a6a39a]">
+              1 de {pendingQueue.length}{" "}
+              {pendingQueue.length === 1 ? "sugestao" : "sugestoes"}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <PendingDetailModal
         item={detailItem}
@@ -301,6 +634,23 @@ function SuggestionsTab() {
         onReject={handleReject}
         actionLoading={actionLoading}
       />
+
+      <ComparisonDialog
+        open={compare.dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) compare.exitCompareMode()
+        }}
+        left={compare.left}
+        right={compare.right}
+      />
+      {compare.compareMode && (
+        <CompareSelectionChip
+          count={compare.selected.length}
+          onClear={compare.clearSelection}
+          error={compare.error}
+          onRetry={compare.retry}
+        />
+      )}
     </>
   )
 }
@@ -341,6 +691,10 @@ function SearchTab() {
   const lastFetchRef = useRef<FetchAttempt | null>(null)
   const lastAttemptRef = useRef<FetchAttempt | null>(null)
   const showSearchSkeleton = useDelayedLoading(searching)
+  const compare = useCompareSelection<MediaSearchResult>(
+    buildComparisonItemFromSearchResult,
+    keyOfCompareItem
+  )
   const activeFilterCount =
     selectedDecades.length +
     selectedCertifications.length +
@@ -588,6 +942,15 @@ function SearchTab() {
                 <ChevronDown className="size-4" />
               )}
             </CollapsibleTrigger>
+
+            <CompareToggleButton
+              active={compare.compareMode}
+              onToggle={() =>
+                compare.compareMode
+                  ? compare.exitCompareMode()
+                  : compare.enterCompareMode()
+              }
+            />
           </div>
         </div>
 
@@ -802,11 +1165,30 @@ function SearchTab() {
           const likeState: LikeState =
             likeStates[key] ?? (alreadyTracked ? "liked" : "idle")
           const hue = result.tmdbId % 360
+          const isCompareSelected = compare.selected.some(
+            (selectedItem) => keyOfCompareItem(selectedItem) === key
+          )
+          const compareOrder =
+            compare.selected.findIndex(
+              (selectedItem) => keyOfCompareItem(selectedItem) === key
+            ) + 1 || null
 
           return (
             <div
               key={key}
-              className="overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513]"
+              onClick={() => compare.compareMode && compare.toggle(result)}
+              aria-pressed={compare.compareMode ? isCompareSelected : undefined}
+              className={cn(
+                "overflow-hidden rounded-[18px] border bg-[#161513] transition-colors",
+                compare.compareMode
+                  ? cn(
+                      "cursor-pointer",
+                      isCompareSelected
+                        ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+                        : "border-dashed border-white/20 hover:border-white/35"
+                    )
+                  : "border-[rgba(255,255,255,.07)]"
+              )}
             >
               <div
                 className="relative aspect-[3/4]"
@@ -832,11 +1214,19 @@ function SearchTab() {
                 <div className="absolute top-2.5 left-2.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
                   {TYPE_LABEL[result.mediaType]}
                 </div>
-                {result.voteAverage != null && (
-                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
-                    <span className="size-1.5 rounded-full bg-[#01b47f]" />
-                    {result.voteAverage.toFixed(1)}
-                  </div>
+                {compare.compareMode ? (
+                  isCompareSelected && (
+                    <div className="absolute top-2.5 right-2.5 grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+                      {compareOrder}
+                    </div>
+                  )
+                ) : (
+                  result.voteAverage != null && (
+                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+                      <span className="size-1.5 rounded-full bg-[#01b47f]" />
+                      {result.voteAverage.toFixed(1)}
+                    </div>
+                  )
                 )}
               </div>
 
@@ -858,50 +1248,55 @@ function SearchTab() {
                   </p>
                 )}
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => handleLike(result)}
-                  disabled={alreadyTracked || likeState === "loading"}
-                  className={cn(
-                    "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] font-semibold transition-colors",
-                    likeState === "matched" &&
-                      "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.16)] text-[#ffdd7a]",
-                    likeState === "liked" &&
-                      "border-[rgba(61,220,151,.35)] bg-[rgba(61,220,151,.1)] text-[#8fe9c4]",
-                    likeState === "error" &&
-                      "border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.1)] text-[#ffb3b3]",
-                    (likeState === "idle" || likeState === "loading") &&
-                      "border-white/12 bg-transparent text-[#f6f4ec] hover:bg-white/[0.06]"
-                  )}
-                >
-                  {likeState === "loading" && (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Curtindo...
-                    </>
-                  )}
-                  {likeState === "idle" && (
-                    <>
-                      <Heart className="size-4" /> Curtir
-                    </>
-                  )}
-                  {likeState === "matched" && (
-                    <>
-                      <Sparkles className="size-4" /> E um match!
-                    </>
-                  )}
-                  {likeState === "liked" && alreadyTracked && (
-                    <>
-                      <Heart className="size-4 fill-current" /> Ja na lista
-                    </>
-                  )}
-                  {likeState === "liked" && !alreadyTracked && (
-                    <>
-                      <Heart className="size-4 fill-current" /> Curtido
-                    </>
-                  )}
-                  {likeState === "error" && "Tente novamente"}
-                </Button>
+                {!compare.compareMode && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleLike(result)
+                    }}
+                    disabled={alreadyTracked || likeState === "loading"}
+                    className={cn(
+                      "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] font-semibold transition-colors",
+                      likeState === "matched" &&
+                        "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.16)] text-[#ffdd7a]",
+                      likeState === "liked" &&
+                        "border-[rgba(61,220,151,.35)] bg-[rgba(61,220,151,.1)] text-[#8fe9c4]",
+                      likeState === "error" &&
+                        "border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.1)] text-[#ffb3b3]",
+                      (likeState === "idle" || likeState === "loading") &&
+                        "border-white/12 bg-transparent text-[#f6f4ec] hover:bg-white/[0.06]"
+                    )}
+                  >
+                    {likeState === "loading" && (
+                      <>
+                        <Loader2 className="size-4 animate-spin" /> Curtindo...
+                      </>
+                    )}
+                    {likeState === "idle" && (
+                      <>
+                        <Heart className="size-4" /> Curtir
+                      </>
+                    )}
+                    {likeState === "matched" && (
+                      <>
+                        <Sparkles className="size-4" /> E um match!
+                      </>
+                    )}
+                    {likeState === "liked" && alreadyTracked && (
+                      <>
+                        <Heart className="size-4 fill-current" /> Ja na lista
+                      </>
+                    )}
+                    {likeState === "liked" && !alreadyTracked && (
+                      <>
+                        <Heart className="size-4 fill-current" /> Curtido
+                      </>
+                    )}
+                    {likeState === "error" && "Tente novamente"}
+                  </Button>
+                )}
               </div>
             </div>
           )
@@ -958,6 +1353,23 @@ function SearchTab() {
             </p>
           )}
         </div>
+      )}
+
+      <ComparisonDialog
+        open={compare.dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) compare.exitCompareMode()
+        }}
+        left={compare.left}
+        right={compare.right}
+      />
+      {compare.compareMode && (
+        <CompareSelectionChip
+          count={compare.selected.length}
+          onClear={compare.clearSelection}
+          error={compare.error}
+          onRetry={compare.retry}
+        />
       )}
     </>
   )
