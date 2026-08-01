@@ -63,8 +63,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Criado api/src/main/resources/db/migration/V1__baseline.sql com CREATE TABLE IF NOT EXISTS para users, couples, media_track, media_track_genre, user_review, match_like e match_reject, seguindo fielmente docs/SCHEMA_BASELINE.md (US-001) e conferido linha a linha contra as 6 entidades JPA (User/Couple/MediaTrack/UserReview/MatchLike/MatchReject) em api/src/main/java/com/app. IDs UUID sem default de banco (Hibernate gera com GenerationType.UUID em Java, nao ha gen_random_uuid() no SQL); enums media_type/status como VARCHAR(255); PKs e FKs nomeadas explicitamente (pk_*, fk_*); UNIQUE(email) em users, UNIQUE(invite_code) em couples, UNIQUE(media_track_id,user_id) em user_review, UNIQUE(couple_id,user_id,tmdb_id) em match_like/match_reject. Nenhum DROP/TRUNCATE; tabela notification propositalmente ausente (fica para V2/US-005). Nao foi possivel rodar a app localmente nem os testes (sem java/mvn/docker/psql neste sandbox, confirmado de novo); verificacao foi por leitura cuidadosa comparando cada coluna/constraint do SQL com o mapeamento Hibernate de cada entidade."
     },
     {
       "id": "US-005",
