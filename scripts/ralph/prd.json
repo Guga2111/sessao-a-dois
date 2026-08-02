@@ -125,8 +125,8 @@
         "./mvnw test passa"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Adicionado org.springframework.security:spring-security-messaging (sem <version>, versao 7.1.0 gerenciada pelo parent) ao pom.xml. Criado api/src/main/java/com/app/websocket/WebSocketSecurityConfig.java com @EnableWebSocketSecurity: bean AuthorizationManager<Message<?>> via MessageMatcherDelegatingAuthorizationManager.builder() - permite CONNECT/DISCONNECT/UNSUBSCRIBE/HEARTBEAT/OTHER (para nao quebrar o ciclo de vida da sessao), delega SUBSCRIBE em /topic/couple/{id}/** para um AuthorizationManager<MessageAuthorizationContext<?>> inline que extrai destino+sessionAttributes via SimpMessageHeaderAccessor.wrap(message) e chama CoupleDestinationAuthorizationManager.isAuthorized (US-006), e nega tudo o mais (anyMessage().denyAll()) - isso cobre SEND direto para qualquer destino, incluindo /topic/** e /app/**, ja que so mensagens SUBSCRIBE passam pelo simpSubscribeDestMatchers. Bean csrfChannelInterceptor (nome exato, confirmado via bytecode de WebSocketMessageBrokerSecurityConfiguration) sobrescrito como no-op, comentario apontando pra T4.3. Teste de integracao novo api/src/test/java/com/app/websocket/WebSocketSecurityConfigTest.java (7 casos): manda mensagens STOMP direto ao bean clientInboundChannel (mesmo canal onde @EnableWebSocketSecurity registra o AuthorizationChannelInterceptor) e verifica aceite/rejeicao, sem subir um socket real. Pushes do servidor (MatchService/NotificationService via SimpMessagingTemplate.convertAndSend) continuam funcionando sem mudanca: eles escrevem no clientOutboundChannel, nao passam pelo clientInboundChannel - confirmado pelos testes existentes (MatchServiceTest/NotificationServiceTest inalterados e verdes). ./mvnw test: 300/300 passam (293 pre-existentes + 7 novos)."
     },
     {
       "id": "US-008",

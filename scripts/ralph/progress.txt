@@ -233,3 +233,73 @@
     padrão já documentado em `api/CLAUDE.md`.
   - `./mvnw test`: 293/293 passam (287 pré-existentes + 6 novos).
 ---
+
+## 2026-08-02 - US-007
+- Adicionado `org.springframework.security:spring-security-messaging` (sem `<version>`,
+  7.1.0 gerenciada pelo parent) ao `api/pom.xml`. Criado
+  `api/src/main/java/com/app/websocket/WebSocketSecurityConfig.java` com
+  `@EnableWebSocketSecurity`: um bean `AuthorizationManager<Message<?>>` via
+  `MessageMatcherDelegatingAuthorizationManager.builder()` que permite
+  CONNECT/DISCONNECT/UNSUBSCRIBE/HEARTBEAT/OTHER (para não quebrar handshake/ciclo de vida
+  da sessão), delega SUBSCRIBE em `/topic/couple/{id}/**` a um
+  `AuthorizationManager<MessageAuthorizationContext<?>>` inline que chama
+  `CoupleDestinationAuthorizationManager.isAuthorized` (US-006), e nega tudo o mais
+  (`anyMessage().denyAll()`) — cobre SEND direto para qualquer destino (incluindo
+  `/topic/**` e `/app/**`), já que só mensagens SUBSCRIBE batem no
+  `simpSubscribeDestMatchers`. Bean `csrfChannelInterceptor` (nome exato) sobrescrito como
+  no-op para não exigir um token CSRF que o client atual não envia.
+- Arquivos alterados: `api/pom.xml`,
+  `api/src/main/java/com/app/websocket/WebSocketSecurityConfig.java` (novo),
+  `api/src/test/java/com/app/websocket/WebSocketSecurityConfigTest.java` (novo).
+- **Learnings for future iterations:**
+  - **Antes de começar esta story, encontrei o trabalho da US-006 já implementado
+    (`CoupleDestinationAuthorizationManager` + teste) e marcado `passes: true` no
+    `prd.json`, mas nunca commitado nem registrado em `progress.txt`** — sinal de uma
+    iteração anterior interrompida antes do passo de commit. Terminei esse commit primeiro
+    (com testes reverificados) antes de iniciar esta story. Sempre rodar `git status`
+    contra o `prd.json` no início de uma iteração para pegar esse tipo de trabalho órfão.
+  - `@EnableWebSocketSecurity` (pacote `org.springframework.security.config.annotation.web.socket`,
+    não mudou de local nesta versão) registra automaticamente um `AuthorizationChannelInterceptor`
+    no `clientInboundChannel` a partir de **qualquer bean único do tipo
+    `AuthorizationManager<Message<?>>`** no contexto — não é preciso injetar nada manualmente
+    em `WebSocketConfig`, só declarar o bean numa `@Configuration` separada.
+  - `MessageMatcherDelegatingAuthorizationManager.Builder.Constraint` não tem um método
+    `.custom(...)` explícito — para plugar uma regra própria (em vez de `hasRole`/`permitAll`/
+    `denyAll`), use `.access(AuthorizationManager<MessageAuthorizationContext<?>>)`. O
+    `MessageAuthorizationContext` só expõe `getMessage()`/`getVariables()`; para pegar destino
+    e atributos de sessão STOMP a partir da mensagem, use
+    `SimpMessageHeaderAccessor.wrap(message).getDestination()`/`.getSessionAttributes()`.
+  - **Descoberta chave sobre `simpSubscribeDestMatchers`:** ele só bate em mensagens do tipo
+    STOMP `SUBSCRIBE`, então um `SEND` direto do cliente para `/topic/couple/{id}/match`
+    (tentando forjar uma publicação) nunca casa com esse matcher e cai automaticamente no
+    `anyMessage().denyAll()` — nenhuma regra extra foi necessária para bloquear "SEND direto
+    pra qualquer destino", só o próprio deny-by-default.
+  - **`anyMessage().denyAll()` bloquearia até o frame `CONNECT`** (e DISCONNECT/UNSUBSCRIBE/
+    HEARTBEAT) se eles não fossem explicitamente liberados antes com
+    `.simpTypeMatchers(SimpMessageType.CONNECT, ...).permitAll()` — sem isso o handshake
+    SockJS/STOMP quebraria por completo assim que o client tentasse conectar, mesmo com JWT
+    válido no handshake HTTP. Isso não está óbvio na documentação do Spring Security sobre
+    `@EnableWebSocketSecurity`, só aparece ao ler o bytecode de
+    `WebSocketMessageBrokerSecurityConfiguration` (`ANY_MESSAGE_AUTHENTICATED` como fallback
+    interno não cobre isso da forma que a US-007 pede - deny, não authenticated).
+  - O nome literal do bean CSRF (`"csrfChannelInterceptor"`) foi confirmado via
+    `strings`/bytecode de `WebSocketMessageBrokerSecurityConfiguration.class`
+    (`~/.m2/repository/org/springframework/security/spring-security-config/7.1.0/...jar`),
+    não só por lembrança da doc do Spring Security 5/6 — vale conferir assim de novo se uma
+    versão futura do Spring Security renomear a constante.
+  - `SimpMessagingTemplate.convertAndSend(...)` (usado por `MatchService`/
+    `NotificationService` para push do servidor) escreve no `clientOutboundChannel`, não no
+    `clientInboundChannel` onde o `AuthorizationChannelInterceptor` é registrado — por isso
+    nenhuma mudança foi necessária nesses dois arquivos, e os testes existentes
+    (`MatchServiceTest`/`NotificationServiceTest`) continuam verdes sem tocar neles.
+  - Para testar a autorização de mensagens STOMP **sem** subir um WebSocket real: injete o
+    bean `@Qualifier("clientInboundChannel") MessageChannel` num `@SpringBootTest`, construa
+    a mensagem com `StompHeaderAccessor.create(StompCommand.SUBSCRIBE/SEND/CONNECT)` +
+    `MessageBuilder.createMessage(payload, accessor.getMessageHeaders())`, e chame
+    `channel.send(message)` diretamente — os `ChannelInterceptor`s (incluindo o de
+    autorização) rodam de forma síncrona dentro do `send()`. Uma rejeição não lança
+    `AccessDeniedException` diretamente do `send()` — o Spring Messaging embrulha em
+    `MessageDeliveryException`, então o teste precisa checar `.hasCauseInstanceOf(AccessDeniedException.class)`,
+    não `.isInstanceOf(...)`.
+  - `./mvnw test`: 300/300 passam (293 pré-existentes + 7 novos).
+---
