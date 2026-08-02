@@ -154,8 +154,8 @@
         "A verificacao em producao (curl -I, console sem violacao de CSP) fica para a US-010"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Adicionado um bloco `server { listen 443 ssl; ... }` novo em deploy/nginx/sessaoadois.luisgosampaio.com.conf (o conf so tinha o bloco 80 ate agora), com os 4 headers exigidos (Strict-Transport-Security, X-Content-Type-Options, Referrer-Policy, Content-Security-Policy), todos com `always`, e a CSP exatamente igual a do PRD (sem hosts do Google Fonts, com wss:// explicito para o dominio de producao). O bloco 443 e comentado explicando que na pratica e o Certbot quem gera/mantem esse bloco na VPS (copiando as locations do 80 + listen 443 ssl + ssl_certificate), que o Certbot nao sabe desses headers, e que uma reemissao do certificado do zero reescreve o bloco e exige reaplicar os headers manualmente - dai o bloco existir aqui versionado, como fonte da verdade a colar no bloco real da VPS. docs/DEPLOY.md ganhou a secao 'Headers de seguranca HTTP e CSP' (dentro de 'Seguranca operacional') explicando os 4 headers, a razao de nao ter Google Fonts na CSP (fontes self-hosted via @fontsource*, confirmado em client/src/index.css e client/package.json - zero requisicao a fonts.googleapis.com em producao) e onde os headers realmente vivem/precisam ser reaplicados na VPS. Sem nginx instalado neste sandbox (which nginx -> not found, mesma situacao da US-008), entao a verificacao de sintaxe com nginx -t e o curl -I/console sem violacao de CSP ficam para a US-010, exatamente como o criterio de aceite antecipa. Story nao toca em codigo Java (so nginx conf + markdown), entao ./mvnw test nao se aplica."
     },
     {
       "id": "US-010",

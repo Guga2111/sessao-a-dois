@@ -304,6 +304,43 @@ O procedimento completo (a)-(d) aplicado na VPS, incluindo a verificacao pratica
 de que nenhuma linha nova de `/ws/` grava `token=`, fica registrado como tarefa
 operacional separada (ver US-010 do epico de contencao de seguranca).
 
+### Headers de seguranca HTTP e CSP
+
+`deploy/nginx/sessaoadois.luisgosampaio.com.conf` declara um bloco `server`
+para a porta 443 com 4 headers, todos com `always` (para saírem tambem em
+respostas de erro 4xx/5xx):
+
+- `Strict-Transport-Security` - forca HTTPS em todas as visitas seguintes.
+- `X-Content-Type-Options: nosniff` - impede o browser de "adivinhar" o
+  content-type e executar um asset como script.
+- `Referrer-Policy: strict-origin-when-cross-origin` - nao vaza a URL completa
+  (que pode conter dados sensiveis) para terceiros em requisicoes cross-origin.
+- `Content-Security-Policy` - restringe de onde o app pode carregar scripts,
+  estilos, imagens e conexoes:
+  `default-src 'self'; img-src 'self' https://image.tmdb.org data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' wss://sessaoadois.luisgosampaio.com; frame-ancestors 'none'; base-uri 'self'`.
+
+**Por que nao ha nenhum host do Google Fonts na CSP:** as fontes (`Bricolage
+Grotesque`, `DM Sans`, `Instrument Sans`) sao servidas via pacotes
+`@fontsource*` (`client/src/index.css`), empacotadas no build do Vite e
+servidas pelo proprio dominio (`self`) - nao ha nenhuma requisicao a
+`fonts.googleapis.com`/`fonts.gstatic.com` em producao. Se algum dia alguem
+"corrigir" um erro de fonte adicionando `https://fonts.googleapis.com` de
+volta a CSP, primeiro confira `client/src/index.css`: o problema quase certamente
+esta em outro lugar (fonte nao instalada, build sem o CSS importado), nao na
+CSP.
+
+**Onde esses headers realmente vivem na VPS:** o bloco 443 e normalmente
+gerado e mantido pelo Certbot (`sudo certbot --nginx -d sessaoadois.luisgosampaio.com`),
+que copia as `location`s do bloco 80 e adiciona `listen 443 ssl;` +
+`ssl_certificate`/`ssl_certificate_key`. O Certbot **nao sabe** desses 4
+headers - eles precisam ser colados manualmente dentro do bloco 443 gerado
+por ele. **Se o certificado for reemitido do zero** (`certbot --nginx` de
+novo do zero, ou uma renovacao com `--force-renewal` que reescreva o bloco),
+o Certbot sobrescreve o `server { listen 443 ... }` e os 4 headers somem -
+precisam ser reaplicados manualmente depois. A aplicacao pratica na VPS e a
+verificacao (`curl -I`, console do browser sem violacao de CSP) ficam
+registradas em US-010.
+
 ---
 
 ## Estrutura de ficheiros na VPS

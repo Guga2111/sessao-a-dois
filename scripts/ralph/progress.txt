@@ -332,3 +332,44 @@
     `feat: US-008 - ...`. Não pular o registro só porque não há testes para
     rodar.
 ---
+
+## 2026-08-02 - US-009
+- Adicionado um bloco `server { listen 443 ssl; ... }` novo em
+  `deploy/nginx/sessaoadois.luisgosampaio.com.conf` (o conf só tinha o bloco
+  80 até agora) com os 4 headers exigidos (`Strict-Transport-Security`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`),
+  todos com `always`, e a CSP exatamente igual à do PRD. Adicionada a seção
+  "Headers de segurança HTTP e CSP" em `docs/DEPLOY.md` (dentro de
+  "Segurança operacional").
+- Arquivos alterados: `deploy/nginx/sessaoadois.luisgosampaio.com.conf`,
+  `docs/DEPLOY.md`.
+- **Learnings for future iterations:**
+  - O conf deste repo **não tem nenhum bloco 443** — só o bloco 80, porque na
+    prática é o Certbot (`sudo certbot --nginx -d ...`) quem gera e mantém o
+    bloco 443/SSL na VPS (copiando as `location`s do bloco 80 + `listen 443
+    ssl;` + `ssl_certificate`/`ssl_certificate_key`). Para uma story que pede
+    "os headers no bloco 443 do conf", a solução foi criar esse bloco aqui no
+    repo como fonte versionada da verdade (com um comentário grande
+    explicando que é um espelho/template, não o bloco real gerado pelo
+    Certbot), e documentar em `DEPLOY.md` que ele precisa ser colado
+    manualmente dentro do bloco 443 real na VPS, e reaplicado toda vez que o
+    certificado for reemitido do zero (o Certbot reescreve o bloco e não sabe
+    desses headers). Qualquer story futura que mexa em nginx + Certbot deve
+    lembrar dessa assimetria entre "o que está no repo" e "o que está de
+    fato na VPS".
+  - A justificativa de "sem Google Fonts na CSP" foi confirmada checando
+    `client/package.json` (`@fontsource-variable/instrument-sans`,
+    `@fontsource/bricolage-grotesque`, `@fontsource/dm-sans`) e
+    `client/src/index.css` (`@import "@fontsource/..."` para cada peso) —
+    as fontes são empacotadas pelo Vite e servidas por `self`, não há
+    nenhuma chamada real a `fonts.googleapis.com`/`fonts.gstatic.com` em
+    produção, então a CSP `font-src 'self' data:` já é suficiente.
+  - Mesma situação da US-008: sem `nginx` instalado neste sandbox (`which
+    nginx` → not found), então a verificação real de sintaxe (`nginx -t`) e
+    a verificação em produção (`curl -I`, console sem violação de CSP) ficam
+    para a US-010, conforme o próprio critério de aceite da US-009 antecipa.
+    Sanity check manual feito aqui: contagem de `{`/`}` no conf batendo
+    (9/9) antes de considerar a story pronta.
+  - Story não toca em código Java (só nginx conf + markdown) — `./mvnw test`
+    não se aplica, mesmo padrão da US-008.
+---
