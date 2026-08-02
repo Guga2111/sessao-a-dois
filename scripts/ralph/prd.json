@@ -139,8 +139,8 @@
         "A sintaxe do conf alterado e valida (verificacao real com nginx -t fica para a US-010, executada na VPS)"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Adicionado access_log off; ao bloco location /ws/ em deploy/nginx/sessaoadois.luisgosampaio.com.conf (com comentario explicando o motivo: JWT na query string do handshake). /api/ e / nao foram tocados - access log continua normal nos dois. Adicionada secao 'Seguranca operacional' em docs/DEPLOY.md com os 4 subitens do PRD: (a) reinstalar o conf + nginx -t + reload; (b) purgar access.log e os rotacionados (access.log.1, access.log.*.gz); (c) nota sobre JWT_EXPIRATION_DAYS=7 (default em application.properties) - tokens em logs de ate 7 dias atras da purga ainda podem ser validos; (d) rotacao do JWT_SECRET via openssl rand -base64 48 + atualizacao do .env da VPS + restart do container. Nao ha nginx instalado neste sandbox (confirmado: which nginx -> not found), entao a verificacao real de sintaxe com nginx -t fica para a US-010 executada na VPS, exatamente como o criterio de aceite da US-008 antecipa. Story nao toca em codigo Java, entao ./mvnw test nao se aplica aqui - so nginx conf + markdown."
     },
     {
       "id": "US-009",

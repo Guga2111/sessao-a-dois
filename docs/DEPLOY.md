@@ -245,6 +245,67 @@ ssh root@31.97.169.38 "sudo certbot renew"
 
 ---
 
+## Seguranca operacional
+
+### JWT no access.log do Nginx (corrigido)
+
+O handshake do WebSocket carrega o JWT na query string (`/ws/websocket?token=...`).
+Ate esta correcao, `location /ws/` no `deploy/nginx/sessaoadois.luisgosampaio.com.conf`
+nao tinha `access_log off;`, entao cada conexao gravava uma credencial valida em
+texto claro em `/var/log/nginx/access.log`. O conf atual ja inclui `access_log off;`
+so no bloco `/ws/` - `/api/` e `/` continuam com o access log normal.
+
+Para que a correcao valha em producao:
+
+**(a) Reinstalar o conf na VPS e recarregar o Nginx**
+
+```bash
+scp deploy/nginx/sessaoadois.luisgosampaio.com.conf \
+    root@31.97.169.38:/tmp/sessaoadois.luisgosampaio.com
+ssh root@31.97.169.38 "sudo mv /tmp/sessaoadois.luisgosampaio.com /etc/nginx/sites-available/sessaoadois.luisgosampaio.com && sudo nginx -t && sudo systemctl reload nginx"
+```
+
+**(b) Purgar os logs existentes (incluindo os rotacionados)**
+
+Os logs antigos ja gravados contem JWTs validos e precisam ser apagados, nao so
+o `access.log` atual mas tambem toda a rotacao (`access.log.1`, `access.log.2.gz`,
+etc. - o `logrotate` padrao do Nginx mantem varias gerações comprimidas):
+
+```bash
+ssh root@31.97.169.38 "sudo truncate -s 0 /var/log/nginx/access.log && sudo rm -f /var/log/nginx/access.log.*"
+```
+
+**(c) Janela de validade dos tokens vazados**
+
+`JWT_EXPIRATION_DAYS` (default `7`, ver `api/src/main/resources/application.properties`)
+significa que qualquer token que aparece em logs de ate 7 dias atras da purga
+ainda pode ser valido no momento da purga. Purgar os logs sozinho nao invalida
+os tokens ja emitidos - so evita que novos handshakes continuem vazando.
+
+**(d) Rotacionar o `JWT_SECRET`**
+
+Para invalidar de fato qualquer token ja vazado nos logs historicos (nao so
+impedir vazamentos futuros), o segredo de assinatura precisa mudar - isso
+invalida todas as sessoes ativas, entao os dois usuarios do casal precisam
+logar de novo:
+
+```bash
+openssl rand -base64 48
+```
+
+Atualizar `JWT_SECRET` no `.env` da VPS (`~/projects/sessao-a-dois/.env`, ver
+"Passo 2" acima) com o valor gerado e reiniciar o container da API:
+
+```bash
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml up -d --force-recreate api"
+```
+
+O procedimento completo (a)-(d) aplicado na VPS, incluindo a verificacao pratica
+de que nenhuma linha nova de `/ws/` grava `token=`, fica registrado como tarefa
+operacional separada (ver US-010 do epico de contencao de seguranca).
+
+---
+
 ## Estrutura de ficheiros na VPS
 
 ```

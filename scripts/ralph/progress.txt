@@ -303,3 +303,32 @@
     não `.isInstanceOf(...)`.
   - `./mvnw test`: 300/300 passam (293 pré-existentes + 7 novos).
 ---
+
+## 2026-08-02 - US-008
+- Adicionado `access_log off;` ao bloco `location /ws/` em
+  `deploy/nginx/sessaoadois.luisgosampaio.com.conf`, com comentário explicando o
+  motivo (JWT na query string `?token=` do handshake). `/api/` e `/` não foram
+  tocados. Adicionada seção "Segurança operacional" a `docs/DEPLOY.md` cobrindo
+  os 4 subitens do PRD: reinstalar o conf na VPS + `nginx -t` + reload; purgar
+  `access.log` e os rotacionados (`access.log.1`, `access.log.*.gz`); nota sobre
+  `JWT_EXPIRATION_DAYS=7` (tokens em logs de até 7 dias atrás da purga ainda
+  podem ser válidos); procedimento de rotação do `JWT_SECRET`
+  (`openssl rand -base64 48`) + atualização do `.env` da VPS + restart do
+  container.
+- Arquivos alterados: `deploy/nginx/sessaoadois.luisgosampaio.com.conf`,
+  `docs/DEPLOY.md`.
+- **Learnings for future iterations:**
+  - Esta story é puramente operacional/infra (nginx conf + markdown) — não toca
+    em código Java, então `./mvnw test` não se aplica e não foi rodado. O
+    critério de aceite da própria US-008 já antecipa isso: a verificação real de
+    sintaxe com `nginx -t` fica para a US-010 (executada na VPS), porque este
+    sandbox não tem `nginx` instalado (`which nginx` → not found).
+  - `JWT_EXPIRATION_DAYS` (default `7`) vive em
+    `api/src/main/resources/application.properties` (`app.jwt.expiration-days`)
+    — vale conferir esse valor de novo se ele mudar, já que a US-008 documenta a
+    janela de validade dos tokens vazados em função dele.
+  - Story puramente de infra/docs (sem mudança de código Java) ainda segue o
+    fluxo normal do Ralph: prd.json + progress.txt atualizados, commit
+    `feat: US-008 - ...`. Não pular o registro só porque não há testes para
+    rodar.
+---
