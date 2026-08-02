@@ -44,7 +44,7 @@ restrições rígidas; o resto da ordem é negociável.
 | Épico | Tema | Tasks | Criticidade máx. |
 |-------|------|-------|------------------|
 | [1](#épico-1--contenção-de-segurança) | Contenção de Segurança | T1.1 – T1.4 | Crítico |
-| [2](#épico-2--fundação-de-performance-de-banco) | Fundação de Performance de Banco | T2.1 – T2.4 | Crítico |
+| [2](#épico-2--fundação-de-performance-de-banco) | Fundação de Performance de Banco | T2.0 – T2.4 | Crítico |
 | [3](#épico-3--resiliência-e-latência-do-tmdb) | Resiliência e Latência do TMDB | T3.1 – T3.3 | Alto |
 | [4](#épico-4--migração-de-autenticação) | Migração de Autenticação | T4.1 – T4.5 | Alto |
 | [5](#épico-5--endurecimento-de-contas-e-auth) | Endurecimento de Contas e Auth | T5.1 – T5.6 | Alto |
@@ -104,6 +104,16 @@ completo, então ele precisa declarar a propriedade explicitamente.
 - [ ] Subir com um segredo válido de ≥32 bytes funciona normalmente.
 - [ ] `./mvnw test` passa (o `application.properties` de teste fornece um segredo válido).
 - [ ] Existe teste unitário cobrindo os 4 cenários acima.
+
+### Extra (achado posterior, mesmo arquivo de config)
+O log de `SessaoADoisApplicationTests` mostra a auto-config de usuário padrão do Spring
+ativa: `Using generated security password: ...` + `Global AuthenticationManager
+configured with UserDetailsService bean with name inMemoryUserDetailsManager`. Como o
+app é stateless com JWT e não define `UserDetailsService`, o Spring cria um usuário
+in-memory com senha aleatória a cada boot. **Não é explorável hoje** (`formLogin` e
+`httpBasic` estão desabilitados em `SecurityConfig:48-49`), mas é ruído no log de
+produção e vira risco real se alguém reativar `httpBasic`. Excluir
+`UserDetailsServiceAutoConfiguration` ou declarar um `AuthenticationManager` vazio.
 
 ### Fora do escopo
 Rotação de chave, algoritmo assimétrico (RS256), claims `iss`/`aud` — ficam na T4.1.
@@ -245,7 +255,57 @@ não bloqueia esta task.
 **Objetivo:** eliminar os N+1 e a ausência de índices antes que o volume de dados
 torne o problema visível. Nenhuma mudança de contrato de API.
 
-**Dependências:** T2.3 depende de T2.2 (o mapper extraído é onde o `EntityGraph` passa a ser consumido).
+**Dependências:** T2.0 vem antes da T2.1. T2.3 depende de T2.2 (o mapper extraído é onde o `EntityGraph` passa a ser consumido).
+
+---
+
+## T2.0 — Fazer o CI validar as migrations de verdade
+
+**Criticidade:** Alto
+**Descoberta em:** 2026-08-02, no primeiro `./mvnw test` executável do projeto
+**Arquivos:** `api/src/test/resources/application.properties`, novo teste em `api/src/test/java/com/app/`, `.github/workflows/`, `api/CLAUDE.md`
+
+### Problema
+`api/src/test/resources/application.properties:29-30`:
+
+```properties
+spring.flyway.enabled=false
+spring.jpa.hibernate.ddl-auto=create-drop
+```
+
+**Nenhum teste executa as migrations.** O log de `./mvnw test` confirma: só
+`Hibernate: drop table / create table`, zero linhas de Flyway. Consequências:
+
+1. `V1`/`V2` (e qualquer migration futura) nunca rodam fora de produção. Produção é o primeiro ambiente onde a migration é executada de verdade.
+2. `ddl-auto=validate` nunca é exercitado — a divergência entidade↔migration, exatamente o que `validate` existe para pegar, passa batida.
+3. O comentário do arquivo afirma que os schemas são "equivalentes". Não são. O schema gerado pelo Hibernate nos testes usa `media_type enum ('MOVIE','TV')` onde a migration declara `VARCHAR(255)`, e nomes de FK autogerados (`FKkub7yp2ofpmk5lckeqpv6ly0l`) onde a migration usa nomes explícitos (`fk_media_track_couple`).
+
+Foi essa lacuna que produziu os commits `c78de9f` e `18f9b57` — as duas correções
+imediatas ao épico Flyway, ambas sobre incompatibilidade de migration que nenhum teste
+podia ter pego.
+
+### O que fazer
+1. **Não** reabilitar Flyway globalmente nos testes. O comentário em `application.properties:21-26` documenta corretamente por que isso falhou: `@DataJpaTest` injeta `spring.test.database.replace=ANY` via `PropertyMappingContextCustomizer`, que tem precedência e cria um H2 puro (sem `MODE=PostgreSQL`), incompatível com a sintaxe Postgres das migrations. Manter os slices de `@DataJpaTest` como estão.
+2. Criar **uma** classe de teste dedicada — `@SpringBootTest` puro, sem `@DataJpaTest`, logo sem o `PropertyMappingContextCustomizer` — com `@TestPropertySource` declarando explicitamente:
+   - `spring.datasource.url=jdbc:h2:mem:migrations;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE`
+   - `spring.flyway.enabled=true`
+   - `spring.jpa.hibernate.ddl-auto=validate`
+
+   Se o contexto sobe, três coisas ficam provadas de uma vez: as migrations aplicam em sequência, produzem um schema válido, e as entidades JPA batem com ele.
+3. **Verdade de Postgres real no CI.** O workflow já sobe um `postgres:17-alpine` como service e passa `DB_URL` — mas hoje nenhum teste o usa, porque todos os slices substituem o datasource por H2. Adicionar um step que roda esse teste de migrations contra o Postgres do CI (`@AutoConfigureTestDatabase(replace = NONE)` + `DB_URL` do ambiente). É o único lugar onde uma sintaxe Postgres-only pode ser validada — `docker` não existe no sandbox, então testcontainers segue fora.
+4. Corrigir `api/CLAUDE.md`, que hoje afirma *"production and dev/test both go through the same `V*__*.sql` files"* e *"Hibernate is `ddl-auto=validate` everywhere"* — as duas frases são falsas desde `18f9b57`.
+
+### Critérios de aceite
+- [ ] Existe um teste que executa `V1`, `V2` (+ futuras) em sequência e falha se qualquer uma não aplicar.
+- [ ] Esse teste roda com `ddl-auto=validate` e falha se uma entidade JPA divergir do schema das migrations.
+- [ ] Introduzir um erro deliberado numa migration (ex.: coluna com nome errado) faz `./mvnw test` **falhar** — verificar na prática, não presumir.
+- [ ] O CI executa esse teste contra o Postgres 17 real que o workflow já sobe.
+- [ ] Os demais testes (`@DataJpaTest`, `@SpringBootTest` existentes) continuam usando `create-drop` e passando — 264 testes verdes.
+- [ ] `api/CLAUDE.md` descreve o arranjo real: slices em `create-drop`, um teste dedicado validando migrations.
+
+### Fora do escopo
+Migrar toda a suíte para Flyway/Postgres. O ganho está em **uma** porta de validação
+confiável, não em reescrever 264 testes que hoje funcionam bem.
 
 ---
 
@@ -288,11 +348,16 @@ migration nova depois do baseline, usar conexão direta (5432) ou pooler em modo
 Session no deploy que a carregar.
 
 ### Critérios de aceite
-- [ ] `./mvnw test` passa (migrations aplicam sob H2 em modo PostgreSQL).
+- [ ] `./mvnw test` passa.
 - [ ] A aplicação sobe contra Postgres limpo com V1+V2+V3 aplicadas em sequência.
 - [ ] `EXPLAIN` de `SELECT * FROM couples WHERE user1_id = ? OR user2_id = ?` usa índice em vez de seq scan.
 - [ ] Nenhuma tabela existente é recriada ou alterada.
 - [ ] `docs/FLYWAY.md` menciona a ressalva do pooler para este deploy específico.
+
+> ⚠️ **`./mvnw test` NÃO valida esta migration.** `api/src/test/resources/application.properties:29-30`
+> define `spring.flyway.enabled=false` + `ddl-auto=create-drop`, então nenhum teste
+> executa `V*__*.sql` — a suíte passa igual com a migration correta ou quebrada.
+> **Faça a T2.0 antes desta task**, ou o V3 vai para produção sem nunca ter rodado.
 
 ### Fora do escopo
 Reescrever `findPendingForUser` de `NOT IN` para `NOT EXISTS` — fica na T3.3.
@@ -520,12 +585,14 @@ exige revisitar formalmente a decisão #5 de `docs/BACKLOG.md`.
 ### Problema
 1. `MediaTrackController.java:54-58` devolve a biblioteca inteira do casal sem paginação. `MatchScreen.tsx:767` consome esse endpoint **só** para montar um `Set` de chaves `mediaType-tmdbId` (para saber quais títulos já estão na lista). Payload cresce sem limite para um dado que são dois campos por linha.
 2. `MatchLikeRepository.findPendingForUser:18-24` usa 3 subconsultas `NOT IN` correlacionadas. Além do custo, `NOT IN` tem semântica traiçoeira com `NULL`.
+3. **(Achado posterior)** `MediaTrackController.listByStatus` e `NotificationController.list` devolvem `Page<T>` direto, e o Spring avisa a cada execução: *"Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure"*. O cliente espelha `content`/`number`/`totalPages`/`totalElements` à mão (`client/src/types/*.ts`), sem codegen — uma mudança de formato numa atualização do Spring quebra o frontend em silêncio.
 
 ### O que fazer
 1. Criar `GET /api/tracking/keys` devolvendo `[{mediaType, tmdbId}]` — resposta enxuta, sem reviews nem metadados. `MatchScreen` passa a consumi-lo.
 2. **Expandir o `StatsService`** com o que faltar para o `DashboardScreen` (decisão D8) — não construir variante paginada do endpoint completo. `MediaTrackController.stats` (`GET /api/tracking/stats`) já cobre a maior parte, e a orientação de `api/CLAUDE.md` é que uma estatística nova começa por uma agregação nova no repositório, não por consulta de entidades.
 3. Reescrever `findPendingForUser` trocando os 3 `NOT IN` por `NOT EXISTS` (mais eficiente com os índices da T2.1 e NULL-safe).
 4. **Remover** o endpoint `GET /api/tracking` sem `status` assim que 1 e 2 estiverem no lugar. Com os dois consumidores migrados, ele fica órfão — deletar em vez de deixar depreciado.
+5. Estabilizar o formato da resposta paginada: `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)` ou um DTO de página próprio. Elimina o warning e congela o contrato com o frontend, que hoje espelha os campos à mão.
 
 ### Critérios de aceite
 - [ ] `GET /api/tracking/keys` existe, é escopado ao casal do JWT e responde em payload proporcional a 2 campos por track.
@@ -1387,3 +1454,14 @@ achado foi descartado, nenhum aparece em duas tasks.
 | E-mail do parceiro exposto | Segurança | T5.6 |
 | Sem log de auditoria | Segurança | T5.5 |
 | Injeção SQL/JPQL | Segurança | **Sem achado** — todas as queries são parametrizadas |
+
+## Achados posteriores à auditoria
+
+Descobertos depois do relatório original, ao executar a suíte pela primeira vez
+(2026-08-02, após o devcontainer ganhar JDK 21 + Maven).
+
+| Achado | Origem | Task |
+|---|---|---|
+| Migrations nunca executadas por nenhum teste; `ddl-auto=validate` nunca exercitado | `spring.flyway.enabled=false` em `api/src/test/resources/application.properties:29` | **T2.0** |
+| `PageImpl` serializado direto nos endpoints paginados — formato de wire sem estabilidade garantida entre versões do Spring | Warning `ration$PageModule$WarningLoggingModifier` no log de teste | **T3.3** |
+| Auto-config de usuário padrão do Spring ativa (`inMemoryUserDetailsManager` + senha gerada no boot) | `UserDetailsServiceAutoConfiguration` no log de `SessaoADoisApplicationTests` | **T1.1** |
