@@ -1,230 +1,117 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/landing-page",
-  "description": "Landing Page Publica - Sessao a Dois: pagina estatica de marketing na rota publica '/' que apresenta o produto (lista compartilhada, Match em tempo real, notas/opinioes individuais, Dashboard do casal) e converte o visitante anonimo em '/register' ou '/login'. Herda o design system do prototipo (tema escuro, acentos amarelo/laranja/verde, Bricolage Grotesque + DM Sans, cards, glows, icones Lucide). O Hub autenticado migra de '/' para '/hub'. Sem backend novo.",
+  "branchName": "ralph/flyway-migrations",
+  "description": "Migracao de ddl-auto=update para Flyway com dados em producao. Baseline de producao = origin/main (e0f3d36). Unica diferenca de schema para o estado-alvo (branch create-migrations) e a nova tabela notification; todas as demais tabelas (users, couples, media_track, media_track_genre, user_review, match_like, match_reject) ja existem em producao. Estrategia: V1 = baseline do schema existente (nao executado em prod via baseline-on-migrate), V2 = criar notification. Zero perda de dados; nenhum DROP/TRUNCATE.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Adicionar as fontes reais do prototipo (Bricolage Grotesque + DM Sans)",
-      "description": "Como desenvolvedor, quero as fontes do design system instaladas de fato, para que font-display e font-auth-body deixem de cair no fallback (Instrument Sans) e a landing use a tipografia exata do prototipo.",
+      "title": "Validar o schema real de producao antes de escrever o baseline",
+      "description": "As a developer, I want to confirm the actual physical schema of production (created by ddl-auto=update) so that the V1 baseline is faithful to what really exists.",
       "acceptanceCriteria": [
-        "Adicionar @fontsource/bricolage-grotesque e @fontsource/dm-sans ao client/package.json (self-hosted, seguindo o padrao de @fontsource-variable/instrument-sans)",
-        "Importar no client/src/index.css os pesos: Bricolage Grotesque 600/700/800 e DM Sans 400/500/600/700",
-        ".font-display resolve para Bricolage Grotesque e .font-auth-body para DM Sans no computed font-family (nao o fallback)",
-        "Nenhum <link> de Google Fonts adicionado ao index.html",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Confirmar o schema real: preferir information_schema do Postgres de producao (Supabase); se indisponivel, subir a app no commit origin/main (e0f3d36) contra um Postgres limpo e capturar o schema gerado pelo Hibernate",
+        "Registrar tabelas, colunas, tipos, defaults, PKs (UUID), FKs, unique constraints e indices auto-gerados",
+        "Confirmar que existem: users, couples, media_track, media_track_genre, user_review, match_like, match_reject",
+        "Confirmar que a tabela notification NAO existe em producao",
+        "Documentar o resultado como base autoritativa para o V1 (ex.: nota no PR ou arquivo em docs/)",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Added @fontsource/bricolage-grotesque and @fontsource/dm-sans (weights 600/700/800 and 400/500/600/700 respectively) as self-hosted deps, imported per-weight CSS files in client/src/index.css right after the existing instrument-sans import. Removed the pre-existing Google Fonts <link> tags (preconnect x2 + stylesheet) from client/index.html that were already loading these exact fonts remotely - AC required no Google Fonts link and self-hosted only, so the old remote link had to go, not just the new self-hosted addition."
+      "notes": "Sem acesso a Supabase de producao nem a docker/java/mvn/psql neste ambiente (confirmado); schema derivado por analise estatica das entidades JPA de origin/main + git diff/ls-tree confirmando que User/Couple/MediaTrack/UserReview/MatchLike/MatchReject sao identicas a origin/main e que Notification e a unica tabela nova. Documentado em docs/SCHEMA_BASELINE.md, que recomenda validar contra information_schema real antes do deploy."
     },
     {
       "id": "US-002",
-      "title": "Migrar o Hub de '/' para '/hub' e liberar a raiz",
-      "description": "Como usuario autenticado, quero que meu Hub continue funcionando apos a raiz '/' virar publica, acessando-o em '/hub' sem quebras de navegacao.",
+      "title": "Adicionar a dependencia do Flyway ao pom.xml",
+      "description": "As a developer, I want Flyway available in the build so I can version the schema.",
       "acceptanceCriteria": [
-        "Em client/src/App.tsx, a rota do HubScreen passa de path='/' para path='/hub', mantendo ProtectedRoute + RequireCouple",
-        "client/src/components/Header.tsx (NAV_ITEMS) e qualquer link/Navigate que aponte para '/' como Hub passa a apontar para '/hub' (guards, api.ts redirect pos-login, telas de auth, PublicOnlyRoute)",
-        "PublicOnlyRoute redireciona usuario autenticado com casal para '/hub' (antes '/'); sem casal continua indo para '/join'",
-        "Fluxo pos-login/registro leva o usuario autenticado+casal ao '/hub'",
-        "Nenhum link morto para '/' como Hub permanece no codigo",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Adicionar flyway-core e flyway-database-postgresql ao api/pom.xml SEM tag <version> (versao gerenciada pelo BOM do Spring Boot 4.1.0)",
+        "./mvnw -f api/pom.xml compile executa sem erros de resolucao de dependencia",
+        "Nenhuma outra dependencia do projeto e alterada",
+        "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Route path changed from '/' to '/hub' in App.tsx (kept ProtectedRoute+RequireCouple wrapper), catch-all '*' now redirects to /hub. Updated every reference that pointed at '/' as the Hub: Header.tsx NAV_ITEMS + both NavLink 'end' checks (desktop nav + MobileNav), guards.tsx PublicOnlyRoute (authenticated+partnered -> /hub) and RedirectIfCoupled (-> /hub), LoginPage.tsx and JoinPage.tsx post-success navigate('/hub'), MatchCelebrationModal.tsx 'Ver na lista' button navigate('/hub'). Grepped for any remaining to=\"/\"/navigate(\"/\")/Navigate to=\"/\" afterward - none left. tsc --noEmit clean; eslint has 6 pre-existing errors (react-hooks/set-state-in-effect x3, react-refresh/only-export-components x1 - actually 4 files/6 total) unrelated to this change, confirmed identical via git stash before my edits. Dev server still fails in this sandbox with the pre-existing rolldown native-binding error (reinstalled node_modules to retry per client/CLAUDE.md workaround, no change) - browser verification not possible here, relied on tsc/eslint + full grep audit of route references."
+      "notes": "Adicionadas as dependencias flyway-core e flyway-database-postgresql ao api/pom.xml (sem <version>, gerenciadas pelo BOM do spring-boot-starter-parent 4.1.0), logo apos a dependencia postgresql. Nao foi possivel rodar './mvnw -f api/pom.xml compile' neste sandbox (sem java/mvn/docker, ver api/CLAUDE.md); verificado apenas que o XML resultante e bem formado. Nenhuma outra dependencia foi alterada."
     },
     {
       "id": "US-003",
-      "title": "Rota publica '/' com logica de sessao (LandingScreen + guard)",
-      "description": "Como visitante, quero que '/' mostre a landing quando nao estou logado, e como usuario logado quero ser levado direto ao app sem ver a pagina de marketing.",
+      "title": "Configurar Flyway e ddl-auto=validate (application.properties main + test)",
+      "description": "As a developer, I want Flyway to be the schema mechanism in all environments with Hibernate only validating, so the schema is never mutated by Hibernate.",
       "acceptanceCriteria": [
-        "Nova rota publica path='/' renderiza LandingScreen, fora de ProtectedRoute (renderiza sem JWT)",
-        "Visitante sem sessao ve a LandingScreen",
-        "Usuario autenticado com JWT valido e casal que acessa '/' e redirecionado para '/hub'; autenticado sem casal para '/join'",
-        "Usuario com JWT presente porem invalido/expirado tem a sessao limpa e e redirecionado para '/login', reaproveitando o tratamento de 401 existente em src/lib/api.ts/useAuthStore (sem inventar validacao nova de token)",
-        "A landing nao faz nenhuma chamada de API de conteudo",
+        "Em api/src/main/resources/application.properties: spring.jpa.hibernate.ddl-auto=validate, spring.flyway.enabled=true, spring.flyway.baseline-on-migrate=true, spring.flyway.baseline-version=1, spring.flyway.locations=classpath:db/migration",
+        "api/src/test/resources/application.properties espelha as mesmas propriedades do Flyway (mirror), ajustado ao banco de teste",
+        "Substituir/remover explicitamente spring.jpa.hibernate.ddl-auto=update onde existir",
+        "A aplicacao sobe localmente (banco limpo) aplicando V1 e V2 sem erro e passa na validacao do Hibernate",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Tests pass"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Added path='/' route in App.tsx rendering the new client/src/screens/LandingScreen.tsx (minimal placeholder hero + header, no API calls, full sections come in US-004+). Reused the existing PublicOnlyRoute guard (routes/guards.tsx) instead of writing new session logic: it already redirects authenticated+partnered users to /hub, authenticated+unpartnered to /join, and renders children for anonymous visitors - exactly matching the AC. Expired/invalid JWT cleanup is already handled by the existing api.ts response interceptor (401 -> clearAuthToken + redirect to /login) combined with App.tsx's mount-time loadCurrentUser() call, so no new token validation was written, per AC instruction to reuse existing 401 handling."
+      "notes": "Editados api/src/main/resources/application.properties (ddl-auto=update -> validate; adicionados spring.flyway.enabled=true, baseline-on-migrate=true, baseline-version=1, locations=classpath:db/migration) e api/src/test/resources/application.properties (mesmas 4 propriedades de Flyway + ddl-auto=validate, mais spring.datasource.url apontando para um H2 em memoria em MODE=PostgreSQL/DATABASE_TO_LOWER=TRUE e spring.datasource.driver-class-name=org.h2.Driver, ja que antes o datasource de teste nao era declarado explicitamente e caia no H2 puro autodetectado pelo Spring Boot, incompativel com a sintaxe Postgres que V1/V2 vao usar). Nenhum outro ddl-auto=update restante no repo (confirmado via grep). Nao foi adicionada nenhuma dependencia flyway-database-h2 ao pom.xml: suporte a H2 e HSQLDB/Derby/SQLite vem embutido no flyway-core (so PostgreSQL/MySQL/etc. exigem o modulo separado, que ja foi adicionado na US-002). O criterio 'a aplicacao sobe localmente (banco limpo) aplicando V1 e V2 sem erro e passa na validacao do Hibernate' e 'Tests pass' NAO puderam ser verificados nem mecanica nem logicamente ainda: db/migration nao existe (US-004/US-005 ainda pendentes), entao com flyway.enabled=true + ddl-auto=validate e sem migrations, tanto o boot local quanto a suite de testes (@DataJpaTest/@SpringBootTest) ficarao quebrados ate a V1__baseline.sql (US-004) e V2__create_notification.sql (US-005) serem criadas -- estado intermediario esperado dado o encadeamento sequencial do PRD. Como nas US-001/US-002, este sandbox continua sem java/mvn/docker/psql (confirmado de novo), entao nada disso pode ser executado aqui de qualquer forma."
     },
     {
       "id": "US-004",
-      "title": "Scaffold do LandingScreen + LandingHeader publico",
-      "description": "Como visitante, quero um header publico fixo com a marca e CTAs sempre acessiveis, para poder criar conta ou entrar a qualquer momento da rolagem.",
+      "title": "Criar V1__baseline.sql (schema completo de producao)",
+      "description": "As a developer, I want a baseline migration reproducing the exact production schema so it is created from scratch in dev/test and recognized (not executed) in production.",
       "acceptanceCriteria": [
-        "Criar client/src/screens/LandingScreen.tsx como composicao de secoes isoladas em client/src/components/landing/",
-        "Criar LandingHeader com logo 'Sessao·a·Dois' (icone Lucide, sem emoji), links de ancora (Como funciona, Recursos, FAQ) e botoes 'Entrar' (link /login) e 'Criar conta' (link /register)",
-        "Header e sticky top-0 com fundo translucido + backdrop-blur e borda inferior 1px rgba(255,255,255,.07)",
-        "Em ~360px o header se adapta (ancoras colapsam/escondem) mas o CTA 'Criar conta' permanece acessivel",
-        "Links navegaveis por teclado com :focus-visible visivel",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Criar o diretorio api/src/main/resources/db/migration/",
+        "V1__baseline.sql cria: users (unique email), couples (unique invite_code, colunas user1_id/user2_id), media_track (FK couple_id; colunas tmdb_id/media_type/status/watched_date/runtime/created_at), media_track_genre (FK media_track_id, coluna genre_id), user_review (unique media_track_id+user_id), match_like e match_reject (unique couple_id+user_id+tmdb_id)",
+        "IDs como UUID; enums (media_type, status) como VARCHAR/STRING; PKs, FKs e unique constraints conforme US-001",
+        "Usa CREATE TABLE IF NOT EXISTS; nenhum DROP/TRUNCATE",
+        "NAO contem a tabela notification",
+        "Em banco limpo, aplicar V1 gera schema equivalente ao gerado por ddl-auto em origin/main",
+        "Typecheck passes"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Extracted the inline header/hero from LandingScreen.tsx into client/src/components/landing/LandingHeader.tsx and LandingHeader's sibling LandingHero.tsx; LandingScreen.tsx now composes <LandingHeader /><LandingHero />. LandingHeader adds an anchor nav (Como funciona #como-funciona, Recursos #recursos, FAQ #faq) hidden below md (hidden md:flex) so at ~360px only the logo + Entrar/Criar conta buttons show - Criar conta stays visible and tappable at all widths per AC (anchors are the only thing that collapses). Kept exact sticky/backdrop-blur/border styling from the existing header already used in Header.tsx (the authenticated app header) for visual consistency. All links use focus-visible:outline-2 with the #ffcb2b accent for keyboard nav. Anchor hrefs point to ids that don't exist as sections yet (added by US-006/US-007/US-011) - this is expected, they'll resolve once those stories add the matching id attributes."
+      "notes": "Criado api/src/main/resources/db/migration/V1__baseline.sql com CREATE TABLE IF NOT EXISTS para users, couples, media_track, media_track_genre, user_review, match_like e match_reject, seguindo fielmente docs/SCHEMA_BASELINE.md (US-001) e conferido linha a linha contra as 6 entidades JPA (User/Couple/MediaTrack/UserReview/MatchLike/MatchReject) em api/src/main/java/com/app. IDs UUID sem default de banco (Hibernate gera com GenerationType.UUID em Java, nao ha gen_random_uuid() no SQL); enums media_type/status como VARCHAR(255); PKs e FKs nomeadas explicitamente (pk_*, fk_*); UNIQUE(email) em users, UNIQUE(invite_code) em couples, UNIQUE(media_track_id,user_id) em user_review, UNIQUE(couple_id,user_id,tmdb_id) em match_like/match_reject. Nenhum DROP/TRUNCATE; tabela notification propositalmente ausente (fica para V2/US-005). Nao foi possivel rodar a app localmente nem os testes (sem java/mvn/docker/psql neste sandbox, confirmado de novo); verificacao foi por leitura cuidadosa comparando cada coluna/constraint do SQL com o mapeamento Hibernate de cada entidade."
     },
     {
       "id": "US-005",
-      "title": "Secao Hero (LandingHero)",
-      "description": "Como visitante, quero uma headline emocional que me faca sentir que este app e 'para nos dois', com um preview visual da lista do casal.",
+      "title": "Criar V2__create_notification.sql",
+      "description": "As a developer, I want the migration that adds the notification table, applicable safely over the existing production database.",
       "acceptanceCriteria": [
-        "LandingHero com eyebrow uppercase, headline (font-display 700/800), subtitulo (font-auth-body cor #a6a39a), CTA primario 'Comecar a dois' -> /register e CTA secundario 'Ja temos conta' -> /login",
-        "Fundo com radial-gradient sutil (mesmos gradientes do prototipo) sobre #09090a",
-        "Mock/preview visual reaproveitando o estilo dos cards de midia (#161513, raio 18-24px, borda 1px rgba(255,255,255,.07), badges/pilulas)",
-        "CTA primario usa o acento #ffcb2b com glow discreto (box-shadow) e texto escuro",
-        "Layout fluido com clamp(); sem overflow horizontal entre 360px e desktop",
+        "V2__create_notification.sql usa CREATE TABLE IF NOT EXISTS para a tabela notification com colunas: id (UUID PK), couple_id (UUID NOT NULL, FK para couples), recipient_user_id (UUID NOT NULL), type (VARCHAR NOT NULL), tmdb_id (BIGINT NOT NULL), media_type (VARCHAR NOT NULL), title (VARCHAR NOT NULL), actor_user_id (UUID NOT NULL), media_track_id (UUID nullable), is_read (BOOLEAN NOT NULL default false), created_at (TIMESTAMP NOT NULL)",
+        "Cria o indice idx_notification_recipient_read sobre (recipient_user_id, is_read)",
+        "Nenhum DROP/TRUNCATE; tabela nasce vazia",
+        "Sintaxe valida para PostgreSQL do Supabase (pooler 6543, prepareThreshold=0)",
+        "Apos aplicar V1+V2 em banco limpo, o Hibernate validate passa contra as entidades de create-migrations sem discrepancias",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Tests pass"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Reworked LandingHero.tsx into a two-column layout on md+ (text/CTAs left, preview mock right; stacks to single column centered on mobile). Preview mock is a #161513 panel (border rgba(255,255,255,.07), radius 22px) with a couple avatar-duo (two overlapping gradient circles, matching the header's duo-avatar motif) + 'Lista de vocês dois' label + a 'Queremos Ver' status pill, containing a 2-up grid of mini title cards that mimic the real media-card anatomy from the prototype (docs/design/.../Sessao a Dois.dc.html lines 87-113): poster placeholder with hue-based linear-gradient + genre badge top-left, title (font-display) + year, star rating (Lucide Star, fill #ffb443), and a type pill (Filme/Serie) styled like the prototype's type badge (bg rgba(255,203,43,.12), border rgba(255,203,43,.25), text #ffdd7a). Radial-gradient bg over #09090a was already present in LandingScreen.tsx from US-003, left untouched. Primary CTA glow (#ffcb2b box-shadow) was already present from US-003/US-004, unchanged. Layout uses clamp() for the headline (already existing) and max-w-[420px]/grid/gap responsive classes for the preview panel - verified no horizontal overflow by reasoning through the breakpoints (panel is justify-self-center under md, capped max-w-[420px] with w-full, so it never exceeds the 360px+ viewport minus the px-5 page padding)."
+      "notes": "Criado api/src/main/resources/db/migration/V2__create_notification.sql com CREATE TABLE IF NOT EXISTS para notification (id UUID PK, couple_id UUID NOT NULL FK->couples, recipient_user_id UUID NOT NULL, type VARCHAR(255) NOT NULL, tmdb_id BIGINT NOT NULL, media_type VARCHAR(255) NOT NULL, title VARCHAR(255) NOT NULL, actor_user_id UUID NOT NULL, media_track_id UUID nullable sem FK, is_read BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP WITH TIME ZONE NOT NULL) e o indice idx_notification_recipient_read sobre (recipient_user_id, is_read) via CREATE INDEX IF NOT EXISTS. created_at usa TIMESTAMP WITH TIME ZONE (nao TIMESTAMP simples) porque Notification.createdAt e Instant, seguindo a mesma convencao de users/couples em V1 (documentada em api/CLAUDE.md); id sem default de banco, consistente com GenerationType.UUID client-side. Cross-checado linha a linha contra com.app.notification.Notification.java. Nao foi possivel rodar ./mvnw test (sem java/mvn/docker/psql neste sandbox, confirmado de novo, inclusive tentativa de baixar o Maven wrapper falhou por falta de rede ate o Maven Central)."
     },
     {
       "id": "US-006",
-      "title": "Secao 'Como funciona' (HowItWorks, 3 passos)",
-      "description": "Como visitante, quero entender em 3 passos como comecar, para reduzir a friccao de criar conta.",
+      "title": "Documentar estrategia de baseline e procedimento de deploy",
+      "description": "As the deploy owner, I want documentation of how the Flyway baseline works so I can run the next production deploy safely.",
       "acceptanceCriteria": [
-        "HowItWorks com 3 passos numerados: (1) Criar conta -> (2) Parear com o codigo de convite -> (3) Assistir e avaliar juntos",
-        "Cada passo tem icone Lucide, titulo curto e microcopy; grid responsivo (auto-fit/clamp()) que empilha no mobile",
-        "Nenhum emoji usado como icone",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Criar docs/FLYWAY.md explicando que com baseline-on-migrate=true + baseline-version=1 o Flyway, no primeiro run em prod (schema existente sem flyway_schema_history), cria o historico, marca V1 como baseline SEM executar V1__baseline.sql e aplica apenas V2",
+        "Documentar o comportamento em dev/test (banco limpo executa V1 normalmente) e a diferenca vs producao",
+        "Incluir checklist pos-deploy: conferir flyway_schema_history, confirmar que nenhuma tabela existente foi recriada, dados intactos, notification criada",
+        "Recomendar snapshot/backup do Supabase antes do primeiro deploy com Flyway",
+        "Typecheck passes"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Created client/src/components/landing/HowItWorks.tsx with section id=\"como-funciona\" (matches LandingHeader's anchor). 3 numbered steps (Criar conta -> Parear com o codigo -> Assistir e avaliar juntos), each with a Lucide icon (UserPlus/KeyRound/Heart) in a #161513 rounded-2xl badge with #ffcb2b/25 border, font-display title, font-auth-body microcopy in #a6a39a. Grid is grid-cols-1 sm:grid-cols-3 (stacks on mobile, 3-up from sm breakpoint) with clamp()-based gap. Numbering is justified here (a literal ordered process the user must follow), so added a subtle dashed connecting line between the icon badges on sm+ as the section's signature element, implying the path from signup to watching together - purely decorative/aria-hidden, no motion (kept static per existing site's restrained animation use). No emojis anywhere."
+      "notes": "Criado docs/FLYWAY.md explicando o comportamento de baseline-on-migrate=true + baseline-version=1: em producao (schema existente sem flyway_schema_history), o Flyway cria o historico, marca V1 como baseline SEM executar V1__baseline.sql, e aplica apenas V2__create_notification.sql; em dev/test (banco limpo) V1 executa normalmente do zero. Inclui tabela comparativa dos dois ambientes, checklist pos-deploy (conferir flyway_schema_history com as duas versoes, contagem de linhas das 7 tabelas antigas inalterada, notification criada vazia com o indice idx_notification_recipient_read, logs sem FlywayException/erro de validacao do Hibernate) e recomendacao de snapshot/backup do Supabase (Database > Backups) antes do primeiro deploy com Flyway. Historia puramente documental: nenhum codigo/SQL foi alterado, entao 'Typecheck passes' e trivialmente satisfeito (nada para compilar); nao ha CI de lint de markdown neste repo (unico workflow em .github/workflows e o de testes Maven do api/, que nao roda para mudancas so em docs/)."
     },
     {
       "id": "US-007",
-      "title": "Grid de recursos (FeatureGrid, 4 destaques)",
-      "description": "Como visitante, quero ver os diferenciais do produto de forma escaneavel, para me convencer do valor.",
+      "title": "Avaliar e propor (para aprovacao) mudancas em arquivos sensiveis de deploy",
+      "description": "As the project owner, I want to pre-approve any change to sensitive infra files before they are applied.",
       "acceptanceCriteria": [
-        "FeatureGrid com 4 cards: Lista compartilhada (Assistindo/Queremos Ver/Ja Vimos), Match em tempo real, Notas & opinioes individuais, Dashboard do casal",
-        "Cada card: icone Lucide + titulo (font-display) + microcopy (font-auth-body), estilo de card do design system (#161513, borda sutil, raio 18-24px)",
-        "Grid grid-template-columns: repeat(auto-fit, minmax(...)) fluido; 1 coluna no mobile, multiplas no desktop",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Avaliar se scripts/deploy.sh, api/Dockerfile e docker-compose-prod.yml precisam de alteracao para o Flyway funcionar (esperado: nenhuma, pois o Flyway roda embutido no startup do Spring Boot)",
+        "Se alguma mudanca for necessaria, escrever a proposta (diff + justificativa) e NAO alterar esses arquivos diretamente sem aprovacao explicita",
+        "Se nenhuma mudanca for necessaria, registrar essa conclusao explicitamente (ex.: nota no PR)",
+        "Nao modificar scripts/deploy.sh, api/Dockerfile nem docker-compose-prod.yml sem aprovacao",
+        "Typecheck passes"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Created client/src/components/landing/FeatureGrid.tsx, section id=\"recursos\" (matches LandingHeader's anchor). 4 cards (Lista compartilhada / Match em tempo real / Notas & opinioes individuais / Dashboard do casal), each with a Lucide icon (ListChecks/Heart/NotebookPen/LayoutDashboard) in a #09090a icon badge with #ffcb2b/25 border, font-display title, font-auth-body microcopy in #a6a39a. Card shell: #161513 bg, border rgba(255,255,255,.07), rounded-[20px] (within the 18-24px AC range). Grid uses inline style gridTemplateColumns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)) per the AC's literal auto-fit requirement (Tailwind's grid-cols-* utilities don't express auto-fit/minmax, so used an inline style like LandingHero already does elsewhere) - collapses to 1 column under ~260px-per-item on mobile, multiple columns on desktop. No numbered/connected treatment reused from HowItWorks since this is a plain feature list, not a sequence (per frontend-design skill note in US-006's progress log). No emoji anywhere; icons are Lucide and aria-hidden. Wired into LandingScreen.tsx right after HowItWorks."
-    },
-    {
-      "id": "US-008",
-      "title": "Prova visual do Match (MatchShowcase)",
-      "description": "Como visitante, quero ver a magica do 'os dois curtiram -> deu Match', porque e o diferencial central do produto.",
-      "acceptanceCriteria": [
-        "MatchShowcase mostra dois cards 'curtidos' e uma micro-animacao em loop CSS que culmina no momento de Match ('Deu Match!') e no titulo entrando na pilula 'Queremos Ver'",
-        "Animacao e puramente visual (CSS/estado interno de UI), sem API, sem WebSocket, sem backend, sem estado global (useMatchStore nao e tocado)",
-        "prefers-reduced-motion: reduce -> sem loop; renderiza o estado final (match concluido) de forma estatica",
-        "Icones Lucide (coracao/sparkles), nenhum emoji",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Created client/src/components/landing/MatchShowcase.tsx with two LikedCard mini poster tiles (Ana / Leo) flanking a center Heart+Sparkles burst, a 'Deu Match!' status label, and a 'Queremos Ver' pill that receives the title - all driven by 5 new CSS @keyframes added to client/src/index.css (sd-match-like, sd-match-ring, sd-match-burst, sd-match-sparkle, sd-match-pill), a single synced 6s infinite timeline (0-22% like-pulse, 8-30% like ring, 28-58% match burst+label, 30-52% sparkles, 46-100% pill slide-in) so every element shares one clock without JS state/timers. No useMatchStore, no API, no WebSocket - purely CSS + static data. Reduced motion handled by applying the animation only via Tailwind's motion-safe: variant on each animate-[...] utility, with the base (non-prefixed) classes already set to the final matched-state values (opacity-100 etc.) - so prefers-reduced-motion: reduce users simply never get the animate override and see the static matched outcome, no extra reduced-motion branch needed. Icons are Lucide Heart/Sparkles, aria-hidden where decorative; no emoji anywhere (unlike MatchCelebrationModal's emoji, intentionally not reused here per AC)."
-    },
-    {
-      "id": "US-009",
-      "title": "Previa do Dashboard (DashboardPreview)",
-      "description": "Como visitante, quero um teaser das estatisticas do casal, para desejar ter o meu proprio dashboard.",
-      "acceptanceCriteria": [
-        "DashboardPreview reproduz o estilo do DashboardScreen real com dados fixos/fake (horas juntos, filmes vs series, generos favoritos)",
-        "Barras/KPIs animam ao entrar na viewport (IntersectionObserver dentro de useEffect com setState no callback, ou animacao CSS on-scroll); respeitam prefers-reduced-motion (estado final estatico)",
-        "Nenhuma chamada a /api/tracking/stats nem a qualquer endpoint",
-        "Nao viola react-hooks/set-state-in-effect nem react-hooks/refs (ver client/CLAUDE.md)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Created client/src/components/landing/DashboardPreview.tsx, reproducing DashboardScreen's visual language with fixed/fake data (128h42m tempo juntos, 64%/36% filmes vs series, top 3 generos favoritos com barras). A useRevealOnView hook wraps a single IntersectionObserver (threshold 0.35, disconnects after first hit) in a useEffect whose body only creates/observes/cleans up the observer - setState(true) happens inside the observer's callback (an async event, not the effect body itself), which does not trigger react-hooks/set-state-in-effect (that rule only flags synchronous setState calls in the effect body). Genre bars and the filmes-vs-series split bar animate width from 0% to their target only once revealed via IntersectionObserver, using motion-safe:transition-[width] so prefers-reduced-motion:reduce users skip the transition and the bar simply appears at its target width when scrolled into view (matches the 'estado final estatico' pattern from MatchShowcase, adapted for a scroll-triggered reveal instead of a looping animation). No API calls, no useMatchStore/useAuthStore touched. Wired into LandingScreen.tsx between MatchShowcase and the still-pending Testimonials."
-    },
-    {
-      "id": "US-010",
-      "title": "Depoimentos (Testimonials)",
-      "description": "Como visitante, quero ver casais falando bem do app, para ganhar confianca.",
-      "acceptanceCriteria": [
-        "Testimonials com 2-3 depoimentos claramente ilustrativos no tom 'Ana & Leo' (conteudo ficticio de marketing)",
-        "Cada depoimento: citacao, nome do casal e avatar estilizado (estilo de avatar duplo do prototipo, sem foto real)",
-        "Layout responsivo (grid que empilha no mobile ou carrossel simples) sem dependencia nova de carrossel",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Created client/src/components/landing/Testimonials.tsx with 3 fictional couple testimonials (Ana & Léo, Bia & Rafa, Carol & Duda) in a grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 layout (stacks on mobile, no carousel dependency added). Each testimonial is a <figure> card matching the established #161513/border/rounded-[20px] card language, with a quote, a dual-avatar (two overlapping gradient circles per couple, hue-varied per testimonial, same -space-x-2 overlap motif as LandingHero's 'Lista de vocês dois' avatar pair and the prototype header's couple avatar), couple name (font-display) and relationship duration (#a6a39a). Added a large low-opacity closing quote mark (”) as a subtle signature flourish per card, using font-display at 20% opacity in the accent color - decorative only, aria-hidden. Wired into LandingScreen.tsx after DashboardPreview."
-    },
-    {
-      "id": "US-011",
-      "title": "FAQ (FaqSection)",
-      "description": "Como visitante com duvidas, quero respostas rapidas as objecoes comuns, para remover barreiras antes de criar conta.",
-      "acceptanceCriteria": [
-        "FaqSection com 4-6 perguntas (ex.: 'Preciso pagar?', 'Como funciona o codigo de convite?', 'De onde vem os dados dos filmes?' -> TMDB pt-BR, 'Meus dados sao privados?')",
-        "Itens expansiveis/colapsaveis reaproveitando src/components/ui/collapsible.tsx, com acessibilidade de accordion (aria-expanded, foco por teclado)",
-        "Nenhuma dependencia nova introduzida",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "Created client/src/components/landing/FaqSection.tsx (id=\"faq\") with 6 Q&A items (pricing, invite code, TMDB pt-BR, privacy, individual ratings, Match) using base-ui Collapsible (Collapsible/CollapsibleTrigger/CollapsibleContent from src/components/ui/collapsible.tsx) for accordion behavior - aria-expanded/keyboard handled natively by base-ui, icon rotates via group-data-[panel-open] on the Trigger itself. No new dependency. Wired into LandingScreen.tsx after Testimonials."
-    },
-    {
-      "id": "US-012",
-      "title": "CTA final (FinalCta) + Rodape (LandingFooter)",
-      "description": "Como visitante que rolou ate o fim, quero um ultimo empurrao para criar conta e um rodape com a marca.",
-      "acceptanceCriteria": [
-        "FinalCta: bloco de fechamento com headline emocional + CTA primario 'Comecar a dois' (/register) e link secundario para /login",
-        "LandingFooter: logo/marca 'Sessao·a·Dois', links de ancora e para /login e /register, sem links quebrados ou para paginas inexistentes",
-        "Ambos seguem o design system (cores, tipografia, glows discretos)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "Created client/src/components/landing/FinalCta.tsx and LandingFooter.tsx, wired into LandingScreen.tsx after FaqSection. FinalCta: centered closing block with a Heart-in-badge signature icon, emotional headline 'Comecem a assistir a dois hoje', microcopy, primary CTA 'Comecar a dois' (/register, same #ffcb2b bg + shadow glow as header/hero CTA) and secondary 'Ja temos conta' (/login, outlined), plus a discreet radial-gradient glow (rgba(255,203,43,.14) at top-center) behind the block matching the LandingScreen page-level gradient style (not a new token). LandingFooter: brand lockup (same Heart-in-#ffcb2b-badge + 'Sessao*a*Dois' wordmark as LandingHeader, smaller scale), the same 3 anchor links as LandingHeader/faq (#como-funciona/#recursos/#faq) plus /login and /register links (Entrar/Criar conta as plain text links, not the header's button style, since this is a footer utility row), and a copyright line. Verified every href/to in both files resolves to an existing route or in-page id (no broken links)."
-    },
-    {
-      "id": "US-013",
-      "title": "Acessibilidade e prefers-reduced-motion (passada final)",
-      "description": "Como usuario de teclado/leitor de tela ou sensivel a movimento, quero navegar e ler a landing confortavelmente.",
-      "acceptanceCriteria": [
-        "Toda a pagina e navegavel por teclado; ordem de foco logica; :focus-visible visivel em todos os interativos (links, botoes, accordion)",
-        "Elementos interativos e icones informativos tem alt/aria-label adequados; icones decorativos sao aria-hidden",
-        "Contraste de texto atende WCAG AA no tema escuro (primario #f6f4ec, secundario #a6a39a)",
-        "Todas as animacoes (hero, match, dashboard, hovers) respeitam prefers-reduced-motion: reduce",
-        "Landmark structure correta (<header>, <main>, <footer>, secoes com heading)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "Audited all 10 landing components + LandingScreen against the AC. Fixed 4 real gaps found: (1) Landmark structure was broken - LandingHero rendered its own <main>, so every other section (HowItWorks..FinalCta) sat outside any main landmark; changed LandingHero's outer tag to <section> and wrapped LandingHero..FinalCta in a single <main> in LandingScreen.tsx (header/main/footer now correct, one <main> for the whole page). (2) MatchShowcase's 'Deu Match!' span had role=\"status\", but the animation loops infinitely (every 6s) - a live region there would re-announce the same text to screen reader users every 6 seconds forever; removed role=\"status\" and instead marked the whole decorative animated demo container aria-hidden=\"true\" (the section's h2+p already fully describe the Match behavior in accessible text, so nothing is lost). (3) LandingFooter's copyright line used text-[#6f6c64] on the #09090a page background, which computes to ~3.8:1 contrast - fails WCAG AA (needs 4.5:1 for this small text); swapped to the already-approved secondary token text-[#a6a39a] (~7.9:1, comfortably AA). (4) Testimonials' dual-avatar decorative circles div had no aria-hidden (unlike the identical pattern already used in LandingHero/LandingHeader/LandingFooter); added aria-hidden=\"true\" to match. Everything else already met the AC on inspection: every interactive element (links, buttons, Collapsible triggers) already had focus-visible:outline-2 classes from earlier stories, all decorative Lucide icons were already aria-hidden, every section already had a real <h2> (hero has the page's single <h1>), and prefers-reduced-motion was already fully handled via the motion-safe: pattern established in US-008/US-009. tsc --noEmit and eslint both clean on the changed files."
-    },
-    {
-      "id": "US-014",
-      "title": "QA responsivo (~360px -> desktop largo)",
-      "description": "Como visitante em qualquer dispositivo, quero a pagina sem quebras de layout.",
-      "acceptanceCriteria": [
-        "Sem overflow horizontal nem sobreposicao em 360px, 768px, 1024px e >=1440px",
-        "Header, hero, grids e demos permanecem legiveis e alinhados nos breakpoints",
-        "Imagens/mocks nao estouram seus containers; tipografia escala via clamp()",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Audited all 10 landing/*.tsx section components against 360/768/1024/>=1440px by computing exact pixel budgets from their Tailwind classes (gap/padding/font sizes vs. available content width per breakpoint), since no browser/Chromium is available in this sandbox (no sudo to install Playwright's system deps) even though the Vite dev server itself now runs. Found and fixed 2 real defects: (1) LandingHeader's anchor nav (`hidden md:flex`) required ~785px of content width at the md breakpoint (768px) against ~704px available - a ~80px overflow starting at exactly 768px - was already fixed (uncommitted from a prior session) by moving the reveal to `lg:flex` (1024px), where the same content fits with ~130px to spare; verified via computation and committed as part of this story. (2) MatchShowcase's two 104px liked-cards + 64px center icon + gap-6 (24px) summed to exactly 320px, matching the exact available width at 360px (360 - px-5*2) with zero margin - a zero-slack fit is fragile to any box-model/border rounding; reduced the base gap from `gap-6` to `gap-3` (24px->12px) to add ~16-24px of real margin, keeping `sm:gap-10` unchanged for tablet/desktop."
+      "notes": "Avaliados scripts/deploy.sh, api/Dockerfile e docker-compose-prod.yml (lidos integralmente). Conclusao: NENHUMA alteracao e necessaria nos tres. O Flyway roda embutido no startup do Spring Boot (spring.flyway.enabled=true), sem etapa extra de deploy; api/src/main/resources/db/migration/*.sql e um recurso Maven padrao, entao ja e empacotado dentro do jar pelo build normal (COPY src/ src/ no Dockerfile ja copia db/migration junto, nenhum COPY adicional necessario); docker-compose-prod.yml so repassa DB_URL/DB_USER/DB_PASSWORD, que ja sao as mesmas credenciais usadas por Hibernate/Flyway (mesma datasource); deploy.sh nao tem nenhuma etapa de schema/migration para ajustar. Nenhum dos tres arquivos foi modificado. Achado relacionado (fora do escopo dos 3 arquivos, mas relevante para 'o Flyway funcionar'): DB_URL de producao usa o Connection Pooler do Supabase em modo Transaction (porta 6543, conforme docs/DEPLOY.md Passo 1), e o Flyway depende de advisory locks do Postgres, que modo Transaction nao suporta de forma confiavel (mesma classe de problema que ja motivou o ?prepareThreshold=0 existente em DB_URL, mas para um mecanismo diferente). Documentada a ressalva e a recomendacao (usar temporariamente conexao direta porta 5432 ou pooler em modo Session so para o deploy com a nova migration) em docs/FLYWAY.md, secao 'Risco conhecido: connection pooler em modo Transaction (Supabase)' -- nao um arquivo sensivel de infra, entao nao precisou de aprovacao previa para ser editado. Nao modificado nem proposto qualquer alteracao a scripts/deploy.sh, api/Dockerfile ou docker-compose-prod.yml. Typecheck passes: nenhum codigo/SQL alterado nesta historia (apenas docs/FLYWAY.md), nada para compilar."
     }
   ]
 }

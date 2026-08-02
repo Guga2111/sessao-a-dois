@@ -4,6 +4,8 @@ import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
+import com.app.notification.NotificationService;
+import com.app.notification.NotificationType;
 import com.app.tracking.MediaStatus;
 import com.app.tracking.MediaTrack;
 import com.app.tracking.MediaTrackRepository;
@@ -27,16 +29,19 @@ public class MatchService {
 	private final CoupleRepository coupleRepository;
 	private final MediaDetailsService mediaDetailsService;
 	private final SimpMessagingTemplate messagingTemplate;
+	private final NotificationService notificationService;
 
 	public MatchService(MatchLikeRepository matchLikeRepository, MatchRejectRepository matchRejectRepository,
 			MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
-			MediaDetailsService mediaDetailsService, SimpMessagingTemplate messagingTemplate) {
+			MediaDetailsService mediaDetailsService, SimpMessagingTemplate messagingTemplate,
+			NotificationService notificationService) {
 		this.matchLikeRepository = matchLikeRepository;
 		this.matchRejectRepository = matchRejectRepository;
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.coupleRepository = coupleRepository;
 		this.mediaDetailsService = mediaDetailsService;
 		this.messagingTemplate = messagingTemplate;
+		this.notificationService = notificationService;
 	}
 
 	@Transactional
@@ -63,7 +68,7 @@ public class MatchService {
 				couple = coupleRepository.findById(coupleId)
 					.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 			}
-			createMatch(couple, request);
+			createMatch(couple, request, userId);
 		}
 
 		return new LikeResponse(matched);
@@ -77,6 +82,15 @@ public class MatchService {
 		Couple couple = coupleRepository.findById(coupleId)
 			.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 		matchRejectRepository.save(new MatchReject(couple, userId, request.tmdbId(), request.mediaType()));
+
+		boolean partnerLiked = matchLikeRepository
+			.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, request.tmdbId(), userId)
+			.isPresent();
+		if (partnerLiked) {
+			MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
+			notificationService.notifyCouple(couple, NotificationType.NO_MATCH, request.tmdbId(), request.mediaType(),
+					details.title(), userId);
+		}
 	}
 
 	public List<PendingMatchDto> getPending(UUID coupleId, UUID userId) {
@@ -92,7 +106,7 @@ public class MatchService {
 		return result;
 	}
 
-	private void createMatch(Couple couple, LikeRequest request) {
+	private void createMatch(Couple couple, LikeRequest request, UUID actorUserId) {
 		MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
 
 		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), MediaStatus.WANT_TO_SEE);
@@ -101,5 +115,8 @@ public class MatchService {
 
 		MatchEvent event = new MatchEvent(request.tmdbId(), details.title(), request.mediaType());
 		messagingTemplate.convertAndSend("/topic/couple/" + couple.getId() + "/match", event);
+
+		notificationService.notifyCouple(couple, NotificationType.MATCH, request.tmdbId(), request.mediaType(),
+				details.title(), actorUserId);
 	}
 }

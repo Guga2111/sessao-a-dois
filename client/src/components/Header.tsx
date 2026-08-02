@@ -3,6 +3,7 @@ import { useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
+import { NotificationDropdown } from "@/components/NotificationDropdown"
 import { daysSince } from "@/lib/date"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -41,7 +42,7 @@ export function Header() {
             end={item.to === "/hub"}
             className={({ isActive }) =>
               cn(
-                "rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors",
+                "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors",
                 isActive
                   ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
                   : "text-[#a6a39a] hover:text-[#f6f4ec]"
@@ -65,6 +66,7 @@ export function Header() {
                 {days} {days === 1 ? "dia" : "dias"} juntos no app
               </div>
             </div>
+            <NotificationDropdown />
             <CoupleAvatars
               userInitial={firstName.charAt(0)}
               partnerInitial={partnerFirstName.charAt(0)}
@@ -103,7 +105,7 @@ function MobileNav() {
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
                   isActive
                     ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
                     : "text-[#a6a39a] hover:text-[#f6f4ec]"

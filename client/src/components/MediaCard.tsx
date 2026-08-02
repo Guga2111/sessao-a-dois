@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react"
 
 import { isAxiosError } from "axios"
-import { Check, Clock3, Trash2 } from "lucide-react"
+import { Check, Clock3, Star, Trash2 } from "lucide-react"
 
+import { RatingRequestDialog } from "@/components/RatingRequestDialog"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import type { MediaDetails } from "@/types/media"
@@ -15,8 +22,15 @@ interface MediaCardProps {
   onStatusChange?: (track: MediaTrackResponse) => void
   onStartWatching?: (track: MediaTrackResponse) => void
   onReview?: (track: MediaTrackResponse) => void
+  onRated?: (track: MediaTrackResponse) => void
   onClick?: (track: MediaTrackResponse) => void
   onDelete?: (track: MediaTrackResponse) => void
+  /** When true, the card is in comparison-selection mode: clicking it toggles
+   *  selection (via `onCompareToggle`) instead of opening the detail view. */
+  compareMode?: boolean
+  compareSelected?: boolean
+  compareOrder?: number | null
+  onCompareToggle?: (track: MediaTrackResponse) => void
 }
 
 const TYPE_LABEL: Record<MediaTrackResponse["mediaType"], string> = {
@@ -36,6 +50,11 @@ function formatWatchedDate(watchedDate: string | null): string | null {
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
 }
 
+function reviewRatingLabel(rating: number | null | undefined): string {
+  if (rating === null || rating === undefined) return "sem nota"
+  return `${rating} ${rating === 1 ? "estrela" : "estrelas"}`
+}
+
 function Stars({ rating }: { rating: number }) {
   const filled = Math.round(rating)
   return (
@@ -52,12 +71,18 @@ export function MediaCard({
   onStatusChange,
   onStartWatching,
   onReview,
+  onRated,
   onClick,
   onDelete,
+  compareMode = false,
+  compareSelected = false,
+  compareOrder = null,
+  onCompareToggle,
 }: MediaCardProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
   const [startingWatch, setStartingWatch] = useState(false)
   const [startWatchError, setStartWatchError] = useState<string | null>(null)
+  const [rateOpen, setRateOpen] = useState(false)
 
   useEffect(() => {
     api
@@ -103,11 +128,17 @@ export function MediaCard({
       : null
 
   return (
+    <>
     <div
-      onClick={() => onClick?.(track)}
+      onClick={() => (compareMode ? onCompareToggle?.(track) : onClick?.(track))}
+      aria-pressed={compareMode ? compareSelected : undefined}
       className={cn(
-        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] text-[#f6f4ec] transition-transform duration-[.18s] ease-out hover:-translate-y-1",
-        STATUS_BORDER_HOVER[track.status]
+        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-[#161513] text-[#f6f4ec] transition-transform duration-[.18s] ease-out hover:-translate-y-1",
+        compareMode
+          ? compareSelected
+            ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+            : "border-dashed border-white/20 hover:border-white/35"
+          : cn("border-[rgba(255,255,255,.07)]", STATUS_BORDER_HOVER[track.status])
       )}
     >
       <div
@@ -140,17 +171,25 @@ export function MediaCard({
               <Check className="size-3.5" strokeWidth={3} />
             </div>
           )}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onDelete?.(track)
-            }}
-            aria-label="Excluir título"
-            className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-[rgba(9,9,10,.6)] text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-[rgba(255,107,107,.85)] hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[#ff6b6b]"
-          >
-            <Trash2 className="size-3.5" />
-          </button>
+          {compareMode ? (
+            compareSelected && (
+              <div className="grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+                {compareOrder}
+              </div>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete?.(track)
+              }}
+              aria-label="Excluir título"
+              className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-[rgba(9,9,10,.6)] text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-[rgba(255,107,107,.85)] hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[#ff6b6b]"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
         </div>
         {track.status === "WANT_TO_SEE" && !details?.posterUrl && (
           <div className="absolute inset-0 grid place-items-center text-[34px] opacity-50">
@@ -200,12 +239,32 @@ export function MediaCard({
 
           {/* Estrelas + média */}
           {showRatings && coupleAvg !== null && (
-            <div className="mt-2.5 flex items-center gap-2">
-              <Stars rating={coupleAvg} />
-              <span className="text-[13px] text-[#a6a39a]">
-                {coupleAvg.toFixed(1).replace(".", ",")}
-              </span>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <div className="mt-2.5 flex w-fit items-center gap-2" />
+                  }
+                >
+                  <Stars rating={coupleAvg} />
+                  <span className="text-[13px] text-[#a6a39a]">
+                    {coupleAvg.toFixed(1).replace(".", ",")}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="rounded-lg border border-[rgba(255,255,255,.1)] bg-[#201e18] px-3 py-2 text-[#f6f4ec] shadow-xl">
+                  <div className="flex flex-col gap-1">
+                    {track.reviews.map((review) => (
+                      <span key={review.userId} className="text-[12px]">
+                        <span className="font-semibold">
+                          {review.userName}:
+                        </span>{" "}
+                        {reviewRatingLabel(review.rating)}
+                      </span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {/* Data */}
@@ -225,8 +284,9 @@ export function MediaCard({
           )}
         </div>
 
-        {/* Footer / CTA */}
-        {track.status === "WANT_TO_SEE" && (
+        {/* Footer / CTA — hidden during comparison selection so it can't be
+            accidentally triggered instead of selecting the card */}
+        {!compareMode && track.status === "WANT_TO_SEE" && (
           <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
             <Button
               variant="outline"
@@ -244,7 +304,7 @@ export function MediaCard({
             )}
           </div>
         )}
-        {track.status === "WATCHING" && (
+        {!compareMode && track.status === "WATCHING" && (
           <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
             <Button
               variant="outline"
@@ -258,21 +318,47 @@ export function MediaCard({
             </Button>
           </div>
         )}
-        {track.status === "WATCHED" && (
-          <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
-            <Button
-              variant="outline"
-              onClick={(event) => {
-                event.stopPropagation()
-                onReview?.(track)
-              }}
-              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
-            >
-              Reavaliar
-            </Button>
-          </div>
-        )}
+        {!compareMode && track.status === "WATCHED" &&
+          (myReview?.rating ? (
+            <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+              <Button
+                variant="outline"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onReview?.(track)
+                }}
+                className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+              >
+                Reavaliar
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-4 border-t border-[rgba(255,255,255,.06)] pt-3">
+              <Button
+                variant="outline"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setRateOpen(true)
+                }}
+                className="h-auto w-full rounded-full border-[rgba(255,203,43,.35)] bg-[rgba(255,203,43,.1)] py-2.5 text-[13px] font-semibold text-[#ffcb2b] hover:bg-[rgba(255,203,43,.16)] hover:text-[#ffcb2b]"
+              >
+                <Star className="mr-1.5 -mt-px inline size-3.5" strokeWidth={2.5} />
+                Avaliar
+              </Button>
+            </div>
+          ))}
       </div>
     </div>
+    <RatingRequestDialog
+      mediaTrackId={rateOpen ? track.id : null}
+      title={details?.title ?? `Título #${track.tmdbId}`}
+      description="Dê sua nota e opinião sobre este título — ambas são opcionais."
+      onClose={() => setRateOpen(false)}
+      onSuccess={(updated) => {
+        setRateOpen(false)
+        onRated?.(updated)
+      }}
+    />
+    </>
   )
 }

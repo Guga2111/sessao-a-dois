@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react"
 import { Heart, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { DetailModalSkeleton } from "@/components/skeletons/DetailModalSkeleton"
 import { api } from "@/lib/api"
+import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import type { MediaDetails, PendingMatch } from "@/types/media"
 
 interface PendingDetailModalProps {
@@ -19,38 +21,6 @@ const TYPE_LABEL: Record<PendingMatch["mediaType"], string> = {
   TV: "Serie",
 }
 
-function SkeletonDetail() {
-  return (
-    <div className="flex animate-pulse flex-col gap-5">
-      <div className="flex gap-4">
-        <div className="flex flex-col gap-1.5">
-          <div className="h-3 w-10 rounded bg-white/[0.06]" />
-          <div className="h-5 w-12 rounded bg-white/[0.06]" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <div className="h-3 w-16 rounded bg-white/[0.06]" />
-          <div className="h-5 w-20 rounded bg-white/[0.06]" />
-        </div>
-      </div>
-      <div>
-        <div className="mb-2 h-3 w-16 rounded bg-white/[0.06]" />
-        <div className="flex gap-2">
-          <div className="h-6 w-16 rounded-full bg-white/[0.06]" />
-          <div className="h-6 w-20 rounded-full bg-white/[0.06]" />
-        </div>
-      </div>
-      <div>
-        <div className="mb-2 h-3 w-24 rounded bg-white/[0.06]" />
-        <div className="space-y-1.5">
-          <div className="h-3.5 w-full rounded bg-white/[0.06]" />
-          <div className="h-3.5 w-5/6 rounded bg-white/[0.06]" />
-          <div className="h-3.5 w-4/6 rounded bg-white/[0.06]" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function PendingDetailModal({
   item,
   onClose,
@@ -60,21 +30,29 @@ export function PendingDetailModal({
 }: PendingDetailModalProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
+  const showSkeleton = useDelayedLoading(!details)
 
   useEffect(() => {
-    if (!item) {
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (cancelled) return
       setDetails(null)
-      return
+      if (!item) return
+
+      api
+        .get<MediaDetails>(
+          `/api/media/${item.mediaType.toLowerCase()}/${item.tmdbId}`
+        )
+        .then((res) => {
+          if (!cancelled) setDetails(res.data)
+        })
+        .catch(() => {})
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
-
-    setDetails(null)
-
-    api
-      .get<MediaDetails>(
-        `/api/media/${item.mediaType.toLowerCase()}/${item.tmdbId}`
-      )
-      .then((res) => setDetails(res.data))
-      .catch(() => {})
   }, [item])
 
   useEffect(() => {
@@ -117,18 +95,18 @@ export function PendingDetailModal({
         <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/90 px-6 pt-6 pb-4 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              {!details ? (
+              {showSkeleton ? (
                 <div className="h-7 w-48 animate-pulse rounded-lg bg-white/[0.08]" />
               ) : (
                 <h2 className="font-display text-[clamp(18px,3vw,24px)] font-bold leading-tight tracking-tight">
-                  {details.title}
+                  {details!.title}
                 </h2>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#a6a39a]">
                 <span className="rounded-md border border-[rgba(255,203,43,.4)] bg-[rgba(255,203,43,.18)] px-2.5 py-0.5 text-[11px] font-semibold text-[#ffcb2b]">
                   Sugestao
                 </span>
-                {!details ? (
+                {showSkeleton ? (
                   <div className="h-4 w-32 animate-pulse rounded bg-white/[0.06]" />
                 ) : (
                   <>
@@ -189,8 +167,8 @@ export function PendingDetailModal({
 
           {/* Details */}
           <div className="min-w-0 flex-1">
-            {!details ? (
-              <SkeletonDetail />
+            {showSkeleton || !details ? (
+              <DetailModalSkeleton showPoster={false} />
             ) : (
               <div className="flex flex-col gap-5">
                 {/* Stats row */}
