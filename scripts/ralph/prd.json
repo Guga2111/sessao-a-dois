@@ -84,8 +84,8 @@
         "./mvnw test passa"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Criado api/src/test/java/com/app/websocket/JwtHandshakeInterceptorTest.java: 5 testes cobrindo sem token, token vazio/em branco (isBlank apos parse), assinatura invalida, token malformado (todos -> false + 401 + attributes sem USER_ID_ATTRIBUTE) e token valido (-> true + userId correto em attributes). JwtService real (nao mockado) e usado para gerar tokens validos/invalidos, igual ao padrao de JwtServiceTest. ServerHttpRequest e construido com ServletServerHttpRequest(MockHttpServletRequest) + setQueryString(...) para exercitar o parsing real de UriComponentsBuilder feito por extractToken. Descoberta relevante: UriComponentsBuilder.fromUri(uri).build().getQueryParams() NAO decodifica percent-encoding (token=%20 chega como a string literal \"%20\", nao um espaco) - por isso o caso 'blank' testado usa query string vazia (token=), que produz String vazia (isBlank()==true de verdade), em vez de %20. ./mvnw test: 287/287 passam (282 pre-existentes + 5 novos)."
     },
     {
       "id": "US-006",

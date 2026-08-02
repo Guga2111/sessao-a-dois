@@ -175,3 +175,36 @@
     `EmailAlreadyExistsException` entre métodos.
   - `./mvnw test`: 282/282 passam (274 pré-existentes + 8 novos).
 ---
+
+## 2026-08-02 - US-005
+- Criado `api/src/test/java/com/app/websocket/JwtHandshakeInterceptorTest.java`: 5 testes
+  cobrindo o único portão de autenticação do handshake STOMP/SockJS
+  (`JwtHandshakeInterceptor.beforeHandshake`): sem `?token=`, `?token=` vazio/em branco,
+  assinatura inválida, token malformado (todos -> `false` + 401 + `attributes` sem
+  `USER_ID_ATTRIBUTE`) e token válido (-> `true` + `userId` correto em `attributes`).
+- Arquivos alterados: `api/src/test/java/com/app/websocket/JwtHandshakeInterceptorTest.java`
+  (novo).
+- **Learnings for future iterations:**
+  - `JwtHandshakeInterceptor` não tem dependências para mockar além de `JwtService` — usei a
+    instância real (mesmo padrão de `JwtServiceTest`: `VALID_SECRET`/`OTHER_VALID_SECRET`)
+    em vez de `Mockito.mock(JwtService.class)`, porque gerar tokens reais válidos/inválidos é
+    mais simples e mais fiel do que stubar `parseSubject`.
+  - Para exercitar o parsing real feito por `extractToken` (que faz
+    `UriComponentsBuilder.fromUri(((ServletServerHttpRequest) request).getURI())`), construí
+    o `ServerHttpRequest` com `new ServletServerHttpRequest(new MockHttpServletRequest("GET",
+    "/ws"))` + `mockRequest.setQueryString(...)`, em vez de mockar `ServerHttpRequest`
+    diretamente — o cast `instanceof ServletServerHttpRequest` no código de produção exige um
+    objeto real dessa classe, um mock genérico de `ServerHttpRequest` falharia nesse cast.
+  - **Descoberta importante, útil para qualquer teste futuro envolvendo query params via
+    `UriComponentsBuilder.fromUri(uri).build()`:** essa combinação NÃO decodifica
+    percent-encoding — `token=%20` chega em `getQueryParams()` como a string literal `"%20"`
+    (3 caracteres), não um espaço, então `"%20".isBlank()` é `false`. Confirmado com um
+    scratch test isolado (classpath direto do `spring-web` do `.m2`) antes de escrever o
+    teste real. Por isso o caso "vazio ou em branco" do PRD foi coberto só com `token=`
+    (valor vazio, que produz `String` vazia de verdade, `isBlank() == true`) — um valor
+    `%20` testaria na prática o branch de "token malformado" (JWT inválido), não o branch de
+    `isBlank()`, e duplicaria semanticamente o teste de token malformado.
+  - `Mockito.verifyNoInteractions(response)` confirma que o caminho de sucesso não toca no
+    `ServerHttpResponse` (só o de rejeição chama `setStatusCode(UNAUTHORIZED)`).
+  - `./mvnw test`: 287/287 passam (282 pré-existentes + 5 novos).
+---
