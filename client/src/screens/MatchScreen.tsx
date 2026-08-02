@@ -798,7 +798,8 @@ function SearchTab() {
     }
   }, [query, runFetch])
 
-  const handleSortChange = (nextSortBy: string) => {
+  const handleSortChange = (nextSortBy: string | null) => {
+    if (!nextSortBy) return
     setSortBy(nextSortBy)
     if (hasQuery) return
 
@@ -1026,7 +1027,7 @@ function SearchTab() {
                 step={0.5}
                 minStepsBetweenValues={1}
                 value={voteRange}
-                onValueChange={setVoteRange}
+                onValueChange={(v) => setVoteRange(v as [number, number])}
               >
                 <SliderControl>
                   <SliderTrack>
@@ -1057,7 +1058,7 @@ function SearchTab() {
                 step={5}
                 minStepsBetweenValues={1}
                 value={runtimeRange}
-                onValueChange={setRuntimeRange}
+                onValueChange={(v) => setRuntimeRange(v as [number, number])}
               >
                 <SliderControl>
                   <SliderTrack>

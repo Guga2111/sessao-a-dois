@@ -99,7 +99,7 @@ export function PendingDetailModal({
                 <div className="h-7 w-48 animate-pulse rounded-lg bg-white/[0.08]" />
               ) : (
                 <h2 className="font-display text-[clamp(18px,3vw,24px)] font-bold leading-tight tracking-tight">
-                  {details.title}
+                  {details!.title}
                 </h2>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#a6a39a]">
@@ -167,7 +167,7 @@ export function PendingDetailModal({
 
           {/* Details */}
           <div className="min-w-0 flex-1">
-            {showSkeleton ? (
+            {showSkeleton || !details ? (
               <DetailModalSkeleton showPoster={false} />
             ) : (
               <div className="flex flex-col gap-5">
