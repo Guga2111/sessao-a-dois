@@ -68,8 +68,8 @@
         "./mvnw test passa"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Criado api/src/test/java/com/app/security/SecurityConfigTest.java com @SpringBootTest + @AutoConfigureMockMvc (contexto completo, H2 real via create-drop, sem mocks). 8 testes: GET /api/health sem header Authorization -> 200; POST /api/auth/register -> 201; POST /api/auth/register + POST /api/auth/login com credenciais reais -> 200 (nao usei credenciais invalidas porque InvalidCredentialsException tambem mapeia para 401 em AuthExceptionHandler, o que mascararia a diferenca entre 'bloqueado pelo Security' e 'rejeitado pela regra de negocio'); GET /api/tracking/stats, /api/match/pending, /api/media/search, /api/couple/me, /api/notifications sem token -> 401. Emails de registro sao unicos por UUID para nao colidir entre metodos de teste que compartilham o mesmo contexto/DB. ./mvnw test: 282/282 passam (274 + 8 novos)."
     },
     {
       "id": "US-005",

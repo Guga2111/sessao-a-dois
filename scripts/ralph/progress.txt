@@ -138,3 +138,40 @@
     subclasses de `JwtException`, nenhuma NPE mesmo com entrada arbitrária.
   - `./mvnw test`: 274/274 passam (269 pré-existentes + 5 novos).
 ---
+
+## 2026-08-02 - US-004
+- Criado `api/src/test/java/com/app/security/SecurityConfigTest.java`: primeiro teste do
+  projeto a usar `@SpringBootTest` + `@AutoConfigureMockMvc` (contexto completo, H2 real via
+  `create-drop`, sem nenhum bean mockado) para fixar o contrato de rotas públicas x privadas
+  de `SecurityConfig`. 8 testes: `GET /api/health` sem header `Authorization` -> 200;
+  `POST /api/auth/register` -> 201; register + `POST /api/auth/login` com credenciais reais
+  -> 200; `GET /api/tracking/stats`, `/api/match/pending`, `/api/media/search`,
+  `/api/couple/me`, `/api/notifications` sem token -> 401.
+- Arquivos alterados: `api/src/test/java/com/app/security/SecurityConfigTest.java` (novo).
+- **Learnings for future iterations:**
+  - **Spring Boot 4.1.0 moveu `@AutoConfigureMockMvc` para
+    `org.springframework.boot.webmvc.test.autoconfigure`** (artefato `spring-boot-webmvc-test`),
+    não `org.springframework.boot.test.autoconfigure.web.servlet` (pacote do Spring Boot 3.x,
+    que não existe mais aqui — mesma família de mudança já registrada em `api/CLAUDE.md` para
+    `UserDetailsServiceAutoConfiguration`). O mesmo pacote novo já hospeda `@WebMvcTest`
+    (confirmado em `AuthControllerTest.java`, que já importava de lá). Ao usar qualquer
+    anotação de teste do Spring Boot que "sempre" morou em
+    `org.springframework.boot.test.autoconfigure.*`, primeiro confirme o pacote real via
+    `unzip -l` no jar `spring-boot-webmvc-test-4.1.0.jar` (ou o artefato de teste equivalente)
+    em vez de assumir a doc/exemplos do Spring Boot 3.x.
+  - Para testar 401 de uma rota privada por falta de token, **não é preciso mockar nada** — a
+    rejeição acontece no `JwtAuthenticationFilter`/`authorizeHttpRequests`, antes de qualquer
+    controller/service rodar, então mesmo endpoints que chamariam TMDB real (`/api/media/search`)
+    ou exigiriam parâmetros de query nunca chegam lá; um `GET` simples sem header já basta.
+  - Para o teste de `POST /api/auth/login` retornando 200, usar credenciais **reais** (registrar
+    o usuário no mesmo teste antes de logar) em vez de tentar contornar a validação: login com
+    email/senha errados passa por `InvalidCredentialsException`, que `AuthExceptionHandler`
+    também mapeia para 401 — isso mascararia a diferença entre "bloqueado pelo Spring Security"
+    (o que a story testa) e "rejeitado pela regra de negócio do AuthService".
+  - Como o teste roda com contexto completo e DB real (H2 `create-drop`, sem `@Transactional`),
+    dados gravados por um método de teste persistem para os demais métodos da mesma classe
+    (mesmo contexto Spring é reutilizado) — usar e-mails únicos por `UUID.randomUUID()` em
+    qualquer teste de integração que registre usuários, para não colidir com
+    `EmailAlreadyExistsException` entre métodos.
+  - `./mvnw test`: 282/282 passam (274 pré-existentes + 8 novos).
+---
