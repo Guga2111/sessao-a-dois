@@ -64,8 +64,17 @@ while read -r cidr; do
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains
+#
+# repo.maven.apache.org / repo1.maven.org: Maven Central. Sem eles o `./mvnw`
+# do api/ nao consegue nem baixar o proprio Maven (o wrapper usa
+# distributionType=only-script, ver api/.mvn/wrapper/maven-wrapper.properties),
+# quanto mais resolver dependencias -- o que deixa todo o backend sem
+# compilacao/teste dentro do sandbox. Mesmo nivel de confianca do
+# registry.npmjs.org ja liberado acima.
 for domain in \
     "registry.npmjs.org" \
+    "repo.maven.apache.org" \
+    "repo1.maven.org" \
     "api.anthropic.com" \
     "sentry.io" \
     "statsig.anthropic.com" \
@@ -134,4 +143,15 @@ if ! curl --connect-timeout 5 https://api.github.com/zen >/dev/null 2>&1; then
     exit 1
 else
     echo "Firewall verification passed - able to reach https://api.github.com as expected"
+fi
+
+# Verify Maven Central access. Nao aborta o script: o Maven Central fica atras de
+# CDN com IPs rotativos, entao um IP resolvido no start pode deixar de valer.
+# Se este aviso aparecer e `./mvnw` falhar por rede, basta reexecutar
+# `sudo /usr/local/bin/init-firewall.sh` para re-resolver os IPs.
+if ! curl --connect-timeout 5 -sI https://repo.maven.apache.org/maven2/ >/dev/null 2>&1; then
+    echo "WARNING: unable to reach https://repo.maven.apache.org - ./mvnw will fail."
+    echo "         Re-run this script to refresh the resolved CDN IPs."
+else
+    echo "Firewall verification passed - able to reach Maven Central as expected"
 fi
