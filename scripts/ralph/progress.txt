@@ -36,3 +36,51 @@
   cada uma já com arquivo/linha, proposta, critérios de aceite e escopo negativo — ou
   seja, praticamente prontas para virar PRD. As decisões **D1..D12** no topo do arquivo
   são vinculantes; não reabra nenhuma sem registrar o motivo lá.
+
+- **O skill `/ralph` grava em `.claude/skills/ralph/prd.json`, não em `scripts/ralph/prd.json`
+  (lido pelo loop).** Confirmado de novo neste épico: rodei `/ralph` e precisei copiar
+  manualmente o resultado para `scripts/ralph/prd.json` depois. Sempre espelhar os dois
+  arquivos a cada mudança de `passes`/`notes`, ou o próximo `ralph.sh` roda contra um
+  prd.json desatualizado.
+
+## 2026-08-02 - Conversão do PRD do Épico 1 (setup, sem story própria)
+- Convertido `tasks/prd-epico-1-contencao-de-seguranca.md` (12 user stories já
+  bem definidas no PRD) para `scripts/ralph/prd.json` + `.claude/skills/ralph/prd.json`
+  (mantidos espelhados). `scripts/ralph/prd.json` estava vazio (0 bytes) e o PRD do
+  Flyway anterior já estava arquivado em `scripts/ralph/archive/2026-08-01-flyway-migrations/`;
+  a cópia stale em `.claude/skills/ralph/prd.json` (branchName `ralph/flyway-migrations`,
+  todas as 7 stories `passes:true`) foi sobrescrita sem novo archive, já que o Flyway já
+  tinha sido arquivado corretamente.
+- Ordem das 12 stories preserva as 3 dependências rígidas do PRD (US-007→US-006,
+  US-010→US-008+US-009, US-012→US-003+US-004+US-005+US-007), que já coincidem com a
+  ordem de prioridade 1-12 do documento original.
+
+## 2026-08-02 - US-001
+- Implementado fail-fast do `JWT_SECRET` em `JwtService` (construtor): lança
+  `IllegalStateException` (mensagem pt-BR citando `JWT_SECRET`) para segredo nulo/branco,
+  igual ao antigo default de dev (`dev-only-secret-please-override-in-prod-32bytes+`), ou
+  com menos de 32 bytes UTF-8. `api/src/main/resources/application.properties` não declara
+  mais default (`app.jwt.secret=${JWT_SECRET:}`).
+- Arquivos alterados: `api/src/main/java/com/app/security/JwtService.java`,
+  `api/src/main/resources/application.properties`, `docker-compose-dev.yml` (efeito
+  colateral, ver abaixo), `api/src/test/java/com/app/security/JwtServiceTest.java` (novo).
+- **Learnings for future iterations:**
+  - `docker-compose-dev.yml` setava `JWT_SECRET` exatamente igual ao antigo default de dev
+    banido pela nova validação — o `docker compose up` local quebraria silenciosamente sem
+    esse ajuste. Trocado para `local-dev-compose-secret-not-for-prod-32bytes+` (46 bytes).
+    Ao endurecer qualquer validação de config, sempre `grep` por todo o repo (não só
+    `api/src/main/resources/`) por valores que a nova regra passaria a rejeitar —
+    `docker-compose-dev.yml`, `.env.example`, `docker-compose-prod.yml`, `.github/workflows/`.
+  - Os segredos de teste (`test-only-secret-please-override-in-prod-32bytes+`, 49 bytes) e
+    de CI (`ci-only-secret-please-override-in-prod-32bytes+`, 47 bytes) já eram válidos
+    contra a nova regra (>=32 bytes, diferentes do default banido) — nada a mudar neles,
+    conforme a nota de atenção do PRD.
+  - Criei `JwtServiceTest.java` só com os 4 cenários de validação do construtor (nulo/branco,
+    default banido, curto, válido). A US-003 (`JwtServiceTest` para comportamento de token)
+    deve **adicionar** métodos a este mesmo arquivo, não criar um novo — o PRD já avisa que
+    os testes de construtor não devem ser duplicados lá.
+  - `./mvnw test`: 269/269 passam. Uma falha transitória em
+    `MediaTrackRepositoryTest.queriesAreScopedByCoupleIdAndNeverLeakOtherCouplesData` (colisão
+    aleatória de `invite_code` único) apareceu numa rodada e sumiu ao re-rodar isolado —
+    pré-existente, não relacionada a esta story, não investigada mais a fundo.
+---

@@ -1,0 +1,217 @@
+{
+  "project": "Sessao a Dois",
+  "branchName": "epico1/security-contention",
+  "description": "Epico 1 - Contencao de Seguranca (+ T8.1 antecipada). Elimina risco de JWT_SECRET com default versionado, JWT em texto claro no access.log do nginx, broker STOMP sem autorizacao por mensagem e CI cego (sem frontend, sem gatilho para main, sem teste das classes de seguranca). Nenhuma mudanca de contrato entre api/ e client/; nenhuma mudanca visual.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fail-fast do JWT_SECRET",
+      "description": "Como operador do sistema, quero que a aplicacao se recuse a subir com um JWT_SECRET ausente, curto ou igual ao default de desenvolvimento, para que uma variavel de ambiente perdida no deploy vire um crash visivel em vez de uma aplicacao assinando tokens com uma chave publica.",
+      "acceptanceCriteria": [
+        "O construtor de JwtService lanca IllegalStateException quando o segredo e nulo ou em branco",
+        "Lanca IllegalStateException quando o segredo e exatamente igual a string dev-only-secret-please-override-in-prod-32bytes+",
+        "Lanca IllegalStateException quando o segredo tem menos de 32 bytes em UTF-8 (contar bytes, nao caracteres)",
+        "A mensagem da excecao e em pt-BR e nomeia explicitamente a variavel de ambiente JWT_SECRET",
+        "Um segredo valido de >=32 bytes constroi o bean normalmente",
+        "api/src/main/resources/application.properties passa a declarar app.jwt.secret=${JWT_SECRET:} (sem valor default)",
+        "api/src/test/resources/application.properties continua declarando um segredo fixo valido (>=32 bytes, diferente do default de dev) - esse arquivo substitui o de main inteiramente para @SpringBootTest",
+        "Existe um teste unitario cobrindo os 4 cenarios (nulo/branco, igual ao default, curto, valido)",
+        "Verificado na pratica que o segredo de teste (test-only-secret-please-override-in-prod-32bytes+) e o do CI (ci-only-secret-please-override-in-prod-32bytes+) nao sao rejeitados pela nova validacao",
+        "./mvnw test passa"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Construtor de JwtService agora valida o segredo (validateSecret): IllegalStateException para nulo/branco, para o antigo default de dev, e para <32 bytes UTF-8, todas com mensagem pt-BR citando JWT_SECRET. application.properties passou app.jwt.secret para ${JWT_SECRET:} (sem default). test/resources/application.properties ja tinha um segredo valido (test-only-...) e nao precisou mudar; CI (ci-only-...) tambem ja e valido - confirmado por contagem de bytes (49 e 47, ambos >=32 e diferentes do default banido). Criado api/src/test/java/com/app/security/JwtServiceTest.java com os 4 cenarios + caso valido; US-003 deve ADICIONAR os testes de token a este mesmo arquivo, nao duplicar os de construtor. Efeito colateral encontrado e corrigido: docker-compose-dev.yml setava JWT_SECRET exatamente igual ao default banido (dev-only-secret-please-override-in-prod-32bytes+), o que quebraria o `docker compose up` local; trocado para local-dev-compose-secret-not-for-prod-32bytes+ (46 bytes). ./mvnw test: 269/269 passam (1 falha transitoria em MediaTrackRepositoryTest por colisao aleatoria de invite_code, nao relacionada, sumiu ao re-rodar isolado)."
+    },
+    {
+      "id": "US-002",
+      "title": "Silenciar a auto-config de usuario in-memory do Spring Security",
+      "description": "Como desenvolvedor, quero eliminar o UserDetailsService in-memory que o Spring Boot cria automaticamente, para que o log de producao pare de imprimir uma senha gerada a cada boot e para que reativar httpBasic no futuro nao abra uma porta acidental.",
+      "acceptanceCriteria": [
+        "UserDetailsServiceAutoConfiguration esta excluida OU existe um AuthenticationManager/UserDetailsService vazio declarado que a desativa",
+        "O log de inicializacao (./mvnw test, qualquer @SpringBootTest de contexto completo) nao contem mais 'Using generated security password'",
+        "Nenhum endpoint muda de comportamento: rotas publicas continuam publicas, privadas continuam retornando 401 sem token",
+        "./mvnw test passa"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "JwtServiceTest",
+      "description": "Como desenvolvedor, quero testes para o nucleo de assinatura e parse do token, para que uma regressao em JwtService seja pega pelo CI em vez de em producao.",
+      "acceptanceCriteria": [
+        "Existe api/src/test/java/com/app/security/JwtServiceTest.java",
+        "Token gerado por generateToken(uuid) e lido por parseSubject devolve o mesmo UUID",
+        "Token expirado faz parseSubject lancar (ExpiredJwtException)",
+        "Token assinado com outra chave faz parseSubject lancar (assinatura invalida)",
+        "Token com subject que nao e um UUID faz parseSubject lancar IllegalArgumentException",
+        "Token malformado / string arbitraria faz parseSubject lancar, sem NullPointerException",
+        "Os testes de validacao do segredo curto/ausente nao sao duplicados aqui - vivem na US-001",
+        "./mvnw test passa"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "SecurityConfigTest e teste do HealthController",
+      "description": "Como desenvolvedor, quero um teste que afirme exatamente quais rotas sao publicas e quais exigem autenticacao, para que um permitAll() acidental nao passe pelo CI.",
+      "acceptanceCriteria": [
+        "Existe api/src/test/java/com/app/security/SecurityConfigTest.java com @SpringBootTest + MockMvc",
+        "Afirma 200 (ou pelo menos 'nao 401') para POST /api/auth/login, POST /api/auth/register, GET /api/health",
+        "Afirma 401 sem token para pelo menos uma rota de cada controller privado: /api/tracking, /api/match/pending, /api/media/search, /api/couple/me, /api/notifications",
+        "Afirma que GET /api/health responde 200 sem nenhum header Authorization",
+        "O teste falha se alguem adicionar um permitAll() novo a uma das rotas privadas listadas",
+        "./mvnw test passa"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "JwtHandshakeInterceptorTest",
+      "description": "Como desenvolvedor, quero testes para o unico portao de autenticacao do WebSocket, para que uma mudanca no JwtHandshakeInterceptor nao abra o handshake sem que ninguem perceba.",
+      "acceptanceCriteria": [
+        "Existe api/src/test/java/com/app/websocket/JwtHandshakeInterceptorTest.java",
+        "Handshake sem ?token= retorna false e seta 401 na resposta",
+        "Handshake com ?token= vazio ou em branco retorna false e seta 401",
+        "Handshake com token invalido (assinatura errada / expirado) retorna false e seta 401",
+        "Handshake com token valido retorna true e grava o userId correto em attributes sob a chave JwtHandshakeInterceptor.USER_ID_ATTRIBUTE",
+        "./mvnw test passa"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "AuthorizationManager de destino do casal",
+      "description": "Como usuario, quero que ninguem fora do meu casal consiga assinar os topicos do meu casal, para que meus titulos assistidos, o nome do meu parceiro e meus eventos de match nao vazem para outra conta.",
+      "acceptanceCriteria": [
+        "Existe um componente novo em api/src/main/java/com/app/websocket/ responsavel apenas por essa decisao",
+        "Destino /topic/couple/{id}/match com id igual ao casal do usuario da sessao -> autorizado",
+        "Destino /topic/couple/{id}/notifications com id igual ao casal do usuario -> autorizado",
+        "Destino com id de outro casal -> negado",
+        "id malformado (nao parseavel como UUID) -> negado, sem lancar excecao que vire 500",
+        "Usuario sem casal (getCurrentCouple devolve Optional.empty()) -> negado",
+        "Sessao sem userId nos atributos -> negado",
+        "Existe teste unitario cobrindo os 6 casos acima",
+        "./mvnw test passa"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Ligar a autorizacao de mensagens no broker STOMP",
+      "description": "Como usuario, quero que a regra da US-006 seja efetivamente aplicada a toda mensagem STOMP de entrada, e que publicacao direta de cliente para /topic/** seja bloqueada, para que ninguem consiga forjar um evento de match no topico de outro casal. Depende de US-006. Postura deny-by-default: so SUBSCRIBE em /topic/couple/{id}/** com o id do proprio casal e permitido; todo o resto (SEND para qualquer destino, qualquer mensagem para /app/**) e negado.",
+      "acceptanceCriteria": [
+        "org.springframework.security:spring-security-messaging foi adicionado ao api/pom.xml, sem <version> explicita (versao gerenciada pelo parent)",
+        "@EnableWebSocketSecurity esta habilitado e o AuthorizationManager da US-006 registrado para mensagens de entrada, via MessageMatcherDelegatingAuthorizationManager.builder()",
+        "Existe um bean ChannelInterceptor com o nome exato csrfChannelInterceptor que e um no-op, sobrescrevendo o XorCsrfChannelInterceptor default, com um comentario apontando para a T4.3",
+        "SUBSCRIBE em /topic/couple/{id}/match e /topic/couple/{id}/notifications com o id do proprio casal e aceito",
+        "SUBSCRIBE nos mesmos destinos com id de outro casal e rejeitado",
+        "SUBSCRIBE com id malformado e rejeitado sem 500",
+        "SEND direto de cliente para qualquer destino e rejeitado - nao so /topic/**",
+        "Qualquer mensagem de cliente para /app/** e rejeitada",
+        "Os pushes do servidor continuam funcionando: MatchService.java (/topic/couple/{id}/match) e NotificationService.java (/topic/couple/{id}/notifications) entregam normalmente - a autorizacao vale so para mensagens de entrada",
+        "O handshake e o frame CONNECT do cliente atual continuam funcionando, sem nenhuma mudanca em client/src/stores/useMatchStore.ts",
+        "Existe teste de integracao cobrindo aceite e rejeicao",
+        "./mvnw test passa"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Parar de gravar JWT no access.log do nginx",
+      "description": "Como operador, quero que o handshake WebSocket pare de gravar o JWT em disco na VPS, para fechar o vazamento continuo de credencial valida para /var/log/nginx/access.log.",
+      "acceptanceCriteria": [
+        "location /ws/ no conf (deploy/nginx/sessaoadois.luisgosampaio.com.conf) tem access_log off;",
+        "location /api/ e location / mantem o access_log intacto - so o /ws/ muda",
+        "docs/DEPLOY.md ganha uma secao de seguranca operacional documentando: (a) que o conf precisa ser reinstalado em /etc/nginx/sites-available/ e o nginx recarregado; (b) que os logs existentes contem JWTs validos e devem ser purgados uma vez, incluindo os rotacionados (access.log.1, access.log.*.gz); (c) que com JWT_EXPIRATION_DAYS=7, tokens em logs de ate 7 dias atras ainda sao validos; (d) o procedimento de rotacao do JWT_SECRET (openssl rand -base64 48) e a atualizacao do .env da VPS",
+        "A sintaxe do conf alterado e valida (verificacao real com nginx -t fica para a US-010, executada na VPS)"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Headers de seguranca HTTP e CSP",
+      "description": "Como usuario, quero que o navegador aplique HSTS, bloqueie sniffing de MIME type, restrinja o Referer e imponha uma Content-Security-Policy, para reduzir o impacto de uma dependencia de terceiros comprometida.",
+      "acceptanceCriteria": [
+        "Os 4 headers (Strict-Transport-Security, X-Content-Type-Options, Referrer-Policy, Content-Security-Policy) estao no conf do nginx, no bloco server da porta 443, todos com o flag always",
+        "A CSP e exatamente: default-src 'self'; img-src 'self' https://image.tmdb.org data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' wss://sessaoadois.luisgosampaio.com; frame-ancestors 'none'; base-uri 'self' (sem hosts do Google Fonts, com wss:// explicito)",
+        "docs/DEPLOY.md explica que esses headers vivem no bloco gerado pelo Certbot e precisam ser reaplicados se o certificado for reemitido do zero (certbot --nginx reescreve o bloco)",
+        "docs/DEPLOY.md registra por que Google Fonts nao esta na CSP (fontes self-hosted via @fontsource), para que ninguem 'conserte' isso adicionando de volta",
+        "A verificacao em producao (curl -I, console sem violacao de CSP) fica para a US-010"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "[OPERACIONAL] Aplicar as mudancas de seguranca na VPS",
+      "description": "Como operador, quero aplicar na VPS as mudancas de nginx e a rotacao do segredo, e confirmar que nada quebrou, para que as correcoes das US-008 e US-009 saiam do repositorio e passem a valer em producao. Depende de US-008 e US-009. Executor manual - nao automatizavel a partir do repositorio.",
+      "acceptanceCriteria": [
+        "O conf atualizado foi copiado para /etc/nginx/sites-available/sessaoadois.luisgosampaio.com na VPS",
+        "Os 4 headers da US-009 foram inseridos no bloco server da porta 443 (o gerado pelo Certbot), nao no bloco 80",
+        "sudo nginx -t passa",
+        "sudo systemctl reload nginx executado sem erro",
+        "curl -I https://sessaoadois.luisgosampaio.com retorna os 4 headers",
+        "Um handshake de WebSocket novo nao produz linha em /var/log/nginx/access.log contendo token=",
+        "/api/ e / continuam gravando access log normalmente",
+        "Os logs historicos foram purgados - incluindo os rotacionados (access.log.1, access.log.*.gz)",
+        "Um JWT_SECRET novo foi gerado (openssl rand -base64 48) e o .env da VPS atualizado",
+        "O container da API foi reiniciado com o segredo novo e sobe sem erro",
+        "Todos os usuarios foram deslogados uma vez e conseguem entrar de novo",
+        "O app carrega sem nenhuma violacao de CSP no console do browser: posteres do TMDB aparecem, fontes carregam, chamadas a /api respondem e o WebSocket conecta (testar recebendo um evento de match ou notificacao real)"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "CI - job de frontend e gatilho para main",
+      "description": "Como desenvolvedor, quero que o CI valide o frontend e rode tambem em PRs para main, para que um erro de typecheck nao chegue a producao e para que merges na branch de producao nao passem sem teste nenhum.",
+      "acceptanceCriteria": [
+        "Existe um job frontend em .github/workflows/ci.yml que roda bun install, bun run typecheck, bun run lint e bun run build em client/",
+        "O job usa oven-sh/setup-bun (o projeto usa Bun, nao npm)",
+        "O job falha se qualquer um dos quatro comandos falhar",
+        "Os branches-alvo do workflow incluem dev e main",
+        "O job de backend (test) continua funcionando exatamente como antes, com o servico postgres:17-alpine e as env vars atuais",
+        "Verificado na pratica: introduzir um erro de tipo deliberado em client/src faz o job frontend falhar. Reverter depois",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "jacoco:check com limiar derivado da cobertura atual",
+      "description": "Como desenvolvedor, quero um limiar minimo de cobertura no build, para que a cobertura so possa subir, nunca cair silenciosamente. Depende de US-003, US-004, US-005 e US-007 (o limiar so faz sentido medido depois dos testes novos).",
+      "acceptanceCriteria": [
+        "./mvnw test foi executado depois das stories US-003 a US-007 e o relatorio do JaCoCo (api/target/site/jacoco/index.html) foi lido para obter a cobertura real de linha",
+        "Uma execucao check foi adicionada ao jacoco-maven-plugin em api/pom.xml com uma regra: element=BUNDLE, counter=LINE, value=COVEREDRATIO, minimum fixado logo abaixo da cobertura medida (arredondar para baixo, com folga de alguns pontos)",
+        "haltOnFailure fica no default (true) - o build falha quando a regra e violada",
+        "O numero escolhido e a cobertura medida que o originou estao registrados num comentario no pom.xml",
+        "./mvnw test (ou verify, conforme a fase em que o check for vinculado) passa com o limiar novo",
+        "Verificado na pratica: subir deliberadamente o minimum para um valor acima da cobertura atual faz o build falhar. Reverter para o valor correto depois",
+        "Se o check for vinculado a fase verify, o comando do CI (.github/workflows/ci.yml) e ajustado para executa-la"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
