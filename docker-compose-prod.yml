@@ -9,6 +9,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
       TMDB_API_KEY: ${TMDB_API_KEY}
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
     ports:
       - "${API_PORT:-8085}:8080"
     deploy:
