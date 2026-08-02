@@ -103,8 +103,8 @@
         "./mvnw test passa"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Criado api/src/main/java/com/app/websocket/CoupleDestinationAuthorizationManager.java: componente puro (sem dependencia de spring-security-messaging, que ainda nao esta no pom.xml - so entra na US-007) com um unico metodo isAuthorized(String destination, Map<String,Object> sessionAttributes). Extrai o userId do atributo JwtHandshakeInterceptor.USER_ID_ATTRIBUTE, casa o destino contra o regex ^/topic/couple/([^/]+)/.+$ (aceita qualquer sufixo, nao so match/notifications, para already alinhar com o /** deny-by-default da US-007), faz UUID.fromString num try/catch (id malformado -> false, nunca lanca) e compara com CoupleService.getCurrentCouple(userId).map(Couple::getId). Teste unitario novo api/src/test/java/com/app/websocket/CoupleDestinationAuthorizationManagerTest.java cobre os 6 casos do PRD (match do proprio casal, notifications do proprio casal, outro casal, id malformado, usuario sem casal, sessao sem userId) usando CoupleService mockado + ReflectionTestUtils.setField para dar um id a um Couple construido via `new Couple(...)` (que nao tem setter de id). ./mvnw test: 293/293 passam (287 pre-existentes + 6 novos)."
     },
     {
       "id": "US-007",

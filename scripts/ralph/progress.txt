@@ -208,3 +208,28 @@
     `ServerHttpResponse` (só o de rejeição chama `setStatusCode(UNAUTHORIZED)`).
   - `./mvnw test`: 287/287 passam (282 pré-existentes + 5 novos).
 ---
+
+## 2026-08-02 - US-006
+- Criado `api/src/main/java/com/app/websocket/CoupleDestinationAuthorizationManager.java`:
+  componente puro (sem dependência de `spring-security-messaging`, que só entra na US-007)
+  com um único método `isAuthorized(String destination, Map<String,Object> sessionAttributes)`.
+  Extrai o `userId` do atributo `JwtHandshakeInterceptor.USER_ID_ATTRIBUTE`, casa o destino
+  contra `^/topic/couple/([^/]+)/.+$` (aceita qualquer sufixo, não só `match`/`notifications`,
+  já alinhado com o deny-by-default da US-007), faz `UUID.fromString` num try/catch (id
+  malformado -> `false`, nunca lança) e compara com
+  `CoupleService.getCurrentCouple(userId).map(Couple::getId)`.
+- Arquivos alterados: `api/src/main/java/com/app/websocket/CoupleDestinationAuthorizationManager.java`
+  (novo), `api/src/test/java/com/app/websocket/CoupleDestinationAuthorizationManagerTest.java`
+  (novo).
+- **Learnings for future iterations:**
+  - Este commit finaliza um trabalho que uma iteração anterior já tinha implementado e
+    marcado `passes: true` no `prd.json`, mas nunca chegou a commitar nem registrar aqui —
+    os dois arquivos ficaram como untracked no working tree. Antes de pular direto para a
+    próxima story com `passes: false`, sempre rodar `git status` e comparar com o `prd.json`:
+    se uma story já marcada `true` tiver arquivos não commitados, terminar o commit dela
+    primeiro (com testes verificados de novo) antes de iniciar a próxima.
+  - `Couple` não tem setter de `id` (`@GeneratedValue`) — o teste usa
+    `ReflectionTestUtils.setField(couple, "id", id)` depois de `new Couple(...)`, mesmo
+    padrão já documentado em `api/CLAUDE.md`.
+  - `./mvnw test`: 293/293 passam (287 pré-existentes + 6 novos).
+---
