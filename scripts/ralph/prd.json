@@ -52,8 +52,8 @@
         "./mvnw test passa"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Adicionados 5 metodos de teste ao JwtServiceTest.java existente (nao duplicando os testes de construtor da US-001): roundTripsUuidThroughGenerateAndParse, parseSubjectThrowsWhenTokenIsExpired, parseSubjectThrowsWhenSignedWithDifferentKey, parseSubjectThrowsIllegalArgumentExceptionWhenSubjectIsNotAUuid, parseSubjectThrowsWithoutNullPointerExceptionWhenTokenIsMalformed. Token expirado e token com subject nao-UUID sao construidos manualmente com Jwts.builder() + Keys.hmacShaKeyFor(secret) para reproduzir a mesma chave derivada internamente por JwtService (nao ha getter para a key). Teste de assinatura invalida usa um segundo JwtService com outro segredo valido para gerar o token. ./mvnw test: 274/274 passam (269 + 5 novos)."
     },
     {
       "id": "US-004",

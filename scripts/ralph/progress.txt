@@ -112,3 +112,29 @@
   - `./mvnw test`: 269/269 passam, nenhuma mudança de comportamento em rotas públicas/privadas
     (os testes de controller que já cobrem 401 sem token continuam verdes).
 ---
+
+## 2026-08-02 - US-003
+- Adicionados 5 métodos de teste a `JwtServiceTest.java` (mesmo arquivo da US-001, sem
+  duplicar os testes de construtor): round-trip generateToken/parseSubject, token expirado
+  (ExpiredJwtException), token assinado com outra chave (SignatureException), subject que
+  não é UUID (IllegalArgumentException) e token malformado (MalformedJwtException, sem NPE).
+- Arquivos alterados: `api/src/test/java/com/app/security/JwtServiceTest.java`.
+- **Learnings for future iterations:**
+  - `JwtService` não expõe a `SecretKey` interna nem aceita um clock injetável. Para testar
+    cenários que `generateToken` não permite construir diretamente (token já expirado,
+    subject não-UUID), o teste recria a mesma chave com
+    `Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8))` (mesma derivação usada no
+    construtor de `JwtService`) e monta o JWT manualmente com `Jwts.builder()`. Isso é seguro
+    porque a derivação é determinística a partir do secret string - qualquer teste futuro que
+    precise de um JWT "artesanal" pode usar o mesmo padrão em vez de adicionar getters/setters
+    de teste em `JwtService`.
+  - Para o teste de assinatura inválida, a forma mais simples é instanciar um segundo
+    `JwtService` com outro segredo válido (`OTHER_VALID_SECRET`, 40 bytes) e usar seu
+    `generateToken` normal - não precisa montar o JWT na mão.
+  - jjwt 0.12.6: `Jwts.parser().verifyWith(key).build().parseSignedClaims(token)` lança
+    `io.jsonwebtoken.security.SignatureException` para assinatura inválida,
+    `io.jsonwebtoken.ExpiredJwtException` para expiração, e
+    `io.jsonwebtoken.MalformedJwtException` para string que não é um JWT válido - todas
+    subclasses de `JwtException`, nenhuma NPE mesmo com entrada arbitrária.
+  - `./mvnw test`: 274/274 passam (269 pré-existentes + 5 novos).
+---
