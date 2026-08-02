@@ -84,3 +84,31 @@
     aleatória de `invite_code` único) apareceu numa rodada e sumiu ao re-rodar isolado —
     pré-existente, não relacionada a esta story, não investigada mais a fundo.
 ---
+
+## 2026-08-02 - US-002
+- Excluída `UserDetailsServiceAutoConfiguration` do auto-config do Spring Boot via
+  `@SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)` em
+  `SessaoADoisApplication.java`.
+- Arquivos alterados: `api/src/main/java/com/app/SessaoADoisApplication.java`.
+- **Learnings for future iterations:**
+  - **No Spring Boot 4.1.0 (o parent deste projeto), o auto-config de segurança foi
+    extraído do `spring-boot-autoconfigure` para um artefato próprio, `spring-boot-security`.**
+    `UserDetailsServiceAutoConfiguration` mudou de pacote:
+    `org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration`,
+    NÃO `org.springframework.boot.autoconfigure.security.servlet.*` (que é onde estava em
+    Spring Boot 3.x e onde a maioria dos exemplos/docs antigos ainda apontam — esse pacote
+    simplesmente não existe mais no jar `spring-boot-autoconfigure-4.1.0.jar`, compilação
+    falha com "package does not exist"). Ao usar qualquer classe `*AutoConfiguration`
+    relacionada a segurança/actuator neste projeto, primeiro confira o pacote real dentro do
+    jar (`unzip -l ~/.m2/repository/org/springframework/boot/spring-boot-security/4.1.0/*.jar`)
+    em vez de assumir o pacote do Spring Boot 3.x.
+  - Não foi preciso declarar nenhum bean `AuthenticationManager`/`UserDetailsService` vazio —
+    excluir a auto-config basta, já que `SecurityConfig` já define seu próprio
+    `SecurityFilterChain` com `httpBasic().disable()` e um `JwtAuthenticationFilter` próprio,
+    sem depender de um `UserDetailsService` em lugar nenhum.
+  - Verificação de que a senha gerada sumiu: `grep -c "Using generated security password"`
+    no output completo de `./mvnw test` → 0 matches (antes da mudança essa linha aparecia a
+    cada contexto Spring completo subido, ou seja, em todo `@SpringBootTest`).
+  - `./mvnw test`: 269/269 passam, nenhuma mudança de comportamento em rotas públicas/privadas
+    (os testes de controller que já cobrem 401 sem token continuam verdes).
+---

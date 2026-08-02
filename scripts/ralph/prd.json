@@ -34,8 +34,8 @@
         "./mvnw test passa"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Excluida UserDetailsServiceAutoConfiguration via @SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class) em SessaoADoisApplication.java. No Spring Boot 4.1.0 essa classe mudou de pacote: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration (nao mais org.springframework.boot.autoconfigure.security.servlet, que nao existe mais - o modulo de autoconfig de seguranca foi extraido para o artefato spring-boot-security). Nao foi necessario nenhum bean AuthenticationManager/UserDetailsService vazio. Verificado: 'Using generated security password' nao aparece mais em nenhum log de ./mvnw test (grep com 0 matches). ./mvnw test: 269/269 passam, sem nenhuma mudanca de comportamento em rotas publicas/privadas."
     },
     {
       "id": "US-003",
