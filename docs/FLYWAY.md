@@ -9,22 +9,26 @@ Contexto: ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi cri
 
 ## Comportamento em producao (schema existente, sem `flyway_schema_history`)
 
-Na primeira execucao da aplicacao com Flyway habilitado contra o banco de producao (Supabase):
+Na primeira execucao da aplicacao com Flyway habilitado contra o banco de producao (Supabase), voce deve passar a variavel de ambiente `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true` (e opcionalmente `SPRING_FLYWAY_BASELINE_VERSION=1`, que ja e o default). Ela NAO esta em `application.properties` — ver nota sobre Flyway 10.x abaixo.
+
+Com essa variavel de ambiente definida:
 
 1. Flyway detecta que o schema `public` ja tem tabelas mas nao tem a tabela `flyway_schema_history`.
-2. Como `baseline-on-migrate=true`, em vez de falhar (comportamento padrao sem essa flag), o Flyway cria `flyway_schema_history` e insere uma linha de baseline para a versao configurada em `baseline-version` (`1`).
-3. Essa baseline **marca a V1 como ja aplicada, sem executar `V1__baseline.sql`**. O `CREATE TABLE IF NOT EXISTS` de V1 nunca roda em producao — ele so existe para o caso de banco limpo (dev/test).
+2. Em vez de falhar (comportamento padrao sem essa flag), o Flyway cria `flyway_schema_history` e insere uma linha de baseline para a versao `1`.
+3. Essa baseline **marca a V1 como ja aplicada, sem executar `V1__baseline.sql`**. O `CREATE TABLE IF NOT EXISTS` de V1 nunca roda em producao — ele so existe para o caso de banco limpo (dev/test/CI).
 4. Com a V1 marcada como baseline, o Flyway aplica normalmente as migrations com versao maior que a baseline: `V2__create_notification.sql` e executada, criando a tabela `notification` (que realmente nao existe ainda em producao).
 5. O resultado e um banco de producao com todas as tabelas antigas intactas (nenhuma foi recriada ou alterada) mais a nova tabela `notification`.
 
 ## Comportamento em dev/test (banco limpo)
 
-Em um banco vazio (dev local recem-criado, ou o H2 em `MODE=PostgreSQL` usado pelos testes — ver `api/CLAUDE.md`), nao ha schema previo nem `flyway_schema_history`:
+Em um banco vazio (dev local recem-criado, CI, ou docker-compose), nao ha schema previo nem `flyway_schema_history`:
 
-1. Flyway nao encontra nada para "baseline" (schema `public` vazio), entao a logica de `baseline-on-migrate` nao entra em jogo da mesma forma: o Flyway simplesmente cria `flyway_schema_history` e aplica **todas** as migrations em ordem, comecando pela V1.
+1. O Flyway cria `flyway_schema_history` e aplica **todas** as migrations em ordem, comecando pela V1.
 2. `V1__baseline.sql` executa de fato, criando as 7 tabelas de producao do zero.
 3. `V2__create_notification.sql` executa em seguida, criando `notification`.
 4. Ao final, o Hibernate (`ddl-auto=validate`) valida as entidades contra o schema criado pelas migrations e nao deve encontrar nenhuma discrepancia.
+
+> **ATENCAO — Flyway 10.x:** `baseline-on-migrate=true` nesta versao marca V1 como baseline sem executa-la mesmo em banco VAZIO, quebrando dev/CI. Por isso essa propriedade foi removida de `application.properties` e so deve ser ativada via variavel de ambiente (`SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`) no primeiro deploy contra o Supabase.
 
 ### Diferenca-chave entre os dois ambientes
 
