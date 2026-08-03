@@ -98,6 +98,9 @@ class MediaTrackServiceTest {
 				assertThat(review.opinion()).isNull();
 			});
 		assertThat(trackCaptor.getValue().getGenreIds()).containsExactly(28, 12);
+		assertThat(trackCaptor.getValue().getTitle()).isEqualTo("Matrix");
+		assertThat(trackCaptor.getValue().getReleaseYear()).isEqualTo(1999);
+		verify(mediaDetailsService, times(1)).getDetails(MediaType.MOVIE, 603L);
 	}
 
 	@Test
@@ -121,6 +124,9 @@ class MediaTrackServiceTest {
 
 		assertThat(response.tmdbId()).isEqualTo(603L);
 		assertThat(trackCaptor.getValue().getGenreIds()).isEmpty();
+		assertThat(trackCaptor.getValue().getTitle()).isNull();
+		assertThat(trackCaptor.getValue().getPosterUrl()).isNull();
+		assertThat(trackCaptor.getValue().getReleaseYear()).isNull();
 	}
 
 	@Test

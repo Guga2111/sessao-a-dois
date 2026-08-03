@@ -2,6 +2,7 @@ package com.app.tracking;
 
 import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
+import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
 import com.app.user.User;
@@ -66,7 +67,7 @@ public class MediaTrackService {
 		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), request.status());
 		track.setWatchedDate(request.watchedDate());
 		track.setRuntime(request.runtime());
-		track.setGenreIds(fetchGenreIds(request.mediaType(), request.tmdbId()));
+		applyTmdbMetadata(track, request.mediaType(), request.tmdbId());
 
 		UserReview review = new UserReview(track, user, request.rating(), request.opinion());
 		track.getReviews().add(review);
@@ -165,14 +166,21 @@ public class MediaTrackService {
 		mediaTrackRepository.delete(track);
 	}
 
-	private List<Integer> fetchGenreIds(MediaType mediaType, Long tmdbId) {
+	/**
+	 * Populates genres, title, poster and release year from the same TMDB response - a flaky
+	 * TMDB must not fail track creation, so a failure here just leaves those fields empty/null.
+	 */
+	private void applyTmdbMetadata(MediaTrack track, MediaType mediaType, Long tmdbId) {
 		try {
-			List<Integer> genreIds = mediaDetailsService.getDetails(mediaType, tmdbId).genreIds();
-			return genreIds == null ? List.of() : genreIds;
+			MediaDetails details = mediaDetailsService.getDetails(mediaType, tmdbId);
+			track.setGenreIds(details.genreIds() == null ? List.of() : details.genreIds());
+			track.setTitle(details.title());
+			track.setPosterUrl(details.posterUrl());
+			track.setReleaseYear(details.year());
 		}
 		catch (RuntimeException ex) {
-			log.warn("Nao foi possivel obter os generos do titulo {} no TMDB: {}", tmdbId, ex.getMessage());
-			return List.of();
+			log.warn("Nao foi possivel obter os metadados do titulo {} no TMDB: {}", tmdbId, ex.getMessage());
+			track.setGenreIds(List.of());
 		}
 	}
 

@@ -56,6 +56,9 @@ public class MatchService {
 				.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 
 			MatchLike like = new MatchLike(couple, userId, request.tmdbId(), request.mediaType());
+			like.setTitle(request.title());
+			like.setPosterUrl(request.posterUrl());
+			like.setReleaseYear(request.releaseYear());
 			matchLikeRepository.save(like);
 		}
 
@@ -111,6 +114,9 @@ public class MatchService {
 
 		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), MediaStatus.WANT_TO_SEE);
 		track.setGenreIds(details.genreIds());
+		track.setTitle(details.title());
+		track.setPosterUrl(details.posterUrl());
+		track.setReleaseYear(details.year());
 		mediaTrackRepository.save(track);
 
 		MatchEvent event = new MatchEvent(request.tmdbId(), details.title(), request.mediaType());
