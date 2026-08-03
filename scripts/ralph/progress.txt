@@ -99,3 +99,49 @@
     `spring.jpa.open-in-view=false` é uma mudança de comportamento global — se um endpoint
     não rastreado acessar dado LAZY fora de transação, ele quebra, e o rollback precisa ser
     um único revert limpo.
+
+## 2026-08-03 - US-001
+- Completed the stub `com.app.migration.FlywayMigrationTest` (already present untracked in the
+  working tree, empty test body) by injecting `Flyway` and asserting `flyway.info().applied()`
+  contains versions "1" and "2", all in `MigrationState.SUCCESS`. The class-level setup
+  (`@SpringBootTest`, `@AutoConfigureTestDatabase(replace = NONE)`, `@TestPropertySource` with
+  `spring.datasource.url=${DB_URL:jdbc:h2:mem:migrations;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE}`,
+  `spring.flyway.enabled=true`, `spring.jpa.hibernate.ddl-auto=validate`) was already correct and
+  matched every PRD acceptance criterion, so it was left untouched.
+- Verified `org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase` is a real,
+  transitively-available class in Spring Boot 4.1.0 (`spring-boot-data-jpa-test` ->
+  `spring-boot-jpa-test` -> `spring-boot-jdbc-test`, confirmed via `unzip -l` on the jar and
+  `./mvnw dependency:tree`) before trusting the import — per the existing api/CLAUDE.md warning
+  about Spring Boot 4.x moving classes to new artifacts/packages.
+- Proved the test actually catches a broken migration in practice (not just by inspection):
+  temporarily renamed a column in `V2__create_notification.sql`, re-ran
+  `./mvnw test -Dtest=FlywayMigrationTest`, confirmed `BUILD FAILURE` with a context-load error
+  (Hibernate `ddl-auto=validate` rejects the schema/entity mismatch), then restored the file from
+  a backup and diffed to confirm an exact restore before moving on.
+- Corrected `api/CLAUDE.md`'s Schema/Flyway bullet: it previously claimed prod and dev/test "both
+  go through the same V*__*.sql files" and that `ddl-auto=validate` is active "everywhere" — both
+  false since the test datasource was switched to `spring.flyway.enabled=false` +
+  `ddl-auto=create-drop` (commit 18f9b57). Rewrote it to describe the real arrangement: prod uses
+  real Flyway + validate; every other test slice gets a Hibernate-generated schema from entities
+  (Flyway disabled); `FlywayMigrationTest` is the one exception that actually exercises the
+  migration files end-to-end.
+- Files changed: `api/src/test/java/com/app/migration/FlywayMigrationTest.java` (filled in),
+  `api/CLAUDE.md` (Schema/Flyway bullet rewritten). `./mvnw test` passes (301 tests, coverage
+  checks met). Committed as `feat: US-001 - CI valida as migrations Flyway de verdade`.
+- **Learnings for future iterations:**
+  - `com.app.migration.FlywayMigrationTest` existing as an untracked, empty-bodied stub file
+    (visible in `git status` at the start of this session) is the pattern to watch for: a prior
+    session had already worked out the correct annotations/`@TestPropertySource` but left the
+    test body unimplemented. Always check for stub files like this before writing a test from
+    scratch — the hard part (getting `@SpringBootTest` + `@AutoConfigureTestDatabase` +
+    `@TestPropertySource` to cooperate without the `@DataJpaTest` H2-without-MODE issue) may
+    already be solved.
+  - CI (`.github/workflows/ci.yml`) already had the `postgres:17-alpine` service and `DB_URL`
+    env var wired up before this story — nothing needed to change there. The `${DB_URL:...}`
+    default-value syntax in `@TestPropertySource` is what makes the *same* test file work both
+    locally (H2 fallback, no `DB_URL` set) and in CI (real Postgres via env var) without any
+    profile/conditional logic.
+  - US-002 (migration V3 with new indexes) is unblocked now that this dedicated test exists to
+    actually exercise it — `./mvnw test` will fail if V3 doesn't apply cleanly or the entities
+    drift from it.
+---
