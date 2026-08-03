@@ -1,5 +1,24 @@
 ## Codebase Patterns
 
+- **`bun` is installable in this sandbox via `npm install -g bun`** (registry.npmjs.org is
+  firewall-allowlisted; `bun.sh` itself, used by the official install script, is NOT
+  reachable — `curl -fsSL https://bun.sh/install` fails with connection refused). Any
+  story that needs `bun run ...` verified for real (not just read statically) should use
+  this instead of assuming bun is unavailable.
+- **`client/package.json`'s `typecheck` script was silently broken before US-011:**
+  `"typecheck": "tsc --noEmit"` ran against the root `tsconfig.json`, which has
+  `"files": []` and only `references` to `tsconfig.app.json`/`tsconfig.node.json` — without
+  `-b` (build mode), plain `tsc` on a references-only root config type-checks **zero
+  files** and always exits 0, even with a real type error in `src/`. Fixed to
+  `"typecheck": "tsc -b"` (same as the `build` script's first half, which already worked
+  correctly because `-b` follows project references). Confirmed with a deliberate
+  `const x: number = "a string"` in `src/main.tsx`: old script → exit 0 (silent pass), new
+  script → exit 2 with the real error. If a future story touches `typecheck`/`build`
+  scripts or `tsconfig*.json`, re-verify with a deliberate error rather than trusting a
+  clean run — a no-op script produces a clean run too.
+- `bun run lint` (`eslint .`) currently reflects the **real** state of the codebase, no
+  known false-positives left as of US-011 — if it fails, something is actually wrong.
+
 - **O backend AGORA compila e roda testes neste sandbox.** O devcontainer traz Temurin
   JDK 21 + Maven 3.9.16 e o `init-firewall.sh` libera `repo.maven.apache.org` /
   `repo1.maven.org` (commit `0b6d627`, 2026-08-02). Rode `cd api && ./mvnw test`.
@@ -36,3 +55,489 @@
   cada uma já com arquivo/linha, proposta, critérios de aceite e escopo negativo — ou
   seja, praticamente prontas para virar PRD. As decisões **D1..D12** no topo do arquivo
   são vinculantes; não reabra nenhuma sem registrar o motivo lá.
+
+- **O skill `/ralph` grava em `.claude/skills/ralph/prd.json`, não em `scripts/ralph/prd.json`
+  (lido pelo loop).** Confirmado de novo neste épico: rodei `/ralph` e precisei copiar
+  manualmente o resultado para `scripts/ralph/prd.json` depois. Sempre espelhar os dois
+  arquivos a cada mudança de `passes`/`notes`, ou o próximo `ralph.sh` roda contra um
+  prd.json desatualizado.
+
+## 2026-08-02 - Conversão do PRD do Épico 1 (setup, sem story própria)
+- Convertido `tasks/prd-epico-1-contencao-de-seguranca.md` (12 user stories já
+  bem definidas no PRD) para `scripts/ralph/prd.json` + `.claude/skills/ralph/prd.json`
+  (mantidos espelhados). `scripts/ralph/prd.json` estava vazio (0 bytes) e o PRD do
+  Flyway anterior já estava arquivado em `scripts/ralph/archive/2026-08-01-flyway-migrations/`;
+  a cópia stale em `.claude/skills/ralph/prd.json` (branchName `ralph/flyway-migrations`,
+  todas as 7 stories `passes:true`) foi sobrescrita sem novo archive, já que o Flyway já
+  tinha sido arquivado corretamente.
+- Ordem das 12 stories preserva as 3 dependências rígidas do PRD (US-007→US-006,
+  US-010→US-008+US-009, US-012→US-003+US-004+US-005+US-007), que já coincidem com a
+  ordem de prioridade 1-12 do documento original.
+
+## 2026-08-02 - US-001
+- Implementado fail-fast do `JWT_SECRET` em `JwtService` (construtor): lança
+  `IllegalStateException` (mensagem pt-BR citando `JWT_SECRET`) para segredo nulo/branco,
+  igual ao antigo default de dev (`dev-only-secret-please-override-in-prod-32bytes+`), ou
+  com menos de 32 bytes UTF-8. `api/src/main/resources/application.properties` não declara
+  mais default (`app.jwt.secret=${JWT_SECRET:}`).
+- Arquivos alterados: `api/src/main/java/com/app/security/JwtService.java`,
+  `api/src/main/resources/application.properties`, `docker-compose-dev.yml` (efeito
+  colateral, ver abaixo), `api/src/test/java/com/app/security/JwtServiceTest.java` (novo).
+- **Learnings for future iterations:**
+  - `docker-compose-dev.yml` setava `JWT_SECRET` exatamente igual ao antigo default de dev
+    banido pela nova validação — o `docker compose up` local quebraria silenciosamente sem
+    esse ajuste. Trocado para `local-dev-compose-secret-not-for-prod-32bytes+` (46 bytes).
+    Ao endurecer qualquer validação de config, sempre `grep` por todo o repo (não só
+    `api/src/main/resources/`) por valores que a nova regra passaria a rejeitar —
+    `docker-compose-dev.yml`, `.env.example`, `docker-compose-prod.yml`, `.github/workflows/`.
+  - Os segredos de teste (`test-only-secret-please-override-in-prod-32bytes+`, 49 bytes) e
+    de CI (`ci-only-secret-please-override-in-prod-32bytes+`, 47 bytes) já eram válidos
+    contra a nova regra (>=32 bytes, diferentes do default banido) — nada a mudar neles,
+    conforme a nota de atenção do PRD.
+  - Criei `JwtServiceTest.java` só com os 4 cenários de validação do construtor (nulo/branco,
+    default banido, curto, válido). A US-003 (`JwtServiceTest` para comportamento de token)
+    deve **adicionar** métodos a este mesmo arquivo, não criar um novo — o PRD já avisa que
+    os testes de construtor não devem ser duplicados lá.
+  - `./mvnw test`: 269/269 passam. Uma falha transitória em
+    `MediaTrackRepositoryTest.queriesAreScopedByCoupleIdAndNeverLeakOtherCouplesData` (colisão
+    aleatória de `invite_code` único) apareceu numa rodada e sumiu ao re-rodar isolado —
+    pré-existente, não relacionada a esta story, não investigada mais a fundo.
+---
+
+## 2026-08-02 - US-002
+- Excluída `UserDetailsServiceAutoConfiguration` do auto-config do Spring Boot via
+  `@SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)` em
+  `SessaoADoisApplication.java`.
+- Arquivos alterados: `api/src/main/java/com/app/SessaoADoisApplication.java`.
+- **Learnings for future iterations:**
+  - **No Spring Boot 4.1.0 (o parent deste projeto), o auto-config de segurança foi
+    extraído do `spring-boot-autoconfigure` para um artefato próprio, `spring-boot-security`.**
+    `UserDetailsServiceAutoConfiguration` mudou de pacote:
+    `org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration`,
+    NÃO `org.springframework.boot.autoconfigure.security.servlet.*` (que é onde estava em
+    Spring Boot 3.x e onde a maioria dos exemplos/docs antigos ainda apontam — esse pacote
+    simplesmente não existe mais no jar `spring-boot-autoconfigure-4.1.0.jar`, compilação
+    falha com "package does not exist"). Ao usar qualquer classe `*AutoConfiguration`
+    relacionada a segurança/actuator neste projeto, primeiro confira o pacote real dentro do
+    jar (`unzip -l ~/.m2/repository/org/springframework/boot/spring-boot-security/4.1.0/*.jar`)
+    em vez de assumir o pacote do Spring Boot 3.x.
+  - Não foi preciso declarar nenhum bean `AuthenticationManager`/`UserDetailsService` vazio —
+    excluir a auto-config basta, já que `SecurityConfig` já define seu próprio
+    `SecurityFilterChain` com `httpBasic().disable()` e um `JwtAuthenticationFilter` próprio,
+    sem depender de um `UserDetailsService` em lugar nenhum.
+  - Verificação de que a senha gerada sumiu: `grep -c "Using generated security password"`
+    no output completo de `./mvnw test` → 0 matches (antes da mudança essa linha aparecia a
+    cada contexto Spring completo subido, ou seja, em todo `@SpringBootTest`).
+  - `./mvnw test`: 269/269 passam, nenhuma mudança de comportamento em rotas públicas/privadas
+    (os testes de controller que já cobrem 401 sem token continuam verdes).
+---
+
+## 2026-08-02 - US-003
+- Adicionados 5 métodos de teste a `JwtServiceTest.java` (mesmo arquivo da US-001, sem
+  duplicar os testes de construtor): round-trip generateToken/parseSubject, token expirado
+  (ExpiredJwtException), token assinado com outra chave (SignatureException), subject que
+  não é UUID (IllegalArgumentException) e token malformado (MalformedJwtException, sem NPE).
+- Arquivos alterados: `api/src/test/java/com/app/security/JwtServiceTest.java`.
+- **Learnings for future iterations:**
+  - `JwtService` não expõe a `SecretKey` interna nem aceita um clock injetável. Para testar
+    cenários que `generateToken` não permite construir diretamente (token já expirado,
+    subject não-UUID), o teste recria a mesma chave com
+    `Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8))` (mesma derivação usada no
+    construtor de `JwtService`) e monta o JWT manualmente com `Jwts.builder()`. Isso é seguro
+    porque a derivação é determinística a partir do secret string - qualquer teste futuro que
+    precise de um JWT "artesanal" pode usar o mesmo padrão em vez de adicionar getters/setters
+    de teste em `JwtService`.
+  - Para o teste de assinatura inválida, a forma mais simples é instanciar um segundo
+    `JwtService` com outro segredo válido (`OTHER_VALID_SECRET`, 40 bytes) e usar seu
+    `generateToken` normal - não precisa montar o JWT na mão.
+  - jjwt 0.12.6: `Jwts.parser().verifyWith(key).build().parseSignedClaims(token)` lança
+    `io.jsonwebtoken.security.SignatureException` para assinatura inválida,
+    `io.jsonwebtoken.ExpiredJwtException` para expiração, e
+    `io.jsonwebtoken.MalformedJwtException` para string que não é um JWT válido - todas
+    subclasses de `JwtException`, nenhuma NPE mesmo com entrada arbitrária.
+  - `./mvnw test`: 274/274 passam (269 pré-existentes + 5 novos).
+---
+
+## 2026-08-02 - US-004
+- Criado `api/src/test/java/com/app/security/SecurityConfigTest.java`: primeiro teste do
+  projeto a usar `@SpringBootTest` + `@AutoConfigureMockMvc` (contexto completo, H2 real via
+  `create-drop`, sem nenhum bean mockado) para fixar o contrato de rotas públicas x privadas
+  de `SecurityConfig`. 8 testes: `GET /api/health` sem header `Authorization` -> 200;
+  `POST /api/auth/register` -> 201; register + `POST /api/auth/login` com credenciais reais
+  -> 200; `GET /api/tracking/stats`, `/api/match/pending`, `/api/media/search`,
+  `/api/couple/me`, `/api/notifications` sem token -> 401.
+- Arquivos alterados: `api/src/test/java/com/app/security/SecurityConfigTest.java` (novo).
+- **Learnings for future iterations:**
+  - **Spring Boot 4.1.0 moveu `@AutoConfigureMockMvc` para
+    `org.springframework.boot.webmvc.test.autoconfigure`** (artefato `spring-boot-webmvc-test`),
+    não `org.springframework.boot.test.autoconfigure.web.servlet` (pacote do Spring Boot 3.x,
+    que não existe mais aqui — mesma família de mudança já registrada em `api/CLAUDE.md` para
+    `UserDetailsServiceAutoConfiguration`). O mesmo pacote novo já hospeda `@WebMvcTest`
+    (confirmado em `AuthControllerTest.java`, que já importava de lá). Ao usar qualquer
+    anotação de teste do Spring Boot que "sempre" morou em
+    `org.springframework.boot.test.autoconfigure.*`, primeiro confirme o pacote real via
+    `unzip -l` no jar `spring-boot-webmvc-test-4.1.0.jar` (ou o artefato de teste equivalente)
+    em vez de assumir a doc/exemplos do Spring Boot 3.x.
+  - Para testar 401 de uma rota privada por falta de token, **não é preciso mockar nada** — a
+    rejeição acontece no `JwtAuthenticationFilter`/`authorizeHttpRequests`, antes de qualquer
+    controller/service rodar, então mesmo endpoints que chamariam TMDB real (`/api/media/search`)
+    ou exigiriam parâmetros de query nunca chegam lá; um `GET` simples sem header já basta.
+  - Para o teste de `POST /api/auth/login` retornando 200, usar credenciais **reais** (registrar
+    o usuário no mesmo teste antes de logar) em vez de tentar contornar a validação: login com
+    email/senha errados passa por `InvalidCredentialsException`, que `AuthExceptionHandler`
+    também mapeia para 401 — isso mascararia a diferença entre "bloqueado pelo Spring Security"
+    (o que a story testa) e "rejeitado pela regra de negócio do AuthService".
+  - Como o teste roda com contexto completo e DB real (H2 `create-drop`, sem `@Transactional`),
+    dados gravados por um método de teste persistem para os demais métodos da mesma classe
+    (mesmo contexto Spring é reutilizado) — usar e-mails únicos por `UUID.randomUUID()` em
+    qualquer teste de integração que registre usuários, para não colidir com
+    `EmailAlreadyExistsException` entre métodos.
+  - `./mvnw test`: 282/282 passam (274 pré-existentes + 8 novos).
+---
+
+## 2026-08-02 - US-005
+- Criado `api/src/test/java/com/app/websocket/JwtHandshakeInterceptorTest.java`: 5 testes
+  cobrindo o único portão de autenticação do handshake STOMP/SockJS
+  (`JwtHandshakeInterceptor.beforeHandshake`): sem `?token=`, `?token=` vazio/em branco,
+  assinatura inválida, token malformado (todos -> `false` + 401 + `attributes` sem
+  `USER_ID_ATTRIBUTE`) e token válido (-> `true` + `userId` correto em `attributes`).
+- Arquivos alterados: `api/src/test/java/com/app/websocket/JwtHandshakeInterceptorTest.java`
+  (novo).
+- **Learnings for future iterations:**
+  - `JwtHandshakeInterceptor` não tem dependências para mockar além de `JwtService` — usei a
+    instância real (mesmo padrão de `JwtServiceTest`: `VALID_SECRET`/`OTHER_VALID_SECRET`)
+    em vez de `Mockito.mock(JwtService.class)`, porque gerar tokens reais válidos/inválidos é
+    mais simples e mais fiel do que stubar `parseSubject`.
+  - Para exercitar o parsing real feito por `extractToken` (que faz
+    `UriComponentsBuilder.fromUri(((ServletServerHttpRequest) request).getURI())`), construí
+    o `ServerHttpRequest` com `new ServletServerHttpRequest(new MockHttpServletRequest("GET",
+    "/ws"))` + `mockRequest.setQueryString(...)`, em vez de mockar `ServerHttpRequest`
+    diretamente — o cast `instanceof ServletServerHttpRequest` no código de produção exige um
+    objeto real dessa classe, um mock genérico de `ServerHttpRequest` falharia nesse cast.
+  - **Descoberta importante, útil para qualquer teste futuro envolvendo query params via
+    `UriComponentsBuilder.fromUri(uri).build()`:** essa combinação NÃO decodifica
+    percent-encoding — `token=%20` chega em `getQueryParams()` como a string literal `"%20"`
+    (3 caracteres), não um espaço, então `"%20".isBlank()` é `false`. Confirmado com um
+    scratch test isolado (classpath direto do `spring-web` do `.m2`) antes de escrever o
+    teste real. Por isso o caso "vazio ou em branco" do PRD foi coberto só com `token=`
+    (valor vazio, que produz `String` vazia de verdade, `isBlank() == true`) — um valor
+    `%20` testaria na prática o branch de "token malformado" (JWT inválido), não o branch de
+    `isBlank()`, e duplicaria semanticamente o teste de token malformado.
+  - `Mockito.verifyNoInteractions(response)` confirma que o caminho de sucesso não toca no
+    `ServerHttpResponse` (só o de rejeição chama `setStatusCode(UNAUTHORIZED)`).
+  - `./mvnw test`: 287/287 passam (282 pré-existentes + 5 novos).
+---
+
+## 2026-08-02 - US-006
+- Criado `api/src/main/java/com/app/websocket/CoupleDestinationAuthorizationManager.java`:
+  componente puro (sem dependência de `spring-security-messaging`, que só entra na US-007)
+  com um único método `isAuthorized(String destination, Map<String,Object> sessionAttributes)`.
+  Extrai o `userId` do atributo `JwtHandshakeInterceptor.USER_ID_ATTRIBUTE`, casa o destino
+  contra `^/topic/couple/([^/]+)/.+$` (aceita qualquer sufixo, não só `match`/`notifications`,
+  já alinhado com o deny-by-default da US-007), faz `UUID.fromString` num try/catch (id
+  malformado -> `false`, nunca lança) e compara com
+  `CoupleService.getCurrentCouple(userId).map(Couple::getId)`.
+- Arquivos alterados: `api/src/main/java/com/app/websocket/CoupleDestinationAuthorizationManager.java`
+  (novo), `api/src/test/java/com/app/websocket/CoupleDestinationAuthorizationManagerTest.java`
+  (novo).
+- **Learnings for future iterations:**
+  - Este commit finaliza um trabalho que uma iteração anterior já tinha implementado e
+    marcado `passes: true` no `prd.json`, mas nunca chegou a commitar nem registrar aqui —
+    os dois arquivos ficaram como untracked no working tree. Antes de pular direto para a
+    próxima story com `passes: false`, sempre rodar `git status` e comparar com o `prd.json`:
+    se uma story já marcada `true` tiver arquivos não commitados, terminar o commit dela
+    primeiro (com testes verificados de novo) antes de iniciar a próxima.
+  - `Couple` não tem setter de `id` (`@GeneratedValue`) — o teste usa
+    `ReflectionTestUtils.setField(couple, "id", id)` depois de `new Couple(...)`, mesmo
+    padrão já documentado em `api/CLAUDE.md`.
+  - `./mvnw test`: 293/293 passam (287 pré-existentes + 6 novos).
+---
+
+## 2026-08-02 - US-007
+- Adicionado `org.springframework.security:spring-security-messaging` (sem `<version>`,
+  7.1.0 gerenciada pelo parent) ao `api/pom.xml`. Criado
+  `api/src/main/java/com/app/websocket/WebSocketSecurityConfig.java` com
+  `@EnableWebSocketSecurity`: um bean `AuthorizationManager<Message<?>>` via
+  `MessageMatcherDelegatingAuthorizationManager.builder()` que permite
+  CONNECT/DISCONNECT/UNSUBSCRIBE/HEARTBEAT/OTHER (para não quebrar handshake/ciclo de vida
+  da sessão), delega SUBSCRIBE em `/topic/couple/{id}/**` a um
+  `AuthorizationManager<MessageAuthorizationContext<?>>` inline que chama
+  `CoupleDestinationAuthorizationManager.isAuthorized` (US-006), e nega tudo o mais
+  (`anyMessage().denyAll()`) — cobre SEND direto para qualquer destino (incluindo
+  `/topic/**` e `/app/**`), já que só mensagens SUBSCRIBE batem no
+  `simpSubscribeDestMatchers`. Bean `csrfChannelInterceptor` (nome exato) sobrescrito como
+  no-op para não exigir um token CSRF que o client atual não envia.
+- Arquivos alterados: `api/pom.xml`,
+  `api/src/main/java/com/app/websocket/WebSocketSecurityConfig.java` (novo),
+  `api/src/test/java/com/app/websocket/WebSocketSecurityConfigTest.java` (novo).
+- **Learnings for future iterations:**
+  - **Antes de começar esta story, encontrei o trabalho da US-006 já implementado
+    (`CoupleDestinationAuthorizationManager` + teste) e marcado `passes: true` no
+    `prd.json`, mas nunca commitado nem registrado em `progress.txt`** — sinal de uma
+    iteração anterior interrompida antes do passo de commit. Terminei esse commit primeiro
+    (com testes reverificados) antes de iniciar esta story. Sempre rodar `git status`
+    contra o `prd.json` no início de uma iteração para pegar esse tipo de trabalho órfão.
+  - `@EnableWebSocketSecurity` (pacote `org.springframework.security.config.annotation.web.socket`,
+    não mudou de local nesta versão) registra automaticamente um `AuthorizationChannelInterceptor`
+    no `clientInboundChannel` a partir de **qualquer bean único do tipo
+    `AuthorizationManager<Message<?>>`** no contexto — não é preciso injetar nada manualmente
+    em `WebSocketConfig`, só declarar o bean numa `@Configuration` separada.
+  - `MessageMatcherDelegatingAuthorizationManager.Builder.Constraint` não tem um método
+    `.custom(...)` explícito — para plugar uma regra própria (em vez de `hasRole`/`permitAll`/
+    `denyAll`), use `.access(AuthorizationManager<MessageAuthorizationContext<?>>)`. O
+    `MessageAuthorizationContext` só expõe `getMessage()`/`getVariables()`; para pegar destino
+    e atributos de sessão STOMP a partir da mensagem, use
+    `SimpMessageHeaderAccessor.wrap(message).getDestination()`/`.getSessionAttributes()`.
+  - **Descoberta chave sobre `simpSubscribeDestMatchers`:** ele só bate em mensagens do tipo
+    STOMP `SUBSCRIBE`, então um `SEND` direto do cliente para `/topic/couple/{id}/match`
+    (tentando forjar uma publicação) nunca casa com esse matcher e cai automaticamente no
+    `anyMessage().denyAll()` — nenhuma regra extra foi necessária para bloquear "SEND direto
+    pra qualquer destino", só o próprio deny-by-default.
+  - **`anyMessage().denyAll()` bloquearia até o frame `CONNECT`** (e DISCONNECT/UNSUBSCRIBE/
+    HEARTBEAT) se eles não fossem explicitamente liberados antes com
+    `.simpTypeMatchers(SimpMessageType.CONNECT, ...).permitAll()` — sem isso o handshake
+    SockJS/STOMP quebraria por completo assim que o client tentasse conectar, mesmo com JWT
+    válido no handshake HTTP. Isso não está óbvio na documentação do Spring Security sobre
+    `@EnableWebSocketSecurity`, só aparece ao ler o bytecode de
+    `WebSocketMessageBrokerSecurityConfiguration` (`ANY_MESSAGE_AUTHENTICATED` como fallback
+    interno não cobre isso da forma que a US-007 pede - deny, não authenticated).
+  - O nome literal do bean CSRF (`"csrfChannelInterceptor"`) foi confirmado via
+    `strings`/bytecode de `WebSocketMessageBrokerSecurityConfiguration.class`
+    (`~/.m2/repository/org/springframework/security/spring-security-config/7.1.0/...jar`),
+    não só por lembrança da doc do Spring Security 5/6 — vale conferir assim de novo se uma
+    versão futura do Spring Security renomear a constante.
+  - `SimpMessagingTemplate.convertAndSend(...)` (usado por `MatchService`/
+    `NotificationService` para push do servidor) escreve no `clientOutboundChannel`, não no
+    `clientInboundChannel` onde o `AuthorizationChannelInterceptor` é registrado — por isso
+    nenhuma mudança foi necessária nesses dois arquivos, e os testes existentes
+    (`MatchServiceTest`/`NotificationServiceTest`) continuam verdes sem tocar neles.
+  - Para testar a autorização de mensagens STOMP **sem** subir um WebSocket real: injete o
+    bean `@Qualifier("clientInboundChannel") MessageChannel` num `@SpringBootTest`, construa
+    a mensagem com `StompHeaderAccessor.create(StompCommand.SUBSCRIBE/SEND/CONNECT)` +
+    `MessageBuilder.createMessage(payload, accessor.getMessageHeaders())`, e chame
+    `channel.send(message)` diretamente — os `ChannelInterceptor`s (incluindo o de
+    autorização) rodam de forma síncrona dentro do `send()`. Uma rejeição não lança
+    `AccessDeniedException` diretamente do `send()` — o Spring Messaging embrulha em
+    `MessageDeliveryException`, então o teste precisa checar `.hasCauseInstanceOf(AccessDeniedException.class)`,
+    não `.isInstanceOf(...)`.
+  - `./mvnw test`: 300/300 passam (293 pré-existentes + 7 novos).
+---
+
+## 2026-08-02 - US-008
+- Adicionado `access_log off;` ao bloco `location /ws/` em
+  `deploy/nginx/sessaoadois.luisgosampaio.com.conf`, com comentário explicando o
+  motivo (JWT na query string `?token=` do handshake). `/api/` e `/` não foram
+  tocados. Adicionada seção "Segurança operacional" a `docs/DEPLOY.md` cobrindo
+  os 4 subitens do PRD: reinstalar o conf na VPS + `nginx -t` + reload; purgar
+  `access.log` e os rotacionados (`access.log.1`, `access.log.*.gz`); nota sobre
+  `JWT_EXPIRATION_DAYS=7` (tokens em logs de até 7 dias atrás da purga ainda
+  podem ser válidos); procedimento de rotação do `JWT_SECRET`
+  (`openssl rand -base64 48`) + atualização do `.env` da VPS + restart do
+  container.
+- Arquivos alterados: `deploy/nginx/sessaoadois.luisgosampaio.com.conf`,
+  `docs/DEPLOY.md`.
+- **Learnings for future iterations:**
+  - Esta story é puramente operacional/infra (nginx conf + markdown) — não toca
+    em código Java, então `./mvnw test` não se aplica e não foi rodado. O
+    critério de aceite da própria US-008 já antecipa isso: a verificação real de
+    sintaxe com `nginx -t` fica para a US-010 (executada na VPS), porque este
+    sandbox não tem `nginx` instalado (`which nginx` → not found).
+  - `JWT_EXPIRATION_DAYS` (default `7`) vive em
+    `api/src/main/resources/application.properties` (`app.jwt.expiration-days`)
+    — vale conferir esse valor de novo se ele mudar, já que a US-008 documenta a
+    janela de validade dos tokens vazados em função dele.
+  - Story puramente de infra/docs (sem mudança de código Java) ainda segue o
+    fluxo normal do Ralph: prd.json + progress.txt atualizados, commit
+    `feat: US-008 - ...`. Não pular o registro só porque não há testes para
+    rodar.
+---
+
+## 2026-08-02 - US-009
+- Adicionado um bloco `server { listen 443 ssl; ... }` novo em
+  `deploy/nginx/sessaoadois.luisgosampaio.com.conf` (o conf só tinha o bloco
+  80 até agora) com os 4 headers exigidos (`Strict-Transport-Security`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`),
+  todos com `always`, e a CSP exatamente igual à do PRD. Adicionada a seção
+  "Headers de segurança HTTP e CSP" em `docs/DEPLOY.md` (dentro de
+  "Segurança operacional").
+- Arquivos alterados: `deploy/nginx/sessaoadois.luisgosampaio.com.conf`,
+  `docs/DEPLOY.md`.
+- **Learnings for future iterations:**
+  - O conf deste repo **não tem nenhum bloco 443** — só o bloco 80, porque na
+    prática é o Certbot (`sudo certbot --nginx -d ...`) quem gera e mantém o
+    bloco 443/SSL na VPS (copiando as `location`s do bloco 80 + `listen 443
+    ssl;` + `ssl_certificate`/`ssl_certificate_key`). Para uma story que pede
+    "os headers no bloco 443 do conf", a solução foi criar esse bloco aqui no
+    repo como fonte versionada da verdade (com um comentário grande
+    explicando que é um espelho/template, não o bloco real gerado pelo
+    Certbot), e documentar em `DEPLOY.md` que ele precisa ser colado
+    manualmente dentro do bloco 443 real na VPS, e reaplicado toda vez que o
+    certificado for reemitido do zero (o Certbot reescreve o bloco e não sabe
+    desses headers). Qualquer story futura que mexa em nginx + Certbot deve
+    lembrar dessa assimetria entre "o que está no repo" e "o que está de
+    fato na VPS".
+  - A justificativa de "sem Google Fonts na CSP" foi confirmada checando
+    `client/package.json` (`@fontsource-variable/instrument-sans`,
+    `@fontsource/bricolage-grotesque`, `@fontsource/dm-sans`) e
+    `client/src/index.css` (`@import "@fontsource/..."` para cada peso) —
+    as fontes são empacotadas pelo Vite e servidas por `self`, não há
+    nenhuma chamada real a `fonts.googleapis.com`/`fonts.gstatic.com` em
+    produção, então a CSP `font-src 'self' data:` já é suficiente.
+  - Mesma situação da US-008: sem `nginx` instalado neste sandbox (`which
+    nginx` → not found), então a verificação real de sintaxe (`nginx -t`) e
+    a verificação em produção (`curl -I`, console sem violação de CSP) ficam
+    para a US-010, conforme o próprio critério de aceite da US-009 antecipa.
+    Sanity check manual feito aqui: contagem de `{`/`}` no conf batendo
+    (9/9) antes de considerar a story pronta.
+  - Story não toca em código Java (só nginx conf + markdown) — `./mvnw test`
+    não se aplica, mesmo padrão da US-008.
+---
+
+## 2026-08-02 - US-010 (PULADA - operacional/manual)
+- US-010 (prioridade 10) é inteiramente sobre aplicar mudanças numa VPS real via
+  `sudo`: copiar conf para `/etc/nginx/sites-available`, `nginx -t`, `systemctl
+  reload`, `curl -I` em produção, purgar `access.log` + rotacionados, gerar e
+  trocar `JWT_SECRET` no `.env` da VPS, reiniciar o container, confirmar CSP sem
+  violação no console do browser real. Nada disso é executável a partir deste
+  sandbox (sem VPS, sem acesso SSH, sem produção) — a própria US-010 já
+  antecipa isso: "Executor manual - não automatizável a partir do repositório".
+- **Nenhum arquivo foi alterado para esta story.** `passes` continua `false` em
+  `prd.json`. Não commitado nada em nome da US-010. Segui direto para a US-011,
+  a próxima story automatizável, sem pular etapas de commit/registro.
+- **Learnings for future iterations:**
+  - Se uma story tem "[OPERACIONAL]" no título ou explicitamente diz "executor
+    manual" / "não automatizável a partir do repositório" nos critérios, ela não
+    é uma tarefa de codificação — não tente simulá-la ou marcá-la como `passes:
+    true` sem a ação real ter acontecido fora do repo. Pule para a próxima
+    story de maior prioridade com `passes: false` e documente a razão aqui, em
+    vez de travar o loop ou fabricar uma implementação que não corresponde ao
+    que a story pede.
+---
+
+## 2026-08-02 - US-011
+- Adicionado o job `frontend` a `.github/workflows/ci.yml`: `bun install`,
+  `bun run typecheck`, `bun run lint`, `bun run build`, cada um como step
+  próprio com `working-directory: client`, usando `oven-sh/setup-bun@v2`. O job
+  falha se qualquer um dos 4 comandos falhar (comportamento padrão do GitHub
+  Actions — cada `run:` que retorna código != 0 já para o job). Os
+  branches-alvo do workflow (`on.pull_request.branches`) passaram a incluir
+  `main` além de `dev`. O job `test` (backend) não mudou, exceto o array de
+  branches do gatilho, que é compartilhado entre os dois jobs.
+- Arquivos alterados: `.github/workflows/ci.yml`,
+  `client/package.json` (script `typecheck` corrigido, ver abaixo),
+  `client/src/components/DeleteTrackDialog.tsx`,
+  `client/src/components/RatingRequestDialog.tsx`,
+  `client/src/components/ReviewModal.tsx`,
+  `client/src/components/WatchModal.tsx`,
+  `client/src/components/ui/button.tsx`.
+- **Learnings for future iterations:**
+  - Antes de escrever o job `frontend`, rodei os 4 comandos localmente (depois
+    de instalar `bun` via `npm install -g bun`, ver Codebase Patterns) para
+    confirmar que o job nasceria verde. **`bun run lint` falhava com 5 erros
+    reais e pré-existentes**, todos não relacionados a esta story:
+    `react-hooks/set-state-in-effect` em `RatingRequestDialog.tsx`,
+    `ReviewModal.tsx`, `WatchModal.tsx` e `DeleteTrackDialog.tsx` (`setState`
+    síncrono dentro de um `useEffect` que reseta o formulário quando o
+    item/track vira `null`), e `react-refresh/only-export-components` em
+    `button.tsx` (exportar `buttonVariants` junto do componente `Button`).
+    Adicionar um job de CI que nasce vermelho não cumpre a story (o critério
+    "o job falha se qualquer um dos 4 comandos falhar" pressupõe que ele passa
+    quando não há erro de verdade) — corrigi os 5 em vez de deixar o job
+    quebrado ou de excluir `lint` do job.
+  - Os 4 componentes com `react-hooks/set-state-in-effect` seguem exatamente o
+    "Lint gotcha: resetting state on route/prop change" já documentado em
+    `client/CLAUDE.md`: extraí a parte com estado para um subcomponente
+    (`*Content`/`*Form`) montado com `key={track.id}` (ou
+    `key={mediaTrackId ?? "empty"}` no caso do `RatingRequestDialog`, que usa
+    o `Dialog` do base-ui e permanece montado durante a animação de saída, ao
+    contrário dos outros três que são `<div>` cru e já retornam `null`
+    completo quando o item é `null`). Trocar a chave força remount, e o
+    remount já reresenta o estado sozinho — nenhum `useEffect` de reset foi
+    necessário. Em `ReviewModal.tsx` e `RatingRequestDialog.tsx` isso também
+    eliminou a necessidade do valor inicial via `useState` normal: o
+    subcomponente agora deriva o valor inicial direto dos props com
+    `useState(myReview?.rating ?? 0)` (lazy, roda só uma vez por montagem).
+  - O fix de `button.tsx` foi um `// eslint-disable-next-line
+    react-refresh/only-export-components` na linha do `export`, com comentário
+    explicando que é convenção do shadcn co-localizar `buttonVariants` (cva)
+    com o componente — não vale a pena separar em outro arquivo só por causa
+    dessa regra.
+  - **Descoberta mais importante desta story:** o script
+    `"typecheck": "tsc --noEmit"` em `client/package.json` era um no-op
+    silencioso. O `tsconfig.json` da raiz tem `"files": []` e só `references`
+    para `tsconfig.app.json`/`tsconfig.node.json` — sem a flag `-b` (build
+    mode), rodar `tsc` direto nesse config não segue as `references` e não
+    checa nenhum arquivo, sempre saindo com código 0, mesmo com um erro de
+    tipo real em `src/`. Confirmado inserindo `const x: number = "uma string"`
+    em `src/main.tsx`: `tsc --noEmit` (antigo) → exit 0; `tsc -b` (novo,
+    mesmo prefixo do script `build`) → exit 2 com o erro real reportado.
+    Corrigido para `"typecheck": "tsc -b"`. Isso também significa que o
+    critério de aceite "Typecheck passes" do PRD já estava garantido de forma
+    indireta pelo `build` (que sempre usou `tsc -b && vite build`), mas o
+    script `typecheck` isolado nunca cumpriu seu próprio nome antes desta
+    story.
+  - Verificação prática pedida pelo PRD (introduzir erro deliberado, ver o job
+    falhar, reverter): feita localmente com `bun run typecheck` (e também
+    `bun run build`) antes de existir CI real para rodar — adicionei as duas
+    linhas ao fim de `src/main.tsx`, rodei os comandos, confirmei falha (exit
+    2 no typecheck corrigido, exit 2 no build), depois restaurei o arquivo
+    original e confirmei `git diff`/`git status` limpos antes de prosseguir.
+  - `./mvnw test` (backend) não foi afetado por esta story (nenhum arquivo
+    Java tocado) — rodado mesmo assim para confirmar que nada regrediu:
+    300/300 passam, `BUILD SUCCESS`, idêntico ao estado anterior. Uma primeira
+    tentativa com `-q -B test -DJWT_SECRET=...` pareceu falhar (stack trace
+    cortado pelo `tail`), mas era só o modo `-q` suprimindo o resumo final —
+    `-B test` sem `-q` mostrou claramente `BUILD SUCCESS`. `-D` seta uma
+    system property, não uma env var, então nem chegou a ser usado de fato
+    pela app (que lê `JWT_SECRET` como variável de ambiente via
+    `application.properties`); o segredo de teste em
+    `api/src/test/resources/application.properties` já é suficiente e não
+    precisa de override nenhum para `./mvnw test` local.
+---
+
+## 2026-08-02 - US-012
+- `./mvnw test` (300/300 passam) gerou `api/target/site/jacoco/index.html`:
+  cobertura de linha real = 1147/1203 = 95,34% (`LINE`/`COVEREDRATIO` do
+  bundle todo). Adicionada uma execução `check` ao `jacoco-maven-plugin` em
+  `api/pom.xml`, com uma regra `element=BUNDLE`, `counter=LINE`,
+  `value=COVEREDRATIO`, `minimum=0.90` (arredondado para baixo com ~5 pontos
+  de folga sobre os 95,34% medidos). `haltOnFailure` ficou no default
+  (`true`). Um comentário no `pom.xml` registra o número medido (1147/1203,
+  data da medição) que originou o `0.90`.
+- Arquivos alterados: `api/pom.xml`.
+- **Learnings for future iterations:**
+  - A execução `check` foi vinculada à fase `test` (mesma fase da execução
+    `report` já existente, declarada logo depois dela) em vez da fase
+    `verify` (default do goal `check` quando nenhuma fase é especificada).
+    Isso significa que `./mvnw test` sozinho já roda
+    `prepare-agent` -> testes -> `report` -> `check` na mesma invocação, sem
+    precisar mudar `.github/workflows/ci.yml` (que já roda `./mvnw -B test`).
+    Se um projeto futuro quiser separar "rodar testes" de "validar cobertura"
+    (ex.: permitir merge com cobertura baixa mas alertar), aí sim vale
+    vincular `check` a `verify` e trocar o comando do CI para `./mvnw verify`
+    — não foi o caso aqui, o PRD só pede que o build falhe quando a regra é
+    violada.
+  - O goal `jacoco:check` só precisa do `target/jacoco.exec` (dados brutos de
+    execução) e das classes compiladas — não depende do goal `report` (HTML)
+    ter rodado antes, mas como os dois já estão na mesma fase e o `report` é
+    declarado primeiro, a ordem de execução dentro da fase segue a ordem de
+    declaração no `pom.xml`.
+  - Verificação prática pedida pelo PRD: troquei o `minimum` para `0.99` via
+    `sed` (acima da cobertura real), rodei `./mvnw test` de novo e confirmei
+    `BUILD FAILURE` com a mensagem exata do JaCoCo
+    ("lines covered ratio is 0.95, but expected minimum is 0.99"); revertido
+    para `0.90` em seguida e confirmado `BUILD SUCCESS` +
+    "All coverage checks have been met." antes de commitar. `git diff --stat`
+    confirmou que só `api/pom.xml` mudou (25 linhas inseridas) depois do
+    revert.
+  - US-010 (prioridade 10, `[OPERACIONAL]`) continua com `passes: false` —
+    ainda não há VPS neste sandbox, mesma situação já registrada nas
+    iterações anteriores. Com a US-012 concluída, 11 das 12 stories do épico
+    1 estão `passes: true`; só falta a US-010, que só pode ser fechada
+    manualmente contra a VPS real.
+  - Lembrete de convenção (já documentado no Codebase Patterns): `prd.json`
+    foi atualizado tanto em `scripts/ralph/prd.json` quanto em
+    `.claude/skills/ralph/prd.json` (cópia espelhada via `cp` + `diff` para
+    confirmar identidade) — o loop lê o primeiro, mas os dois devem ficar
+    sincronizados.
+---

@@ -13,20 +13,6 @@ interface WatchModalProps {
 }
 
 export function WatchModal({ track, onClose, onSuccess }: WatchModalProps) {
-  const [rating, setRating] = useState(0)
-  const [opinion, setOpinion] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!track) {
-      setRating(0)
-      setOpinion("")
-      setError(null)
-      setSaving(false)
-    }
-  }, [track])
-
   useEffect(() => {
     if (!track) return
     const onKeyDown = (e: KeyboardEvent) => {
@@ -37,6 +23,28 @@ export function WatchModal({ track, onClose, onSuccess }: WatchModalProps) {
   }, [track, onClose])
 
   if (!track) return null
+
+  return (
+    <WatchModalContent
+      key={track.id}
+      track={track}
+      onClose={onClose}
+      onSuccess={onSuccess}
+    />
+  )
+}
+
+interface WatchModalContentProps {
+  track: MediaTrackResponse
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps) {
+  const [rating, setRating] = useState(0)
+  const [opinion, setOpinion] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleConfirm = async () => {
     setSaving(true)

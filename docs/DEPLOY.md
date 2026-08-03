@@ -245,6 +245,104 @@ ssh root@31.97.169.38 "sudo certbot renew"
 
 ---
 
+## Seguranca operacional
+
+### JWT no access.log do Nginx (corrigido)
+
+O handshake do WebSocket carrega o JWT na query string (`/ws/websocket?token=...`).
+Ate esta correcao, `location /ws/` no `deploy/nginx/sessaoadois.luisgosampaio.com.conf`
+nao tinha `access_log off;`, entao cada conexao gravava uma credencial valida em
+texto claro em `/var/log/nginx/access.log`. O conf atual ja inclui `access_log off;`
+so no bloco `/ws/` - `/api/` e `/` continuam com o access log normal.
+
+Para que a correcao valha em producao:
+
+**(a) Reinstalar o conf na VPS e recarregar o Nginx**
+
+```bash
+scp deploy/nginx/sessaoadois.luisgosampaio.com.conf \
+    root@31.97.169.38:/tmp/sessaoadois.luisgosampaio.com
+ssh root@31.97.169.38 "sudo mv /tmp/sessaoadois.luisgosampaio.com /etc/nginx/sites-available/sessaoadois.luisgosampaio.com && sudo nginx -t && sudo systemctl reload nginx"
+```
+
+**(b) Purgar os logs existentes (incluindo os rotacionados)**
+
+Os logs antigos ja gravados contem JWTs validos e precisam ser apagados, nao so
+o `access.log` atual mas tambem toda a rotacao (`access.log.1`, `access.log.2.gz`,
+etc. - o `logrotate` padrao do Nginx mantem varias gerações comprimidas):
+
+```bash
+ssh root@31.97.169.38 "sudo truncate -s 0 /var/log/nginx/access.log && sudo rm -f /var/log/nginx/access.log.*"
+```
+
+**(c) Janela de validade dos tokens vazados**
+
+`JWT_EXPIRATION_DAYS` (default `7`, ver `api/src/main/resources/application.properties`)
+significa que qualquer token que aparece em logs de ate 7 dias atras da purga
+ainda pode ser valido no momento da purga. Purgar os logs sozinho nao invalida
+os tokens ja emitidos - so evita que novos handshakes continuem vazando.
+
+**(d) Rotacionar o `JWT_SECRET`**
+
+Para invalidar de fato qualquer token ja vazado nos logs historicos (nao so
+impedir vazamentos futuros), o segredo de assinatura precisa mudar - isso
+invalida todas as sessoes ativas, entao os dois usuarios do casal precisam
+logar de novo:
+
+```bash
+openssl rand -base64 48
+```
+
+Atualizar `JWT_SECRET` no `.env` da VPS (`~/projects/sessao-a-dois/.env`, ver
+"Passo 2" acima) com o valor gerado e reiniciar o container da API:
+
+```bash
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml up -d --force-recreate api"
+```
+
+O procedimento completo (a)-(d) aplicado na VPS, incluindo a verificacao pratica
+de que nenhuma linha nova de `/ws/` grava `token=`, fica registrado como tarefa
+operacional separada (ver US-010 do epico de contencao de seguranca).
+
+### Headers de seguranca HTTP e CSP
+
+`deploy/nginx/sessaoadois.luisgosampaio.com.conf` declara um bloco `server`
+para a porta 443 com 4 headers, todos com `always` (para saírem tambem em
+respostas de erro 4xx/5xx):
+
+- `Strict-Transport-Security` - forca HTTPS em todas as visitas seguintes.
+- `X-Content-Type-Options: nosniff` - impede o browser de "adivinhar" o
+  content-type e executar um asset como script.
+- `Referrer-Policy: strict-origin-when-cross-origin` - nao vaza a URL completa
+  (que pode conter dados sensiveis) para terceiros em requisicoes cross-origin.
+- `Content-Security-Policy` - restringe de onde o app pode carregar scripts,
+  estilos, imagens e conexoes:
+  `default-src 'self'; img-src 'self' https://image.tmdb.org data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' wss://sessaoadois.luisgosampaio.com; frame-ancestors 'none'; base-uri 'self'`.
+
+**Por que nao ha nenhum host do Google Fonts na CSP:** as fontes (`Bricolage
+Grotesque`, `DM Sans`, `Instrument Sans`) sao servidas via pacotes
+`@fontsource*` (`client/src/index.css`), empacotadas no build do Vite e
+servidas pelo proprio dominio (`self`) - nao ha nenhuma requisicao a
+`fonts.googleapis.com`/`fonts.gstatic.com` em producao. Se algum dia alguem
+"corrigir" um erro de fonte adicionando `https://fonts.googleapis.com` de
+volta a CSP, primeiro confira `client/src/index.css`: o problema quase certamente
+esta em outro lugar (fonte nao instalada, build sem o CSS importado), nao na
+CSP.
+
+**Onde esses headers realmente vivem na VPS:** o bloco 443 e normalmente
+gerado e mantido pelo Certbot (`sudo certbot --nginx -d sessaoadois.luisgosampaio.com`),
+que copia as `location`s do bloco 80 e adiciona `listen 443 ssl;` +
+`ssl_certificate`/`ssl_certificate_key`. O Certbot **nao sabe** desses 4
+headers - eles precisam ser colados manualmente dentro do bloco 443 gerado
+por ele. **Se o certificado for reemitido do zero** (`certbot --nginx` de
+novo do zero, ou uma renovacao com `--force-renewal` que reescreva o bloco),
+o Certbot sobrescreve o `server { listen 443 ... }` e os 4 headers somem -
+precisam ser reaplicados manualmente depois. A aplicacao pratica na VPS e a
+verificacao (`curl -I`, console do browser sem violacao de CSP) ficam
+registradas em US-010.
+
+---
+
 ## Estrutura de ficheiros na VPS
 
 ```

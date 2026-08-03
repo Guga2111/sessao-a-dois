@@ -49,7 +49,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/sessao
       DB_USER: sessao
       DB_PASSWORD: sessao
-      JWT_SECRET: dev-only-secret-please-override-in-prod-32bytes+
+      JWT_SECRET: local-dev-compose-secret-not-for-prod-32bytes+
       CORS_ALLOWED_ORIGIN: http://localhost:5173
       # TMDB_API_KEY: obrigatoria (com.app.media.TmdbConfig falha ao subir sem
       # ela). Lida do .env na raiz do repo (docker compose carrega .env
