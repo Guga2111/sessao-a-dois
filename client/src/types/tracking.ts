@@ -18,6 +18,9 @@ export interface MediaTrackResponse {
   runtime: number | null
   createdAt: string
   reviews: ReviewDto[]
+  title: string | null
+  posterUrl: string | null
+  releaseYear: number | null
 }
 
 // Shape of GET /api/tracking?status=...&page=...&size=... (Spring Data `Page<T>` JSON).

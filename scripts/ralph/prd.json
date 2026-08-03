@@ -105,7 +105,7 @@
         "Nao ha browser neste sandbox (sem Chromium/Playwright, sem sudo para as libs): registrar em progress.txt que a story precisa de aceite visual manual do dono do projeto antes do merge - rodar bun run dev, abrir o Hub e conferir card sem chips de provider e sem espaco morto, titulo/ano/poster corretos, e um titulo pre-V4 renderizando via fallback ou ja auto-curado"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
