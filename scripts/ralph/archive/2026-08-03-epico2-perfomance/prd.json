@@ -1,0 +1,97 @@
+{
+  "project": "Sessao a Dois",
+  "branchName": "epico2/perfomance",
+  "description": "Epico 2 - Fundacao de Performance de Banco. Elimina indices ausentes em colunas de FK/filtro, dois N+1 distintos (resolucao de nomes de usuario e colecoes LAZY do JPA), um delete em massa ineficiente, e fecha a lacuna de CI onde nenhum teste hoje executa as migrations Flyway de verdade contra um schema Postgres. Nenhuma mudanca de contrato de API; nenhuma story tem componente de UI (tudo em api/).",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "CI valida as migrations Flyway de verdade",
+      "description": "Como desenvolvedor do backend, quero que o CI execute as migrations Flyway (V1, V2 e futuras) em sequencia contra um schema compativel com Postgres e valide as entidades JPA contra esse schema, para que uma migration quebrada ou uma divergencia entidade-schema seja pega antes de producao - nao depois, como ja aconteceu (commits c78de9f e 18f9b57).",
+      "acceptanceCriteria": [
+        "Existe uma classe de teste dedicada, @SpringBootTest puro (sem @DataJpaTest, para nao sofrer o PropertyMappingContextCustomizer que forca H2 sem MODE=PostgreSQL)",
+        "@TestPropertySource declara spring.datasource.url=jdbc:h2:mem:migrations;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE, spring.flyway.enabled=true e spring.jpa.hibernate.ddl-auto=validate",
+        "O teste executa V1, V2 (e qualquer migration futura) em sequencia e falha se qualquer uma nao aplicar",
+        "O teste falha se uma entidade JPA divergir do schema criado pelas migrations (ddl-auto=validate exercitado de fato, nao so declarado)",
+        "Introduzir um erro deliberado numa migration (ex.: coluna com nome errado) faz ./mvnw test falhar - verificado na pratica, nao presumido",
+        "O workflow de CI (.github/workflows/) executa esse teste contra o postgres:17-alpine que o workflow ja sobe como service, usando @AutoConfigureTestDatabase(replace = NONE) + DB_URL do ambiente",
+        "Os slices @DataJpaTest e @SpringBootTest existentes continuam em create-drop e passando, sem nenhuma regressao nos testes ja existentes",
+        "api/CLAUDE.md e corrigido: remove as afirmacoes de que producao e dev/test usam os mesmos arquivos V*__*.sql e de que ddl-auto=validate esta ativo em todo lugar (ambas falsas desde 18f9b57), e descreve o arranjo real (slices em create-drop + um teste dedicado validando migrations)",
+        "./mvnw test passa"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Migration V3: indices de FK e filtro",
+      "description": "Como usuario do app, quero que as consultas mais frequentes (vinculo do casal, listagem de tracks, likes pendentes) nao facam full scan a cada request, para que a aplicacao continue rapida a medida que os dados crescem. Depende de US-001: sem o teste dedicado de migrations, ./mvnw test nunca executa V3, e a migration iria para producao sem nunca ter rodado.",
+      "acceptanceCriteria": [
+        "Nova migration api/src/main/resources/db/migration/V3__add_indexes.sql cria: idx_couples_user1, idx_couples_user2, idx_media_track_couple_status, idx_media_track_couple_tmdb, idx_user_review_track, idx_user_review_user, idx_match_like_couple_tmdb, idx_match_reject_couple_user, idx_media_track_genre_track",
+        "Todos os CREATE INDEX usam IF NOT EXISTS; nenhum DROP ou TRUNCATE na migration",
+        "A aplicacao sobe contra Postgres limpo com V1+V2+V3 aplicadas em sequencia",
+        "EXPLAIN SELECT * FROM couples WHERE user1_id = ? OR user2_id = ? usa index scan em vez de seq scan",
+        "Nenhuma tabela existente e recriada ou alterada - so criacao de indice",
+        "docs/FLYWAY.md documenta que o deploy que aplicar V3 (primeira migration nova pos-baseline) deve usar a connection string direta (porta 5432) ou o pooler em modo Session do Supabase, nao o modo Transaction (6543), pelo risco de advisory lock ja registrado no proprio arquivo",
+        "./mvnw test passa, e o teste de migrations criado na US-001 efetivamente executa V3 (nao so os testes pre-existentes)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Eliminar N+1 na resolucao de nomes de usuario e extrair MediaTrackMapper",
+      "description": "Como usuario do app, quero que listar meus titulos nao dispare uma query em users por membro do casal por titulo, para que a listagem nao degrade linearmente com o tamanho da lista (hoje ate 100 SELECTs em users para listar 50 tracks).",
+      "acceptanceCriteria": [
+        "Novo MediaTrackMapper (componente Spring em com.app.tracking) responsavel apenas por MediaTrack -> MediaTrackResponse, recebendo um Map<UUID,String> de nomes ja resolvido como parametro - nao injeta UserRepository",
+        "Todos os pontos de entrada que hoje resolvem nome por membro (listByStatus, listByStatusPaged, addTrack, markAsWatched, startWatching, deleteTrack, UserReviewService.upsertReview) passam a resolver os nomes uma unica vez por request via userRepository.findAllById(memberIds), mesmo padrao ja usado em NotificationService.resolveActorNames",
+        "GET /api/tracking?status=WATCHED com 50 tracks executa no maximo 1 query em users, independente da quantidade de tracks (verificavel com spring.jpa.show-sql=true ou contador de queries em teste)",
+        "MediaTrackService nao injeta mais UserRepository para fins de mapeamento",
+        "UserReviewService passa a depender de MediaTrackMapper, nao mais de MediaTrackService (remove o acoplamento bidirecional atual)",
+        "O JSON de resposta de todos os endpoints de /api/tracking e byte a byte identico ao anterior",
+        "Existe MediaTrackMapperTest",
+        "MediaTrackServiceTest, MediaTrackControllerTest e UserReviewServiceTest continuam passando (ajustados para o novo mapper onde necessario)",
+        "./mvnw test passa"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Eliminar N+1 nas colecoes LAZY e desligar open-in-view",
+      "description": "Como usuario do app, quero que o endpoint nao-paginado de tracking nao dispare queries extras proporcionais ao numero de titulos, e quero que o backend falhe de forma explicita (nao degrade em silencio) se algum codigo acessar dado LAZY fora de transacao, para que problemas de acesso a dados sejam pegos em desenvolvimento, nao em producao sob carga. Depende de US-003: o mapper extraido la e onde o EntityGraph desta story passa a ser consumido.",
+      "acceptanceCriteria": [
+        "@EntityGraph(attributePaths = {\"reviews\", \"reviews.user\", \"couple\"}) adicionado aos finders de MediaTrackRepository (findByCoupleId, findByCoupleIdAndStatus, findByCoupleIdAndStatusOrderByCreatedAtDesc)",
+        "A variante paginada nao combina JOIN FETCH de colecao com Pageable (evita paginacao em memoria / aviso HHH000104) - usa EntityGraph com countQuery separado, ou busca ids paginados e depois faz fetch por IN",
+        "MediaTrackService.startWatching e anotado com @Transactional (hoje e o unico mutador sem essa anotacao)",
+        "spring.jpa.open-in-view=false e definido em application.properties SOMENTE depois dos 3 itens acima estarem implementados (a ordem importa: EntityGraph + @Transactional primeiro, OSIV por ultimo, senao vira LazyInitializationException em vez de N+1 corrigido)",
+        "GET /api/tracking (sem status) com 30 tracks executa numero constante de queries, nao proporcional a quantidade de tracks",
+        "GET /api/tracking?status=WATCHED&page=0&size=20 pagina no banco: o log do Hibernate nao emite HHH000104",
+        "Com open-in-view=false, todos os endpoints de /api/tracking, /api/match e /api/notifications respondem sem LazyInitializationException",
+        "./mvnw test passa",
+        "Esta story e implantada sozinha, sem nenhuma outra mudanca deste epico no mesmo deploy - spring.jpa.open-in-view=false muda comportamento global (nao so de tracking), e o rollback precisa ser um unico revert limpo"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Delete em massa de notificacoes expiradas",
+      "description": "Como operador do sistema, quero que a limpeza diaria de notificacoes antigas seja um unico DELETE, nao um carregamento de todas as linhas seguido de exclusao uma a uma, para que o job de limpeza nao cresca linearmente com o volume de notificacoes.",
+      "acceptanceCriteria": [
+        "NotificationRepository.deleteByCreatedAtBefore deixa de ser um delete derivado do Spring Data e vira uma query explicita: @Modifying @Query(\"DELETE FROM Notification n WHERE n.createdAt < :cutoff\")",
+        "O tipo de retorno em NotificationCleanupService muda de long para int, compativel com o retorno de @Modifying",
+        "O log existente reportando a quantidade removida e mantido",
+        "O job emite uma unica instrucao DELETE, independente do volume de notificacoes expiradas (verificavel via spring.jpa.show-sql=true ou contador de queries em teste)",
+        "NotificationCleanupServiceTest e NotificationRepositoryTest passam",
+        "./mvnw test passa"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
