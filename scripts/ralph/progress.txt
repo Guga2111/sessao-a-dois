@@ -263,3 +263,47 @@
   - US-005 (bulk delete of expired notifications) is independent of every other story in this epic and
     was picked up next in this same session.
 ---
+
+## 2026-08-03 - US-005
+- Changed `NotificationRepository.deleteByCreatedAtBefore` from a Spring Data derived delete method
+  (`long deleteByCreatedAtBefore(Instant cutoff)`, which Spring Data implements as a SELECT of every
+  matching row followed by one DELETE per entity) to an explicit bulk statement:
+  `@Modifying @Query("DELETE FROM Notification n WHERE n.createdAt < :cutoff") int
+  deleteByCreatedAtBefore(@Param("cutoff") Instant cutoff)` — a single DELETE regardless of how many
+  rows match, and the fact that it's now an `@Query`/`@Modifying` bulk statement (not a derived
+  select-then-delete) is itself the proof the PRD's "single DELETE" criterion holds; no separate
+  query-count test was needed the way `MediaTrackQueryCountTest` was needed for US-004 (there the
+  N+1 was about *number of round trips per row in a result set actually returned to the caller*,
+  here it's about the derived-delete-method's internal implementation, which the type change already
+  forces away from).
+- Return type changed `long` -> `int` everywhere in the chain, matching `@Modifying`'s int return
+  convention: `NotificationCleanupService.expireOldNotifications` (`int removed = ...`), the existing
+  log line unchanged (still logs the count). `@Transactional` was already present on
+  `expireOldNotifications` (required for `@Modifying` queries) — no change needed there.
+- Updated `NotificationCleanupServiceTest` (`thenReturn(3L)` -> `thenReturn(3)`) and
+  `NotificationRepositoryTest.deleteByCreatedAtBeforeRemovesOnlyNotificationsOlderThanCutoff`
+  (`long removed` -> `int removed`) — the existing `@DataJpaTest` for this method already covers the
+  cutoff-scoping behavior (only older-than-cutoff rows deleted), so no new repository test was added,
+  just the type fix.
+- While implementing this story, discovered US-004 had been fully implemented and verified in a prior
+  session but never committed (6 modified tracked files + 1 untracked test, all matching US-004's
+  acceptance criteria, `prd.json.passes` already `true` for it) — committed that first as its own
+  `feat: US-004 - ...` commit (with its own progress.txt entry above) before starting this story, so
+  each commit maps to exactly one story as the Ralph workflow expects.
+- Files changed: `api/src/main/java/com/app/notification/NotificationRepository.java`,
+  `NotificationCleanupService.java`, `api/src/test/java/com/app/notification/
+  NotificationCleanupServiceTest.java`, `NotificationRepositoryTest.java`. `./mvnw test` passes (309
+  tests, 0 failures/errors, `BUILD SUCCESS`).
+- **Learnings for future iterations:**
+  - A Spring Data **derived** `deleteBy...` method (no `@Query`) is implemented internally as a
+    SELECT of matching rows followed by a JPA `remove()` per entity — for a true single-statement
+    bulk delete, it must be replaced with an explicit `@Modifying @Query("DELETE FROM Entity e WHERE
+    ...")`. The return type convention differs too: derived delete methods can return `long`, but
+    `@Modifying` queries return `int` (JPA's `executeUpdate()` contract) — every caller and test stub
+    keying off the return type needs the same `long` -> `int` change.
+  - This was the last story in Epico 2 (performance de banco) — all 5 user stories (`US-001`..`US-005`)
+    now have `passes: true` in both `scripts/ralph/prd.json` and `.claude/skills/ralph/prd.json`
+    (kept mirrored, per the established convention). Per the repo's own convention (6 epics archived
+    so far), this epic's `prd.json` + `progress.txt` should be archived to
+    `scripts/ralph/archive/YYYY-MM-DD-epico-2-performance-banco/` before starting the next epic.
+---

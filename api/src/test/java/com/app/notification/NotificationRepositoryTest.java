@@ -137,7 +137,7 @@ class NotificationRepositoryTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		long removed = notificationRepository.deleteByCreatedAtBefore(Instant.now().minus(30, ChronoUnit.DAYS));
+		int removed = notificationRepository.deleteByCreatedAtBefore(Instant.now().minus(30, ChronoUnit.DAYS));
 
 		assertThat(removed).isEqualTo(1);
 		assertThat(notificationRepository.findById(old.getId())).isEmpty();

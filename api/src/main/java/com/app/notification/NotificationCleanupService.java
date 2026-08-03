@@ -26,7 +26,7 @@ public class NotificationCleanupService {
 	@Transactional
 	public void expireOldNotifications() {
 		Instant cutoff = Instant.now().minus(RETENTION_DAYS, ChronoUnit.DAYS);
-		long removed = notificationRepository.deleteByCreatedAtBefore(cutoff);
+		int removed = notificationRepository.deleteByCreatedAtBefore(cutoff);
 		log.info("Expired {} notifications older than {} days", removed, RETENTION_DAYS);
 	}
 }

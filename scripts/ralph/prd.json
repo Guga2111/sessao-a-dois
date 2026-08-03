@@ -74,7 +74,7 @@
         "Esta story e implantada sozinha, sem nenhuma outra mudanca deste epico no mesmo deploy - spring.jpa.open-in-view=false muda comportamento global (nao so de tracking), e o rollback precisa ser um unico revert limpo"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -90,7 +90,7 @@
         "./mvnw test passa"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

@@ -17,7 +17,9 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
 	long countByRecipientUserIdAndReadFalse(UUID recipientUserId);
 
-	long deleteByCreatedAtBefore(Instant cutoff);
+	@Modifying
+	@Query("DELETE FROM Notification n WHERE n.createdAt < :cutoff")
+	int deleteByCreatedAtBefore(@Param("cutoff") Instant cutoff);
 
 	/**
 	 * Idempotencia do pedido de avaliacao: escopado ao casal para nunca cruzar
