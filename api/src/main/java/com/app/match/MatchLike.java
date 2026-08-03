@@ -46,6 +46,15 @@ public class MatchLike {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
+	@Column
+	private String title;
+
+	@Column(name = "poster_url")
+	private String posterUrl;
+
+	@Column(name = "release_year")
+	private Integer releaseYear;
+
 	protected MatchLike() {
 	}
 
@@ -78,5 +87,29 @@ public class MatchLike {
 
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
+	}
+
+	public String getPosterUrl() {
+		return posterUrl;
+	}
+
+	public void setPosterUrl(String posterUrl) {
+		this.posterUrl = posterUrl;
+	}
+
+	public Integer getReleaseYear() {
+		return releaseYear;
+	}
+
+	public void setReleaseYear(Integer releaseYear) {
+		this.releaseYear = releaseYear;
 	}
 }

@@ -67,6 +67,9 @@ WHERE tc.table_schema = 'public';
 | `watched_date` | date | nullable |
 | `runtime` | integer | nullable |
 | `created_at` | timestamp (`LocalDateTime`, `@CreationTimestamp`) | NOT NULL |
+| `title` | varchar(255) | nullable (V4) |
+| `poster_url` | varchar(500) | nullable (V4) |
+| `release_year` | integer | nullable (V4) |
 
 ### `media_track_genre` (`@ElementCollection` de `MediaTrack.genreIds`)
 | Coluna | Tipo | Constraints |
@@ -96,6 +99,9 @@ UNIQUE(`media_track_id`, `user_id`).
 | `tmdb_id` | bigint | NOT NULL |
 | `media_type` | varchar (enum STRING) | NOT NULL |
 | `created_at` | timestamp (`LocalDateTime`, `@CreationTimestamp`) | NOT NULL |
+| `title` | varchar(255) | nullable (V4) |
+| `poster_url` | varchar(500) | nullable (V4) |
+| `release_year` | integer | nullable (V4) |
 
 UNIQUE(`couple_id`, `user_id`, `tmdb_id`).
 

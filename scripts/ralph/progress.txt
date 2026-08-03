@@ -24,3 +24,17 @@ Started: 2026-08-03 — Epico 3 (Resiliencia e Latencia do TMDB), branch epico3/
   - `RestClient.builder().requestFactory(...)` aceita qualquer `ClientHttpRequestFactory`; para inspecionar a factory de um `RestClient` ja construido em teste (sem subir contexto Spring), `ReflectionTestUtils.getField(restClient, "clientRequestFactory")` funciona porque `DefaultRestClient` guarda a factory original nesse campo privado antes de qualquer wrapping para interceptors (`interceptingRequestFactory` e um campo separado, resolvido lazy).
   - Quando a duvida for "esse setter aceita Duration ou so int/long", confirmar com `javap -p` no `.class` dentro do jar em `~/.m2` antes de assumir a API de uma versao do Spring Framework/Boot mais antiga - Spring Boot 4.1.0 aqui usa Spring Framework 7.0.8, que ja tem os overloads `Duration` em `SimpleClientHttpRequestFactory` desde o 6.1.
 ---
+
+## 2026-08-03 - US-002
+- Nova migration `api/src/main/resources/db/migration/V4__denormalize_media_metadata.sql`: `ADD COLUMN IF NOT EXISTS title VARCHAR(255)`, `poster_url VARCHAR(500)`, `release_year INTEGER` em `media_track` e `match_like`, todas nullable, sem default no banco.
+- `MediaTrack` e `MatchLike` ganharam os tres campos com getters/setters (nenhum construtor mudou de assinatura - campos entram por setter, como pedia o AC).
+- `FlywayMigrationTest` atualizado para exigir a versao "4" na lista de migrations aplicadas (era so "1","2","3").
+- `docs/SCHEMA_BASELINE.md`: as tres colunas novas documentadas nas tabelas `media_track` e `match_like` (marcadas "(V4)").
+- `docs/FLYWAY.md`: V4 registrada na lista de migrations, e a ressalva do pooler Supabase (usar porta 5432 direta ou pooler em modo Session, nunca modo Transaction/6543) agora tambem menciona V4 explicitamente.
+- Esta story so cria schema/campos - ninguem ainda escreve title/posterUrl/releaseYear (isso e US-003) nem le (US-004), entao nenhum teste novo de service/controller foi necessario alem do FlywayMigrationTest.
+- Arquivos alterados: `api/src/main/resources/db/migration/V4__denormalize_media_metadata.sql` (novo), `api/src/main/java/com/app/tracking/MediaTrack.java`, `api/src/main/java/com/app/match/MatchLike.java`, `api/src/test/java/com/app/migration/FlywayMigrationTest.java`, `docs/SCHEMA_BASELINE.md`, `docs/FLYWAY.md`.
+- Testes: `./mvnw test`: 311/311, BUILD SUCCESS (mesma contagem de antes - story so adiciona campos/schema, sem comportamento novo a testar isoladamente ainda).
+- **Learnings for future iterations:**
+  - Para adicionar uma coluna nullable a uma entidade existente sem quebrar nada: `ADD COLUMN IF NOT EXISTS` na migration (nunca default no banco para campo que a app popula), campo Java simples com getter/setter (sem entrar no construtor), e atualizar a lista de versoes esperadas em `FlywayMigrationTest` (`.contains("1","2","3",...)`) - esse e o UNICO teste que realmente aplica a migration nova contra o schema das entidades.
+  - US-003 (proxima) e quem vai popular estes campos em `MediaTrackService.addTrack`/`MatchService.createMatch`/`MatchService.like`, reaproveitando a chamada a `mediaDetailsService.getDetails(...)` que ja existe hoje - conferir o `catch (RuntimeException)` ja existente em `MediaTrackService.fetchGenreIds` antes de mexer, e nao introduzir chamada nova ao TMDB.
+---
