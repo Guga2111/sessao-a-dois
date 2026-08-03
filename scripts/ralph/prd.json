@@ -210,8 +210,8 @@
         "Se o check for vinculado a fase verify, o comando do CI (.github/workflows/ci.yml) e ajustado para executa-la"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "./mvnw test (300/300 passam) gerou o relatorio JaCoCo em api/target/site/jacoco/index.html: 1147/1203 linhas cobertas = 95,34% (LINE COVEREDRATIO). Adicionada uma execucao `check` ao jacoco-maven-plugin em api/pom.xml, bound a fase `test` (mesma fase da execucao `report` ja existente, logo apos ela na ordem de declaracao) - por isso nenhum ajuste no CI foi necessario, ./mvnw test ja roda prepare-agent + report + check em sequencia. Regra: element=BUNDLE, counter=LINE, value=COVEREDRATIO, minimum=0.90 (arredondado para baixo com folga de ~5 pontos sobre os 95,34% medidos). haltOnFailure ficou no default (true). Comentario no pom.xml registra o numero medido (1147/1203) e a data. Verificado na pratica: subi o minimum para 0.99 via sed, ./mvnw test falhou com BUILD FAILURE e a mensagem exata 'lines covered ratio is 0.95, but expected minimum is 0.99', depois revertido para 0.90 e confirmado BUILD SUCCESS de novo com 'All coverage checks have been met.'. US-010 (prioridade 10, operacional/VPS) continua com passes:false e pulada pelo mesmo motivo documentado nas iteracoes anteriores - nao ha VPS neste sandbox, e a story so pode ser concluida manualmente contra a VPS real. Com US-012 concluida, 11 das 12 stories do epico 1 estao com passes:true; so falta a US-010."
     }
   ]
 }

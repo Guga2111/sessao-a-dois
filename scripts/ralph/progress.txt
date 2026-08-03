@@ -494,3 +494,50 @@
     `api/src/test/resources/application.properties` já é suficiente e não
     precisa de override nenhum para `./mvnw test` local.
 ---
+
+## 2026-08-02 - US-012
+- `./mvnw test` (300/300 passam) gerou `api/target/site/jacoco/index.html`:
+  cobertura de linha real = 1147/1203 = 95,34% (`LINE`/`COVEREDRATIO` do
+  bundle todo). Adicionada uma execução `check` ao `jacoco-maven-plugin` em
+  `api/pom.xml`, com uma regra `element=BUNDLE`, `counter=LINE`,
+  `value=COVEREDRATIO`, `minimum=0.90` (arredondado para baixo com ~5 pontos
+  de folga sobre os 95,34% medidos). `haltOnFailure` ficou no default
+  (`true`). Um comentário no `pom.xml` registra o número medido (1147/1203,
+  data da medição) que originou o `0.90`.
+- Arquivos alterados: `api/pom.xml`.
+- **Learnings for future iterations:**
+  - A execução `check` foi vinculada à fase `test` (mesma fase da execução
+    `report` já existente, declarada logo depois dela) em vez da fase
+    `verify` (default do goal `check` quando nenhuma fase é especificada).
+    Isso significa que `./mvnw test` sozinho já roda
+    `prepare-agent` -> testes -> `report` -> `check` na mesma invocação, sem
+    precisar mudar `.github/workflows/ci.yml` (que já roda `./mvnw -B test`).
+    Se um projeto futuro quiser separar "rodar testes" de "validar cobertura"
+    (ex.: permitir merge com cobertura baixa mas alertar), aí sim vale
+    vincular `check` a `verify` e trocar o comando do CI para `./mvnw verify`
+    — não foi o caso aqui, o PRD só pede que o build falhe quando a regra é
+    violada.
+  - O goal `jacoco:check` só precisa do `target/jacoco.exec` (dados brutos de
+    execução) e das classes compiladas — não depende do goal `report` (HTML)
+    ter rodado antes, mas como os dois já estão na mesma fase e o `report` é
+    declarado primeiro, a ordem de execução dentro da fase segue a ordem de
+    declaração no `pom.xml`.
+  - Verificação prática pedida pelo PRD: troquei o `minimum` para `0.99` via
+    `sed` (acima da cobertura real), rodei `./mvnw test` de novo e confirmei
+    `BUILD FAILURE` com a mensagem exata do JaCoCo
+    ("lines covered ratio is 0.95, but expected minimum is 0.99"); revertido
+    para `0.90` em seguida e confirmado `BUILD SUCCESS` +
+    "All coverage checks have been met." antes de commitar. `git diff --stat`
+    confirmou que só `api/pom.xml` mudou (25 linhas inseridas) depois do
+    revert.
+  - US-010 (prioridade 10, `[OPERACIONAL]`) continua com `passes: false` —
+    ainda não há VPS neste sandbox, mesma situação já registrada nas
+    iterações anteriores. Com a US-012 concluída, 11 das 12 stories do épico
+    1 estão `passes: true`; só falta a US-010, que só pode ser fechada
+    manualmente contra a VPS real.
+  - Lembrete de convenção (já documentado no Codebase Patterns): `prd.json`
+    foi atualizado tanto em `scripts/ralph/prd.json` quanto em
+    `.claude/skills/ralph/prd.json` (cópia espelhada via `cp` + `diff` para
+    confirmar identidade) — o loop lê o primeiro, mas os dois devem ficar
+    sincronizados.
+---
