@@ -28,6 +28,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -156,6 +157,7 @@ class MediaTrackServiceTest {
 		ReflectionTestUtils.setField(user2, "id", user2Id);
 
 		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
+		track.setTitle("Matrix");
 		track.getReviews().add(new UserReview(track, user1, 5, "Ana adorou"));
 		track.getReviews().add(new UserReview(track, user2, 2, "Bob nem tanto"));
 
@@ -191,6 +193,7 @@ class MediaTrackServiceTest {
 		User user1 = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user1, "id", user1Id);
 		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		track.setTitle("Matrix");
 
 		when(mediaTrackRepository.findByCoupleIdAndStatus(coupleId, MediaStatus.WANT_TO_SEE))
 			.thenReturn(List.of(track));
@@ -205,6 +208,81 @@ class MediaTrackServiceTest {
 	}
 
 	@Test
+	void listByStatusDoesNotCallTmdbWhenTitleAlreadyPersisted() {
+		UUID coupleId = UUID.randomUUID();
+		UUID user1Id = UUID.randomUUID();
+		Couple couple = coupleWithMembers(user1Id, null);
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user1 = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user1, "id", user1Id);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		track.setTitle("Matrix");
+		track.setPosterUrl("/poster.jpg");
+		track.setReleaseYear(1999);
+
+		when(mediaTrackRepository.findByCoupleIdAndStatus(coupleId, MediaStatus.WANT_TO_SEE))
+			.thenReturn(List.of(track));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1));
+
+		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, MediaStatus.WANT_TO_SEE);
+
+		assertThat(responses.get(0).title()).isEqualTo("Matrix");
+		verify(mediaDetailsService, never()).getDetails(any(), anyLong());
+		verify(mediaTrackRepository, never()).save(any(MediaTrack.class));
+	}
+
+	@Test
+	void listByStatusHealsHistoricalRowAndPersistsMetadataOnlyOnce() {
+		UUID coupleId = UUID.randomUUID();
+		UUID user1Id = UUID.randomUUID();
+		Couple couple = coupleWithMembers(user1Id, null);
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user1 = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user1, "id", user1Id);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+
+		when(mediaTrackRepository.findByCoupleIdAndStatus(coupleId, MediaStatus.WANT_TO_SEE))
+			.thenReturn(List.of(track));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, "/poster.jpg", null, null,
+					List.of(28), null, null, null));
+
+		List<MediaTrackResponse> first = mediaTrackService.listByStatus(coupleId, MediaStatus.WANT_TO_SEE);
+		List<MediaTrackResponse> second = mediaTrackService.listByStatus(coupleId, MediaStatus.WANT_TO_SEE);
+
+		assertThat(first.get(0).title()).isEqualTo("Matrix");
+		assertThat(second.get(0).title()).isEqualTo("Matrix");
+		verify(mediaTrackRepository, times(1)).save(track);
+		verify(mediaDetailsService, times(1)).getDetails(MediaType.MOVIE, 603L);
+	}
+
+	@Test
+	void listByStatusReturnsHistoricalRowWithNullFieldsWhenTmdbFails() {
+		UUID coupleId = UUID.randomUUID();
+		UUID user1Id = UUID.randomUUID();
+		Couple couple = coupleWithMembers(user1Id, null);
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		User user1 = new User("Ana", "ana@example.com", "hash");
+		ReflectionTestUtils.setField(user1, "id", user1Id);
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+
+		when(mediaTrackRepository.findByCoupleIdAndStatus(coupleId, MediaStatus.WANT_TO_SEE))
+			.thenReturn(List.of(track));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenThrow(new RuntimeException("TMDB indisponivel"));
+
+		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, MediaStatus.WANT_TO_SEE);
+
+		assertThat(responses).hasSize(1);
+		assertThat(responses.get(0).title()).isNull();
+		assertThat(responses.get(0).posterUrl()).isNull();
+		assertThat(responses.get(0).releaseYear()).isNull();
+		verify(mediaTrackRepository, never()).save(any(MediaTrack.class));
+	}
+
+	@Test
 	void listByStatusPagedReturnsPageMappedFromRepository() {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
@@ -214,6 +292,7 @@ class MediaTrackServiceTest {
 		User user1 = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user1, "id", user1Id);
 		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		track.setTitle("Matrix");
 		ReflectionTestUtils.setField(track, "id", trackId);
 
 		Page<UUID> idPage = new PageImpl<>(List.of(trackId), PageRequest.of(0, 20), 1);

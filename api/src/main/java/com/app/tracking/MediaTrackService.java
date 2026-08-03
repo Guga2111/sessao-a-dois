@@ -79,10 +79,13 @@ public class MediaTrackService {
 		return mediaTrackMapper.toResponse(saved, resolveMemberNames(couple));
 	}
 
+	@Transactional
 	public List<MediaTrackResponse> listByStatus(UUID coupleId, MediaStatus status) {
 		List<MediaTrack> tracks = status == null
 			? mediaTrackRepository.findByCoupleId(coupleId)
 			: mediaTrackRepository.findByCoupleIdAndStatus(coupleId, status);
+
+		tracks.forEach(this::healMetadata);
 
 		Map<UUID, String> userNames = resolveMemberNames(tracks);
 		return tracks.stream().map(track -> mediaTrackMapper.toResponse(track, userNames)).toList();
@@ -93,6 +96,7 @@ public class MediaTrackService {
 	 * standard {@code Page} JSON: {@code content} (the page items), {@code totalElements} (total
 	 * for the status), plus {@code totalPages}, {@code number}, {@code size}, etc.
 	 */
+	@Transactional
 	public Page<MediaTrackResponse> listByStatusPaged(UUID coupleId, MediaStatus status, int page, int size) {
 		int safePage = Math.max(page, 0);
 		int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
@@ -107,11 +111,35 @@ public class MediaTrackService {
 		Map<UUID, MediaTrack> tracksById = tracks.stream().collect(Collectors.toMap(MediaTrack::getId, t -> t));
 		List<MediaTrack> orderedTracks = idPage.getContent().stream().map(tracksById::get).toList();
 
+		orderedTracks.forEach(this::healMetadata);
+
 		Map<UUID, String> userNames = resolveMemberNames(orderedTracks);
 		List<MediaTrackResponse> content = orderedTracks.stream()
 			.map(track -> mediaTrackMapper.toResponse(track, userNames))
 			.toList();
 		return new PageImpl<>(content, pageable, idPage.getTotalElements());
+	}
+
+	/**
+	 * Self-heals a pre-V4 row (title null) by fetching TMDB once and persisting the result, so
+	 * every read after this one skips TMDB entirely for this row. A TMDB failure leaves the
+	 * fields null instead of failing the request - the row is retried on the next read.
+	 */
+	private void healMetadata(MediaTrack track) {
+		if (track.getTitle() != null) {
+			return;
+		}
+		try {
+			MediaDetails details = mediaDetailsService.getDetails(track.getMediaType(), track.getTmdbId());
+			track.setTitle(details.title());
+			track.setPosterUrl(details.posterUrl());
+			track.setReleaseYear(details.year());
+			mediaTrackRepository.save(track);
+		}
+		catch (RuntimeException ex) {
+			log.warn("Nao foi possivel auto-curar os metadados do titulo {} no TMDB: {}", track.getTmdbId(),
+					ex.getMessage());
+		}
 	}
 
 	@Transactional
