@@ -367,6 +367,30 @@ class MatchServiceTest {
 		assertThat(result.get(0).tmdbId()).isEqualTo(603L);
 		assertThat(result.get(0).title()).isEqualTo("Matrix");
 		assertThat(result.get(0).posterUrl()).isEqualTo("/poster.jpg");
+		assertThat(result.get(0).releaseYear()).isEqualTo(1999);
+	}
+
+	@Test
+	void getPending_usesPersistedMetadataWithoutCallingTmdb() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
+		partnerLike.setTitle("Matrix");
+		partnerLike.setPosterUrl("/poster.jpg");
+		partnerLike.setReleaseYear(1999);
+
+		when(matchLikeRepository.findPendingForUser(eq(coupleId), eq(userId), any(Pageable.class)))
+			.thenReturn(new PageImpl<>(List.of(partnerLike)));
+
+		List<PendingMatchDto> result = matchService.getPending(coupleId, userId);
+
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).tmdbId()).isEqualTo(603L);
+		assertThat(result.get(0).title()).isEqualTo("Matrix");
+		assertThat(result.get(0).posterUrl()).isEqualTo("/poster.jpg");
+		assertThat(result.get(0).releaseYear()).isEqualTo(1999);
+		verify(mediaDetailsService, never()).getDetails(any(), anyLong());
 	}
 
 	@Test

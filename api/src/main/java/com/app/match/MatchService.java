@@ -100,9 +100,15 @@ public class MatchService {
 		var page = matchLikeRepository.findPendingForUser(coupleId, userId, PageRequest.of(0, 10));
 		List<PendingMatchDto> result = new ArrayList<>();
 		for (MatchLike ml : page.getContent()) {
+			if (ml.getTitle() != null) {
+				result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), ml.getTitle(), ml.getPosterUrl(),
+						ml.getReleaseYear()));
+				continue;
+			}
 			try {
 				MediaDetails details = mediaDetailsService.getDetails(ml.getMediaType(), ml.getTmdbId());
-				result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), details.title(), details.posterUrl()));
+				result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), details.title(), details.posterUrl(),
+						details.year()));
 			} catch (RuntimeException ignored) {
 			}
 		}

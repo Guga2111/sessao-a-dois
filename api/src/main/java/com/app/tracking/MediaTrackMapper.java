@@ -33,7 +33,10 @@ public class MediaTrackMapper {
 			track.getWatchedDate(),
 			track.getRuntime(),
 			track.getCreatedAt(),
-			reviews
+			reviews,
+			track.getTitle(),
+			track.getPosterUrl(),
+			track.getReleaseYear()
 		);
 	}
 

@@ -74,7 +74,7 @@ class MediaTrackControllerTest {
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse track = new MediaTrackResponse(
-			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.listByStatus(coupleId, null)).thenReturn(List.of(track));
 
 		mockMvc.perform(get("/api/tracking")
@@ -90,7 +90,7 @@ class MediaTrackControllerTest {
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse track = new MediaTrackResponse(
-			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		Page<MediaTrackResponse> page = new PageImpl<>(List.of(track), PageRequest.of(0, 20), 1);
 		when(mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHING, 0, 20)).thenReturn(page);
 
@@ -137,7 +137,7 @@ class MediaTrackControllerTest {
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.addTrack(eq(coupleId), eq(userId), any(CreateMediaTrackRequest.class)))
 			.thenReturn(response);
 
@@ -191,7 +191,7 @@ class MediaTrackControllerTest {
 		UUID trackId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING)).thenReturn(response);
 
 		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
@@ -330,7 +330,7 @@ class MediaTrackControllerTest {
 		UUID trackId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.markAsWatched(eq(trackId), eq(coupleId), eq(userId), any(WatchRequest.class)))
 			.thenReturn(response);
 
@@ -386,7 +386,7 @@ class MediaTrackControllerTest {
 		UUID trackId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(userReviewService.upsertReview(eq(trackId), eq(userId), eq(coupleId), any(UpsertReviewRequest.class)))
 			.thenReturn(response);
 

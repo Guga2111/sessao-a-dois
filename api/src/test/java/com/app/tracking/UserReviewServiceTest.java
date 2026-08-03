@@ -67,7 +67,7 @@ class UserReviewServiceTest {
 		User user = new User("Ana", "ana@example.com", "hash");
 		UpsertReviewRequest request = new UpsertReviewRequest(4, "Gostei bastante");
 		MediaTrackResponse expectedResponse = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of(), null, null, null);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.empty());
@@ -94,7 +94,7 @@ class UserReviewServiceTest {
 		UserReview existingReview = new UserReview(track, user, 2, "Regular");
 		UpsertReviewRequest request = new UpsertReviewRequest(5, "Mudei de ideia, adorei");
 		MediaTrackResponse expectedResponse = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of(), null, null, null);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.of(existingReview));
