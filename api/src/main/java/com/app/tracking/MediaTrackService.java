@@ -79,16 +79,11 @@ public class MediaTrackService {
 		return mediaTrackMapper.toResponse(saved, resolveMemberNames(couple));
 	}
 
-	@Transactional
-	public List<MediaTrackResponse> listByStatus(UUID coupleId, MediaStatus status) {
-		List<MediaTrack> tracks = status == null
-			? mediaTrackRepository.findByCoupleId(coupleId)
-			: mediaTrackRepository.findByCoupleIdAndStatus(coupleId, status);
-
-		tracks.forEach(this::healMetadata);
-
-		Map<UUID, String> userNames = resolveMemberNames(tracks);
-		return tracks.stream().map(track -> mediaTrackMapper.toResponse(track, userNames)).toList();
+	/** Two-column projection (no metadata, no reviews) used by MatchScreen to know which titles are already tracked. */
+	public List<TrackKeyResponse> listKeys(UUID coupleId) {
+		return mediaTrackRepository.findKeysByCoupleId(coupleId).stream()
+			.map(key -> new TrackKeyResponse(key.getMediaType(), key.getTmdbId()))
+			.toList();
 	}
 
 	/**

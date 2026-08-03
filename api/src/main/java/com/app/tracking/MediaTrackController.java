@@ -50,11 +50,11 @@ public class MediaTrackController {
 		return ResponseEntity.ok(response);
 	}
 
-	/** No {@code status}: unpaged, full list — kept as-is for DashboardScreen/MatchScreen. */
-	@GetMapping(params = "!status")
-	public ResponseEntity<List<MediaTrackResponse>> list(@AuthenticationPrincipal UUID userId) {
+	/** Chaves (mediaType + tmdbId) do casal, sem reviews nem metadados — usado pela tela de Match. */
+	@GetMapping("/keys")
+	public ResponseEntity<List<TrackKeyResponse>> listKeys(@AuthenticationPrincipal UUID userId) {
 		UUID coupleId = currentCoupleId(userId);
-		return ResponseEntity.ok(mediaTrackService.listByStatus(coupleId, null));
+		return ResponseEntity.ok(mediaTrackService.listKeys(coupleId));
 	}
 
 	/** With {@code status}: paginated (default page=0, size=20, size capped server-side). */

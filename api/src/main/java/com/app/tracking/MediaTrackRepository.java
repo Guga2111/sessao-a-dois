@@ -31,8 +31,9 @@ public interface MediaTrackRepository extends JpaRepository<MediaTrack, UUID> {
 	@EntityGraph(attributePaths = {"reviews", "reviews.user", "couple"})
 	List<MediaTrack> findByIdIn(List<UUID> ids);
 
-	@EntityGraph(attributePaths = {"reviews", "reviews.user", "couple"})
-	List<MediaTrack> findByCoupleId(UUID coupleId);
+	/** Two-column projection for {@code GET /api/tracking/keys} - no entity/collection loading. */
+	@Query("SELECT mt.mediaType AS mediaType, mt.tmdbId AS tmdbId FROM MediaTrack mt WHERE mt.couple.id = :coupleId")
+	List<TrackKey> findKeysByCoupleId(@Param("coupleId") UUID coupleId);
 
 	boolean existsByCoupleIdAndTmdbId(UUID coupleId, Long tmdbId);
 
@@ -60,6 +61,12 @@ public interface MediaTrackRepository extends JpaRepository<MediaTrack, UUID> {
 		+ "WHERE mt.couple.id = :coupleId AND mt.status = :status GROUP BY g")
 	List<GenreCount> countGenreOccurrencesByCoupleIdAndStatus(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status);
+
+	interface TrackKey {
+		MediaType getMediaType();
+
+		Long getTmdbId();
+	}
 
 	interface MonthlyCount {
 		Integer getMonth();

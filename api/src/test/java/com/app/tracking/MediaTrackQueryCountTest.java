@@ -79,9 +79,9 @@ class MediaTrackQueryCountTest {
 	}
 
 	@Test
-	void listEndpointExecutesConstantQueryCountRegardlessOfTrackCount() throws Exception {
-		long queriesForFewTracks = queryCountForUnpagedListing(3);
-		long queriesForManyTracks = queryCountForUnpagedListing(30);
+	void keysEndpointExecutesConstantQueryCountRegardlessOfTrackCount() throws Exception {
+		long queriesForFewTracks = queryCountForKeysListing(3);
+		long queriesForManyTracks = queryCountForKeysListing(30);
 
 		assertThat(queriesForManyTracks).isEqualTo(queriesForFewTracks);
 	}
@@ -118,7 +118,7 @@ class MediaTrackQueryCountTest {
 		assertThat(hasInMemoryPaginationWarning).isFalse();
 	}
 
-	private long queryCountForUnpagedListing(int trackCount) throws Exception {
+	private long queryCountForKeysListing(int trackCount) throws Exception {
 		User user1 = persistUser();
 		User user2 = persistUser();
 		Couple couple = persistCouple(user1, user2);
@@ -132,7 +132,7 @@ class MediaTrackQueryCountTest {
 
 		statistics.clear();
 
-		mockMvc.perform(get("/api/tracking")
+		mockMvc.perform(get("/api/tracking/keys")
 				.with(authentication(new UsernamePasswordAuthenticationToken(user1.getId(), null, List.of()))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.length()").value(trackCount));

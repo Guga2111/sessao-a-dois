@@ -61,7 +61,7 @@ import type {
   MediaSearchResult,
   PendingMatch,
 } from "@/types/media"
-import type { MediaTrackResponse, MediaType } from "@/types/tracking"
+import type { MediaType, TrackKeyResponse } from "@/types/tracking"
 
 type LikeState = "idle" | "loading" | "liked" | "matched" | "error"
 type ActiveTab = "suggestions" | "search"
@@ -767,7 +767,7 @@ function SearchTab() {
 
   useEffect(() => {
     api
-      .get<MediaTrackResponse[]>("/api/tracking")
+      .get<TrackKeyResponse[]>("/api/tracking/keys")
       .then((response) => {
         setTrackedKeys(
           new Set(response.data.map((t) => trackKey(t.mediaType, t.tmdbId)))

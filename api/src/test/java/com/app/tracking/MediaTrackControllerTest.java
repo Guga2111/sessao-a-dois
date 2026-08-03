@@ -69,19 +69,35 @@ class MediaTrackControllerTest {
 	}
 
 	@Test
-	void list_withoutStatusReturnsUnpagedArray() throws Exception {
+	void listKeys_returnsCoupleTrackKeys() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
-		MediaTrackResponse track = new MediaTrackResponse(
-			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
-		when(mediaTrackService.listByStatus(coupleId, null)).thenReturn(List.of(track));
+		when(mediaTrackService.listKeys(coupleId))
+			.thenReturn(List.of(new TrackKeyResponse(MediaType.MOVIE, 603L)));
 
-		mockMvc.perform(get("/api/tracking")
+		mockMvc.perform(get("/api/tracking/keys")
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].tmdbId").value(603))
-			.andExpect(jsonPath("$[0].status").value("WATCHING"));
+			.andExpect(jsonPath("$[0].mediaType").value("MOVIE"));
+	}
+
+	@Test
+	void listKeys_returnsNotFoundWhenUserHasNoCouple() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+
+		mockMvc.perform(get("/api/tracking/keys")
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").value("usuario nao pertence a nenhum casal"));
+	}
+
+	@Test
+	void listKeys_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/tracking/keys"))
+			.andExpect(status().isUnauthorized());
 	}
 
 	@Test

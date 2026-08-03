@@ -24,11 +24,16 @@ export interface MediaTrackResponse {
 }
 
 // Shape of GET /api/tracking?status=...&page=...&size=... (Spring Data `Page<T>` JSON).
-// GET /api/tracking without `status` stays unpaged (MediaTrackResponse[]).
 export interface PagedMediaTrackResponse {
   content: MediaTrackResponse[]
   totalElements: number
   totalPages: number
   number: number
   size: number
+}
+
+// Shape of GET /api/tracking/keys - mediaType + tmdbId only, no reviews/metadata.
+export interface TrackKeyResponse {
+  mediaType: MediaType
+  tmdbId: number
 }

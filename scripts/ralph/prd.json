@@ -124,7 +124,7 @@
         "Sem mudanca visual: MatchScreen so troca a origem dos dados, entao a skill frontend-design nao se aplica a esta story"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
