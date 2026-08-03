@@ -7,6 +7,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -15,16 +17,16 @@ public class UserReviewService {
 	private final UserReviewRepository userReviewRepository;
 	private final MediaTrackRepository mediaTrackRepository;
 	private final UserRepository userRepository;
-	private final MediaTrackService mediaTrackService;
+	private final MediaTrackMapper mediaTrackMapper;
 	private final RatingRequestService ratingRequestService;
 
 	public UserReviewService(UserReviewRepository userReviewRepository, MediaTrackRepository mediaTrackRepository,
-			UserRepository userRepository, MediaTrackService mediaTrackService,
+			UserRepository userRepository, MediaTrackMapper mediaTrackMapper,
 			RatingRequestService ratingRequestService) {
 		this.userReviewRepository = userReviewRepository;
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.userRepository = userRepository;
-		this.mediaTrackService = mediaTrackService;
+		this.mediaTrackMapper = mediaTrackMapper;
 		this.ratingRequestService = ratingRequestService;
 	}
 
@@ -54,6 +56,14 @@ public class UserReviewService {
 
 		ratingRequestService.onRatingRegistered(track, userId);
 
-		return mediaTrackService.toResponse(track);
+		return mediaTrackMapper.toResponse(track, resolveMemberNames(track));
+	}
+
+	private Map<UUID, String> resolveMemberNames(MediaTrack track) {
+		Map<UUID, String> names = new HashMap<>();
+		for (User user : userRepository.findAllById(MediaTrackMapper.memberIds(track.getCouple()))) {
+			names.put(user.getId(), user.getName());
+		}
+		return names;
 	}
 }

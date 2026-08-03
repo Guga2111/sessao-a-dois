@@ -234,7 +234,7 @@ class MediaTrackRepositoryTest {
 	}
 
 	@Test
-	void findByCoupleIdAndStatusOrderByCreatedAtDescReturnsFirstPageOrderedNewestFirst() throws InterruptedException {
+	void findIdsByCoupleIdAndStatusOrderByCreatedAtDescReturnsFirstPageOrderedNewestFirst() throws InterruptedException {
 		Couple couple = persistedCouple();
 		MediaTrack first = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
 		mediaTrackRepository.flush();
@@ -245,17 +245,16 @@ class MediaTrackRepositoryTest {
 		MediaTrack third = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
 		mediaTrackRepository.flush();
 
-		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+		Page<UUID> page = mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(
 				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(0, 2));
 
 		assertThat(page.getTotalElements()).isEqualTo(3);
 		assertThat(page.getTotalPages()).isEqualTo(2);
-		assertThat(page.getContent()).extracting(MediaTrack::getId)
-				.containsExactly(third.getId(), second.getId());
+		assertThat(page.getContent()).containsExactly(third.getId(), second.getId());
 	}
 
 	@Test
-	void findByCoupleIdAndStatusOrderByCreatedAtDescReturnsSecondPage() throws InterruptedException {
+	void findIdsByCoupleIdAndStatusOrderByCreatedAtDescReturnsSecondPage() throws InterruptedException {
 		Couple couple = persistedCouple();
 		MediaTrack first = trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
 		mediaTrackRepository.flush();
@@ -266,25 +265,43 @@ class MediaTrackRepositoryTest {
 		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
 		mediaTrackRepository.flush();
 
-		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+		Page<UUID> page = mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(
 				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(1, 2));
 
 		assertThat(page.getTotalElements()).isEqualTo(3);
-		assertThat(page.getContent()).extracting(MediaTrack::getId).containsExactly(first.getId());
+		assertThat(page.getContent()).containsExactly(first.getId());
 	}
 
 	@Test
-	void findByCoupleIdAndStatusOrderByCreatedAtDescIsScopedByStatusAndCouple() {
+	void findIdsByCoupleIdAndStatusOrderByCreatedAtDescIsScopedByStatusAndCouple() {
 		Couple couple = persistedCouple();
 		Couple otherCouple = persistedCouple();
 		trackWithStatus(couple, MediaStatus.WATCHING, MediaType.MOVIE, null, null, List.of());
 		trackWithStatus(couple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
 		trackWithStatus(otherCouple, MediaStatus.WANT_TO_SEE, MediaType.MOVIE, null, null, List.of());
 
-		Page<MediaTrack> page = mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+		Page<UUID> page = mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(
 				couple.getId(), MediaStatus.WANT_TO_SEE, PageRequest.of(0, 20));
 
 		assertThat(page.getTotalElements()).isEqualTo(1);
+	}
+
+	@Test
+	void findByIdInFetchesReviewsAndCoupleWithoutLazyInitializationIssues() {
+		Couple couple = persistedCouple();
+		User user = userRepository.save(new User("Ana", "ana-" + UUID.randomUUID() + "@example.com", "hash"));
+		MediaTrack track = trackWithStatus(couple, MediaStatus.WATCHED, MediaType.MOVIE, 100, LocalDate.now(),
+				List.of());
+		track.getReviews().add(new UserReview(track, user, 5, "Otimo"));
+		track = mediaTrackRepository.save(track);
+
+		List<MediaTrack> found = mediaTrackRepository.findByIdIn(List.of(track.getId()));
+
+		assertThat(found).singleElement().satisfies(t -> {
+			assertThat(t.getReviews()).hasSize(1);
+			assertThat(t.getReviews().get(0).getUser().getId()).isEqualTo(user.getId());
+			assertThat(t.getCouple().getId()).isEqualTo(couple.getId());
+		});
 	}
 
 	@Test

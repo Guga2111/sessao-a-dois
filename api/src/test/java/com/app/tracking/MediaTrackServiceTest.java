@@ -57,7 +57,7 @@ class MediaTrackServiceTest {
 	@BeforeEach
 	void setUp() {
 		mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleRepository, userRepository,
-				mediaDetailsService, ratingRequestService);
+				mediaDetailsService, ratingRequestService, new MediaTrackMapper());
 	}
 
 	private Couple coupleWithMembers(UUID user1Id, UUID user2Id) {
@@ -154,8 +154,7 @@ class MediaTrackServiceTest {
 		track.getReviews().add(new UserReview(track, user2, 2, "Bob nem tanto"));
 
 		when(mediaTrackRepository.findByCoupleId(coupleId)).thenReturn(List.of(track));
-		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
-		when(userRepository.findById(user2Id)).thenReturn(Optional.of(user2));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1, user2));
 
 		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, null);
 
@@ -189,7 +188,7 @@ class MediaTrackServiceTest {
 
 		when(mediaTrackRepository.findByCoupleIdAndStatus(coupleId, MediaStatus.WANT_TO_SEE))
 			.thenReturn(List.of(track));
-		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1));
 
 		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, MediaStatus.WANT_TO_SEE);
 
@@ -203,17 +202,20 @@ class MediaTrackServiceTest {
 	void listByStatusPagedReturnsPageMappedFromRepository() {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
+		UUID trackId = UUID.randomUUID();
 		Couple couple = coupleWithMembers(user1Id, null);
 		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user1 = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user1, "id", user1Id);
 		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		ReflectionTestUtils.setField(track, "id", trackId);
 
-		Page<MediaTrack> repoPage = new PageImpl<>(List.of(track), PageRequest.of(0, 20), 1);
-		when(mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+		Page<UUID> idPage = new PageImpl<>(List.of(trackId), PageRequest.of(0, 20), 1);
+		when(mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(
 				eq(coupleId), eq(MediaStatus.WATCHING), any(Pageable.class)))
-			.thenReturn(repoPage);
-		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
+			.thenReturn(idPage);
+		when(mediaTrackRepository.findByIdIn(List.of(trackId))).thenReturn(List.of(track));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1));
 
 		Page<MediaTrackResponse> result = mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHING, 0, 20);
 
@@ -225,11 +227,12 @@ class MediaTrackServiceTest {
 	@Test
 	void listByStatusPagedClampsSizeToServerMaximum() {
 		UUID coupleId = UUID.randomUUID();
-		Page<MediaTrack> repoPage = new PageImpl<>(List.of());
+		Page<UUID> idPage = new PageImpl<>(List.of());
 		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-		when(mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+		when(mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(
 				eq(coupleId), eq(MediaStatus.WATCHED), pageableCaptor.capture()))
-			.thenReturn(repoPage);
+			.thenReturn(idPage);
+		when(mediaTrackRepository.findByIdIn(any())).thenReturn(List.of());
 
 		mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHED, 0, 500);
 
@@ -239,11 +242,12 @@ class MediaTrackServiceTest {
 	@Test
 	void listByStatusPagedDefaultsNegativePageToZero() {
 		UUID coupleId = UUID.randomUUID();
-		Page<MediaTrack> repoPage = new PageImpl<>(List.of());
+		Page<UUID> idPage = new PageImpl<>(List.of());
 		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-		when(mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
+		when(mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(
 				eq(coupleId), eq(MediaStatus.WATCHED), pageableCaptor.capture()))
-			.thenReturn(repoPage);
+			.thenReturn(idPage);
+		when(mediaTrackRepository.findByIdIn(any())).thenReturn(List.of());
 
 		mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHED, -3, 20);
 
