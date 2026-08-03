@@ -16,7 +16,7 @@ export interface Notification {
   mediaTrackId: string | null
 }
 
-// Shape of GET /api/notifications?page=&size= (Spring Data `Page<T>` JSON).
+// Shape of GET /api/notifications?page=&size= (backend `PageResponse<T>`, not Spring Data's `Page<T>`).
 export interface PagedNotificationResponse {
   content: Notification[]
   totalElements: number

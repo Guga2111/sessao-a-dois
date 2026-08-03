@@ -23,7 +23,7 @@ export interface MediaTrackResponse {
   releaseYear: number | null
 }
 
-// Shape of GET /api/tracking?status=...&page=...&size=... (Spring Data `Page<T>` JSON).
+// Shape of GET /api/tracking?status=...&page=...&size=... (backend `PageResponse<T>`, not Spring Data's `Page<T>`).
 export interface PagedMediaTrackResponse {
   content: MediaTrackResponse[]
   totalElements: number

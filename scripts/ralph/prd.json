@@ -156,7 +156,7 @@
         "./mvnw test e bun run typecheck passam"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
