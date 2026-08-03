@@ -145,3 +145,33 @@
     actually exercise it — `./mvnw test` will fail if V3 doesn't apply cleanly or the entities
     drift from it.
 ---
+
+## 2026-08-03 - US-002
+- Added `api/src/main/resources/db/migration/V3__add_indexes.sql`: 9 `CREATE INDEX IF NOT EXISTS`
+  statements covering every FK/filter column named in the PRD (`couples.user1_id`/`user2_id`,
+  `media_track.couple_id`+`status` and `couple_id`+`tmdb_id`, `user_review.media_track_id`/`user_id`,
+  `match_like.couple_id`+`tmdb_id`, `match_reject.couple_id`+`user_id`,
+  `media_track_genre.media_track_id`). No DROP/TRUNCATE, no existing table altered — pure index
+  creation, consistent with V1/V2's style.
+- Updated `com.app.migration.FlywayMigrationTest` (from US-001) to assert `flyway.info().applied()`
+  contains version `"3"` too, not just `"1"`/`"2"` — this is what actually proves V3 gets exercised
+  by `./mvnw test` rather than only being checked by static reading (PRD acceptance criterion said
+  exactly this must hold).
+- Updated `docs/FLYWAY.md`: listed V3 alongside V1/V2 in the intro, and extended the existing
+  Supabase pooler-mode warning (advisory locks vs PgBouncer transaction mode) to explicitly name V3
+  as a migration that needs the direct/session-mode connection string on the deploy that applies it.
+- Files changed: `api/src/main/resources/db/migration/V3__add_indexes.sql` (new),
+  `api/src/test/java/com/app/migration/FlywayMigrationTest.java`, `docs/FLYWAY.md`.
+  `./mvnw test` passes (301 tests, coverage checks met, `BUILD SUCCESS`).
+- **Learnings for future iterations:**
+  - The PRD's `EXPLAIN SELECT * FROM couples WHERE user1_id = ? OR user2_id = ?` acceptance
+    criterion (proving index scan over seq scan) could NOT be verified in this sandbox — no
+    `psql`/real Postgres available here (only H2 in `MODE=PostgreSQL` for `FlywayMigrationTest`,
+    same limitation `docs/SCHEMA_BASELINE.md` already documents for schema verification). What
+    *was* verified: the migration applies cleanly and `FlywayMigrationTest` proves it's actually
+    exercised (asserting version "3" in `flyway.info().applied()`), which is the load-bearing part
+    for CI (real `postgres:17-alpine`). The `EXPLAIN` check itself needs to be run manually against
+    Supabase or CI's Postgres service if that level of proof is required later.
+  - US-003 (N+1 on user name resolution + `MediaTrackMapper` extraction) is next — independent of
+    this story's indexes, but US-004 depends on US-003's mapper.
+---

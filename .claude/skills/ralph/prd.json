@@ -36,7 +36,7 @@
         "./mvnw test passa, e o teste de migrations criado na US-001 efetivamente executa V3 (nao so os testes pre-existentes)"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

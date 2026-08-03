@@ -6,6 +6,7 @@ Contexto: ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi cri
 
 - `api/src/main/resources/db/migration/V1__baseline.sql` — reproduz o schema ja existente em producao (`users`, `couples`, `media_track`, `media_track_genre`, `user_review`, `match_like`, `match_reject`), ver `docs/SCHEMA_BASELINE.md`.
 - `api/src/main/resources/db/migration/V2__create_notification.sql` — cria a tabela `notification`, que ainda nao existe em producao.
+- `api/src/main/resources/db/migration/V3__add_indexes.sql` — cria indices em colunas de FK/filtro (`couples.user1_id`/`user2_id`, `media_track.couple_id`+`status`/`tmdb_id`, `user_review.media_track_id`/`user_id`, `match_like.couple_id`+`tmdb_id`, `match_reject.couple_id`+`user_id`, `media_track_genre.media_track_id`) — apenas `CREATE INDEX IF NOT EXISTS`, nenhuma tabela e recriada ou alterada.
 
 ## Comportamento em producao (schema existente, sem `flyway_schema_history`)
 
@@ -59,6 +60,8 @@ Apos rodar `./scripts/deploy.sh` pela primeira vez com Flyway habilitado, confir
 - Na pratica, isso pode fazer o Flyway falhar ao obter o lock de migration no primeiro deploy (startup trava ou lanca erro), mesmo sem nenhuma migration concorrente real — o problema e o pooler, nao concorrencia.
 
 **Recomendacao:** para o primeiro deploy com Flyway (ou qualquer deploy que rode uma nova migration), usar temporariamente em `DB_URL` a **connection string direta** (porta 5432) ou o **Connection Pooler em modo Session** do Supabase, em vez do modo Transaction (6543), especificamente para essa execucao. O modo Transaction pode voltar a ser usado depois, ja que o Flyway so faz um trabalho real de migration na inicializacao com uma nova versao pendente. Isso nao exige alterar `scripts/deploy.sh`, `api/Dockerfile` ou `docker-compose-prod.yml` (nenhum dos tres fixa a porta ou o modo do pooler) — e apenas o valor de `DB_URL` no `.env`, que ja e editado manualmente a cada deploy conforme `docs/DEPLOY.md`.
+
+Isso vale tanto para o deploy que aplicar `V2__create_notification.sql` quanto para o que aplicar `V3__add_indexes.sql` (ou qualquer migration nova subsequente) — qualquer deploy com uma versao pendente > 1 deve usar a porta 5432 (direta) ou o pooler em modo Session, nao o modo Transaction (6543), so para essa execucao.
 
 ## Recomendacao: backup antes do primeiro deploy com Flyway
 
