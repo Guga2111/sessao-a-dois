@@ -10,6 +10,7 @@ import com.app.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class MediaTrackService {
@@ -95,10 +97,20 @@ public class MediaTrackService {
 		int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
 		Pageable pageable = PageRequest.of(safePage, safeSize);
 
-		Page<MediaTrack> trackPage = mediaTrackRepository
-			.findByCoupleIdAndStatusOrderByCreatedAtDesc(coupleId, status, pageable);
-		Map<UUID, String> userNames = resolveMemberNames(trackPage.getContent());
-		return trackPage.map(track -> mediaTrackMapper.toResponse(track, userNames));
+		// Paginate over ids only (no collection fetch), then fetch that page's rows with
+		// reviews/couple eagerly loaded by id - combining a collection fetch join with
+		// Pageable would make Hibernate paginate in memory instead of at the DB (HHH000104).
+		Page<UUID> idPage = mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(coupleId, status,
+				pageable);
+		List<MediaTrack> tracks = mediaTrackRepository.findByIdIn(idPage.getContent());
+		Map<UUID, MediaTrack> tracksById = tracks.stream().collect(Collectors.toMap(MediaTrack::getId, t -> t));
+		List<MediaTrack> orderedTracks = idPage.getContent().stream().map(tracksById::get).toList();
+
+		Map<UUID, String> userNames = resolveMemberNames(orderedTracks);
+		List<MediaTrackResponse> content = orderedTracks.stream()
+			.map(track -> mediaTrackMapper.toResponse(track, userNames))
+			.toList();
+		return new PageImpl<>(content, pageable, idPage.getTotalElements());
 	}
 
 	@Transactional
@@ -130,6 +142,7 @@ public class MediaTrackService {
 	 * Moves a track from WANT_TO_SEE to WATCHING without touching reviews or watchedDate.
 	 * Any other requested status, or a track not currently in WANT_TO_SEE, is a 400.
 	 */
+	@Transactional
 	public MediaTrackResponse startWatching(UUID trackId, UUID coupleId, MediaStatus requestedStatus) {
 		if (requestedStatus != MediaStatus.WATCHING) {
 			throw new IllegalArgumentException("transicao de status invalida");

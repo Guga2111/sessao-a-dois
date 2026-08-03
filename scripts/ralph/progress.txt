@@ -227,3 +227,39 @@
   - US-004 (EntityGraph + `@Transactional` on `startWatching` + `open-in-view=false`) is next — it
     consumes `MediaTrackMapper` from this story, per the PRD's stated dependency.
 ---
+
+## 2026-08-03 - US-004
+- Found this story's implementation already complete and correct in the working tree (uncommitted,
+  untouched since a prior session): `@EntityGraph(attributePaths = {"reviews", "reviews.user", "couple"})`
+  on `MediaTrackRepository.findByCoupleId`/`findByCoupleIdAndStatus`/the new `findByIdIn`; the paginated
+  path replaced with an id-only projection (`findIdsByCoupleIdAndStatusOrderByCreatedAtDesc`) plus
+  `findByIdIn` to avoid combining a collection fetch join with `Pageable` (which would force in-memory
+  pagination, HHH000104); `@Transactional` added to `MediaTrackService.startWatching` (the one mutator
+  that was missing it); `spring.jpa.open-in-view=false` set in both main and test
+  `application.properties`; `MediaTrackQueryCountTest` (Hibernate `Statistics` + a Logback
+  `ListAppender`) proving query count doesn't scale with track count and no HHH000104 warning fires;
+  `api/CLAUDE.md` already had the matching bullet documenting all of this under US-004.
+- What was actually missing: none of it was committed, and this progress.txt had no US-004 entry —
+  the prior session evidently implemented, verified, and even flipped `prd.json`'s `passes` to `true`
+  for US-004, but never got to the commit/log steps (git status at session start showed 6 modified
+  tracked files + 1 untracked test file, all matching this story, nothing else).
+- Verified (not assumed) before committing: re-ran `./mvnw test` — 309 tests, 0 failures/errors,
+  `BUILD SUCCESS`, including `MediaTrackQueryCountTest`'s 2 tests. Re-read every diff
+  (`MediaTrackRepository`, `MediaTrackService`, both `application.properties`, both touched test files,
+  `MediaTrackQueryCountTest`, `api/CLAUDE.md`) against the PRD's acceptance criteria line by line before
+  treating it as done.
+- Files changed: none (all pre-existing uncommitted work), just committed as-is together with this
+  progress.txt entry: `api/src/main/java/com/app/tracking/MediaTrackRepository.java`,
+  `MediaTrackService.java`, `api/src/main/resources/application.properties`,
+  `api/src/test/resources/application.properties`, `MediaTrackRepositoryTest.java`,
+  `MediaTrackServiceTest.java`, `MediaTrackQueryCountTest.java` (new), `api/CLAUDE.md`.
+- **Learnings for future iterations:**
+  - **Always check `git status` for uncommitted work matching a story already marked `passes: true` in
+    `prd.json` before assuming the next `passes: false` story is truly next.** A session can implement
+    and verify a story, flip the PRD flag, and still get interrupted before the commit + progress.txt
+    steps — the code is real and correct, but the paper trail (commit, log) is missing. Diff every
+    touched file against the story's acceptance criteria before committing rather than re-implementing
+    or skipping it.
+  - US-005 (bulk delete of expired notifications) is independent of every other story in this epic and
+    was picked up next in this same session.
+---
