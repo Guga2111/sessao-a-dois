@@ -169,7 +169,7 @@ class MatchControllerTest {
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		when(matchService.getPending(coupleId, userId))
-			.thenReturn(List.of(new PendingMatchDto(603L, MediaType.MOVIE, "Matrix", "/poster.jpg")));
+			.thenReturn(List.of(new PendingMatchDto(603L, MediaType.MOVIE, "Matrix", "/poster.jpg", 1999)));
 
 		mockMvc.perform(get("/api/match/pending")
 				.with(authentication(authenticatedUser(userId))))

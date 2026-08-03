@@ -103,4 +103,33 @@ class MediaTrackMapperTest {
 
 		assertThat(response.reviews().get(0).userName()).isNull();
 	}
+
+	@Test
+	void toResponseCopiesPersistedMetadataFromEntity() {
+		UUID user1Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234");
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		track.setTitle("Matrix");
+		track.setPosterUrl("/poster.jpg");
+		track.setReleaseYear(1999);
+
+		MediaTrackResponse response = mapper.toResponse(track, Map.of(user1Id, "Ana"));
+
+		assertThat(response.title()).isEqualTo("Matrix");
+		assertThat(response.posterUrl()).isEqualTo("/poster.jpg");
+		assertThat(response.releaseYear()).isEqualTo(1999);
+	}
+
+	@Test
+	void toResponseAllowsNullMetadataForPreV4Rows() {
+		UUID user1Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234");
+		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+
+		MediaTrackResponse response = mapper.toResponse(track, Map.of(user1Id, "Ana"));
+
+		assertThat(response.title()).isNull();
+		assertThat(response.posterUrl()).isNull();
+		assertThat(response.releaseYear()).isNull();
+	}
 }

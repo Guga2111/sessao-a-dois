@@ -15,6 +15,9 @@ public record MediaTrackResponse(
 	LocalDate watchedDate,
 	Integer runtime,
 	LocalDateTime createdAt,
-	List<ReviewDto> reviews
+	List<ReviewDto> reviews,
+	String title,
+	String posterUrl,
+	Integer releaseYear
 ) {
 }

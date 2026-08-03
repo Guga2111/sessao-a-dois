@@ -11,6 +11,8 @@ import com.app.tracking.MediaTrack;
 import com.app.tracking.MediaTrackRepository;
 import com.app.tracking.ResourceNotFoundException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,8 @@ import java.util.UUID;
 
 @Service
 public class MatchService {
+
+	private static final Logger log = LoggerFactory.getLogger(MatchService.class);
 
 	private final MatchLikeRepository matchLikeRepository;
 	private final MatchRejectRepository matchRejectRepository;
@@ -56,6 +60,9 @@ public class MatchService {
 				.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 
 			MatchLike like = new MatchLike(couple, userId, request.tmdbId(), request.mediaType());
+			like.setTitle(request.title());
+			like.setPosterUrl(request.posterUrl());
+			like.setReleaseYear(request.releaseYear());
 			matchLikeRepository.save(like);
 		}
 
@@ -93,17 +100,38 @@ public class MatchService {
 		}
 	}
 
+	@Transactional
 	public List<PendingMatchDto> getPending(UUID coupleId, UUID userId) {
 		var page = matchLikeRepository.findPendingForUser(coupleId, userId, PageRequest.of(0, 10));
 		List<PendingMatchDto> result = new ArrayList<>();
 		for (MatchLike ml : page.getContent()) {
-			try {
-				MediaDetails details = mediaDetailsService.getDetails(ml.getMediaType(), ml.getTmdbId());
-				result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), details.title(), details.posterUrl()));
-			} catch (RuntimeException ignored) {
-			}
+			healMetadata(ml);
+			result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), ml.getTitle(), ml.getPosterUrl(),
+					ml.getReleaseYear()));
 		}
 		return result;
+	}
+
+	/**
+	 * Self-heals a pre-V4 row (title null) by fetching TMDB once and persisting the result, so
+	 * every read after this one skips TMDB entirely for this row. A TMDB failure leaves the
+	 * fields null instead of failing the request - the row is retried on the next read.
+	 */
+	private void healMetadata(MatchLike ml) {
+		if (ml.getTitle() != null) {
+			return;
+		}
+		try {
+			MediaDetails details = mediaDetailsService.getDetails(ml.getMediaType(), ml.getTmdbId());
+			ml.setTitle(details.title());
+			ml.setPosterUrl(details.posterUrl());
+			ml.setReleaseYear(details.year());
+			matchLikeRepository.save(ml);
+		}
+		catch (RuntimeException ex) {
+			log.warn("Nao foi possivel auto-curar os metadados do like {} no TMDB: {}", ml.getTmdbId(),
+					ex.getMessage());
+		}
 	}
 
 	private void createMatch(Couple couple, LikeRequest request, UUID actorUserId) {
@@ -111,6 +139,9 @@ public class MatchService {
 
 		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), MediaStatus.WANT_TO_SEE);
 		track.setGenreIds(details.genreIds());
+		track.setTitle(details.title());
+		track.setPosterUrl(details.posterUrl());
+		track.setReleaseYear(details.year());
 		mediaTrackRepository.save(track);
 
 		MatchEvent event = new MatchEvent(request.tmdbId(), details.title(), request.mediaType());

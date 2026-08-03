@@ -30,6 +30,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -119,6 +120,9 @@ class MatchServiceTest {
 		assertThat(trackCaptor.getValue().getStatus()).isEqualTo(MediaStatus.WANT_TO_SEE);
 		assertThat(trackCaptor.getValue().getTmdbId()).isEqualTo(603L);
 		assertThat(trackCaptor.getValue().getGenreIds()).containsExactly(28);
+		assertThat(trackCaptor.getValue().getTitle()).isEqualTo("Matrix");
+		assertThat(trackCaptor.getValue().getReleaseYear()).isEqualTo(1999);
+		verify(mediaDetailsService, times(1)).getDetails(MediaType.MOVIE, 603L);
 
 		ArgumentCaptor<MatchEvent> eventCaptor = ArgumentCaptor.forClass(MatchEvent.class);
 		verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/couple/" + coupleId + "/match"),
@@ -208,6 +212,33 @@ class MatchServiceTest {
 		assertThat(saved.getTmdbId()).isEqualTo(1399L);
 		assertThat(saved.getMediaType()).isEqualTo(MediaType.TV);
 		assertThat(saved.getCouple().getId()).isEqualTo(coupleId);
+		assertThat(saved.getTitle()).isNull();
+		assertThat(saved.getPosterUrl()).isNull();
+		assertThat(saved.getReleaseYear()).isNull();
+		verify(mediaDetailsService, never()).getDetails(any(), anyLong());
+	}
+
+	@Test
+	void like_persistsProvidedMetadataOnMatchLikeWithoutCallingTmdb() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		LikeRequest request = new LikeRequest(1399L, MediaType.TV, "Game of Thrones", "/got.jpg", 2011);
+
+		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 1399L)).thenReturn(false);
+		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 1399L)).thenReturn(Optional.empty());
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
+		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 1399L, userId))
+			.thenReturn(Optional.empty());
+
+		matchService.like(coupleId, userId, request);
+
+		ArgumentCaptor<MatchLike> likeCaptor = ArgumentCaptor.forClass(MatchLike.class);
+		verify(matchLikeRepository, times(1)).save(likeCaptor.capture());
+		MatchLike saved = likeCaptor.getValue();
+		assertThat(saved.getTitle()).isEqualTo("Game of Thrones");
+		assertThat(saved.getPosterUrl()).isEqualTo("/got.jpg");
+		assertThat(saved.getReleaseYear()).isEqualTo(2011);
+		verify(mediaDetailsService, never()).getDetails(any(), anyLong());
 	}
 
 	@Test
@@ -336,10 +367,34 @@ class MatchServiceTest {
 		assertThat(result.get(0).tmdbId()).isEqualTo(603L);
 		assertThat(result.get(0).title()).isEqualTo("Matrix");
 		assertThat(result.get(0).posterUrl()).isEqualTo("/poster.jpg");
+		assertThat(result.get(0).releaseYear()).isEqualTo(1999);
 	}
 
 	@Test
-	void getPending_skipsItemWhenTmdbFails() {
+	void getPending_usesPersistedMetadataWithoutCallingTmdb() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
+		partnerLike.setTitle("Matrix");
+		partnerLike.setPosterUrl("/poster.jpg");
+		partnerLike.setReleaseYear(1999);
+
+		when(matchLikeRepository.findPendingForUser(eq(coupleId), eq(userId), any(Pageable.class)))
+			.thenReturn(new PageImpl<>(List.of(partnerLike)));
+
+		List<PendingMatchDto> result = matchService.getPending(coupleId, userId);
+
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).tmdbId()).isEqualTo(603L);
+		assertThat(result.get(0).title()).isEqualTo("Matrix");
+		assertThat(result.get(0).posterUrl()).isEqualTo("/poster.jpg");
+		assertThat(result.get(0).releaseYear()).isEqualTo(1999);
+		verify(mediaDetailsService, never()).getDetails(any(), anyLong());
+	}
+
+	@Test
+	void getPending_returnsRowWithNullFieldsWhenTmdbFails() {
 		UUID coupleId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
@@ -352,7 +407,33 @@ class MatchServiceTest {
 
 		List<PendingMatchDto> result = matchService.getPending(coupleId, userId);
 
-		assertThat(result).isEmpty();
+		assertThat(result).hasSize(1);
+		assertThat(result.get(0).tmdbId()).isEqualTo(603L);
+		assertThat(result.get(0).title()).isNull();
+		assertThat(result.get(0).posterUrl()).isNull();
+		assertThat(result.get(0).releaseYear()).isNull();
+		verify(matchLikeRepository, never()).save(any(MatchLike.class));
+	}
+
+	@Test
+	void getPending_healsHistoricalRowAndPersistsMetadataOnlyOnce() {
+		UUID coupleId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
+
+		when(matchLikeRepository.findPendingForUser(eq(coupleId), eq(userId), any(Pageable.class)))
+			.thenReturn(new PageImpl<>(List.of(partnerLike)));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
+			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, "/poster.jpg", null, null, List.of(28), null, null, null));
+
+		List<PendingMatchDto> first = matchService.getPending(coupleId, userId);
+		List<PendingMatchDto> second = matchService.getPending(coupleId, userId);
+
+		assertThat(first.get(0).title()).isEqualTo("Matrix");
+		assertThat(second.get(0).title()).isEqualTo("Matrix");
+		verify(matchLikeRepository, times(1)).save(partnerLike);
+		verify(mediaDetailsService, times(1)).getDetails(MediaType.MOVIE, 603L);
 	}
 
 	@Test

@@ -55,6 +55,15 @@ public class MediaTrack {
 	@Column
 	private Integer runtime;
 
+	@Column
+	private String title;
+
+	@Column(name = "poster_url")
+	private String posterUrl;
+
+	@Column(name = "release_year")
+	private Integer releaseYear;
+
 	@ElementCollection
 	@CollectionTable(name = "media_track_genre", joinColumns = @JoinColumn(name = "media_track_id"))
 	@Column(name = "genre_id")
@@ -115,6 +124,30 @@ public class MediaTrack {
 
 	public void setRuntime(Integer runtime) {
 		this.runtime = runtime;
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
+	}
+
+	public String getPosterUrl() {
+		return posterUrl;
+	}
+
+	public void setPosterUrl(String posterUrl) {
+		this.posterUrl = posterUrl;
+	}
+
+	public Integer getReleaseYear() {
+		return releaseYear;
+	}
+
+	public void setReleaseYear(Integer releaseYear) {
+		this.releaseYear = releaseYear;
 	}
 
 	public List<Integer> getGenreIds() {

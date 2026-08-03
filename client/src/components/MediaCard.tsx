@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { isAxiosError } from "axios"
 import { Check, Clock3, Star, Trash2 } from "lucide-react"
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import type { MediaDetails } from "@/types/media"
 import type { MediaTrackResponse } from "@/types/tracking"
 
 interface MediaCardProps {
@@ -79,19 +78,9 @@ export function MediaCard({
   compareOrder = null,
   onCompareToggle,
 }: MediaCardProps) {
-  const [details, setDetails] = useState<MediaDetails | null>(null)
   const [startingWatch, setStartingWatch] = useState(false)
   const [startWatchError, setStartWatchError] = useState<string | null>(null)
   const [rateOpen, setRateOpen] = useState(false)
-
-  useEffect(() => {
-    api
-      .get<MediaDetails>(
-        `/api/media/${track.mediaType.toLowerCase()}/${track.tmdbId}`
-      )
-      .then((res) => setDetails(res.data))
-      .catch(() => {})
-  }, [track.tmdbId, track.mediaType])
 
   const hue = track.tmdbId % 360
   const watchedLabel = formatWatchedDate(track.watchedDate)
@@ -147,10 +136,10 @@ export function MediaCard({
           background: `linear-gradient(160deg, hsl(${hue} 42% 24%), hsl(${hue} 46% 11%))`,
         }}
       >
-        {details?.posterUrl ? (
+        {track.posterUrl ? (
           <img
-            src={details.posterUrl}
-            alt={details.title}
+            src={track.posterUrl}
+            alt={track.title ?? `Título #${track.tmdbId}`}
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
@@ -191,7 +180,7 @@ export function MediaCard({
             </button>
           )}
         </div>
-        {track.status === "WANT_TO_SEE" && !details?.posterUrl && (
+        {track.status === "WANT_TO_SEE" && !track.posterUrl && (
           <div className="absolute inset-0 grid place-items-center text-[34px] opacity-50">
             🍿
           </div>
@@ -204,37 +193,20 @@ export function MediaCard({
           {/* Título + ano */}
           <div className="flex items-baseline justify-between gap-2">
             <div className="truncate text-[15px] font-bold leading-tight">
-              {details?.title ?? `Título #${track.tmdbId}`}
+              {track.title ?? `Título #${track.tmdbId}`}
             </div>
-            {details?.year && (
+            {track.releaseYear && (
               <span className="flex-none text-[13px] text-[#a6a39a]">
-                {details.year}
+                {track.releaseYear}
               </span>
             )}
           </div>
 
-          {/* Tipo + providers */}
+          {/* Tipo */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             <span className="rounded-md border border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] px-2.5 py-0.5 text-[11px] font-semibold text-[#ffdd7a]">
               {TYPE_LABEL[track.mediaType]}
             </span>
-            {details?.watchProviders?.slice(0, 2).map((provider) => (
-              <span
-                key={provider.name}
-                className="flex items-center gap-1.5 rounded-md border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-2.5 py-0.5 text-[11px] text-[#d6d2c8]"
-              >
-                {provider.logoUrl ? (
-                  <img
-                    src={provider.logoUrl}
-                    alt=""
-                    className="size-3 rounded-[3px] object-cover"
-                  />
-                ) : (
-                  <span className="size-1.5 rounded-full bg-[#ff4040]" />
-                )}
-                {provider.name}
-              </span>
-            ))}
           </div>
 
           {/* Estrelas + média */}
@@ -351,7 +323,7 @@ export function MediaCard({
     </div>
     <RatingRequestDialog
       mediaTrackId={rateOpen ? track.id : null}
-      title={details?.title ?? `Título #${track.tmdbId}`}
+      title={track.title ?? `Título #${track.tmdbId}`}
       description="Dê sua nota e opinião sobre este título — ambas são opcionais."
       onClose={() => setRateOpen(false)}
       onSuccess={(updated) => {

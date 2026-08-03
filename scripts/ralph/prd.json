@@ -1,21 +1,18 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "epico2/perfomance",
-  "description": "Epico 2 - Fundacao de Performance de Banco. Elimina indices ausentes em colunas de FK/filtro, dois N+1 distintos (resolucao de nomes de usuario e colecoes LAZY do JPA), um delete em massa ineficiente, e fecha a lacuna de CI onde nenhum teste hoje executa as migrations Flyway de verdade contra um schema Postgres. Nenhuma mudanca de contrato de API; nenhuma story tem componente de UI (tudo em api/).",
+  "branchName": "epico3/tmdb-latency",
+  "description": "Epico 3 - Resiliencia e Latencia do TMDB. Tira o TMDB do caminho critico de request: adiciona timeouts no RestClient, desnormaliza titulo/poster/ano em media_track e match_like (migration V4) para que a leitura nunca va ao TMDB, remove o fetch por card do MediaCard (Hub sai de 33 requests para 3), troca o endpoint nao paginado GET /api/tracking por um endpoint enxuto de chaves, reescreve findPendingForUser com NOT EXISTS e congela o formato JSON das respostas paginadas num DTO proprio. Convertido de tasks/prd-epico-3-tmdb-resiliencia-latencia.md; a T3.2 do POST-MVP-TASK.md foi fatiada em 4 stories (US-002 a US-005) para caber em iteracoes individuais.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "CI valida as migrations Flyway de verdade",
-      "description": "Como desenvolvedor do backend, quero que o CI execute as migrations Flyway (V1, V2 e futuras) em sequencia contra um schema compativel com Postgres e valide as entidades JPA contra esse schema, para que uma migration quebrada ou uma divergencia entidade-schema seja pega antes de producao - nao depois, como ja aconteceu (commits c78de9f e 18f9b57).",
+      "title": "Timeouts no RestClient do TMDB",
+      "description": "Como operador do sistema, quero que toda chamada ao TMDB tenha timeout de conexao e de leitura, para que uma instabilidade externa vire um erro rapido (502) em vez de threads do Tomcat penduradas indefinidamente num container com 512M de RAM e 1 CPU.",
       "acceptanceCriteria": [
-        "Existe uma classe de teste dedicada, @SpringBootTest puro (sem @DataJpaTest, para nao sofrer o PropertyMappingContextCustomizer que forca H2 sem MODE=PostgreSQL)",
-        "@TestPropertySource declara spring.datasource.url=jdbc:h2:mem:migrations;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE, spring.flyway.enabled=true e spring.jpa.hibernate.ddl-auto=validate",
-        "O teste executa V1, V2 (e qualquer migration futura) em sequencia e falha se qualquer uma nao aplicar",
-        "O teste falha se uma entidade JPA divergir do schema criado pelas migrations (ddl-auto=validate exercitado de fato, nao so declarado)",
-        "Introduzir um erro deliberado numa migration (ex.: coluna com nome errado) faz ./mvnw test falhar - verificado na pratica, nao presumido",
-        "O workflow de CI (.github/workflows/) executa esse teste contra o postgres:17-alpine que o workflow ja sobe como service, usando @AutoConfigureTestDatabase(replace = NONE) + DB_URL do ambiente",
-        "Os slices @DataJpaTest e @SpringBootTest existentes continuam em create-drop e passando, sem nenhuma regressao nos testes ja existentes",
-        "api/CLAUDE.md e corrigido: remove as afirmacoes de que producao e dev/test usam os mesmos arquivos V*__*.sql e de que ddl-auto=validate esta ativo em todo lugar (ambas falsas desde 18f9b57), e descreve o arranjo real (slices em create-drop + um teste dedicado validando migrations)",
+        "TmdbConfig.tmdbRestClient e construido com um requestFactory (SimpleClientHttpRequestFactory) com connect timeout de 3s e read timeout de 5s",
+        "Os dois valores sao configuraveis por propriedade (tmdb.connect-timeout e tmdb.read-timeout, tipo Duration) com esses valores como default, seguindo o padrao de tmdb.base-url/tmdb.api-key ja existente em application.properties",
+        "As duas propriedades novas sao declaradas TAMBEM em api/src/test/resources/application.properties - esse arquivo substitui o principal nos testes de contexto completo (ver api/CLAUDE.md), entao declarar so no principal quebra SessaoADoisApplicationTests.contextLoads em silencio",
+        "Nenhum tratamento de erro novo e adicionado: timeout chega como ResourceAccessException, ja capturada e convertida em TmdbUnavailableException -> 502 por MediaExceptionHandler",
+        "TmdbConfigTest cobre dois casos: defaults aplicados quando nenhuma propriedade e definida, e valores customizados quando as propriedades sao definidas",
         "./mvnw test passa"
       ],
       "priority": 1,
@@ -24,16 +21,16 @@
     },
     {
       "id": "US-002",
-      "title": "Migration V3: indices de FK e filtro",
-      "description": "Como usuario do app, quero que as consultas mais frequentes (vinculo do casal, listagem de tracks, likes pendentes) nao facam full scan a cada request, para que a aplicacao continue rapida a medida que os dados crescem. Depende de US-001: sem o teste dedicado de migrations, ./mvnw test nunca executa V3, e a migration iria para producao sem nunca ter rodado.",
+      "title": "Migration V4 e campos de metadados nas entidades",
+      "description": "Como desenvolvedor do backend, quero que media_track e match_like tenham colunas para titulo, URL do poster e ano de lancamento, para que a leitura desses dados possa vir do banco em vez do TMDB. Esta story so cria o schema e os campos das entidades - quem popula e a US-003.",
       "acceptanceCriteria": [
-        "Nova migration api/src/main/resources/db/migration/V3__add_indexes.sql cria: idx_couples_user1, idx_couples_user2, idx_media_track_couple_status, idx_media_track_couple_tmdb, idx_user_review_track, idx_user_review_user, idx_match_like_couple_tmdb, idx_match_reject_couple_user, idx_media_track_genre_track",
-        "Todos os CREATE INDEX usam IF NOT EXISTS; nenhum DROP ou TRUNCATE na migration",
-        "A aplicacao sobe contra Postgres limpo com V1+V2+V3 aplicadas em sequencia",
-        "EXPLAIN SELECT * FROM couples WHERE user1_id = ? OR user2_id = ? usa index scan em vez de seq scan",
-        "Nenhuma tabela existente e recriada ou alterada - so criacao de indice",
-        "docs/FLYWAY.md documenta que o deploy que aplicar V3 (primeira migration nova pos-baseline) deve usar a connection string direta (porta 5432) ou o pooler em modo Session do Supabase, nao o modo Transaction (6543), pelo risco de advisory lock ja registrado no proprio arquivo",
-        "./mvnw test passa, e o teste de migrations criado na US-001 efetivamente executa V3 (nao so os testes pre-existentes)"
+        "Nova migration api/src/main/resources/db/migration/V4__denormalize_media_metadata.sql adiciona as colunas title (VARCHAR(255)), poster_url (VARCHAR(500)) e release_year (INTEGER) as tabelas media_track e match_like, todas nullable",
+        "A migration usa ADD COLUMN IF NOT EXISTS, nao tem nenhum DROP/TRUNCATE, nao define default no lado do banco, e e compativel com o modo PostgreSQL do H2 usado nos testes (convencoes de api/CLAUDE.md)",
+        "MediaTrack e MatchLike ganham os campos title, posterUrl e releaseYear com getters e setters; nenhum construtor existente muda de assinatura (campos novos entram por setter)",
+        "com.app.migration.FlywayMigrationTest aplica V1+V2+V3+V4 em sequencia e o ddl-auto=validate passa com as entidades novas - se a migration e as entidades divergirem, este teste falha",
+        "docs/SCHEMA_BASELINE.md reflete as tres colunas novas em media_track e match_like",
+        "docs/FLYWAY.md registra V4 na lista de migrations e repete a ressalva do pooler do Supabase: o deploy que aplicar V4 deve usar a connection string direta (5432) ou o pooler em modo Session, nunca o modo Transaction (6543), pelo risco de advisory lock",
+        "./mvnw test passa"
       ],
       "priority": 2,
       "passes": true,
@@ -41,17 +38,15 @@
     },
     {
       "id": "US-003",
-      "title": "Eliminar N+1 na resolucao de nomes de usuario e extrair MediaTrackMapper",
-      "description": "Como usuario do app, quero que listar meus titulos nao dispare uma query em users por membro do casal por titulo, para que a listagem nao degrade linearmente com o tamanho da lista (hoje ate 100 SELECTs em users para listar 50 tracks).",
+      "title": "Persistir titulo, poster e ano no caminho de escrita",
+      "description": "Como desenvolvedor do backend, quero que titulo, poster e ano sejam gravados no momento em que um track ou um like e criado, reaproveitando as respostas do TMDB que o codigo ja busca hoje, para que nenhuma chamada nova ao TMDB seja introduzida na escrita. Depende de US-002 (colunas e campos precisam existir).",
       "acceptanceCriteria": [
-        "Novo MediaTrackMapper (componente Spring em com.app.tracking) responsavel apenas por MediaTrack -> MediaTrackResponse, recebendo um Map<UUID,String> de nomes ja resolvido como parametro - nao injeta UserRepository",
-        "Todos os pontos de entrada que hoje resolvem nome por membro (listByStatus, listByStatusPaged, addTrack, markAsWatched, startWatching, deleteTrack, UserReviewService.upsertReview) passam a resolver os nomes uma unica vez por request via userRepository.findAllById(memberIds), mesmo padrao ja usado em NotificationService.resolveActorNames",
-        "GET /api/tracking?status=WATCHED com 50 tracks executa no maximo 1 query em users, independente da quantidade de tracks (verificavel com spring.jpa.show-sql=true ou contador de queries em teste)",
-        "MediaTrackService nao injeta mais UserRepository para fins de mapeamento",
-        "UserReviewService passa a depender de MediaTrackMapper, nao mais de MediaTrackService (remove o acoplamento bidirecional atual)",
-        "O JSON de resposta de todos os endpoints de /api/tracking e byte a byte identico ao anterior",
-        "Existe MediaTrackMapperTest",
-        "MediaTrackServiceTest, MediaTrackControllerTest e UserReviewServiceTest continuam passando (ajustados para o novo mapper onde necessario)",
+        "MediaTrackService.addTrack popula title, posterUrl e releaseYear a partir da MESMA resposta de mediaDetailsService.getDetails(...) que ja busca hoje para os genreIds - nenhuma chamada nova",
+        "O catch (RuntimeException) que hoje protege fetchGenreIds continua valendo: um TMDB indisponivel deixa os tres campos nulos e NAO falha a criacao do track",
+        "MatchService.createMatch popula os tres campos do MediaTrack criado a partir da resposta de getDetails(...) que ja busca hoje - nenhuma chamada nova",
+        "LikeRequest ganha title, posterUrl e releaseYear opcionais (sem @NotNull), e MatchService.like os persiste no MatchLike quando presentes; quando ausentes os campos ficam nulos",
+        "MatchService.like continua sem chamar mediaDetailsService quando nao ha match - verificado com verify(mediaDetailsService, never()).getDetails(any(), anyLong())",
+        "MediaTrackServiceTest e MatchServiceTest provam com verify(mediaDetailsService, times(n)) que a contagem de chamadas ao TMDB em addTrack, createMatch e like e identica a de antes desta story",
         "./mvnw test passa"
       ],
       "priority": 3,
@@ -60,18 +55,17 @@
     },
     {
       "id": "US-004",
-      "title": "Eliminar N+1 nas colecoes LAZY e desligar open-in-view",
-      "description": "Como usuario do app, quero que o endpoint nao-paginado de tracking nao dispare queries extras proporcionais ao numero de titulos, e quero que o backend falhe de forma explicita (nao degrade em silencio) se algum codigo acessar dado LAZY fora de transacao, para que problemas de acesso a dados sejam pegos em desenvolvimento, nao em producao sob carga. Depende de US-003: o mapper extraido la e onde o EntityGraph desta story passa a ser consumido.",
+      "title": "Leitura a partir dos campos persistidos, sem TMDB",
+      "description": "Como usuario do app, quero que abrir a aba Sugestoes e listar minha biblioteca nao dispare nenhuma chamada externa, para que essas telas nao dependam da disponibilidade nem da latencia do TMDB. Hoje MatchService.getPending faz ate 10 chamadas HTTP em serie por abertura da aba. Depende de US-003 (os campos precisam estar sendo populados).",
       "acceptanceCriteria": [
-        "@EntityGraph(attributePaths = {\"reviews\", \"reviews.user\", \"couple\"}) adicionado aos finders de MediaTrackRepository (findByCoupleId, findByCoupleIdAndStatus, findByCoupleIdAndStatusOrderByCreatedAtDesc)",
-        "A variante paginada nao combina JOIN FETCH de colecao com Pageable (evita paginacao em memoria / aviso HHH000104) - usa EntityGraph com countQuery separado, ou busca ids paginados e depois faz fetch por IN",
-        "MediaTrackService.startWatching e anotado com @Transactional (hoje e o unico mutador sem essa anotacao)",
-        "spring.jpa.open-in-view=false e definido em application.properties SOMENTE depois dos 3 itens acima estarem implementados (a ordem importa: EntityGraph + @Transactional primeiro, OSIV por ultimo, senao vira LazyInitializationException em vez de N+1 corrigido)",
-        "GET /api/tracking (sem status) com 30 tracks executa numero constante de queries, nao proporcional a quantidade de tracks",
-        "GET /api/tracking?status=WATCHED&page=0&size=20 pagina no banco: o log do Hibernate nao emite HHH000104",
-        "Com open-in-view=false, todos os endpoints de /api/tracking, /api/match e /api/notifications respondem sem LazyInitializationException",
-        "./mvnw test passa",
-        "Esta story e implantada sozinha, sem nenhuma outra mudanca deste epico no mesmo deploy - spring.jpa.open-in-view=false muda comportamento global (nao so de tracking), e o rollback precisa ser um unico revert limpo"
+        "MatchService.getPending monta o PendingMatchDto a partir dos campos persistidos no MatchLike, sem nenhuma chamada ao TMDB quando title nao e nulo",
+        "PendingMatchDto ganha releaseYear",
+        "MediaTrackResponse ganha title, posterUrl e releaseYear, populados por MediaTrackMapper a partir da entidade",
+        "MediaTrackMapper continua sem injetar nenhuma dependencia nova - recebe tudo por parametro, como manda api/CLAUDE.md",
+        "GET /api/match/pending com 10 itens ja preenchidos executa ZERO chamadas ao TMDB - verificado com verify(mediaDetailsService, never()).getDetails(any(), anyLong())",
+        "GET /api/tracking?status=... com todos os tracks ja preenchidos executa ZERO chamadas ao TMDB",
+        "MatchControllerTest, MatchServiceTest, MediaTrackMapperTest e MediaTrackControllerTest continuam passando, ajustados aos campos novos",
+        "./mvnw test passa"
       ],
       "priority": 4,
       "passes": true,
@@ -79,17 +73,89 @@
     },
     {
       "id": "US-005",
-      "title": "Delete em massa de notificacoes expiradas",
-      "description": "Como operador do sistema, quero que a limpeza diaria de notificacoes antigas seja um unico DELETE, nao um carregamento de todas as linhas seguido de exclusao uma a uma, para que o job de limpeza nao cresca linearmente com o volume de notificacoes.",
+      "title": "Auto-cura das linhas anteriores a V4",
+      "description": "Como usuario do app, quero que titulos e likes criados antes da migration continuem mostrando titulo, poster e ano, e que cada linha antiga custe no maximo uma chamada ao TMDB na vida inteira, para que a migracao nao exija backfill em massa nem degrade a leitura para sempre. Depende de US-004.",
       "acceptanceCriteria": [
-        "NotificationRepository.deleteByCreatedAtBefore deixa de ser um delete derivado do Spring Data e vira uma query explicita: @Modifying @Query(\"DELETE FROM Notification n WHERE n.createdAt < :cutoff\")",
-        "O tipo de retorno em NotificationCleanupService muda de long para int, compativel com o retorno de @Modifying",
-        "O log existente reportando a quantidade removida e mantido",
-        "O job emite uma unica instrucao DELETE, independente do volume de notificacoes expiradas (verificavel via spring.jpa.show-sql=true ou contador de queries em teste)",
-        "NotificationCleanupServiceTest e NotificationRepositoryTest passam",
+        "Uma linha (MatchLike ou MediaTrack) com title nulo faz a leitura buscar os dados no TMDB uma vez, devolver na resposta E PERSISTIR os tres campos na linha",
+        "A segunda leitura da mesma linha executa zero chamadas ao TMDB - teste faz duas leituras seguidas e verifica verify(mediaDetailsService, times(1))",
+        "O preenchimento acontece dentro de um metodo @Transactional (spring.jpa.open-in-view=false esta ativo desde o Epico 2, entao sem transacao a escrita nao acontece e o acesso LAZY quebra)",
+        "Uma falha do TMDB nesse caminho NAO falha a request: a linha e devolvida com os campos nulos (o client ja trata title ausente com o fallback 'Titulo #{tmdbId}') e sera tentada de novo na leitura seguinte - teste cobre isso esperando 200, nao 502",
+        "A logica de auto-cura fica no service, nunca no MediaTrackMapper",
+        "Existem testes para os tres cenarios: linha nova (zero TMDB), linha historica (uma chamada, persiste, segunda leitura sem chamada) e linha historica com TMDB indisponivel (200 com campos nulos)",
         "./mvnw test passa"
       ],
       "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Frontend: remover o fetch por card do MediaCard",
+      "description": "Como usuario do app, quero que o Hub carregue com 3 requests em vez de 33, para que a lista apareca rapido e nao fique piscando enquanto 30 requisicoes paralelas resolvem uma a uma. Decisao de escopo visual ja tomada: o card mantem titulo, poster e ano (agora vindos do proprio MediaTrackResponse) e PERDE os chips de streaming providers, que continuam existindo so no MediaDetailModal. Depende de US-004.",
+      "acceptanceCriteria": [
+        "Antes de implementar, a skill frontend-design foi invocada - esta story altera pixels (remocao dos chips de provider), entao a excecao de refatoracao pura do CLAUDE.md raiz NAO se aplica",
+        "O useEffect que chama GET /api/media/{type}/{id} em client/src/components/MediaCard.tsx e removido; o componente nao faz nenhuma requisicao HTTP na montagem",
+        "MediaCard renderiza titulo, poster e ano a partir das props (track.title, track.posterUrl, track.releaseYear), mantendo os fallbacks atuais: 'Titulo #{tmdbId}' quando nao ha titulo e o gradiente hsl(tmdbId % 360) quando nao ha poster",
+        "Os chips de watch providers saem do MediaCard; o restante do layout (badge de tipo, estrelas + media, data assistida, opiniao, CTA do rodape) permanece visualmente identico, sem buraco de espacamento onde ficavam os chips",
+        "client/src/types/tracking.ts espelha os campos novos de MediaTrackResponse: title (string | null), posterUrl (string | null), releaseYear (number | null) - sincronizacao manual, nao ha codegen",
+        "client/src/types/media.ts espelha releaseYear em PendingMatch",
+        "MatchScreen envia title, posterUrl e releaseYear no corpo de POST /api/match/like nas duas abas (na aba Buscar o MediaSearchResult ja tem os tres; na aba Sugestoes o PendingMatch tem titulo e poster, releaseYear vai quando disponivel)",
+        "MediaDetailModal, PendingDetailModal, ComparisonDialog e TitleModal continuam buscando MediaDetails sob demanda, exatamente como hoje - nenhum deles e alterado",
+        "bun run typecheck e bun run lint passam",
+        "Nao ha browser neste sandbox (sem Chromium/Playwright, sem sudo para as libs): registrar em progress.txt que a story precisa de aceite visual manual do dono do projeto antes do merge - rodar bun run dev, abrir o Hub e conferir card sem chips de provider e sem espaco morto, titulo/ano/poster corretos, e um titulo pre-V4 renderizando via fallback ou ja auto-curado"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "GET /api/tracking/keys e remocao do endpoint nao paginado",
+      "description": "Como usuario do app, quero que a tela de Match saiba quais titulos ja estao na nossa lista sem baixar a biblioteca inteira do casal, para que o payload nao cresca sem limite a cada titulo adicionado. Hoje MatchScreen consome GET /api/tracking (lista completa, com reviews e metadados) so para montar um Set de chaves mediaType-tmdbId.",
+      "acceptanceCriteria": [
+        "Existe GET /api/tracking/keys, escopado ao casal do JWT pelo mesmo helper currentCoupleId(userId) dos demais endpoints do controller, devolvendo [{mediaType, tmdbId}] - sem reviews, sem metadados",
+        "O endpoint e servido por uma projecao no repositorio (so as duas colunas), nao por carregamento de entidades",
+        "client/src/screens/MatchScreen.tsx passa a consumir /api/tracking/keys para montar o Set de chaves; o comportamento da tela (marcar titulo como 'ja na lista') e identico ao atual",
+        "O endpoint GET /api/tracking sem status (@GetMapping(params = \"!status\") em MediaTrackController) e REMOVIDO, junto com o caminho status == null de MediaTrackService.listByStatus se ficar orfao",
+        "Nenhum arquivo em client/src referencia mais o endpoint removido (verificar com grep pelo caminho \"/api/tracking\" sem query string)",
+        "DashboardScreen nao e alterado e continua consumindo apenas GET /api/tracking/stats - ja foi verificado que todos os numeros que ele renderiza sao campos de StatsResponse, nenhuma expansao do StatsService faz parte deste epico",
+        "MediaTrackControllerTest cobre o endpoint novo (incluindo o 404 de usuario sem casal) e deixa de cobrir o removido",
+        "./mvnw test, bun run typecheck e bun run lint passam",
+        "Sem mudanca visual: MatchScreen so troca a origem dos dados, entao a skill frontend-design nao se aplica a esta story"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "findPendingForUser com NOT EXISTS",
+      "description": "Como usuario do app, quero que a busca por sugestoes pendentes use uma consulta que aproveite os indices criados no Epico 2 e nao tenha a semantica traicoeira de NOT IN com NULL, para que a query nao degrade nem devolva resultado errado quando houver nulos envolvidos.",
+      "acceptanceCriteria": [
+        "As 3 subconsultas NOT IN de MatchLikeRepository.findPendingForUser viram NOT EXISTS correlacionados (like proprio, reject proprio, track ja existente)",
+        "O conjunto de resultados e exatamente o mesmo de antes - teste comparativo cobrindo os mesmos cenarios",
+        "MatchLikeRepositoryTest cobre: nenhum like do parceiro, likes ja rejeitados pelo usuario atual, likes ja rastreados como MediaTrack, e like do parceiro ainda pendente (o unico que deve aparecer)",
+        "A paginacao (PageRequest.of(0, 10)) continua funcionando",
+        "./mvnw test passa"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "DTO de pagina proprio para as respostas paginadas",
+      "description": "Como desenvolvedor, quero que o formato JSON das respostas paginadas seja um contrato explicito do projeto, para que uma atualizacao do Spring nao mude a estrutura e quebre o frontend em silencio. Hoje MediaTrackController.listByStatus e NotificationController.list devolvem Page<T> direto e o Spring avisa a cada execucao que PageImpl nao tem formato garantido.",
+      "acceptanceCriteria": [
+        "Existe um record PageResponse<T> com exatamente os campos que o client ja espelha hoje: content, totalElements, totalPages, number, size",
+        "MediaTrackController.listByStatus e NotificationController.list devolvem PageResponse<T> em vez de Page<T>",
+        "NAO usar @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO): ele moveria os metadados para um objeto aninhado 'page' e quebraria os tipos espelhados no client - decisao ja tomada",
+        "O JSON de resposta dos dois endpoints e identico ao atual nos 5 campos consumidos pelo client: client/src/types/tracking.ts e client/src/types/notification.ts NAO precisam mudar, e HubScreen e NotificationDropdown continuam funcionando sem alteracao",
+        "O warning 'Serializing PageImpl instances as-is is not supported' nao aparece mais no log ao executar os testes desses dois endpoints",
+        "MediaTrackControllerTest e os testes de NotificationController passam, ajustados ao tipo novo",
+        "./mvnw test e bun run typecheck passam"
+      ],
+      "priority": 9,
       "passes": true,
       "notes": ""
     }

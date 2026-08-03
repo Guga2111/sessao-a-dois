@@ -61,7 +61,7 @@ import type {
   MediaSearchResult,
   PendingMatch,
 } from "@/types/media"
-import type { MediaTrackResponse, MediaType } from "@/types/tracking"
+import type { MediaType, TrackKeyResponse } from "@/types/tracking"
 
 type LikeState = "idle" | "loading" | "liked" | "matched" | "error"
 type ActiveTab = "suggestions" | "search"
@@ -431,6 +431,9 @@ function SuggestionsTab() {
       await api.post("/api/match/like", {
         tmdbId: current.tmdbId,
         mediaType: current.mediaType,
+        title: current.title,
+        posterUrl: current.posterUrl,
+        releaseYear: current.releaseYear,
       })
       removePending(current.tmdbId)
       setDetailItem(null)
@@ -764,7 +767,7 @@ function SearchTab() {
 
   useEffect(() => {
     api
-      .get<MediaTrackResponse[]>("/api/tracking")
+      .get<TrackKeyResponse[]>("/api/tracking/keys")
       .then((response) => {
         setTrackedKeys(
           new Set(response.data.map((t) => trackKey(t.mediaType, t.tmdbId)))
@@ -859,7 +862,13 @@ function SearchTab() {
     try {
       const response = await api.post<{ matched: boolean }>(
         "/api/match/like",
-        { tmdbId: result.tmdbId, mediaType: result.mediaType }
+        {
+          tmdbId: result.tmdbId,
+          mediaType: result.mediaType,
+          title: result.title,
+          posterUrl: result.posterUrl,
+          releaseYear: result.year,
+        }
       )
       setLikeStates((s) => ({
         ...s,
