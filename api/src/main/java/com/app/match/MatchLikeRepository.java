@@ -17,9 +17,11 @@ public interface MatchLikeRepository extends JpaRepository<MatchLike, UUID> {
 
 	@Query("SELECT ml FROM MatchLike ml WHERE ml.couple.id = :coupleId "
 		+ "AND ml.userId != :currentUserId "
-		+ "AND ml.tmdbId NOT IN (SELECT m.tmdbId FROM MatchLike m WHERE m.couple.id = :coupleId AND m.userId = :currentUserId) "
-		+ "AND ml.tmdbId NOT IN (SELECT r.tmdbId FROM MatchReject r WHERE r.couple.id = :coupleId AND r.userId = :currentUserId) "
-		+ "AND ml.tmdbId NOT IN (SELECT mt.tmdbId FROM MediaTrack mt WHERE mt.couple.id = :coupleId)")
+		+ "AND NOT EXISTS (SELECT 1 FROM MatchLike m WHERE m.couple.id = ml.couple.id "
+		+ "AND m.userId = :currentUserId AND m.tmdbId = ml.tmdbId) "
+		+ "AND NOT EXISTS (SELECT 1 FROM MatchReject r WHERE r.couple.id = ml.couple.id "
+		+ "AND r.userId = :currentUserId AND r.tmdbId = ml.tmdbId) "
+		+ "AND NOT EXISTS (SELECT 1 FROM MediaTrack mt WHERE mt.couple.id = ml.couple.id AND mt.tmdbId = ml.tmdbId)")
 	Page<MatchLike> findPendingForUser(@Param("coupleId") UUID coupleId, @Param("currentUserId") UUID currentUserId,
 			Pageable pageable);
 }
