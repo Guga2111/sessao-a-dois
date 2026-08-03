@@ -193,8 +193,8 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "US-010 (prioridade 10) foi pulada nesta iteracao: e puramente operacional (copiar conf para /etc/nginx/sites-available na VPS real, sudo nginx -t, systemctl reload, curl -I em producao, purgar logs, rotacionar JWT_SECRET no .env da VPS, reiniciar container) - nao ha VPS neste sandbox, entao nao e automatizavel a partir do repositorio, exatamente como a propria US-010 antecipa (\"Executor manual - nao automatizavel a partir do repositorio\"). Prossegui para a US-011, a proxima story automatizavel. Adicionado job `frontend` a .github/workflows/ci.yml: bun install + bun run typecheck + bun run lint + bun run build em client/, via oven-sh/setup-bun@v2, working-directory client em cada step. Branches-alvo do workflow (`on.pull_request.branches`) passaram a incluir `main` alem de `dev`. O job `test` (backend) nao foi alterado, exceto o array de branches do gatilho compartilhado - mesmo servico postgres:17-alpine e mesmas env vars de antes, confirmado rodando ./mvnw test localmente (300/300, BUILD SUCCESS, identico a antes desta story). Instalado `bun` global via `npm install -g bun` neste sandbox (registry.npmjs.org ja esta na allowlist do firewall; bun.sh nao esta acessivel) para poder rodar os 4 comandos localmente antes de commitar - nao so confiar na leitura estatica do workflow. Verificacao pratica pedida pelo PRD: adicionei um erro de tipo deliberado no fim de client/src/main.tsx (`const x: number = \"string\"`) e rodei `bun run typecheck` e `bun run build`; revertido logo em seguida (diff limpo confirmado com git diff/status). Ver Codebase Patterns e a nota de aprendizados abaixo para os dois problemas reais encontrados (script `typecheck` quebrado e 5 erros de lint pre-existentes) e como foram corrigidos."
     },
     {
       "id": "US-012",

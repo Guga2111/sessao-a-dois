@@ -14,26 +14,6 @@ interface ReviewModalProps {
 }
 
 export function ReviewModal({ track, myUserId, onClose, onSuccess }: ReviewModalProps) {
-  const [rating, setRating] = useState(0)
-  const [opinion, setOpinion] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!track) {
-      setRating(0)
-      setOpinion("")
-      setError(null)
-      setSaving(false)
-      return
-    }
-    const myReview = track.reviews.find((review) => review.userId === myUserId)
-    setRating(myReview?.rating ?? 0)
-    setOpinion(myReview?.opinion ?? "")
-    setError(null)
-    setSaving(false)
-  }, [track, myUserId])
-
   useEffect(() => {
     if (!track) return
     const onKeyDown = (e: KeyboardEvent) => {
@@ -44,6 +24,36 @@ export function ReviewModal({ track, myUserId, onClose, onSuccess }: ReviewModal
   }, [track, onClose])
 
   if (!track) return null
+
+  return (
+    <ReviewModalContent
+      key={track.id}
+      track={track}
+      myUserId={myUserId}
+      onClose={onClose}
+      onSuccess={onSuccess}
+    />
+  )
+}
+
+interface ReviewModalContentProps {
+  track: MediaTrackResponse
+  myUserId: string
+  onClose: () => void
+  onSuccess: (track: MediaTrackResponse) => void
+}
+
+function ReviewModalContent({
+  track,
+  myUserId,
+  onClose,
+  onSuccess,
+}: ReviewModalContentProps) {
+  const myReview = track.reviews.find((review) => review.userId === myUserId)
+  const [rating, setRating] = useState(myReview?.rating ?? 0)
+  const [opinion, setOpinion] = useState(myReview?.opinion ?? "")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleConfirm = async () => {
     setSaving(true)

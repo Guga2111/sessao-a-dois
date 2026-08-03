@@ -1,5 +1,24 @@
 ## Codebase Patterns
 
+- **`bun` is installable in this sandbox via `npm install -g bun`** (registry.npmjs.org is
+  firewall-allowlisted; `bun.sh` itself, used by the official install script, is NOT
+  reachable — `curl -fsSL https://bun.sh/install` fails with connection refused). Any
+  story that needs `bun run ...` verified for real (not just read statically) should use
+  this instead of assuming bun is unavailable.
+- **`client/package.json`'s `typecheck` script was silently broken before US-011:**
+  `"typecheck": "tsc --noEmit"` ran against the root `tsconfig.json`, which has
+  `"files": []` and only `references` to `tsconfig.app.json`/`tsconfig.node.json` — without
+  `-b` (build mode), plain `tsc` on a references-only root config type-checks **zero
+  files** and always exits 0, even with a real type error in `src/`. Fixed to
+  `"typecheck": "tsc -b"` (same as the `build` script's first half, which already worked
+  correctly because `-b` follows project references). Confirmed with a deliberate
+  `const x: number = "a string"` in `src/main.tsx`: old script → exit 0 (silent pass), new
+  script → exit 2 with the real error. If a future story touches `typecheck`/`build`
+  scripts or `tsconfig*.json`, re-verify with a deliberate error rather than trusting a
+  clean run — a no-op script produces a clean run too.
+- `bun run lint` (`eslint .`) currently reflects the **real** state of the codebase, no
+  known false-positives left as of US-011 — if it fails, something is actually wrong.
+
 - **O backend AGORA compila e roda testes neste sandbox.** O devcontainer traz Temurin
   JDK 21 + Maven 3.9.16 e o `init-firewall.sh` libera `repo.maven.apache.org` /
   `repo1.maven.org` (commit `0b6d627`, 2026-08-02). Rode `cd api && ./mvnw test`.
@@ -372,4 +391,106 @@
     (9/9) antes de considerar a story pronta.
   - Story não toca em código Java (só nginx conf + markdown) — `./mvnw test`
     não se aplica, mesmo padrão da US-008.
+---
+
+## 2026-08-02 - US-010 (PULADA - operacional/manual)
+- US-010 (prioridade 10) é inteiramente sobre aplicar mudanças numa VPS real via
+  `sudo`: copiar conf para `/etc/nginx/sites-available`, `nginx -t`, `systemctl
+  reload`, `curl -I` em produção, purgar `access.log` + rotacionados, gerar e
+  trocar `JWT_SECRET` no `.env` da VPS, reiniciar o container, confirmar CSP sem
+  violação no console do browser real. Nada disso é executável a partir deste
+  sandbox (sem VPS, sem acesso SSH, sem produção) — a própria US-010 já
+  antecipa isso: "Executor manual - não automatizável a partir do repositório".
+- **Nenhum arquivo foi alterado para esta story.** `passes` continua `false` em
+  `prd.json`. Não commitado nada em nome da US-010. Segui direto para a US-011,
+  a próxima story automatizável, sem pular etapas de commit/registro.
+- **Learnings for future iterations:**
+  - Se uma story tem "[OPERACIONAL]" no título ou explicitamente diz "executor
+    manual" / "não automatizável a partir do repositório" nos critérios, ela não
+    é uma tarefa de codificação — não tente simulá-la ou marcá-la como `passes:
+    true` sem a ação real ter acontecido fora do repo. Pule para a próxima
+    story de maior prioridade com `passes: false` e documente a razão aqui, em
+    vez de travar o loop ou fabricar uma implementação que não corresponde ao
+    que a story pede.
+---
+
+## 2026-08-02 - US-011
+- Adicionado o job `frontend` a `.github/workflows/ci.yml`: `bun install`,
+  `bun run typecheck`, `bun run lint`, `bun run build`, cada um como step
+  próprio com `working-directory: client`, usando `oven-sh/setup-bun@v2`. O job
+  falha se qualquer um dos 4 comandos falhar (comportamento padrão do GitHub
+  Actions — cada `run:` que retorna código != 0 já para o job). Os
+  branches-alvo do workflow (`on.pull_request.branches`) passaram a incluir
+  `main` além de `dev`. O job `test` (backend) não mudou, exceto o array de
+  branches do gatilho, que é compartilhado entre os dois jobs.
+- Arquivos alterados: `.github/workflows/ci.yml`,
+  `client/package.json` (script `typecheck` corrigido, ver abaixo),
+  `client/src/components/DeleteTrackDialog.tsx`,
+  `client/src/components/RatingRequestDialog.tsx`,
+  `client/src/components/ReviewModal.tsx`,
+  `client/src/components/WatchModal.tsx`,
+  `client/src/components/ui/button.tsx`.
+- **Learnings for future iterations:**
+  - Antes de escrever o job `frontend`, rodei os 4 comandos localmente (depois
+    de instalar `bun` via `npm install -g bun`, ver Codebase Patterns) para
+    confirmar que o job nasceria verde. **`bun run lint` falhava com 5 erros
+    reais e pré-existentes**, todos não relacionados a esta story:
+    `react-hooks/set-state-in-effect` em `RatingRequestDialog.tsx`,
+    `ReviewModal.tsx`, `WatchModal.tsx` e `DeleteTrackDialog.tsx` (`setState`
+    síncrono dentro de um `useEffect` que reseta o formulário quando o
+    item/track vira `null`), e `react-refresh/only-export-components` em
+    `button.tsx` (exportar `buttonVariants` junto do componente `Button`).
+    Adicionar um job de CI que nasce vermelho não cumpre a story (o critério
+    "o job falha se qualquer um dos 4 comandos falhar" pressupõe que ele passa
+    quando não há erro de verdade) — corrigi os 5 em vez de deixar o job
+    quebrado ou de excluir `lint` do job.
+  - Os 4 componentes com `react-hooks/set-state-in-effect` seguem exatamente o
+    "Lint gotcha: resetting state on route/prop change" já documentado em
+    `client/CLAUDE.md`: extraí a parte com estado para um subcomponente
+    (`*Content`/`*Form`) montado com `key={track.id}` (ou
+    `key={mediaTrackId ?? "empty"}` no caso do `RatingRequestDialog`, que usa
+    o `Dialog` do base-ui e permanece montado durante a animação de saída, ao
+    contrário dos outros três que são `<div>` cru e já retornam `null`
+    completo quando o item é `null`). Trocar a chave força remount, e o
+    remount já reresenta o estado sozinho — nenhum `useEffect` de reset foi
+    necessário. Em `ReviewModal.tsx` e `RatingRequestDialog.tsx` isso também
+    eliminou a necessidade do valor inicial via `useState` normal: o
+    subcomponente agora deriva o valor inicial direto dos props com
+    `useState(myReview?.rating ?? 0)` (lazy, roda só uma vez por montagem).
+  - O fix de `button.tsx` foi um `// eslint-disable-next-line
+    react-refresh/only-export-components` na linha do `export`, com comentário
+    explicando que é convenção do shadcn co-localizar `buttonVariants` (cva)
+    com o componente — não vale a pena separar em outro arquivo só por causa
+    dessa regra.
+  - **Descoberta mais importante desta story:** o script
+    `"typecheck": "tsc --noEmit"` em `client/package.json` era um no-op
+    silencioso. O `tsconfig.json` da raiz tem `"files": []` e só `references`
+    para `tsconfig.app.json`/`tsconfig.node.json` — sem a flag `-b` (build
+    mode), rodar `tsc` direto nesse config não segue as `references` e não
+    checa nenhum arquivo, sempre saindo com código 0, mesmo com um erro de
+    tipo real em `src/`. Confirmado inserindo `const x: number = "uma string"`
+    em `src/main.tsx`: `tsc --noEmit` (antigo) → exit 0; `tsc -b` (novo,
+    mesmo prefixo do script `build`) → exit 2 com o erro real reportado.
+    Corrigido para `"typecheck": "tsc -b"`. Isso também significa que o
+    critério de aceite "Typecheck passes" do PRD já estava garantido de forma
+    indireta pelo `build` (que sempre usou `tsc -b && vite build`), mas o
+    script `typecheck` isolado nunca cumpriu seu próprio nome antes desta
+    story.
+  - Verificação prática pedida pelo PRD (introduzir erro deliberado, ver o job
+    falhar, reverter): feita localmente com `bun run typecheck` (e também
+    `bun run build`) antes de existir CI real para rodar — adicionei as duas
+    linhas ao fim de `src/main.tsx`, rodei os comandos, confirmei falha (exit
+    2 no typecheck corrigido, exit 2 no build), depois restaurei o arquivo
+    original e confirmei `git diff`/`git status` limpos antes de prosseguir.
+  - `./mvnw test` (backend) não foi afetado por esta story (nenhum arquivo
+    Java tocado) — rodado mesmo assim para confirmar que nada regrediu:
+    300/300 passam, `BUILD SUCCESS`, idêntico ao estado anterior. Uma primeira
+    tentativa com `-q -B test -DJWT_SECRET=...` pareceu falhar (stack trace
+    cortado pelo `tail`), mas era só o modo `-q` suprimindo o resumo final —
+    `-B test` sem `-q` mostrou claramente `BUILD SUCCESS`. `-D` seta uma
+    system property, não uma env var, então nem chegou a ser usado de fato
+    pela app (que lê `JWT_SECRET` como variável de ambiente via
+    `application.properties`); o segredo de teste em
+    `api/src/test/resources/application.properties` já é suficiente e não
+    precisa de override nenhum para `./mvnw test` local.
 ---

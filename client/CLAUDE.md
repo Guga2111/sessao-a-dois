@@ -10,6 +10,10 @@ React + TypeScript + Vite, Tailwind v4 (CSS-based config in `src/index.css`, no 
 - API calls go through `src/lib/api.ts` (`api.get/post(...)`), which attaches the JWT and redirects to `/login` on 401. Response DTO shapes are hand-mirrored as TS interfaces under `src/types/*.ts` (e.g. `types/tracking.ts`, `types/stats.ts`) — keep them in sync with the backend records manually, there's no codegen.
 - Routes requiring a couple use the `RequireCouple` guard (`src/routes/guards.tsx`); routes requiring auth use `ProtectedRoute`.
 
+## `typecheck` script must use `tsc -b`, not `tsc --noEmit`
+
+The root `tsconfig.json` has `"files": []` and only `references` to `tsconfig.app.json`/`tsconfig.node.json` (standard Vite project-references setup). Running plain `tsc --noEmit` against it checks **zero files** and always exits 0 — it never actually type-checks `src/`, silently. `package.json`'s `typecheck` script must use `tsc -b` (build mode, which follows `references`), same as the first half of the `build` script (`tsc -b && vite build`). If you ever touch `tsconfig*.json` or the `typecheck`/`build` scripts, verify with a deliberate type error (add one, confirm the script exits non-zero, revert) rather than trusting a clean run — a no-op script produces a clean run too.
+
 ## Lint gotcha: resetting state on route/prop change
 
 The `eslint-plugin-react-hooks` config here forbids calling `setState` synchronously inside a `useEffect` body (`react-hooks/set-state-in-effect`) and forbids reading/writing `ref.current` during render (`react-hooks/refs`). To reset a subtree's local state when something external changes (e.g. closing a menu on route navigation), extract the stateful part into its own subcomponent and mount it with `key={someChangingValue}` from the parent — remounting resets `useState` without effects or refs. See `src/components/Header.tsx`'s `MobileNav` for an example.
