@@ -57,7 +57,7 @@ class MediaTrackServiceTest {
 	@BeforeEach
 	void setUp() {
 		mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleRepository, userRepository,
-				mediaDetailsService, ratingRequestService);
+				mediaDetailsService, ratingRequestService, new MediaTrackMapper());
 	}
 
 	private Couple coupleWithMembers(UUID user1Id, UUID user2Id) {
@@ -154,8 +154,7 @@ class MediaTrackServiceTest {
 		track.getReviews().add(new UserReview(track, user2, 2, "Bob nem tanto"));
 
 		when(mediaTrackRepository.findByCoupleId(coupleId)).thenReturn(List.of(track));
-		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
-		when(userRepository.findById(user2Id)).thenReturn(Optional.of(user2));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1, user2));
 
 		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, null);
 
@@ -189,7 +188,7 @@ class MediaTrackServiceTest {
 
 		when(mediaTrackRepository.findByCoupleIdAndStatus(coupleId, MediaStatus.WANT_TO_SEE))
 			.thenReturn(List.of(track));
-		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1));
 
 		List<MediaTrackResponse> responses = mediaTrackService.listByStatus(coupleId, MediaStatus.WANT_TO_SEE);
 
@@ -213,7 +212,7 @@ class MediaTrackServiceTest {
 		when(mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(
 				eq(coupleId), eq(MediaStatus.WATCHING), any(Pageable.class)))
 			.thenReturn(repoPage);
-		when(userRepository.findById(user1Id)).thenReturn(Optional.of(user1));
+		when(userRepository.findAllById(any())).thenReturn(List.of(user1));
 
 		Page<MediaTrackResponse> result = mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHING, 0, 20);
 

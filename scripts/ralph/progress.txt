@@ -175,3 +175,55 @@
   - US-003 (N+1 on user name resolution + `MediaTrackMapper` extraction) is next — independent of
     this story's indexes, but US-004 depends on US-003's mapper.
 ---
+
+## 2026-08-03 - US-003
+- Added `com.app.tracking.MediaTrackMapper` (`@Component`, no `UserRepository` dependency): takes
+  `(MediaTrack track, Map<UUID, String> userNames)` and builds the `MediaTrackResponse`/`ReviewDto`
+  list from the already-resolved names map. `MediaTrackMapper.memberIds(Couple)` is a public static
+  helper (couple's non-null member ids, skipping `user2Id` when the couple has no partner yet) reused
+  both to build the names map and inside the mapper's per-review loop.
+- Refactored `MediaTrackService`: `listByStatus`/`listByStatusPaged` now collect the distinct member
+  ids across every track in the result (normally one couple, so 1-2 ids) and call
+  `userRepository.findAllById(memberIds)` exactly once per request, then pass the resulting
+  `Map<UUID,String>` to `mediaTrackMapper.toResponse(track, names)` for each track — same pattern as
+  `NotificationService.resolveActorNames`. `addTrack`, `markAsWatched`, `startWatching` do the
+  single-couple version of the same thing. The old `toResponse`/`toReviewDto` methods (which called
+  `userRepository.findById` once per couple member per track — up to 100 queries for 50 tracks) were
+  deleted from `MediaTrackService` entirely; the mapper is now the only place that builds the response.
+- Refactored `UserReviewService` to depend on `MediaTrackMapper` instead of `MediaTrackService` (removes
+  the bidirectional `MediaTrackService` <-> `UserReviewService` coupling the PRD called out) — it
+  resolves the track's couple member names itself, then delegates to the mapper.
+- `deleteTrack` was in the PRD's list of "entry points that resolve names per member" but never called
+  `toResponse` in the first place (it returns `void`), so nothing changed there — confirmed by reading
+  the method, not assumed.
+- Added `MediaTrackMapperTest` (5 tests: `memberIds` with/without a second member, `toResponse` with
+  both members having reviews + resolved names, a member with no review yet, and a name missing from
+  the resolved map falling back to `null` rather than throwing).
+- Updated `MediaTrackServiceTest` (real `MediaTrackMapper` instance instead of a mock — it has no
+  dependencies, so stubbing it per test would have been pure overhead; swapped the 3 tests that
+  asserted `reviews()[].userName()` from stubbing `userRepository.findById(eachMemberId)` to stubbing
+  `userRepository.findAllById(any())` once, since that's the method the service calls now) and
+  `UserReviewServiceTest` (constructor takes `MediaTrackMapper` mock instead of `MediaTrackService`
+  mock; the two tests asserting on the returned `MediaTrackResponse` now stub
+  `mediaTrackMapper.toResponse(eq(track), any())` instead of `mediaTrackService.toResponse(track)`).
+- Files changed: `api/src/main/java/com/app/tracking/MediaTrackMapper.java` (new),
+  `api/src/main/java/com/app/tracking/MediaTrackService.java`,
+  `api/src/main/java/com/app/tracking/UserReviewService.java`,
+  `api/src/test/java/com/app/tracking/MediaTrackMapperTest.java` (new),
+  `api/src/test/java/com/app/tracking/MediaTrackServiceTest.java`,
+  `api/src/test/java/com/app/tracking/UserReviewServiceTest.java`, `api/CLAUDE.md`.
+  `./mvnw test` passes (306 tests, up from 301 — the 5 new `MediaTrackMapperTest` cases —, 0
+  failures/errors, coverage checks met).
+- **Learnings for future iterations:**
+  - `MockitoExtension`'s default strict stubbing means an unused `when(...)` stub fails the test with
+    `UnnecessaryStubbingException` — when a refactor changes *which* repository method a service calls
+    for the same logical lookup (here: `findById` per-member -> `findAllById` once), every test stub
+    for the old method must be replaced, not left alongside the new one, even if leaving it wouldn't
+    otherwise change the test's assertions.
+  - For a mapper/component with zero constructor dependencies (like `MediaTrackMapper`), prefer
+    instantiating a real one in tests (`new MediaTrackMapper()`) over mocking it — mocking would have
+    required re-stubbing `toResponse(...)` in every `MediaTrackServiceTest` method that asserts on
+    response contents, for no behavioral benefit since there's no external dependency to isolate from.
+  - US-004 (EntityGraph + `@Transactional` on `startWatching` + `open-in-view=false`) is next — it
+    consumes `MediaTrackMapper` from this story, per the PRD's stated dependency.
+---

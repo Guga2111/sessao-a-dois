@@ -19,6 +19,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -37,7 +38,7 @@ class UserReviewServiceTest {
 	private UserRepository userRepository;
 
 	@Mock
-	private MediaTrackService mediaTrackService;
+	private MediaTrackMapper mediaTrackMapper;
 
 	@Mock
 	private RatingRequestService ratingRequestService;
@@ -47,7 +48,7 @@ class UserReviewServiceTest {
 	@BeforeEach
 	void setUp() {
 		userReviewService = new UserReviewService(userReviewRepository, mediaTrackRepository, userRepository,
-			mediaTrackService, ratingRequestService);
+			mediaTrackMapper, ratingRequestService);
 	}
 
 	private Couple coupleOwnedBy(UUID coupleId) {
@@ -71,7 +72,7 @@ class UserReviewServiceTest {
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.empty());
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-		when(mediaTrackService.toResponse(track)).thenReturn(expectedResponse);
+		when(mediaTrackMapper.toResponse(eq(track), any())).thenReturn(expectedResponse);
 
 		MediaTrackResponse response = userReviewService.upsertReview(trackId, userId, coupleId, request);
 
@@ -97,7 +98,7 @@ class UserReviewServiceTest {
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.of(existingReview));
-		when(mediaTrackService.toResponse(track)).thenReturn(expectedResponse);
+		when(mediaTrackMapper.toResponse(eq(track), any())).thenReturn(expectedResponse);
 
 		MediaTrackResponse response = userReviewService.upsertReview(trackId, userId, coupleId, request);
 

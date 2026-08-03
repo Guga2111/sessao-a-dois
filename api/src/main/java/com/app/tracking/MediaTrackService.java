@@ -16,9 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -34,15 +35,17 @@ public class MediaTrackService {
 	private final UserRepository userRepository;
 	private final MediaDetailsService mediaDetailsService;
 	private final RatingRequestService ratingRequestService;
+	private final MediaTrackMapper mediaTrackMapper;
 
 	public MediaTrackService(MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
 			UserRepository userRepository, MediaDetailsService mediaDetailsService,
-			RatingRequestService ratingRequestService) {
+			RatingRequestService ratingRequestService, MediaTrackMapper mediaTrackMapper) {
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.coupleRepository = coupleRepository;
 		this.userRepository = userRepository;
 		this.mediaDetailsService = mediaDetailsService;
 		this.ratingRequestService = ratingRequestService;
+		this.mediaTrackMapper = mediaTrackMapper;
 	}
 
 	@Transactional
@@ -70,7 +73,7 @@ public class MediaTrackService {
 		if (saved.getStatus() == MediaStatus.WATCHED) {
 			ratingRequestService.onRatingRegistered(saved, userId);
 		}
-		return toResponse(saved);
+		return mediaTrackMapper.toResponse(saved, resolveMemberNames(couple));
 	}
 
 	public List<MediaTrackResponse> listByStatus(UUID coupleId, MediaStatus status) {
@@ -78,7 +81,8 @@ public class MediaTrackService {
 			? mediaTrackRepository.findByCoupleId(coupleId)
 			: mediaTrackRepository.findByCoupleIdAndStatus(coupleId, status);
 
-		return tracks.stream().map(this::toResponse).toList();
+		Map<UUID, String> userNames = resolveMemberNames(tracks);
+		return tracks.stream().map(track -> mediaTrackMapper.toResponse(track, userNames)).toList();
 	}
 
 	/**
@@ -91,8 +95,10 @@ public class MediaTrackService {
 		int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
 		Pageable pageable = PageRequest.of(safePage, safeSize);
 
-		return mediaTrackRepository.findByCoupleIdAndStatusOrderByCreatedAtDesc(coupleId, status, pageable)
-			.map(this::toResponse);
+		Page<MediaTrack> trackPage = mediaTrackRepository
+			.findByCoupleIdAndStatusOrderByCreatedAtDesc(coupleId, status, pageable);
+		Map<UUID, String> userNames = resolveMemberNames(trackPage.getContent());
+		return trackPage.map(track -> mediaTrackMapper.toResponse(track, userNames));
 	}
 
 	@Transactional
@@ -117,7 +123,7 @@ public class MediaTrackService {
 
 		MediaTrack saved = mediaTrackRepository.save(track);
 		ratingRequestService.onRatingRegistered(saved, userId);
-		return toResponse(saved);
+		return mediaTrackMapper.toResponse(saved, resolveMemberNames(saved.getCouple()));
 	}
 
 	/**
@@ -135,7 +141,8 @@ public class MediaTrackService {
 		}
 
 		track.setStatus(MediaStatus.WATCHING);
-		return toResponse(mediaTrackRepository.save(track));
+		MediaTrack saved = mediaTrackRepository.save(track);
+		return mediaTrackMapper.toResponse(saved, resolveMemberNames(saved.getCouple()));
 	}
 
 	@Transactional
@@ -167,39 +174,24 @@ public class MediaTrackService {
 		return track;
 	}
 
-	MediaTrackResponse toResponse(MediaTrack track) {
-		Couple couple = track.getCouple();
-		List<UUID> memberIds = new ArrayList<>();
-		memberIds.add(couple.getUser1Id());
-		if (couple.getUser2Id() != null) {
-			memberIds.add(couple.getUser2Id());
-		}
-
-		List<ReviewDto> reviews = memberIds.stream()
-			.map(memberId -> toReviewDto(memberId, track))
+	/** Resolves every distinct couple member name in {@code tracks} with a single query. */
+	private Map<UUID, String> resolveMemberNames(List<MediaTrack> tracks) {
+		List<UUID> memberIds = tracks.stream()
+			.flatMap(track -> MediaTrackMapper.memberIds(track.getCouple()).stream())
+			.distinct()
 			.toList();
-
-		return new MediaTrackResponse(
-			track.getId(),
-			track.getTmdbId(),
-			track.getMediaType(),
-			track.getStatus(),
-			track.getWatchedDate(),
-			track.getRuntime(),
-			track.getCreatedAt(),
-			reviews
-		);
+		return resolveMemberNames(memberIds);
 	}
 
-	private ReviewDto toReviewDto(UUID memberId, MediaTrack track) {
-		Optional<UserReview> existingReview = track.getReviews().stream()
-			.filter(review -> review.getUser().getId().equals(memberId))
-			.findFirst();
+	private Map<UUID, String> resolveMemberNames(Couple couple) {
+		return resolveMemberNames(MediaTrackMapper.memberIds(couple));
+	}
 
-		String userName = userRepository.findById(memberId).map(User::getName).orElse(null);
-		Integer rating = existingReview.map(UserReview::getRating).orElse(null);
-		String opinion = existingReview.map(UserReview::getOpinion).orElse(null);
-
-		return new ReviewDto(memberId, userName, rating, opinion);
+	private Map<UUID, String> resolveMemberNames(Collection<UUID> memberIds) {
+		Map<UUID, String> names = new HashMap<>();
+		for (User user : userRepository.findAllById(memberIds)) {
+			names.put(user.getId(), user.getName());
+		}
+		return names;
 	}
 }
