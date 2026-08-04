@@ -14,12 +14,15 @@ import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.socket.WebSocketHandler;
 
+import com.app.auth.AuthCookieService;
 import com.app.security.JwtService;
+
+import jakarta.servlet.http.Cookie;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Cobre o unico portao de autenticacao do handshake STOMP/SockJS: token
+ * Cobre o unico portao de autenticacao do handshake STOMP/SockJS: cookie
  * ausente, em branco, invalido e valido, sob {@link JwtHandshakeInterceptor}.
  */
 class JwtHandshakeInterceptorTest {
@@ -36,8 +39,8 @@ class JwtHandshakeInterceptorTest {
 	private final WebSocketHandler wsHandler = Mockito.mock(WebSocketHandler.class);
 
 	@Test
-	void rejectsHandshakeWithoutTokenQueryParam() {
-		ServerHttpRequest request = requestWithQuery(null);
+	void rejectsHandshakeWithoutCookie() {
+		ServerHttpRequest request = requestWithCookie(null);
 		ServerHttpResponse response = Mockito.mock(ServerHttpResponse.class);
 		Map<String, Object> attributes = new HashMap<>();
 
@@ -49,8 +52,8 @@ class JwtHandshakeInterceptorTest {
 	}
 
 	@Test
-	void rejectsHandshakeWithEmptyOrBlankTokenQueryParam() {
-		ServerHttpRequest request = requestWithQuery("token=");
+	void rejectsHandshakeWithEmptyOrBlankCookie() {
+		ServerHttpRequest request = requestWithCookie("");
 		ServerHttpResponse response = Mockito.mock(ServerHttpResponse.class);
 		Map<String, Object> attributes = new HashMap<>();
 
@@ -62,10 +65,10 @@ class JwtHandshakeInterceptorTest {
 	}
 
 	@Test
-	void rejectsHandshakeWithInvalidSignatureToken() {
+	void rejectsHandshakeWithInvalidSignatureTokenInCookie() {
 		JwtService otherJwtService = new JwtService(OTHER_VALID_SECRET, TTL, ISSUER, AUDIENCE);
 		String tokenSignedWithOtherKey = otherJwtService.generateToken(UUID.randomUUID());
-		ServerHttpRequest request = requestWithQuery("token=" + tokenSignedWithOtherKey);
+		ServerHttpRequest request = requestWithCookie(tokenSignedWithOtherKey);
 		ServerHttpResponse response = Mockito.mock(ServerHttpResponse.class);
 		Map<String, Object> attributes = new HashMap<>();
 
@@ -77,8 +80,8 @@ class JwtHandshakeInterceptorTest {
 	}
 
 	@Test
-	void rejectsHandshakeWithMalformedToken() {
-		ServerHttpRequest request = requestWithQuery("token=not-a-jwt-token");
+	void rejectsHandshakeWithMalformedTokenInCookie() {
+		ServerHttpRequest request = requestWithCookie("not-a-jwt-token");
 		ServerHttpResponse response = Mockito.mock(ServerHttpResponse.class);
 		Map<String, Object> attributes = new HashMap<>();
 
@@ -90,10 +93,27 @@ class JwtHandshakeInterceptorTest {
 	}
 
 	@Test
-	void acceptsHandshakeWithValidTokenAndStoresUserId() {
+	void rejectsHandshakeWithTokenOnlyInQueryParamWithoutCookie() {
 		UUID userId = UUID.randomUUID();
 		String token = jwtService.generateToken(userId);
-		ServerHttpRequest request = requestWithQuery("token=" + token);
+		MockHttpServletRequest mockRequest = new MockHttpServletRequest("GET", "/ws");
+		mockRequest.setQueryString("token=" + token);
+		ServerHttpRequest request = new ServletServerHttpRequest(mockRequest);
+		ServerHttpResponse response = Mockito.mock(ServerHttpResponse.class);
+		Map<String, Object> attributes = new HashMap<>();
+
+		boolean accepted = interceptor.beforeHandshake(request, response, wsHandler, attributes);
+
+		assertThat(accepted).isFalse();
+		Mockito.verify(response).setStatusCode(HttpStatus.UNAUTHORIZED);
+		assertThat(attributes).doesNotContainKey(JwtHandshakeInterceptor.USER_ID_ATTRIBUTE);
+	}
+
+	@Test
+	void acceptsHandshakeWithValidCookieAndStoresUserId() {
+		UUID userId = UUID.randomUUID();
+		String token = jwtService.generateToken(userId);
+		ServerHttpRequest request = requestWithCookie(token);
 		ServerHttpResponse response = Mockito.mock(ServerHttpResponse.class);
 		Map<String, Object> attributes = new HashMap<>();
 
@@ -104,9 +124,11 @@ class JwtHandshakeInterceptorTest {
 		assertThat(attributes.get(JwtHandshakeInterceptor.USER_ID_ATTRIBUTE)).isEqualTo(userId);
 	}
 
-	private static ServerHttpRequest requestWithQuery(String queryString) {
+	private static ServerHttpRequest requestWithCookie(String cookieValue) {
 		MockHttpServletRequest mockRequest = new MockHttpServletRequest("GET", "/ws");
-		mockRequest.setQueryString(queryString);
+		if (cookieValue != null) {
+			mockRequest.setCookies(new Cookie(AuthCookieService.ACCESS_TOKEN_COOKIE, cookieValue));
+		}
 		return new ServletServerHttpRequest(mockRequest);
 	}
 }
