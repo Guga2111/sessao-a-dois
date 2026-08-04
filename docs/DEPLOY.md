@@ -100,9 +100,36 @@ TMDB_API_KEY=teu-tmdb-api-read-access-token-v4
 
 # API
 API_PORT=8085
+
+# Autenticacao (Epico 4 - cookie HttpOnly + refresh token, todas opcionais,
+# ja tem default seguro em api/src/main/resources/application.properties)
+# JWT_ACCESS_TOKEN_TTL=15m
+# JWT_ISSUER=sessao-a-dois
+# JWT_AUDIENCE=sessao-a-dois-client
+# AUTH_COOKIE_SECURE=true
+# AUTH_REFRESH_TOKEN_TTL=30d
+# AUTH_REFRESH_REUSE_GRACE=30s
 ```
 
 > O `.env` esta no `.gitignore` e nunca e commitado. E usado tanto pelo `docker-compose-dev.yml` (dev local) quanto pelo `scripts/deploy.sh` (producao).
+
+> **Variaveis novas do Epico 4 (migracao de autenticacao):** `JWT_ACCESS_TOKEN_TTL`
+> (default `15m`, substitui a antiga `JWT_EXPIRATION_DAYS` de 7 dias, que foi
+> REMOVIDA de `application.properties` e nao tem mais efeito nenhum se definida),
+> `JWT_ISSUER`/`JWT_AUDIENCE` (validados no token, default `sessao-a-dois`/
+> `sessao-a-dois-client`), `AUTH_COOKIE_SECURE` (default `true` - so vale `false`
+> em dev local sem HTTPS), `AUTH_REFRESH_TOKEN_TTL` (default `30d`, TTL
+> deslizante do refresh token) e `AUTH_REFRESH_REUSE_GRACE` (default `30s`,
+> janela de graca da deteccao de reuso). Todas tem default de producao seguro -
+> so precisam ir no `.env` se voce quiser um valor diferente do default.
+>
+> **Aviso de deploy:** a primeira execucao com este epico troca o modelo de
+> sessao inteiro (de JWT em `localStorage` para cookies HttpOnly + refresh
+> token). Isso desloga TODOS os usuarios uma unica vez nesse deploy - a sessao
+> antiga simplesmente para de ser reconhecida, nao ha migracao de sessao
+> existente. Com ~8 usuarios conhecidos (ver `docs/BACKLOG.md`/decisao #3
+> SUPERADA), o cutover e direto e sem janela de transicao; avisar os dois
+> usuarios do casal antes do deploy para que nao estranhem o pedido de login.
 
 ---
 
@@ -254,6 +281,14 @@ Ate esta correcao, `location /ws/` no `deploy/nginx/sessaoadois.luisgosampaio.co
 nao tinha `access_log off;`, entao cada conexao gravava uma credencial valida em
 texto claro em `/var/log/nginx/access.log`. O conf atual ja inclui `access_log off;`
 so no bloco `/ws/` - `/api/` e `/` continuam com o access log normal.
+
+**Esta instrucao CONTINUA valendo depois da migracao de autenticacao (Epico 4):**
+o handshake do WebSocket parou de carregar o token na query string (`?token=...`)
+e passou a autenticar pelo cookie `access_token`, HttpOnly (US-009/US-012) - a
+URL do `/ws` hoje nao carrega mais nenhuma credencial. Ainda assim, `access_log off;`
+no bloco `/ws/` deve permanecer no conf: e defesa em profundidade barata (uma
+linha de nginx) contra qualquer regressao futura que volte a colocar algo
+sensivel na URL do handshake, e nao ha custo em manter.
 
 Para que a correcao valha em producao:
 

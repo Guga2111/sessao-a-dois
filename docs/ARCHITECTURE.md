@@ -7,7 +7,7 @@ O sistema é um aplicativo para casais gerenciarem o consumo de filmes e séries
 - **Stack Base:** React + TypeScript + Vite.
 - **Gerenciador de Pacotes:** Bun (`bun install`, `bun run dev`).
 - **Estado Global:** Zustand.
-  - Store `useAuthStore`: Gerencia JWT, dados do usuário ativo e o status do vínculo do casal (código de pareamento).
+  - Store `useAuthStore`: Gerencia dados do usuário ativo e o status do vínculo do casal (código de pareamento). Não guarda nenhum token — a sessão vive em cookies HttpOnly (`access_token` de 15 minutos + `refresh_token` de 30 dias com rotação e detecção de reuso, ver Epico 4 de autenticação), inacessíveis ao JavaScript. O bootstrap do app chama `GET /api/auth/me` para descobrir se há sessão válida; `user`/`couple` continuam em `localStorage` apenas como cache de UI, nunca como credencial.
   - Store `useMatchStore`: Gerencia a fila de WebSockets e o estado global da tela de Match.
 - **UI & Estilização:** Shadcn UI + Tailwind CSS.
   - Comando de setup: `bunx --bun shadcn@latest init --preset bbb02Km --template vite --pointer`.

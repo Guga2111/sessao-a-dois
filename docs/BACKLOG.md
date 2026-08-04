@@ -8,7 +8,7 @@ Este backlog divide a arquitetura e as regras de negocio em epicos e tarefas inc
 |---|---------|---------|
 | 1 | Build tool backend | Maven |
 | 2 | PgAdmin no dev | Manter (avaliar necessidade durante uso) |
-| 3 | Refresh token | Nao por enquanto (apenas access token JWT) |
+| 3 | Refresh token | **SUPERADA em 2026-08-04** — ver nota abaixo da tabela |
 | 4 | HTTP Client frontend | Axios (versao segura, sem vulnerabilidades conhecidas) |
 | 5 | Cache TMDB | Nao por enquanto |
 | 14 | Total de horas (dashboard) | Apenas filmes (series so contam quantidade). Runtime guardado no MediaTrack |
@@ -20,6 +20,14 @@ Este backlog divide a arquitetura e as regras de negocio em epicos e tarefas inc
 | 11 | Deploy frontend | SCP para VPS + Nginx como reverse proxy (sessaoadois.luisgosampaio.com) |
 | 12 | SSL/HTTPS | Sim, incluir configuracao |
 | 13 | Ordem de execucao | Sequencial (Epico 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7) |
+
+> **Decisao #3 SUPERADA em 2026-08-04:** o texto original ("Refresh token: Nao por
+> enquanto, apenas access token JWT") descrevia o modelo ate entao. O epico de
+> migracao de autenticacao ("epico4/auth-improvements", ver `docs/ARCHITECTURE.md`
+> secao 2) introduziu refresh token com rotacao e deteccao de reuso, cookies
+> HttpOnly (`access_token`/`refresh_token`) no lugar de JWT em `localStorage`, e
+> reduziu o TTL do access token de 7 dias para 15 minutos. Mantido aqui, nao
+> apagado, para o historico da decisao original continuar legivel.
 
 ---
 

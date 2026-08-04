@@ -245,7 +245,7 @@
         "./mvnw test e bun run typecheck continuam passando (story de documentacao, mas nao pode quebrar nada)"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
