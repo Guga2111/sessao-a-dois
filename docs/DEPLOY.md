@@ -277,10 +277,11 @@ ssh root@31.97.169.38 "sudo truncate -s 0 /var/log/nginx/access.log && sudo rm -
 
 **(c) Janela de validade dos tokens vazados**
 
-`JWT_EXPIRATION_DAYS` (default `7`, ver `api/src/main/resources/application.properties`)
-significa que qualquer token que aparece em logs de ate 7 dias atras da purga
-ainda pode ser valido no momento da purga. Purgar os logs sozinho nao invalida
-os tokens ja emitidos - so evita que novos handshakes continuem vazando.
+`JWT_ACCESS_TOKEN_TTL` (default `15m`, ver `api/src/main/resources/application.properties`;
+substituiu a antiga `JWT_EXPIRATION_DAYS` de 7 dias) significa que qualquer token
+que aparece em logs de ate 15 minutos antes da purga ainda pode ser valido no
+momento da purga. Purgar os logs sozinho nao invalida os tokens ja emitidos -
+so evita que novos handshakes continuem vazando.
 
 **(d) Rotacionar o `JWT_SECRET`**
 

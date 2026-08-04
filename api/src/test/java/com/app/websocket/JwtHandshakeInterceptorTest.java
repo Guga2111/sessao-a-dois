@@ -1,5 +1,6 @@
 package com.app.websocket;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -26,7 +27,11 @@ class JwtHandshakeInterceptorTest {
 	private static final String VALID_SECRET = "a-valid-secret-with-at-least-32-bytes!!";
 	private static final String OTHER_VALID_SECRET = "a-different-valid-secret-32-bytes-plus!!";
 
-	private final JwtService jwtService = new JwtService(VALID_SECRET, 7);
+	private static final Duration TTL = Duration.ofMinutes(15);
+	private static final String ISSUER = "sessao-a-dois";
+	private static final String AUDIENCE = "sessao-a-dois-client";
+
+	private final JwtService jwtService = new JwtService(VALID_SECRET, TTL, ISSUER, AUDIENCE);
 	private final JwtHandshakeInterceptor interceptor = new JwtHandshakeInterceptor(jwtService);
 	private final WebSocketHandler wsHandler = Mockito.mock(WebSocketHandler.class);
 
@@ -58,7 +63,7 @@ class JwtHandshakeInterceptorTest {
 
 	@Test
 	void rejectsHandshakeWithInvalidSignatureToken() {
-		JwtService otherJwtService = new JwtService(OTHER_VALID_SECRET, 7);
+		JwtService otherJwtService = new JwtService(OTHER_VALID_SECRET, TTL, ISSUER, AUDIENCE);
 		String tokenSignedWithOtherKey = otherJwtService.generateToken(UUID.randomUUID());
 		ServerHttpRequest request = requestWithQuery("token=" + tokenSignedWithOtherKey);
 		ServerHttpResponse response = Mockito.mock(ServerHttpResponse.class);

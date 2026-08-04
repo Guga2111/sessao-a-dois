@@ -54,6 +54,11 @@ Epico 4 - Migracao de Autenticacao (cookie HttpOnly + refresh token)
 - E8: `POST /api/auth/register` NAO muda - continua sem emitir cookies.
 - Contexto de fundo (D1): a base tem ~8 usuarios conhecidos e downtime e tolerado. Por isso o cutover e direto, sem fallback de header e sem janela de transicao. Nao reintroduza compatibilidade "por seguranca".
 
+### jjwt 0.12.6 (com.app.security) - API de builder/parser
+- Emitir iss/aud: `Jwts.builder().subject(...).issuer(issuer).audience().single(audience). ... .signWith(key).compact()` - `.audience()` devolve um `AudienceCollection` cujo `.single(String)` seta um unico valor de audience e retorna o builder de volta (nao precisa de `.and()`).
+- Validar iss/aud no parse: `Jwts.parser().verifyWith(key).requireIssuer(issuer).requireAudience(audience).build().parseSignedClaims(token)`. Um valor de iss ou aud errado lanca `io.jsonwebtoken.IncorrectClaimException` (subclasse de `InvalidClaimException`/`JwtException`), distinto de `ExpiredJwtException`/`SignatureException`/`MalformedJwtException` ja tratados.
+- Relevante para US-005 (filtro), US-006 (refresh/rotacao) e US-009 (handshake do WebSocket) - todos re-emitem ou re-parseiam tokens via `JwtService`, que agora exige `Duration accessTokenTtl`, `String issuer` e `String audience` no construtor (antes so `long expirationDays`). Qualquer teste que faz `new JwtService(secret, ...)` direto (sem contexto Spring) precisa dos 4 argumentos.
+
 ---
 
 ## 2026-08-03 - US-001
@@ -67,4 +72,15 @@ Epico 4 - Migracao de Autenticacao (cookie HttpOnly + refresh token)
   - O construtor de `RefreshTokenService` recebe `Duration ttl` puro (via `@Value("${app.auth.refresh-token-ttl:30d}")` em producao) - em teste unitario basta `new RefreshTokenService(mockRepo, Duration.ofDays(30))`, sem precisar de contexto Spring.
   - Toda propriedade nova precisa ir nos DOIS `application.properties` (main e test) - ja documentado no Gotcha #1, reforcado aqui com `app.auth.refresh-token-ttl`.
   - US-002 (proxima) NAO deve tocar em `app.auth.refresh-token-ttl` nem em `RefreshTokenService` - e escopo do JWT de acesso (`app.jwt.*`), story separada e sequencial.
+---
+
+## 2026-08-03 - US-002
+
+- `JwtService` (com.app.security): `app.jwt.expiration-days` removida, substituida por `app.jwt.access-token-ttl` (`Duration`, default `15m`, env `JWT_ACCESS_TOKEN_TTL`), `app.jwt.issuer` (default `sessao-a-dois`, env `JWT_ISSUER`) e `app.jwt.audience` (default `sessao-a-dois-client`, env `JWT_AUDIENCE`). `generateToken` agora emite `iss`/`aud` alem de `sub`/`iat`/`exp`; `parseSubject` valida os dois via `requireIssuer`/`requireAudience` do `JwtParserBuilder` (jjwt 0.12.6) - um token assinado com a chave certa mas `iss`/`aud` errado e rejeitado com `IncorrectClaimException`. `validateSecret` (branco/default de dev/curto) ficou intacta, story nao tocou nela.
+- Arquivos: `api/src/main/java/com/app/security/JwtService.java`, `api/src/test/java/com/app/security/JwtServiceTest.java` (TTL de 15 min, iss errado, aud errado, + os cenarios existentes sem regressao), `api/src/test/java/com/app/websocket/JwtHandshakeInterceptorTest.java` (construtor do `JwtService` ganhou 2 parametros), `api/src/main/resources/application.properties` + `api/src/test/resources/application.properties` (3 propriedades novas, `expiration-days` removida dos dois), `docs/DEPLOY.md` (secao "Janela de validade dos tokens vazados" atualizada de 7 dias para `JWT_ACCESS_TOKEN_TTL`/15 min).
+- `JwtAuthenticationFilterTest` nao precisou de mudanca - usa `@MockitoBean JwtService`, nunca instancia a classe direto.
+- `./mvnw test`: 333/333 passando (330 + 3 testes novos de `JwtServiceTest`).
+- **Learnings for future iterations:**
+  - Ver o novo bloco "jjwt 0.12.6 (com.app.security)" no topo deste arquivo (Codebase Patterns) - API de builder/parser para iss/aud, e que qualquer `new JwtService(...)` direto em teste agora exige 4 argumentos.
+  - US-003 (proxima) usa `JwtService.generateToken` para o `access_token` do login por cookie - nao muda a assinatura nem o comportamento de `JwtService`, so consome. Cuidado ao criar `AuthCookieService`: TTL do cookie `access_token` deve ser o mesmo `app.jwt.access-token-ttl` (nao duplicar o valor 15m em outro lugar - injetar a mesma `Duration` via `@Value`).
 ---

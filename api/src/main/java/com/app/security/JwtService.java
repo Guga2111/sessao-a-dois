@@ -1,8 +1,8 @@
 package com.app.security;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.UUID;
 
@@ -23,14 +23,20 @@ public class JwtService {
 	private static final int MIN_SECRET_BYTES = 32;
 
 	private final SecretKey key;
-	private final long expirationDays;
+	private final Duration accessTokenTtl;
+	private final String issuer;
+	private final String audience;
 
 	public JwtService(
 			@Value("${app.jwt.secret}") String secret,
-			@Value("${app.jwt.expiration-days}") long expirationDays) {
+			@Value("${app.jwt.access-token-ttl:15m}") Duration accessTokenTtl,
+			@Value("${app.jwt.issuer:sessao-a-dois}") String issuer,
+			@Value("${app.jwt.audience:sessao-a-dois-client}") String audience) {
 		validateSecret(secret);
 		this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-		this.expirationDays = expirationDays;
+		this.accessTokenTtl = accessTokenTtl;
+		this.issuer = issuer;
+		this.audience = audience;
 	}
 
 	private static void validateSecret(String secret) {
@@ -54,8 +60,10 @@ public class JwtService {
 		Instant now = Instant.now();
 		return Jwts.builder()
 			.subject(subject.toString())
+			.issuer(issuer)
+			.audience().single(audience)
 			.issuedAt(Date.from(now))
-			.expiration(Date.from(now.plus(expirationDays, ChronoUnit.DAYS)))
+			.expiration(Date.from(now.plus(accessTokenTtl)))
 			.signWith(key)
 			.compact();
 	}
@@ -63,6 +71,8 @@ public class JwtService {
 	public UUID parseSubject(String token) {
 		Claims claims = Jwts.parser()
 			.verifyWith(key)
+			.requireIssuer(issuer)
+			.requireAudience(audience)
 			.build()
 			.parseSignedClaims(token)
 			.getPayload();
