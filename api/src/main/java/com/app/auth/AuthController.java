@@ -86,6 +86,22 @@ public class AuthController {
 			.build();
 	}
 
+	@PostMapping("/logout")
+	public ResponseEntity<Void> logout(HttpServletRequest servletRequest) {
+		Cookie cookie = WebUtils.getCookie(servletRequest, AuthCookieService.REFRESH_TOKEN_COOKIE);
+		if (cookie != null && StringUtils.hasText(cookie.getValue())) {
+			authService.logout(cookie.getValue());
+		}
+
+		ResponseCookie expiredAccessCookie = authCookieService.expiredAccessTokenCookie();
+		ResponseCookie expiredRefreshCookie = authCookieService.expiredRefreshTokenCookie();
+
+		return ResponseEntity.noContent()
+			.header(HttpHeaders.SET_COOKIE, expiredAccessCookie.toString())
+			.header(HttpHeaders.SET_COOKIE, expiredRefreshCookie.toString())
+			.build();
+	}
+
 	@GetMapping("/me")
 	public ResponseEntity<LoginResponse> me(@AuthenticationPrincipal UUID userId) {
 		User user = userRepository.findById(userId)

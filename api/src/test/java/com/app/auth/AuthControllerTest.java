@@ -27,6 +27,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -191,6 +193,33 @@ class AuthControllerTest {
 				.cookie(new jakarta.servlet.http.Cookie("refresh_token", "reused-token")))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.message").value("reuso de refresh token detectado"));
+	}
+
+	@Test
+	void logoutWithCookieRevokesAndExpiresBothCookies() throws Exception {
+		MvcResult result = mockMvc.perform(post("/api/auth/logout")
+				.cookie(new jakarta.servlet.http.Cookie("refresh_token", "refresh-token-value")))
+			.andExpect(status().isNoContent())
+			.andReturn();
+
+		verify(authService).logout("refresh-token-value");
+
+		List<String> setCookies = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+		assertThat(setCookies).hasSize(2);
+
+		String accessCookie = setCookies.stream().filter(c -> c.startsWith("access_token=")).findFirst().orElseThrow();
+		assertThat(accessCookie).contains("Max-Age=0").contains("Path=/").doesNotContain("Path=/api/auth/refresh");
+
+		String refreshCookie = setCookies.stream().filter(c -> c.startsWith("refresh_token=")).findFirst().orElseThrow();
+		assertThat(refreshCookie).contains("Max-Age=0").contains("Path=/api/auth/refresh");
+	}
+
+	@Test
+	void logoutWithoutCookieIsIdempotent() throws Exception {
+		mockMvc.perform(post("/api/auth/logout"))
+			.andExpect(status().isNoContent());
+
+		verify(authService, never()).logout(any());
 	}
 
 	@Test

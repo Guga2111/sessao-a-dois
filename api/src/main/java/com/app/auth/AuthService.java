@@ -52,6 +52,11 @@ public class AuthService {
 		return new RefreshResult(accessToken, rotation.refreshToken());
 	}
 
+	/** Revoga no servidor o refresh token apresentado no logout - idempotente, ver RefreshTokenService.revoke. */
+	public void logout(String rawRefreshToken) {
+		refreshTokenService.revoke(rawRefreshToken);
+	}
+
 	public record LoginResult(String accessToken, String refreshToken, User user) {
 	}
 

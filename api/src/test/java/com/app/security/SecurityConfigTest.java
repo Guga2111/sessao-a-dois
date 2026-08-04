@@ -90,6 +90,39 @@ class SecurityConfigTest {
 	}
 
 	@Test
+	void logoutIsPublicAndRevokesTheRefreshTokenImmediately() throws Exception {
+		String email = uniqueEmail();
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(registerBody(email)))
+			.andExpect(status().isCreated());
+
+		MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"%s","password":"senha1234"}
+					""".formatted(email)))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		String refreshTokenValue = cookieValue(loginResult, "refresh_token");
+
+		mockMvc.perform(post("/api/auth/logout")
+				.cookie(new Cookie("refresh_token", refreshTokenValue)))
+			.andExpect(status().isNoContent());
+
+		mockMvc.perform(post("/api/auth/refresh")
+				.cookie(new Cookie("refresh_token", refreshTokenValue)))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void logoutWithoutCookieIsNoContentNotForbidden() throws Exception {
+		mockMvc.perform(post("/api/auth/logout"))
+			.andExpect(status().isNoContent());
+	}
+
+	@Test
 	void trackingRequiresAuthentication() throws Exception {
 		mockMvc.perform(get("/api/tracking/stats"))
 			.andExpect(status().isUnauthorized());

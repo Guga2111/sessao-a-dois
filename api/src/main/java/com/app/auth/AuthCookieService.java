@@ -42,6 +42,16 @@ public class AuthCookieService {
 		return build(REFRESH_TOKEN_COOKIE, token, REFRESH_TOKEN_PATH, refreshTokenTtl);
 	}
 
+	/** Cookie de expiracao (Max-Age=0) do access_token, MESMO Path da emissao - e o que apaga o cookie no browser. */
+	public ResponseCookie expiredAccessTokenCookie() {
+		return build(ACCESS_TOKEN_COOKIE, "", "/", Duration.ZERO);
+	}
+
+	/** Cookie de expiracao (Max-Age=0) do refresh_token, MESMO Path restrito da emissao. */
+	public ResponseCookie expiredRefreshTokenCookie() {
+		return build(REFRESH_TOKEN_COOKIE, "", REFRESH_TOKEN_PATH, Duration.ZERO);
+	}
+
 	private ResponseCookie build(String name, String value, String path, Duration maxAge) {
 		return ResponseCookie.from(name, value)
 			.httpOnly(true)

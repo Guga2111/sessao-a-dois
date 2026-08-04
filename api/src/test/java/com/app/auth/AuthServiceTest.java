@@ -133,6 +133,15 @@ class AuthServiceTest {
 	}
 
 	@Test
+	void logoutDelegatesToRefreshTokenServiceRevoke() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
+
+		authService.logout("raw-refresh-token");
+
+		verify(refreshTokenService).revoke("raw-refresh-token");
+	}
+
+	@Test
 	void refreshPropagatesRotationFailure() {
 		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		when(refreshTokenService.rotate(anyString(), any(), any())).thenThrow(new RefreshReuseDetectedException());

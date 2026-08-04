@@ -174,6 +174,40 @@ class RefreshTokenServiceTest {
 	}
 
 	@Test
+	void revokeMarksActiveTokenAsRevoked() {
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		UUID userId = UUID.randomUUID();
+		RefreshToken token = new RefreshToken(userId, "hash", Instant.now().plus(Duration.ofDays(2)), "UA", "1.2.3.4");
+		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(token));
+
+		refreshTokenService.revoke("raw-token");
+
+		assertThat(token.getRevokedAt()).isNotNull();
+	}
+
+	@Test
+	void revokeIsNoOpWhenTokenAlreadyRevoked() {
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		UUID userId = UUID.randomUUID();
+		RefreshToken token = new RefreshToken(userId, "hash", Instant.now().plus(Duration.ofDays(2)), "UA", "1.2.3.4");
+		Instant firstRevocation = Instant.now().minus(Duration.ofMinutes(5));
+		token.setRevokedAt(firstRevocation);
+		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(token));
+
+		refreshTokenService.revoke("raw-token");
+
+		assertThat(token.getRevokedAt()).isEqualTo(firstRevocation);
+	}
+
+	@Test
+	void revokeIsNoOpWhenTokenDoesNotExist() {
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
+
+		refreshTokenService.revoke("unknown-token");
+	}
+
+	@Test
 	void rotateReusedTokenWithinGraceFollowsSubstituteWithoutRevokingFamily() {
 		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
 		UUID userId = UUID.randomUUID();

@@ -60,6 +60,18 @@ public class RefreshTokenService {
 	}
 
 	/**
+	 * Revoga o refresh token apresentado no logout, se ele existir e ainda nao
+	 * estiver revogado. Idempotente: token desconhecido ou ja revogado nao
+	 * lanca excecao - o efeito desejado (o token nao vale mais) ja e verdade.
+	 */
+	@Transactional
+	public void revoke(String rawToken) {
+		refreshTokenRepository.findByTokenHash(hash(rawToken))
+			.filter(token -> token.getRevokedAt() == null)
+			.ifPresent(token -> token.setRevokedAt(Instant.now()));
+	}
+
+	/**
 	 * Valida o refresh token apresentado, revoga-o e emite um novo par (access
 	 * fica a cargo do chamador - aqui so o refresh), gravando replaced_by_id no
 	 * registro revogado. TTL do novo token e sempre now + ttl (deslizante,
