@@ -4,6 +4,7 @@ import com.app.couple.Couple;
 import com.app.couple.CoupleResponse;
 import com.app.couple.CoupleService;
 import com.app.couple.PartnerSummary;
+import com.app.security.ClientIpResolver;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
@@ -34,13 +35,15 @@ public class AuthController {
 	private final CoupleService coupleService;
 	private final UserRepository userRepository;
 	private final AuthCookieService authCookieService;
+	private final ClientIpResolver clientIpResolver;
 
 	public AuthController(AuthService authService, CoupleService coupleService, UserRepository userRepository,
-			AuthCookieService authCookieService) {
+			AuthCookieService authCookieService, ClientIpResolver clientIpResolver) {
 		this.authService = authService;
 		this.coupleService = coupleService;
 		this.userRepository = userRepository;
 		this.authCookieService = authCookieService;
+		this.clientIpResolver = clientIpResolver;
 	}
 
 	@PostMapping("/register")
@@ -53,7 +56,7 @@ public class AuthController {
 	@PostMapping("/login")
 	public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request, HttpServletRequest servletRequest) {
 		String userAgent = servletRequest.getHeader("User-Agent");
-		String ip = clientIp(servletRequest);
+		String ip = clientIpResolver.resolve(servletRequest);
 		AuthService.LoginResult result = authService.login(request, userAgent, ip);
 		User user = result.user();
 
@@ -74,7 +77,7 @@ public class AuthController {
 		}
 
 		String userAgent = servletRequest.getHeader("User-Agent");
-		String ip = clientIp(servletRequest);
+		String ip = clientIpResolver.resolve(servletRequest);
 		AuthService.RefreshResult result = authService.refresh(cookie.getValue(), userAgent, ip);
 
 		ResponseCookie accessCookie = authCookieService.accessTokenCookie(result.accessToken());
@@ -116,15 +119,6 @@ public class AuthController {
 			.map(couple -> toResponse(couple, user.getId()))
 			.orElse(null);
 		return new LoginResponse(userSummary, coupleResponse);
-	}
-
-	/** Le o IP do cliente final de X-Forwarded-For (o nginx sempre envia esse header em producao). */
-	private String clientIp(HttpServletRequest request) {
-		String forwardedFor = request.getHeader("X-Forwarded-For");
-		if (forwardedFor == null || forwardedFor.isBlank()) {
-			return request.getRemoteAddr();
-		}
-		return forwardedFor.split(",")[0].trim();
 	}
 
 	private CoupleResponse toResponse(Couple couple, UUID currentUserId) {
