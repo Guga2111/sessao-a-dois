@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -115,5 +116,30 @@ class AuthServiceTest {
 			.isInstanceOf(InvalidCredentialsException.class);
 
 		verify(passwordEncoder, never()).matches(anyString(), anyString());
+	}
+
+	@Test
+	void refreshRotatesTokenAndIssuesNewAccessTokenForRotatedUser() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
+		UUID userId = UUID.randomUUID();
+		when(refreshTokenService.rotate("raw-refresh-token", "Mozilla/5.0", "203.0.113.1"))
+			.thenReturn(new RefreshTokenService.RotationResult(userId, "new-refresh-token"));
+		when(jwtService.generateToken(userId)).thenReturn("new-access-token");
+
+		AuthService.RefreshResult result = authService.refresh("raw-refresh-token", "Mozilla/5.0", "203.0.113.1");
+
+		assertThat(result.accessToken()).isEqualTo("new-access-token");
+		assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
+	}
+
+	@Test
+	void refreshPropagatesRotationFailure() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
+		when(refreshTokenService.rotate(anyString(), any(), any())).thenThrow(new RefreshReuseDetectedException());
+
+		assertThatThrownBy(() -> authService.refresh("reused-token", "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(RefreshReuseDetectedException.class);
+
+		verify(jwtService, never()).generateToken(any());
 	}
 }

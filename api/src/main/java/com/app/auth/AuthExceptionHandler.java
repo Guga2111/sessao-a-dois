@@ -23,6 +23,16 @@ public class AuthExceptionHandler {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
 	}
 
+	@ExceptionHandler(InvalidRefreshTokenException.class)
+	public ResponseEntity<Map<String, String>> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
+	}
+
+	@ExceptionHandler(RefreshReuseDetectedException.class)
+	public ResponseEntity<Map<String, String>> handleRefreshReuseDetected(RefreshReuseDetectedException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
+	}
+
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
 		Map<String, String> fieldErrors = new LinkedHashMap<>();

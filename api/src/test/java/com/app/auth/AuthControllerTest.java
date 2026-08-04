@@ -151,6 +151,49 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void refreshRotatesSessionAndSetsBothCookies() throws Exception {
+		when(authService.refresh("valid-refresh-token", null, "127.0.0.1"))
+			.thenReturn(new AuthService.RefreshResult("new-access-token", "new-refresh-token"));
+
+		MvcResult result = mockMvc.perform(post("/api/auth/refresh")
+				.cookie(new jakarta.servlet.http.Cookie("refresh_token", "valid-refresh-token")))
+			.andExpect(status().isNoContent())
+			.andReturn();
+
+		List<String> setCookies = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+		assertThat(setCookies).hasSize(2);
+
+		String accessCookie = setCookies.stream().filter(c -> c.startsWith("access_token=")).findFirst().orElseThrow();
+		assertThat(accessCookie).contains("access_token=new-access-token").contains("Path=/");
+
+		String refreshCookie = setCookies.stream().filter(c -> c.startsWith("refresh_token=")).findFirst().orElseThrow();
+		assertThat(refreshCookie).contains("refresh_token=new-refresh-token").contains("Path=/api/auth/refresh");
+	}
+
+	@Test
+	void refreshWithoutCookieIsRejected() throws Exception {
+		mockMvc.perform(post("/api/auth/refresh"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void refreshWithBlankCookieIsRejected() throws Exception {
+		mockMvc.perform(post("/api/auth/refresh")
+				.cookie(new jakarta.servlet.http.Cookie("refresh_token", "")))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void refreshPropagatesReuseDetectionAsUnauthorized() throws Exception {
+		when(authService.refresh(any(), any(), any())).thenThrow(new RefreshReuseDetectedException());
+
+		mockMvc.perform(post("/api/auth/refresh")
+				.cookie(new jakarta.servlet.http.Cookie("refresh_token", "reused-token")))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.message").value("reuso de refresh token detectado"));
+	}
+
+	@Test
 	void deniesMeWithoutSession() throws Exception {
 		mockMvc.perform(get("/api/auth/me"))
 			.andExpect(status().isUnauthorized());

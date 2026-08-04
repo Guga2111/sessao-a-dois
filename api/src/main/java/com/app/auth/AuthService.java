@@ -45,6 +45,16 @@ public class AuthService {
 		return new LoginResult(accessToken, refreshToken, user);
 	}
 
+	/** Valida e rotaciona o refresh token apresentado, emitindo um novo access token para o mesmo usuario. */
+	public RefreshResult refresh(String rawRefreshToken, String userAgent, String ip) {
+		RefreshTokenService.RotationResult rotation = refreshTokenService.rotate(rawRefreshToken, userAgent, ip);
+		String accessToken = jwtService.generateToken(rotation.userId());
+		return new RefreshResult(accessToken, rotation.refreshToken());
+	}
+
 	public record LoginResult(String accessToken, String refreshToken, User user) {
+	}
+
+	public record RefreshResult(String accessToken, String refreshToken) {
 	}
 }

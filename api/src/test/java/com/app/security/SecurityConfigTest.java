@@ -1,13 +1,18 @@
 package com.app.security;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import jakarta.servlet.http.Cookie;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -56,6 +61,35 @@ class SecurityConfigTest {
 	}
 
 	@Test
+	void refreshIsPublicAndRotatesTheSession() throws Exception {
+		String email = uniqueEmail();
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(registerBody(email)))
+			.andExpect(status().isCreated());
+
+		MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"%s","password":"senha1234"}
+					""".formatted(email)))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		String refreshTokenValue = cookieValue(loginResult, "refresh_token");
+
+		mockMvc.perform(post("/api/auth/refresh")
+				.cookie(new Cookie("refresh_token", refreshTokenValue)))
+			.andExpect(status().isNoContent());
+	}
+
+	@Test
+	void refreshWithoutCookieIsUnauthorizedNotForbidden() throws Exception {
+		mockMvc.perform(post("/api/auth/refresh"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void trackingRequiresAuthentication() throws Exception {
 		mockMvc.perform(get("/api/tracking/stats"))
 			.andExpect(status().isUnauthorized());
@@ -83,6 +117,16 @@ class SecurityConfigTest {
 	void notificationsRequireAuthentication() throws Exception {
 		mockMvc.perform(get("/api/notifications"))
 			.andExpect(status().isUnauthorized());
+	}
+
+	private static String cookieValue(MvcResult result, String cookieName) {
+		List<String> setCookies = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+		String prefix = cookieName + "=";
+		return setCookies.stream()
+			.filter(c -> c.startsWith(prefix))
+			.map(c -> c.substring(prefix.length(), c.indexOf(';')))
+			.findFirst()
+			.orElseThrow();
 	}
 
 	private static String uniqueEmail() {

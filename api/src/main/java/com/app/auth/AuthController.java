@@ -7,6 +7,7 @@ import com.app.couple.PartnerSummary;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
@@ -15,11 +16,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.WebUtils;
 
 import java.util.UUID;
 
@@ -61,6 +64,26 @@ public class AuthController {
 			.header(HttpHeaders.SET_COOKIE, accessCookie.toString())
 			.header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
 			.body(sessionResponse(user));
+	}
+
+	@PostMapping("/refresh")
+	public ResponseEntity<Void> refresh(HttpServletRequest servletRequest) {
+		Cookie cookie = WebUtils.getCookie(servletRequest, AuthCookieService.REFRESH_TOKEN_COOKIE);
+		if (cookie == null || !StringUtils.hasText(cookie.getValue())) {
+			throw new InvalidRefreshTokenException();
+		}
+
+		String userAgent = servletRequest.getHeader("User-Agent");
+		String ip = clientIp(servletRequest);
+		AuthService.RefreshResult result = authService.refresh(cookie.getValue(), userAgent, ip);
+
+		ResponseCookie accessCookie = authCookieService.accessTokenCookie(result.accessToken());
+		ResponseCookie refreshCookie = authCookieService.refreshTokenCookie(result.refreshToken());
+
+		return ResponseEntity.noContent()
+			.header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+			.header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+			.build();
 	}
 
 	@GetMapping("/me")
