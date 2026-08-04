@@ -8,6 +8,7 @@ Contexto: ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi cri
 - `api/src/main/resources/db/migration/V2__create_notification.sql` — cria a tabela `notification`, que ainda nao existe em producao.
 - `api/src/main/resources/db/migration/V3__add_indexes.sql` — cria indices em colunas de FK/filtro (`couples.user1_id`/`user2_id`, `media_track.couple_id`+`status`/`tmdb_id`, `user_review.media_track_id`/`user_id`, `match_like.couple_id`+`tmdb_id`, `match_reject.couple_id`+`user_id`, `media_track_genre.media_track_id`) — apenas `CREATE INDEX IF NOT EXISTS`, nenhuma tabela e recriada ou alterada.
 - `api/src/main/resources/db/migration/V4__denormalize_media_metadata.sql` — adiciona as colunas `title` (VARCHAR(255)), `poster_url` (VARCHAR(500)) e `release_year` (INTEGER), todas nullable, em `media_track` e `match_like` (epico 3, US-002) — apenas `ADD COLUMN IF NOT EXISTS`, nenhuma tabela e recriada ou alterada, sem default no lado do banco.
+- `api/src/main/resources/db/migration/V5__create_refresh_token.sql` — cria a tabela `refresh_token` (epico 4, US-001), que ainda nao existe em producao. Guarda hash do refresh token, expiracao, revogacao e cadeia de substituicao (`replaced_by_id`), com FK para `users.id` e para a propria `refresh_token.id` — apenas `CREATE TABLE`/`CREATE INDEX IF NOT EXISTS`, nenhuma tabela existente e tocada.
 
 ## Comportamento em producao (schema existente, sem `flyway_schema_history`)
 
@@ -62,7 +63,7 @@ Apos rodar `./scripts/deploy.sh` pela primeira vez com Flyway habilitado, confir
 
 **Recomendacao:** para o primeiro deploy com Flyway (ou qualquer deploy que rode uma nova migration), usar temporariamente em `DB_URL` a **connection string direta** (porta 5432) ou o **Connection Pooler em modo Session** do Supabase, em vez do modo Transaction (6543), especificamente para essa execucao. O modo Transaction pode voltar a ser usado depois, ja que o Flyway so faz um trabalho real de migration na inicializacao com uma nova versao pendente. Isso nao exige alterar `scripts/deploy.sh`, `api/Dockerfile` ou `docker-compose-prod.yml` (nenhum dos tres fixa a porta ou o modo do pooler) — e apenas o valor de `DB_URL` no `.env`, que ja e editado manualmente a cada deploy conforme `docs/DEPLOY.md`.
 
-Isso vale tanto para o deploy que aplicar `V2__create_notification.sql` quanto para o que aplicar `V3__add_indexes.sql` ou `V4__denormalize_media_metadata.sql` (ou qualquer migration nova subsequente) — qualquer deploy com uma versao pendente > 1 deve usar a porta 5432 (direta) ou o pooler em modo Session, nao o modo Transaction (6543), so para essa execucao.
+Isso vale tanto para o deploy que aplicar `V2__create_notification.sql` quanto para o que aplicar `V3__add_indexes.sql`, `V4__denormalize_media_metadata.sql` ou `V5__create_refresh_token.sql` (ou qualquer migration nova subsequente) — qualquer deploy com uma versao pendente > 1 deve usar a porta 5432 (direta) ou o pooler em modo Session, nao o modo Transaction (6543), so para essa execucao.
 
 ## Recomendacao: backup antes do primeiro deploy com Flyway
 
