@@ -2,7 +2,6 @@ import { isAxiosError } from "axios"
 import { create } from "zustand"
 
 import { api } from "@/lib/api"
-import { clearAuthToken, getAuthToken, setAuthToken } from "@/lib/authToken"
 import { useMatchStore } from "@/stores/useMatchStore"
 
 const SESSION_STORAGE_KEY = "sessaoADois.session"
@@ -32,7 +31,6 @@ interface PersistedSession {
 }
 
 interface LoginResponse {
-  token: string
   user: AuthUser
   couple: Couple | null
 }
@@ -49,14 +47,13 @@ interface LoginCredentials {
 }
 
 interface AuthState {
-  token: string | null
   user: AuthUser | null
   couple: Couple | null
   isAuthenticated: boolean
   loading: boolean
   login: (credentials: LoginCredentials) => Promise<void>
   register: (data: RegisterData) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   joinCouple: (inviteCode: string) => Promise<Couple>
   createCouple: () => Promise<Couple>
   loadCurrentUser: () => Promise<void>
@@ -83,24 +80,20 @@ function clearPersistedSession(): void {
 }
 
 const initialSession = loadPersistedSession()
-const initialToken = getAuthToken()
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  token: initialToken,
   user: initialSession.user,
   couple: initialSession.couple,
-  isAuthenticated: Boolean(initialToken),
-  loading: Boolean(initialToken),
+  isAuthenticated: false,
+  loading: true,
 
   login: async ({ email, password }) => {
     const { data } = await api.post<LoginResponse>("/api/auth/login", {
       email,
       password,
     })
-    setAuthToken(data.token)
     persistSession(data.user, data.couple)
     set({
-      token: data.token,
       user: data.user,
       couple: data.couple,
       isAuthenticated: true,
@@ -112,17 +105,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await get().login({ email: registerData.email, password: registerData.password })
     } catch (error) {
-      get().logout()
+      await get().logout()
       window.location.href = "/login"
       throw error
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      await api.post("/api/auth/logout")
+    } catch {
+      // Network/server failure can't trap the user logged in in the UI —
+      // local state is cleared below regardless of the outcome.
+    }
     useMatchStore.getState().disconnect()
-    clearAuthToken()
     clearPersistedSession()
-    set({ token: null, user: null, couple: null, isAuthenticated: false })
+    set({ user: null, couple: null, isAuthenticated: false })
   },
 
   joinCouple: async (inviteCode) => {
@@ -140,22 +138,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loadCurrentUser: async () => {
-    const token = getAuthToken()
-    if (!token) {
-      set({ token: null, isAuthenticated: false, loading: false })
-      return
-    }
-
-    set({ token, isAuthenticated: true })
-
     try {
-      const { data } = await api.get<Couple>("/api/couple/me")
-      persistSession(get().user, data)
-      set({ couple: data })
+      const { data } = await api.get<LoginResponse>("/api/auth/me")
+      persistSession(data.user, data.couple)
+      set({ user: data.user, couple: data.couple, isAuthenticated: true })
     } catch (error) {
-      if (isAxiosError(error) && error.response?.status === 404) {
-        persistSession(get().user, null)
-        set({ couple: null })
+      if (isAxiosError(error) && error.response?.status === 401) {
+        clearPersistedSession()
+        set({ user: null, couple: null, isAuthenticated: false })
         return
       }
       throw error
