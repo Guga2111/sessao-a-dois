@@ -33,9 +33,7 @@ export function App() {
   const fetchUnreadCount = useNotificationStore((state) => state.fetchUnreadCount)
 
   useEffect(() => {
-    if (isAuthenticated) {
-      void loadCurrentUser()
-    }
+    void loadCurrentUser()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

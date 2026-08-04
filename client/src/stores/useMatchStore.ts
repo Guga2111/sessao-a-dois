@@ -3,7 +3,6 @@ import SockJS from "sockjs-client"
 import { create } from "zustand"
 
 import { api } from "@/lib/api"
-import { getAuthToken } from "@/lib/authToken"
 import { useAuthStore } from "@/stores/useAuthStore"
 import { useNotificationStore } from "@/stores/useNotificationStore"
 import type { PendingMatch } from "@/types/media"
@@ -52,14 +51,8 @@ export const useMatchStore = create<MatchState>((set, get) => ({
       return
     }
 
-    const token = getAuthToken()
-    if (!token) {
-      return
-    }
-
     const client = new Client({
-      webSocketFactory: () =>
-        new SockJS(`${import.meta.env.VITE_API_URL}/ws?token=${token}`),
+      webSocketFactory: () => new SockJS(`${import.meta.env.VITE_API_URL}/ws`),
       reconnectDelay: 5000,
       onConnect: () => {
         const subscription = client.subscribe(

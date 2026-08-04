@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,6 +60,7 @@ class MatchControllerTest {
 	@Test
 	void like_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
 			.andExpect(status().isUnauthorized());
@@ -73,6 +75,7 @@ class MatchControllerTest {
 			.thenReturn(new LikeResponse(true));
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -89,6 +92,7 @@ class MatchControllerTest {
 			.thenThrow(new TitleAlreadyTrackedException());
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -102,6 +106,7 @@ class MatchControllerTest {
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -114,6 +119,7 @@ class MatchControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{}"))
@@ -125,6 +131,7 @@ class MatchControllerTest {
 	@Test
 	void reject_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(post("/api/match/reject")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
 			.andExpect(status().isUnauthorized());
@@ -138,6 +145,7 @@ class MatchControllerTest {
 		doNothing().when(matchService).reject(eq(coupleId), eq(userId), any(LikeRequest.class));
 
 		mockMvc.perform(post("/api/match/reject")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -149,6 +157,7 @@ class MatchControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(post("/api/match/reject")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{}"))

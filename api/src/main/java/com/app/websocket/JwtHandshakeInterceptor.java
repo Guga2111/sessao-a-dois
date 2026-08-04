@@ -1,6 +1,5 @@
 package com.app.websocket;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -8,19 +7,25 @@ import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.WebUtils;
 
+import com.app.auth.AuthCookieService;
 import com.app.security.JwtService;
 
 import io.jsonwebtoken.JwtException;
 
+import jakarta.servlet.http.Cookie;
+
 /**
  * Valida o JWT do usuario antes de aceitar o handshake STOMP/SockJS: o token
- * chega via query param {@code ?token=} (SockJS/browsers nao permitem
- * customizar headers no handshake HTTP inicial) e, se ausente ou invalido, o
- * handshake e rejeitado com 401 antes de qualquer conexao ser aberta.
+ * chega via cookie {@code access_token} (mesmo cookie HttpOnly usado pelo
+ * resto da API, ver {@link JwtService} e {@code JwtAuthenticationFilter}) e,
+ * se ausente ou invalido, o handshake e rejeitado com 401 antes de qualquer
+ * conexao ser aberta. Sem fallback para o antigo query param {@code ?token=}
+ * (mesma decisao D1 do Epico 4 aplicada na US-005).
  */
 @Component
 public class JwtHandshakeInterceptor implements HandshakeInterceptor {
@@ -68,14 +73,10 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
 		if (!(request instanceof ServletServerHttpRequest servletRequest)) {
 			return null;
 		}
-		List<String> values = UriComponentsBuilder.fromUri(servletRequest.getURI())
-			.build()
-			.getQueryParams()
-			.get("token");
-		if (values == null || values.isEmpty()) {
+		Cookie cookie = WebUtils.getCookie(servletRequest.getServletRequest(), AuthCookieService.ACCESS_TOKEN_COOKIE);
+		if (cookie == null || !StringUtils.hasText(cookie.getValue())) {
 			return null;
 		}
-		String token = values.get(0);
-		return (token == null || token.isBlank()) ? null : token;
+		return cookie.getValue();
 	}
 }

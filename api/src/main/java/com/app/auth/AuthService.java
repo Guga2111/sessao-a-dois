@@ -13,11 +13,14 @@ public class AuthService {
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
+	private final RefreshTokenService refreshTokenService;
 
-	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+			RefreshTokenService refreshTokenService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.refreshTokenService = refreshTokenService;
 	}
 
 	public User register(RegisterRequest request) {
@@ -29,7 +32,7 @@ public class AuthService {
 		return userRepository.save(user);
 	}
 
-	public LoginResult login(LoginRequest request) {
+	public LoginResult login(LoginRequest request, String userAgent, String ip) {
 		User user = userRepository.findByEmail(request.email())
 			.orElseThrow(InvalidCredentialsException::new);
 
@@ -37,10 +40,26 @@ public class AuthService {
 			throw new InvalidCredentialsException();
 		}
 
-		String token = jwtService.generateToken(user.getId());
-		return new LoginResult(token, user);
+		String accessToken = jwtService.generateToken(user.getId());
+		String refreshToken = refreshTokenService.issue(user.getId(), userAgent, ip);
+		return new LoginResult(accessToken, refreshToken, user);
 	}
 
-	public record LoginResult(String token, User user) {
+	/** Valida e rotaciona o refresh token apresentado, emitindo um novo access token para o mesmo usuario. */
+	public RefreshResult refresh(String rawRefreshToken, String userAgent, String ip) {
+		RefreshTokenService.RotationResult rotation = refreshTokenService.rotate(rawRefreshToken, userAgent, ip);
+		String accessToken = jwtService.generateToken(rotation.userId());
+		return new RefreshResult(accessToken, rotation.refreshToken());
+	}
+
+	/** Revoga no servidor o refresh token apresentado no logout - idempotente, ver RefreshTokenService.revoke. */
+	public void logout(String rawRefreshToken) {
+		refreshTokenService.revoke(rawRefreshToken);
+	}
+
+	public record LoginResult(String accessToken, String refreshToken, User user) {
+	}
+
+	public record RefreshResult(String accessToken, String refreshToken) {
 	}
 }

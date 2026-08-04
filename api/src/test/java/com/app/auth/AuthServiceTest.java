@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,11 +34,14 @@ class AuthServiceTest {
 	@Mock
 	private JwtService jwtService;
 
+	@Mock
+	private RefreshTokenService refreshTokenService;
+
 	private AuthService authService;
 
 	@Test
 	void registersUserWithHashedPassword() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new RegisterRequest("Ana", "ana@example.com", "senha1234");
 
 		when(userRepository.existsByEmail("ana@example.com")).thenReturn(false);
@@ -57,7 +61,7 @@ class AuthServiceTest {
 
 	@Test
 	void rejectsDuplicateEmail() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new RegisterRequest("Ana", "ana@example.com", "senha1234");
 
 		when(userRepository.existsByEmail("ana@example.com")).thenReturn(true);
@@ -70,44 +74,81 @@ class AuthServiceTest {
 	}
 
 	@Test
-	void logsInSuccessfullyAndReturnsToken() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+	void logsInSuccessfullyAndReturnsTokens() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new LoginRequest("ana@example.com", "senha1234");
 		User user = new User("Ana", "ana@example.com", "hashed-password");
 
 		when(userRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(user));
 		when(passwordEncoder.matches("senha1234", "hashed-password")).thenReturn(true);
 		when(jwtService.generateToken(any())).thenReturn("jwt-token");
+		when(refreshTokenService.issue(any(), any(), any())).thenReturn("refresh-token");
 
-		AuthService.LoginResult result = authService.login(request);
+		AuthService.LoginResult result = authService.login(request, "Mozilla/5.0", "203.0.113.1");
 
-		assertThat(result.token()).isEqualTo("jwt-token");
+		assertThat(result.accessToken()).isEqualTo("jwt-token");
+		assertThat(result.refreshToken()).isEqualTo("refresh-token");
 		assertThat(result.user()).isEqualTo(user);
+		verify(refreshTokenService).issue(user.getId(), "Mozilla/5.0", "203.0.113.1");
 	}
 
 	@Test
 	void rejectsLoginWithWrongPassword() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new LoginRequest("ana@example.com", "wrong-password");
 		User user = new User("Ana", "ana@example.com", "hashed-password");
 
 		when(userRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(user));
 		when(passwordEncoder.matches("wrong-password", "hashed-password")).thenReturn(false);
 
-		assertThatThrownBy(() -> authService.login(request))
+		assertThatThrownBy(() -> authService.login(request, "Mozilla/5.0", "203.0.113.1"))
 			.isInstanceOf(InvalidCredentialsException.class);
 	}
 
 	@Test
 	void rejectsLoginWithUnknownEmail() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService);
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new LoginRequest("desconhecido@example.com", "senha1234");
 
 		when(userRepository.findByEmail("desconhecido@example.com")).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> authService.login(request))
+		assertThatThrownBy(() -> authService.login(request, "Mozilla/5.0", "203.0.113.1"))
 			.isInstanceOf(InvalidCredentialsException.class);
 
 		verify(passwordEncoder, never()).matches(anyString(), anyString());
+	}
+
+	@Test
+	void refreshRotatesTokenAndIssuesNewAccessTokenForRotatedUser() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
+		UUID userId = UUID.randomUUID();
+		when(refreshTokenService.rotate("raw-refresh-token", "Mozilla/5.0", "203.0.113.1"))
+			.thenReturn(new RefreshTokenService.RotationResult(userId, "new-refresh-token"));
+		when(jwtService.generateToken(userId)).thenReturn("new-access-token");
+
+		AuthService.RefreshResult result = authService.refresh("raw-refresh-token", "Mozilla/5.0", "203.0.113.1");
+
+		assertThat(result.accessToken()).isEqualTo("new-access-token");
+		assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
+	}
+
+	@Test
+	void logoutDelegatesToRefreshTokenServiceRevoke() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
+
+		authService.logout("raw-refresh-token");
+
+		verify(refreshTokenService).revoke("raw-refresh-token");
+	}
+
+	@Test
+	void refreshPropagatesRotationFailure() {
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
+		when(refreshTokenService.rotate(anyString(), any(), any())).thenThrow(new RefreshReuseDetectedException());
+
+		assertThatThrownBy(() -> authService.refresh("reused-token", "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(RefreshReuseDetectedException.class);
+
+		verify(jwtService, never()).generateToken(any());
 	}
 }
