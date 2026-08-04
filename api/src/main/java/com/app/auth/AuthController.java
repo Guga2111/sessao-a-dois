@@ -14,6 +14,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,10 +53,6 @@ public class AuthController {
 		String ip = clientIp(servletRequest);
 		AuthService.LoginResult result = authService.login(request, userAgent, ip);
 		User user = result.user();
-		UserSummary userSummary = new UserSummary(user.getId(), user.getName(), user.getEmail());
-		CoupleResponse coupleResponse = coupleService.getCurrentCouple(user.getId())
-			.map(couple -> toResponse(couple, user.getId()))
-			.orElse(null);
 
 		ResponseCookie accessCookie = authCookieService.accessTokenCookie(result.accessToken());
 		ResponseCookie refreshCookie = authCookieService.refreshTokenCookie(result.refreshToken());
@@ -62,7 +60,23 @@ public class AuthController {
 		return ResponseEntity.ok()
 			.header(HttpHeaders.SET_COOKIE, accessCookie.toString())
 			.header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-			.body(new LoginResponse(userSummary, coupleResponse));
+			.body(sessionResponse(user));
+	}
+
+	@GetMapping("/me")
+	public ResponseEntity<LoginResponse> me(@AuthenticationPrincipal UUID userId) {
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> new IllegalStateException("usuario autenticado nao encontrado"));
+		return ResponseEntity.ok(sessionResponse(user));
+	}
+
+	/** Monta o mesmo shape {user, couple} reutilizado por /login e /me. */
+	private LoginResponse sessionResponse(User user) {
+		UserSummary userSummary = new UserSummary(user.getId(), user.getName(), user.getEmail());
+		CoupleResponse coupleResponse = coupleService.getCurrentCouple(user.getId())
+			.map(couple -> toResponse(couple, user.getId()))
+			.orElse(null);
+		return new LoginResponse(userSummary, coupleResponse);
 	}
 
 	/** Le o IP do cliente final de X-Forwarded-For (o nginx sempre envia esse header em producao). */

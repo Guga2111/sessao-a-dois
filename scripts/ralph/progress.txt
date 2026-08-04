@@ -97,3 +97,15 @@ Epico 4 - Migracao de Autenticacao (cookie HttpOnly + refresh token)
   - Multiplos `Set-Cookie` na mesma resposta: usar duas chamadas a `.header(HttpHeaders.SET_COOKIE, cookieA.toString())` / `.header(HttpHeaders.SET_COOKIE, cookieB.toString())` no `ResponseEntity.BodyBuilder` (headers() e um multi-value map, cada chamada adiciona). Para verificar em teste, `MvcResult.getResponse().getHeaders(HttpHeaders.SET_COOKIE)` devolve a lista completa - dai filtrar por prefixo `nome=` pra achar o cookie certo.
   - US-004 (proxima) precisa reusar a montagem de `CoupleResponse` entre `login` (AuthController, ja existe) e o novo `GET /api/auth/me` - so pode existir UMA duplicacao (a que ja existe com CoupleController, que e problema de outra T), nao uma terceira copia. Extrair `toResponse` para um metodo compartilhado entre os dois endpoints de AuthController antes de escrever `/me`.
 ---
+
+## 2026-08-04 - US-004
+
+- Adicionado `GET /api/auth/me` em `AuthController`: autenticado via `@AuthenticationPrincipal UUID userId` (o `anyRequest().authenticated()` do `SecurityConfig` ja cobre a rota, sem precisar de `permitAll`/matcher novo), busca o `User` por id e devolve o mesmo shape `{user, couple}` de `LoginResponse` - 200 com `couple: null` quando o usuario nao tem casal (nunca 404, ao contrario de `GET /api/couple/me`).
+- Extraido `AuthController.sessionResponse(User)` reunindo a montagem de `UserSummary`/`CoupleResponse` que `login` e `me` agora compartilham - so existe essa unica duplicacao com `CoupleController.toResponse` (fora de escopo deste epico, T6.3), nao uma terceira copia.
+- Arquivos: `api/src/main/java/com/app/auth/AuthController.java`, `api/src/test/java/com/app/auth/AuthControllerTest.java` (3 testes novos: sem sessao -> 401, com sessao + casal -> 200 com `couple.inviteCode`, com sessao sem casal -> 200 com `couple: null`), `api/CLAUDE.md` (paragrafo novo sobre `sessionResponse` e a diferenca de contrato 200/404 entre `/api/auth/me` e `/api/couple/me`).
+- `./mvnw test`: 338/338 passando (333 + 5 novos: os 3 de `/me` + os 2 que ja existiam de login continuam verdes).
+- **Learnings for future iterations:**
+  - Padrao de teste reusado de `CoupleControllerTest`: autenticar no `@WebMvcTest` com `.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))` da `SecurityMockMvcRequestPostProcessors` - simula exatamente o que `JwtAuthenticationFilter` grava no `SecurityContext`, sem precisar de token JWT real no teste de controller.
+  - Entidade sem setter de id (`@GeneratedValue`): usar `ReflectionTestUtils.setField(user, "id", userId)` antes de stubar `userRepository.findById(userId)` - `new User(...)` sozinho tem id null.
+  - US-005 (proxima) e a que realmente faz o `JwtAuthenticationFilter` ler o cookie `access_token` em vez do header `Authorization` - escopo pequeno (so `JwtAuthenticationFilterTest` e `SecurityConfigTest` usam header de verdade; os controller tests, incluindo os de `/me` acima, autenticam por cima do filtro com `.with(authentication(...))` e nao mudam).
+---

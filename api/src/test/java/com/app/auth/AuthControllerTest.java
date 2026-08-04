@@ -1,5 +1,6 @@
 package com.app.auth;
 
+import com.app.couple.Couple;
 import com.app.couple.CoupleService;
 import com.app.security.JwtService;
 import com.app.security.SecurityConfig;
@@ -13,16 +14,22 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -141,6 +148,44 @@ class AuthControllerTest {
 					"""))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.message").value("credenciais invalidas"));
+	}
+
+	@Test
+	void deniesMeWithoutSession() throws Exception {
+		mockMvc.perform(get("/api/auth/me"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void returnsCurrentSessionWithCouple() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = new User("Ana", "ana@example.com", "hashed-password");
+		ReflectionTestUtils.setField(user, "id", userId);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+		Couple couple = new Couple(userId, "ABC234");
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple));
+
+		mockMvc.perform(get("/api/auth/me")
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.user.email").value("ana@example.com"))
+			.andExpect(jsonPath("$.couple.inviteCode").value("ABC234"));
+	}
+
+	@Test
+	void returnsCurrentSessionWithoutCoupleAsNull() throws Exception {
+		UUID userId = UUID.randomUUID();
+		User user = new User("Ana", "ana@example.com", "hashed-password");
+		ReflectionTestUtils.setField(user, "id", userId);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+
+		mockMvc.perform(get("/api/auth/me")
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.user.email").value("ana@example.com"))
+			.andExpect(jsonPath("$.couple").value(org.hamcrest.Matchers.nullValue()));
 	}
 
 	@Nested
