@@ -1,7 +1,5 @@
 import axios, { type InternalAxiosRequestConfig } from "axios"
 
-import { clearAuthToken } from "@/lib/authToken"
-
 const AXIOS_CONFIG = {
   baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
@@ -35,7 +33,6 @@ function refreshSession(): Promise<unknown> {
 }
 
 function redirectToLogin(): void {
-  clearAuthToken()
   window.location.href = "/login"
 }
 

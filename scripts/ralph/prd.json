@@ -227,8 +227,8 @@
         "AGUARDA ACEITE VISUAL DO DONO antes do merge/deploy: este sandbox nao tem Chromium/Playwright nem sudo para as libs de sistema (client/CLAUDE.md), entao a skill dev-browser NAO e executavel aqui. O dono roda bun run dev e confere: login, navegacao, logout, Application > Storage do DevTools sem nenhuma chave de token, e Network mostrando a URL do /ws sem o parametro token. Registrar essa pendencia em progress.txt ao fechar a story"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "Verificacao visual pendente do dono do projeto - sem browser no sandbox."
+      "passes": true,
+      "notes": "Verificacao visual pendente do dono do projeto - sem browser no sandbox. Codigo implementado e passa typecheck/lint; falta bun run dev + inspecao manual (login, navegacao, logout, DevTools Storage sem chave de token, Network sem ?token= no /ws)."
     },
     {
       "id": "US-013",
