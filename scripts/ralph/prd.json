@@ -191,7 +191,7 @@
         "Sem mudanca visual - esta story so troca plumbing de sessao, entao a skill frontend-design NAO se aplica (decisao D11 do POST-MVP-TASK.md)"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
