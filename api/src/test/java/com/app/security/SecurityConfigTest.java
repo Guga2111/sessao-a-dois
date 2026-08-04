@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import jakarta.servlet.http.Cookie;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -150,6 +151,67 @@ class SecurityConfigTest {
 	void notificationsRequireAuthentication() throws Exception {
 		mockMvc.perform(get("/api/notifications"))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void authenticatedMutatingRequestWithoutCsrfTokenIsForbidden() throws Exception {
+		String accessTokenValue = registerLoginAndGetAccessToken();
+
+		mockMvc.perform(post("/api/couple")
+				.cookie(new Cookie("access_token", accessTokenValue)))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void authenticatedMutatingRequestWithValidCsrfTokenSucceeds() throws Exception {
+		String csrfTokenValue = fetchCsrfTokenCookieValue();
+		String accessTokenValue = registerLoginAndGetAccessToken();
+
+		mockMvc.perform(post("/api/couple")
+				.cookie(new Cookie("access_token", accessTokenValue))
+				.cookie(new Cookie("XSRF-TOKEN", csrfTokenValue))
+				.header("X-XSRF-TOKEN", csrfTokenValue))
+			.andExpect(status().isCreated());
+	}
+
+	@Test
+	void getRequestNeverRequiresCsrfTokenEvenWhenAuthenticated() throws Exception {
+		String accessTokenValue = registerLoginAndGetAccessToken();
+
+		mockMvc.perform(get("/api/couple/me")
+				.cookie(new Cookie("access_token", accessTokenValue)))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void healthResponseSetsTheCsrfCookieForTheSpaToRead() throws Exception {
+		MvcResult result = mockMvc.perform(get("/api/health")).andReturn();
+
+		assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+			.anyMatch(c -> c.startsWith("XSRF-TOKEN="));
+	}
+
+	private String fetchCsrfTokenCookieValue() throws Exception {
+		MvcResult result = mockMvc.perform(get("/api/health")).andReturn();
+		return cookieValue(result, "XSRF-TOKEN");
+	}
+
+	private String registerLoginAndGetAccessToken() throws Exception {
+		String email = uniqueEmail();
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(registerBody(email)))
+			.andExpect(status().isCreated());
+
+		MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"%s","password":"senha1234"}
+					""".formatted(email)))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		return cookieValue(loginResult, "access_token");
 	}
 
 	private static String cookieValue(MvcResult result, String cookieName) {

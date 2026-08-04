@@ -20,6 +20,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,7 +44,7 @@ class CoupleControllerTest {
 
 	@Test
 	void deniesAccessWithoutAuthentication() throws Exception {
-		mockMvc.perform(post("/api/couple"))
+		mockMvc.perform(post("/api/couple").with(csrf()))
 			.andExpect(status().isUnauthorized());
 	}
 
@@ -54,6 +55,7 @@ class CoupleControllerTest {
 		when(coupleService.createCouple(userId)).thenReturn(couple);
 
 		mockMvc.perform(post("/api/couple")
+				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.inviteCode").value("ABC234"))
@@ -66,6 +68,7 @@ class CoupleControllerTest {
 		when(coupleService.createCouple(userId)).thenThrow(new UserAlreadyInCoupleException());
 
 		mockMvc.perform(post("/api/couple")
+				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.message").value("usuario ja pertence a um casal"));
@@ -109,6 +112,7 @@ class CoupleControllerTest {
 		when(userRepository.findById(eq(user1Id))).thenReturn(Optional.of(partner));
 
 		mockMvc.perform(post("/api/couple/join")
+				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(user2Id, null, List.of())))
 				.contentType("application/json")
 				.content("{\"inviteCode\":\"ABC234\"}"))
@@ -124,6 +128,7 @@ class CoupleControllerTest {
 			.thenThrow(new InviteCodeNotFoundException());
 
 		mockMvc.perform(post("/api/couple/join")
+				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
 				.contentType("application/json")
 				.content("{\"inviteCode\":\"NOPE\"}"))
@@ -137,6 +142,7 @@ class CoupleControllerTest {
 			.thenThrow(new CannotJoinOwnCoupleException());
 
 		mockMvc.perform(post("/api/couple/join")
+				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
 				.contentType("application/json")
 				.content("{\"inviteCode\":\"ABC234\"}"))
@@ -150,6 +156,7 @@ class CoupleControllerTest {
 			.thenThrow(new CoupleAlreadyFullException());
 
 		mockMvc.perform(post("/api/couple/join")
+				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
 				.contentType("application/json")
 				.content("{\"inviteCode\":\"ABC234\"}"))
@@ -163,6 +170,7 @@ class CoupleControllerTest {
 			.thenThrow(new UserAlreadyInCoupleException());
 
 		mockMvc.perform(post("/api/couple/join")
+				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
 				.contentType("application/json")
 				.content("{\"inviteCode\":\"ABC234\"}"))

@@ -56,8 +56,15 @@ public class WebSocketSecurityConfig {
 	/**
 	 * No-op: sobrescreve o {@code XorCsrfChannelInterceptor} default do
 	 * {@code @EnableWebSocketSecurity}, que exigiria um token CSRF no frame
-	 * CONNECT que o cliente atual nao envia. Ver T4.3 para reavaliar CSRF em
-	 * STOMP quando/se o client passar a enviar esse token.
+	 * CONNECT que o cliente atual nao envia. DECISAO E3 (Epico 4, migracao de
+	 * autenticacao) - mantido deliberadamente no-op mesmo com o CSRF HTTP
+	 * reativado na US-008: o handshake ja e autenticado por cookie
+	 * ({@link JwtHandshakeInterceptor}), o SUBSCRIBE ja e autorizado por
+	 * destino ({@link WebSocketSecurityConfig#messageAuthorizationManager}
+	 * via {@link CoupleDestinationAuthorizationManager}), todo SEND de
+	 * cliente e negado por {@code anyMessage().denyAll()} acima, e a CSP de
+	 * producao aplica {@code frame-ancestors 'none'}. Nao reabrir esta
+	 * decisao sem revisitar as quatro camadas acima.
 	 */
 	@Bean("csrfChannelInterceptor")
 	ChannelInterceptor csrfChannelInterceptor() {

@@ -4,6 +4,8 @@ import { clearAuthToken, getAuthToken } from "@/lib/authToken"
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
+  xsrfCookieName: "XSRF-TOKEN",
+  xsrfHeaderName: "X-XSRF-TOKEN",
 })
 
 api.interceptors.request.use((config) => {
