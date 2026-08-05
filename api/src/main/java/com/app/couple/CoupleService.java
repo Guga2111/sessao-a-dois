@@ -5,6 +5,7 @@ import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitProperties.Limit;
 import com.app.security.RateLimitService;
 import com.app.security.RateLimitService.RateLimitResult;
+import com.app.security.SecurityAuditLogger;
 
 import org.springframework.stereotype.Service;
 
@@ -20,15 +21,17 @@ public class CoupleService {
 	private final RateLimitService rateLimitService;
 	private final RateLimitProperties rateLimitProperties;
 	private final CoupleProperties coupleProperties;
+	private final SecurityAuditLogger securityAuditLogger;
 
 	public CoupleService(CoupleRepository coupleRepository, InviteCodeGenerator inviteCodeGenerator,
 			RateLimitService rateLimitService, RateLimitProperties rateLimitProperties,
-			CoupleProperties coupleProperties) {
+			CoupleProperties coupleProperties, SecurityAuditLogger securityAuditLogger) {
 		this.coupleRepository = coupleRepository;
 		this.inviteCodeGenerator = inviteCodeGenerator;
 		this.rateLimitService = rateLimitService;
 		this.rateLimitProperties = rateLimitProperties;
 		this.coupleProperties = coupleProperties;
+		this.securityAuditLogger = securityAuditLogger;
 	}
 
 	public Couple createCouple(UUID userId) {
@@ -38,7 +41,9 @@ public class CoupleService {
 
 		Instant expiresAt = Instant.now().plus(coupleProperties.getInviteCodeTtl());
 		Couple couple = new Couple(userId, generateUniqueInviteCode(), expiresAt);
-		return coupleRepository.save(couple);
+		Couple saved = coupleRepository.save(couple);
+		securityAuditLogger.coupleCreated(userId, saved.getId());
+		return saved;
 	}
 
 	public Optional<Couple> getCurrentCouple(UUID userId) {
@@ -70,7 +75,9 @@ public class CoupleService {
 
 		couple.setUser2Id(userId);
 		couple.clearInviteCode();
-		return coupleRepository.save(couple);
+		Couple saved = coupleRepository.save(couple);
+		securityAuditLogger.coupleJoined(userId, saved.getId());
+		return saved;
 	}
 
 	/**
@@ -93,7 +100,9 @@ public class CoupleService {
 
 		Instant expiresAt = Instant.now().plus(coupleProperties.getInviteCodeTtl());
 		couple.regenerateInviteCode(generateUniqueInviteCode(), expiresAt);
-		return coupleRepository.save(couple);
+		Couple saved = coupleRepository.save(couple);
+		securityAuditLogger.inviteCodeRegenerated(userId, saved.getId());
+		return saved;
 	}
 
 	/** Limite por usuario autenticado (US-003), alem do limite por IP ja aplicado pelo {@code RateLimitFilter} (US-002). */

@@ -7,6 +7,7 @@ import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
 import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 import com.app.security.SecurityConfig;
 import com.app.tracking.ResourceNotFoundException;
 
@@ -35,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MatchController.class)
-@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class })
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class, SecurityAuditLogger.class })
 class MatchControllerTest {
 
 	@Autowired

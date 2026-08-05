@@ -30,7 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * endpoint protegido representativo.
  */
 @WebMvcTest(CoupleController.class)
-@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class })
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class,
+	SecurityAuditLogger.class })
 class JwtAuthenticationFilterTest {
 
 	@Autowired

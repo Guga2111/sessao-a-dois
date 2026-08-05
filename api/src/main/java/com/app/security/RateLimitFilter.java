@@ -37,13 +37,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
 	private final RateLimitProperties properties;
 	private final ClientIpResolver clientIpResolver;
 	private final ObjectMapper objectMapper;
+	private final SecurityAuditLogger securityAuditLogger;
 
 	public RateLimitFilter(RateLimitService rateLimitService, RateLimitProperties properties,
-			ClientIpResolver clientIpResolver, ObjectMapper objectMapper) {
+			ClientIpResolver clientIpResolver, ObjectMapper objectMapper, SecurityAuditLogger securityAuditLogger) {
 		this.rateLimitService = rateLimitService;
 		this.properties = properties;
 		this.clientIpResolver = clientIpResolver;
 		this.objectMapper = objectMapper;
+		this.securityAuditLogger = securityAuditLogger;
 	}
 
 	@Override
@@ -70,6 +72,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 			return;
 		}
 
+		securityAuditLogger.rateLimitExceeded(endpoint.key(), ip);
 		writeTooManyRequests(response, result.retryAfterSeconds());
 	}
 

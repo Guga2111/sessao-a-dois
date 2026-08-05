@@ -31,7 +31,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void issueReturnsRawValueDifferentFromPersistedHash() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 
 		when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -53,7 +53,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void findActiveReturnsTokenWhenNotRevokedAndNotExpired() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		String rawToken = "raw-token-value";
 		RefreshToken stored = mock(RefreshToken.class);
 		when(stored.isActive()).thenReturn(true);
@@ -66,7 +66,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void findActiveReturnsEmptyWhenExpired() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		RefreshToken stored = mock(RefreshToken.class);
 		when(stored.isActive()).thenReturn(false);
 		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(stored));
@@ -78,7 +78,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void findActiveReturnsEmptyWhenRevoked() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		RefreshToken stored = mock(RefreshToken.class);
 		when(stored.isActive()).thenReturn(false);
 		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(stored));
@@ -90,7 +90,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void findActiveReturnsEmptyWhenTokenDoesNotExist() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
 
 		Optional<RefreshToken> result = refreshTokenService.findActive("unknown-token");
@@ -100,7 +100,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void revokeFamilyDelegatesToSingleUpdateQuery() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 
 		refreshTokenService.revokeFamily(userId);
@@ -110,7 +110,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void rotateSuccessfullyRevokesCurrentAndIssuesFreshSlidingTtl() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 		RefreshToken current = new RefreshToken(userId, "old-hash", Instant.now().plus(Duration.ofDays(2)), "UA", "1.2.3.4");
 		ReflectionTestUtils.setField(current, "id", UUID.randomUUID());
@@ -137,7 +137,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void rotateUnknownTokenIsRejected() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> refreshTokenService.rotate("unknown-raw-token", "UA", "1.2.3.4"))
@@ -146,7 +146,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void rotateExpiredTokenIsRejectedWithoutRevokingFamily() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 		RefreshToken expired = new RefreshToken(userId, "hash", Instant.now().minus(Duration.ofMinutes(1)), "UA", "1.2.3.4");
 		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(expired));
@@ -160,7 +160,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void rotateReusedTokenOutsideGraceRevokesFamily() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 		RefreshToken revoked = new RefreshToken(userId, "hash", Instant.now().plus(Duration.ofDays(2)), "UA", "1.2.3.4");
 		revoked.setRevokedAt(Instant.now().minus(Duration.ofSeconds(60)));
@@ -175,7 +175,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void revokeMarksActiveTokenAsRevoked() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 		RefreshToken token = new RefreshToken(userId, "hash", Instant.now().plus(Duration.ofDays(2)), "UA", "1.2.3.4");
 		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(token));
@@ -187,7 +187,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void revokeIsNoOpWhenTokenAlreadyRevoked() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 		RefreshToken token = new RefreshToken(userId, "hash", Instant.now().plus(Duration.ofDays(2)), "UA", "1.2.3.4");
 		Instant firstRevocation = Instant.now().minus(Duration.ofMinutes(5));
@@ -201,7 +201,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void revokeIsNoOpWhenTokenDoesNotExist() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
 
 		refreshTokenService.revoke("unknown-token");
@@ -209,7 +209,7 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void rotateReusedTokenWithinGraceFollowsSubstituteWithoutRevokingFamily() {
-		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30));
+		refreshTokenService = new RefreshTokenService(refreshTokenRepository, Duration.ofDays(30), Duration.ofSeconds(30), new com.app.security.SecurityAuditLogger());
 		UUID userId = UUID.randomUUID();
 		UUID substituteId = UUID.randomUUID();
 

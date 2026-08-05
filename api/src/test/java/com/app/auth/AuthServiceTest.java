@@ -4,6 +4,7 @@ import com.app.security.JwtService;
 import com.app.security.RateLimitExceededException;
 import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
@@ -51,7 +52,7 @@ class AuthServiceTest {
 	void setUp() {
 		rateLimitProperties = new RateLimitProperties();
 		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
-				new RateLimitService(), rateLimitProperties);
+				new RateLimitService(), rateLimitProperties, new SecurityAuditLogger());
 	}
 
 	private static AuthService newAuthServiceWithLoginByEmailLimit(UserRepository userRepository,
@@ -60,7 +61,7 @@ class AuthServiceTest {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setLoginByEmail(new RateLimitProperties.Limit(capacity, window));
 		return new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
-				new RateLimitService(), properties);
+				new RateLimitService(), properties, new SecurityAuditLogger());
 	}
 
 	@Test

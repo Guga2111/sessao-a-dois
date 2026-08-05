@@ -3,6 +3,7 @@ package com.app.couple;
 import com.app.security.RateLimitExceededException;
 import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,14 +37,14 @@ class CoupleServiceTest {
 	@BeforeEach
 	void setUp() {
 		coupleService = new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(),
-				new RateLimitProperties(), new CoupleProperties());
+				new RateLimitProperties(), new CoupleProperties(), new SecurityAuditLogger());
 	}
 
 	private CoupleService newCoupleServiceWithJoinByUserLimit(int capacity, Duration window) {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setCoupleJoinByUser(new RateLimitProperties.Limit(capacity, window));
 		return new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(), properties,
-				new CoupleProperties());
+				new CoupleProperties(), new SecurityAuditLogger());
 	}
 
 	@Test

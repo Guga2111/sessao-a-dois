@@ -6,6 +6,7 @@ import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitProperties.Limit;
 import com.app.security.RateLimitService;
 import com.app.security.RateLimitService.RateLimitResult;
+import com.app.security.SecurityAuditLogger;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
@@ -31,16 +32,18 @@ public class AuthService {
 	private final RefreshTokenService refreshTokenService;
 	private final RateLimitService rateLimitService;
 	private final RateLimitProperties rateLimitProperties;
+	private final SecurityAuditLogger securityAuditLogger;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
 			RefreshTokenService refreshTokenService, RateLimitService rateLimitService,
-			RateLimitProperties rateLimitProperties) {
+			RateLimitProperties rateLimitProperties, SecurityAuditLogger securityAuditLogger) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.refreshTokenService = refreshTokenService;
 		this.rateLimitService = rateLimitService;
 		this.rateLimitProperties = rateLimitProperties;
+		this.securityAuditLogger = securityAuditLogger;
 	}
 
 	public User register(RegisterRequest request) {
@@ -61,16 +64,19 @@ public class AuthService {
 			// senha incorreta gastaria, fechando a diferenca de timing entre "e-mail nao
 			// existe" e "senha errada" (US-004). O resultado e sempre descartado.
 			passwordEncoder.matches(request.password(), DUMMY_PASSWORD_HASH);
+			securityAuditLogger.loginFailure(request.email(), ip);
 			throw new InvalidCredentialsException();
 		}
 		User user = maybeUser.get();
 
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+			securityAuditLogger.loginFailure(request.email(), ip);
 			throw new InvalidCredentialsException();
 		}
 
 		String accessToken = jwtService.generateToken(user.getId());
 		String refreshToken = refreshTokenService.issue(user.getId(), userAgent, ip);
+		securityAuditLogger.loginSuccess(user.getId(), request.email(), ip);
 		return new LoginResult(accessToken, refreshToken, user);
 	}
 
