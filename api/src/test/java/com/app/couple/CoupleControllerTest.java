@@ -81,7 +81,7 @@ class CoupleControllerTest {
 	void returnsCurrentCoupleWithPartner() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
-		Couple couple = new Couple(userId, "ABC234");
+		Couple couple = new Couple(userId, null);
 		couple.setUser2Id(partnerId);
 		User partner = new User("Bruno", "bruno@example.com", "hashed-password");
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple));
@@ -90,7 +90,7 @@ class CoupleControllerTest {
 		mockMvc.perform(get("/api/couple/me")
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.inviteCode").value("ABC234"))
+			.andExpect(jsonPath("$.inviteCode").value(org.hamcrest.Matchers.nullValue()))
 			.andExpect(jsonPath("$.partner.name").value("Bruno"));
 	}
 
@@ -108,7 +108,7 @@ class CoupleControllerTest {
 	void joinsCoupleWithValidInviteCode() throws Exception {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
-		Couple couple = new Couple(user1Id, "ABC234");
+		Couple couple = new Couple(user1Id, null);
 		couple.setUser2Id(user2Id);
 		User partner = new User("Ana", "ana@example.com", "hashed-password");
 		when(coupleService.joinCouple(eq(user2Id), eq("ABC234"))).thenReturn(couple);
@@ -120,8 +120,23 @@ class CoupleControllerTest {
 				.contentType("application/json")
 				.content("{\"inviteCode\":\"ABC234\"}"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.inviteCode").value("ABC234"))
+			.andExpect(jsonPath("$.inviteCode").value(org.hamcrest.Matchers.nullValue()))
 			.andExpect(jsonPath("$.partner.name").value("Ana"));
+	}
+
+	@Test
+	void returnsGoneForExpiredInviteCode() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.joinCouple(eq(userId), eq("ABC234")))
+			.thenThrow(new InviteCodeExpiredException());
+
+		mockMvc.perform(post("/api/couple/join")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType("application/json")
+				.content("{\"inviteCode\":\"ABC234\"}"))
+			.andExpect(status().isGone())
+			.andExpect(jsonPath("$.message").value("codigo de convite expirado"));
 	}
 
 	@Test

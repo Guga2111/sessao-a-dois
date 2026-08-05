@@ -72,6 +72,12 @@ public class Couple {
 		return inviteCodeExpiresAt;
 	}
 
+	/** Limpa o codigo de convite apos o uso (US-008), para que nenhuma tentativa posterior com ele tenha efeito. */
+	public void clearInviteCode() {
+		this.inviteCode = null;
+		this.inviteCodeExpiresAt = null;
+	}
+
 	public Instant getCreatedAt() {
 		return createdAt;
 	}

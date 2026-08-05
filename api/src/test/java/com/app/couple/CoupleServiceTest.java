@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,13 +36,14 @@ class CoupleServiceTest {
 	@BeforeEach
 	void setUp() {
 		coupleService = new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(),
-				new RateLimitProperties());
+				new RateLimitProperties(), new CoupleProperties());
 	}
 
 	private CoupleService newCoupleServiceWithJoinByUserLimit(int capacity, Duration window) {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setCoupleJoinByUser(new RateLimitProperties.Limit(capacity, window));
-		return new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(), properties);
+		return new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(), properties,
+				new CoupleProperties());
 	}
 
 	@Test
@@ -182,6 +184,77 @@ class CoupleServiceTest {
 
 		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
 			.isInstanceOf(InviteCodeNotFoundException.class);
+	}
+
+	@Test
+	void rejectsJoinWithExpiredInviteCode() {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234", Instant.now().minus(Duration.ofMinutes(1)));
+		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+
+		assertThatThrownBy(() -> coupleService.joinCouple(user2Id, "ABC234"))
+			.isInstanceOf(InviteCodeExpiredException.class);
+
+		verify(coupleRepository, never()).save(any());
+	}
+
+	@Test
+	void joinsCoupleWithValidUnexpiredInviteCode() {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234", Instant.now().plus(Duration.ofDays(1)));
+		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.empty());
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Couple joined = coupleService.joinCouple(user2Id, "ABC234");
+
+		assertThat(joined.getUser2Id()).isEqualTo(user2Id);
+	}
+
+	@Test
+	void joinsCoupleWhenInviteCodeNeverExpires() {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234");
+		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.empty());
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Couple joined = coupleService.joinCouple(user2Id, "ABC234");
+
+		assertThat(joined.getUser2Id()).isEqualTo(user2Id);
+	}
+
+	@Test
+	void successfulJoinInvalidatesInviteCodeAndItsExpiry() {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234", Instant.now().plus(Duration.ofDays(1)));
+		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.empty());
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Couple joined = coupleService.joinCouple(user2Id, "ABC234");
+
+		assertThat(joined.getInviteCode()).isNull();
+		assertThat(joined.getInviteCodeExpiresAt()).isNull();
+	}
+
+	@Test
+	void createCoupleGrantsInviteCodeExpiryFromConfiguredTtl() {
+		UUID userId = UUID.randomUUID();
+		when(coupleRepository.findByUser1IdOrUser2Id(userId, userId)).thenReturn(Optional.empty());
+		when(inviteCodeGenerator.generate()).thenReturn("ABC234");
+		when(coupleRepository.existsByInviteCode("ABC234")).thenReturn(false);
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Instant before = Instant.now().plus(Duration.ofDays(7));
+		Couple couple = coupleService.createCouple(userId);
+		Instant after = Instant.now().plus(Duration.ofDays(7));
+
+		assertThat(couple.getInviteCodeExpiresAt()).isBetween(before.minusSeconds(5), after.plusSeconds(5));
 	}
 
 	@Test

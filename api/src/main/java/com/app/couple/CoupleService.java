@@ -8,6 +8,7 @@ import com.app.security.RateLimitService.RateLimitResult;
 
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,13 +19,16 @@ public class CoupleService {
 	private final InviteCodeGenerator inviteCodeGenerator;
 	private final RateLimitService rateLimitService;
 	private final RateLimitProperties rateLimitProperties;
+	private final CoupleProperties coupleProperties;
 
 	public CoupleService(CoupleRepository coupleRepository, InviteCodeGenerator inviteCodeGenerator,
-			RateLimitService rateLimitService, RateLimitProperties rateLimitProperties) {
+			RateLimitService rateLimitService, RateLimitProperties rateLimitProperties,
+			CoupleProperties coupleProperties) {
 		this.coupleRepository = coupleRepository;
 		this.inviteCodeGenerator = inviteCodeGenerator;
 		this.rateLimitService = rateLimitService;
 		this.rateLimitProperties = rateLimitProperties;
+		this.coupleProperties = coupleProperties;
 	}
 
 	public Couple createCouple(UUID userId) {
@@ -32,7 +36,8 @@ public class CoupleService {
 			throw new UserAlreadyInCoupleException();
 		}
 
-		Couple couple = new Couple(userId, generateUniqueInviteCode());
+		Instant expiresAt = Instant.now().plus(coupleProperties.getInviteCodeTtl());
+		Couple couple = new Couple(userId, generateUniqueInviteCode(), expiresAt);
 		return coupleRepository.save(couple);
 	}
 
@@ -45,6 +50,11 @@ public class CoupleService {
 
 		Couple couple = coupleRepository.findByInviteCode(inviteCode)
 			.orElseThrow(InviteCodeNotFoundException::new);
+
+		Instant expiresAt = couple.getInviteCodeExpiresAt();
+		if (expiresAt != null && Instant.now().isAfter(expiresAt)) {
+			throw new InviteCodeExpiredException();
+		}
 
 		if (couple.getUser1Id().equals(userId)) {
 			throw new CannotJoinOwnCoupleException();
@@ -59,6 +69,7 @@ public class CoupleService {
 		}
 
 		couple.setUser2Id(userId);
+		couple.clearInviteCode();
 		return coupleRepository.save(couple);
 	}
 

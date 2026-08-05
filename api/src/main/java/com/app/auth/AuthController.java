@@ -127,6 +127,7 @@ public class AuthController {
 		PartnerSummary partner = partnerId == null ? null : userRepository.findById(partnerId)
 			.map(u -> new PartnerSummary(u.getId(), u.getName(), u.getEmail()))
 			.orElse(null);
-		return new CoupleResponse(couple.getId(), couple.getInviteCode(), partner, couple.getCreatedAt());
+		return new CoupleResponse(couple.getId(), couple.getInviteCode(), couple.getInviteCodeExpiresAt(), partner,
+				couple.getCreatedAt());
 	}
 }

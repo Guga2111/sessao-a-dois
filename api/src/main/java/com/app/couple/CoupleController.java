@@ -53,7 +53,8 @@ public class CoupleController {
 		PartnerSummary partner = partnerId == null ? null : userRepository.findById(partnerId)
 			.map(this::toPartnerSummary)
 			.orElse(null);
-		return new CoupleResponse(couple.getId(), couple.getInviteCode(), partner, couple.getCreatedAt());
+		return new CoupleResponse(couple.getId(), couple.getInviteCode(), couple.getInviteCodeExpiresAt(), partner,
+				couple.getCreatedAt());
 	}
 
 	private PartnerSummary toPartnerSummary(User user) {

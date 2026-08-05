@@ -30,6 +30,11 @@ public class CoupleExceptionHandler {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
 	}
 
+	@ExceptionHandler(InviteCodeExpiredException.class)
+	public ResponseEntity<Map<String, String>> handleInviteCodeExpired(InviteCodeExpiredException ex) {
+		return ResponseEntity.status(HttpStatus.GONE).body(Map.of("message", ex.getMessage()));
+	}
+
 	@ExceptionHandler(CannotJoinOwnCoupleException.class)
 	public ResponseEntity<Map<String, String>> handleCannotJoinOwnCouple(CannotJoinOwnCoupleException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
