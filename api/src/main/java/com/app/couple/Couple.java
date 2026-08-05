@@ -25,8 +25,11 @@ public class Couple {
 	@Column(name = "user2_id")
 	private UUID user2Id;
 
-	@Column(name = "invite_code", nullable = false, unique = true)
+	@Column(name = "invite_code", unique = true)
 	private String inviteCode;
+
+	@Column(name = "invite_code_expires_at")
+	private Instant inviteCodeExpiresAt;
 
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
@@ -35,8 +38,13 @@ public class Couple {
 	}
 
 	public Couple(UUID user1Id, String inviteCode) {
+		this(user1Id, inviteCode, null);
+	}
+
+	public Couple(UUID user1Id, String inviteCode, Instant inviteCodeExpiresAt) {
 		this.user1Id = user1Id;
 		this.inviteCode = inviteCode;
+		this.inviteCodeExpiresAt = inviteCodeExpiresAt;
 		this.createdAt = Instant.now();
 	}
 
@@ -58,6 +66,10 @@ public class Couple {
 
 	public String getInviteCode() {
 		return inviteCode;
+	}
+
+	public Instant getInviteCodeExpiresAt() {
+		return inviteCodeExpiresAt;
 	}
 
 	public Instant getCreatedAt() {
