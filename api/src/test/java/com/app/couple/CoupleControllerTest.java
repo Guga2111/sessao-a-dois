@@ -31,7 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CoupleController.class)
-@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class, SecurityAuditLogger.class })
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class,
+	SecurityAuditLogger.class, CoupleResponseMapper.class })
 class CoupleControllerTest {
 
 	@Autowired

@@ -81,7 +81,7 @@
         "./mvnw test passa"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Independente das US-001 a US-003, mas colocada depois delas para manter os commits de backend agrupados por tema."
     },
     {

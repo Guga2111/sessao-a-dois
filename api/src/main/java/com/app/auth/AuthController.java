@@ -1,12 +1,10 @@
 package com.app.auth;
 
-import com.app.couple.Couple;
 import com.app.couple.CoupleResponse;
+import com.app.couple.CoupleResponseMapper;
 import com.app.couple.CoupleService;
-import com.app.couple.PartnerSummary;
 import com.app.security.ClientIpResolver;
 import com.app.user.User;
-import com.app.user.UserRepository;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,15 +31,16 @@ public class AuthController {
 
 	private final AuthService authService;
 	private final CoupleService coupleService;
-	private final UserRepository userRepository;
+	private final CoupleResponseMapper coupleResponseMapper;
 	private final AuthCookieService authCookieService;
 	private final ClientIpResolver clientIpResolver;
 
-	public AuthController(AuthService authService, CoupleService coupleService, UserRepository userRepository,
-			AuthCookieService authCookieService, ClientIpResolver clientIpResolver) {
+	public AuthController(AuthService authService, CoupleService coupleService,
+			CoupleResponseMapper coupleResponseMapper, AuthCookieService authCookieService,
+			ClientIpResolver clientIpResolver) {
 		this.authService = authService;
 		this.coupleService = coupleService;
-		this.userRepository = userRepository;
+		this.coupleResponseMapper = coupleResponseMapper;
 		this.authCookieService = authCookieService;
 		this.clientIpResolver = clientIpResolver;
 	}
@@ -108,8 +107,7 @@ public class AuthController {
 
 	@GetMapping("/me")
 	public ResponseEntity<LoginResponse> me(@AuthenticationPrincipal UUID userId) {
-		User user = userRepository.findById(userId)
-			.orElseThrow(() -> new IllegalStateException("usuario autenticado nao encontrado"));
+		User user = authService.findAuthenticatedUser(userId);
 		return ResponseEntity.ok(sessionResponse(user));
 	}
 
@@ -117,17 +115,8 @@ public class AuthController {
 	private LoginResponse sessionResponse(User user) {
 		UserSummary userSummary = new UserSummary(user.getId(), user.getName(), user.getEmail());
 		CoupleResponse coupleResponse = coupleService.getCurrentCouple(user.getId())
-			.map(couple -> toResponse(couple, user.getId()))
+			.map(couple -> coupleResponseMapper.toResponse(couple, user.getId()))
 			.orElse(null);
 		return new LoginResponse(userSummary, coupleResponse);
-	}
-
-	private CoupleResponse toResponse(Couple couple, UUID currentUserId) {
-		UUID partnerId = couple.getUser1Id().equals(currentUserId) ? couple.getUser2Id() : couple.getUser1Id();
-		PartnerSummary partner = partnerId == null ? null : userRepository.findById(partnerId)
-			.map(u -> new PartnerSummary(u.getId(), u.getName()))
-			.orElse(null);
-		return new CoupleResponse(couple.getId(), couple.getInviteCode(), couple.getInviteCodeExpiresAt(), partner,
-				couple.getCreatedAt());
 	}
 }
