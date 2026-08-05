@@ -1,6 +1,11 @@
 package com.app.auth;
 
 import com.app.security.JwtService;
+import com.app.security.RateLimitExceededException;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitProperties.Limit;
+import com.app.security.RateLimitService;
+import com.app.security.RateLimitService.RateLimitResult;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
@@ -14,13 +19,18 @@ public class AuthService {
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final RefreshTokenService refreshTokenService;
+	private final RateLimitService rateLimitService;
+	private final RateLimitProperties rateLimitProperties;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
-			RefreshTokenService refreshTokenService) {
+			RefreshTokenService refreshTokenService, RateLimitService rateLimitService,
+			RateLimitProperties rateLimitProperties) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.refreshTokenService = refreshTokenService;
+		this.rateLimitService = rateLimitService;
+		this.rateLimitProperties = rateLimitProperties;
 	}
 
 	public User register(RegisterRequest request) {
@@ -33,6 +43,8 @@ public class AuthService {
 	}
 
 	public LoginResult login(LoginRequest request, String userAgent, String ip) {
+		enforceLoginRateLimit(request.email());
+
 		User user = userRepository.findByEmail(request.email())
 			.orElseThrow(InvalidCredentialsException::new);
 
@@ -43,6 +55,23 @@ public class AuthService {
 		String accessToken = jwtService.generateToken(user.getId());
 		String refreshToken = refreshTokenService.issue(user.getId(), userAgent, ip);
 		return new LoginResult(accessToken, refreshToken, user);
+	}
+
+	/**
+	 * Limite por e-mail (US-003), alem do limite por IP ja aplicado pelo
+	 * {@code RateLimitFilter} (US-002). Roda ANTES da busca do usuario e
+	 * dispara mesmo quando o e-mail nao existe, para nao virar oraculo de
+	 * enumeracao. A chave e normalizada (minusculas, sem espacos nas pontas)
+	 * para que variacoes de caixa nao multipliquem o teto.
+	 */
+	private void enforceLoginRateLimit(String email) {
+		String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
+		Limit limit = rateLimitProperties.getLoginByEmail();
+		RateLimitResult result = rateLimitService.tryConsume("login:email:" + normalizedEmail, limit.getCapacity(),
+				limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
 	}
 
 	/** Valida e rotaciona o refresh token apresentado, emitindo um novo access token para o mesmo usuario. */

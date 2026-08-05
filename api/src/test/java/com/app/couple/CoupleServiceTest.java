@@ -1,11 +1,16 @@
 package com.app.couple;
 
+import com.app.security.RateLimitExceededException;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,7 +34,14 @@ class CoupleServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		coupleService = new CoupleService(coupleRepository, inviteCodeGenerator);
+		coupleService = new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(),
+				new RateLimitProperties());
+	}
+
+	private CoupleService newCoupleServiceWithJoinByUserLimit(int capacity, Duration window) {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setCoupleJoinByUser(new RateLimitProperties.Limit(capacity, window));
+		return new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(), properties);
 	}
 
 	@Test
@@ -138,6 +150,38 @@ class CoupleServiceTest {
 			.isInstanceOf(UserAlreadyInCoupleException.class);
 
 		verify(coupleRepository, never()).save(any());
+	}
+
+	@Test
+	void blocksJoinAfterExceedingPerUserLimit() {
+		CoupleService limitedCoupleService = newCoupleServiceWithJoinByUserLimit(1, Duration.ofMinutes(1));
+		UUID userId = UUID.randomUUID();
+		when(coupleRepository.findByInviteCode("NOPE")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
+			.isInstanceOf(InviteCodeNotFoundException.class);
+
+		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(coupleRepository, never()).save(any());
+	}
+
+	@Test
+	void releasesJoinByUserRateLimitAfterWindow() throws InterruptedException {
+		CoupleService limitedCoupleService = newCoupleServiceWithJoinByUserLimit(1, Duration.ofMillis(150));
+		UUID userId = UUID.randomUUID();
+		when(coupleRepository.findByInviteCode("NOPE")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
+			.isInstanceOf(InviteCodeNotFoundException.class);
+		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		Thread.sleep(300);
+
+		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
+			.isInstanceOf(InviteCodeNotFoundException.class);
 	}
 
 	@Test

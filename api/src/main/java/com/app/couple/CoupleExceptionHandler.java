@@ -10,6 +10,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.app.security.RateLimitExceededException;
+
 @RestControllerAdvice(basePackages = "com.app.couple")
 public class CoupleExceptionHandler {
 
@@ -31,6 +33,13 @@ public class CoupleExceptionHandler {
 	@ExceptionHandler(CannotJoinOwnCoupleException.class)
 	public ResponseEntity<Map<String, String>> handleCannotJoinOwnCouple(CannotJoinOwnCoupleException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+	}
+
+	@ExceptionHandler(RateLimitExceededException.class)
+	public ResponseEntity<Map<String, String>> handleRateLimitExceeded(RateLimitExceededException ex) {
+		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+			.header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+			.body(Map.of("message", ex.getMessage()));
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)

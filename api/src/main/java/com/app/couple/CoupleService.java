@@ -1,5 +1,11 @@
 package com.app.couple;
 
+import com.app.security.RateLimitExceededException;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitProperties.Limit;
+import com.app.security.RateLimitService;
+import com.app.security.RateLimitService.RateLimitResult;
+
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -10,10 +16,15 @@ public class CoupleService {
 
 	private final CoupleRepository coupleRepository;
 	private final InviteCodeGenerator inviteCodeGenerator;
+	private final RateLimitService rateLimitService;
+	private final RateLimitProperties rateLimitProperties;
 
-	public CoupleService(CoupleRepository coupleRepository, InviteCodeGenerator inviteCodeGenerator) {
+	public CoupleService(CoupleRepository coupleRepository, InviteCodeGenerator inviteCodeGenerator,
+			RateLimitService rateLimitService, RateLimitProperties rateLimitProperties) {
 		this.coupleRepository = coupleRepository;
 		this.inviteCodeGenerator = inviteCodeGenerator;
+		this.rateLimitService = rateLimitService;
+		this.rateLimitProperties = rateLimitProperties;
 	}
 
 	public Couple createCouple(UUID userId) {
@@ -30,6 +41,8 @@ public class CoupleService {
 	}
 
 	public Couple joinCouple(UUID userId, String inviteCode) {
+		enforceJoinRateLimit(userId);
+
 		Couple couple = coupleRepository.findByInviteCode(inviteCode)
 			.orElseThrow(InviteCodeNotFoundException::new);
 
@@ -47,6 +60,16 @@ public class CoupleService {
 
 		couple.setUser2Id(userId);
 		return coupleRepository.save(couple);
+	}
+
+	/** Limite por usuario autenticado (US-003), alem do limite por IP ja aplicado pelo {@code RateLimitFilter} (US-002). */
+	private void enforceJoinRateLimit(UUID userId) {
+		Limit limit = rateLimitProperties.getCoupleJoinByUser();
+		RateLimitResult result = rateLimitService.tryConsume("couple-join:user:" + userId, limit.getCapacity(),
+				limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
 	}
 
 	private String generateUniqueInviteCode() {
