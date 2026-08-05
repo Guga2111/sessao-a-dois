@@ -1,5 +1,7 @@
 package com.app.tracking;
 
+import com.app.common.ResourceNotFoundException;
+
 import com.app.user.User;
 import com.app.user.UserRepository;
 

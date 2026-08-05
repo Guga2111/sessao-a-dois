@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -95,6 +96,12 @@ public class AuthService {
 		if (!result.allowed()) {
 			throw new RateLimitExceededException(result.retryAfterSeconds());
 		}
+	}
+
+	/** Usado por GET /api/auth/me para carregar o usuario ja autenticado pelo filtro JWT. */
+	public User findAuthenticatedUser(UUID userId) {
+		return userRepository.findById(userId)
+			.orElseThrow(() -> new IllegalStateException("usuario autenticado nao encontrado"));
 	}
 
 	/** Valida e rotaciona o refresh token apresentado, emitindo um novo access token para o mesmo usuario. */

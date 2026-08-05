@@ -2,7 +2,7 @@ package com.app.match;
 
 import com.app.couple.Couple;
 import com.app.couple.CoupleService;
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 
 import jakarta.validation.Valid;
 

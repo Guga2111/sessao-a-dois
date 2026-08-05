@@ -1,5 +1,7 @@
 package com.app.tracking;
 
+import com.app.common.ResourceNotFoundException;
+
 import com.app.couple.Couple;
 import com.app.couple.CoupleService;
 import com.app.media.MediaType;

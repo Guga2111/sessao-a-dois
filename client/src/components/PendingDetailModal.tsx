@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
-import { Heart, X } from "lucide-react"
+import { Heart, RefreshCw, TriangleAlert, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { DetailModalSkeleton } from "@/components/skeletons/DetailModalSkeleton"
@@ -14,6 +14,8 @@ interface PendingDetailModalProps {
   onLike: () => void
   onReject: () => void
   actionLoading: boolean
+  actionError?: string | null
+  onRetryAction?: () => void
 }
 
 const TYPE_LABEL: Record<PendingMatch["mediaType"], string> = {
@@ -27,33 +29,59 @@ export function PendingDetailModal({
   onLike,
   onReject,
   actionLoading,
+  actionError,
+  onRetryAction,
 }: PendingDetailModalProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
+  const [detailsError, setDetailsError] = useState(false)
   const backdropRef = useRef<HTMLDivElement>(null)
-  const showSkeleton = useDelayedLoading(!details)
+  const showSkeleton = useDelayedLoading(!details && !detailsError)
+
+  const fetchDetails = useCallback(
+    (current: PendingMatch, isCancelled: () => boolean) => {
+      api
+        .get<MediaDetails>(
+          `/api/media/${current.mediaType.toLowerCase()}/${current.tmdbId}`
+        )
+        .then((res) => {
+          if (isCancelled()) return
+          setDetails(res.data)
+          setDetailsError(false)
+        })
+        .catch((err) => {
+          if (isCancelled()) return
+          console.error("Failed to load pending match details", {
+            tmdbId: current.tmdbId,
+            mediaType: current.mediaType,
+            err,
+          })
+          setDetailsError(true)
+        })
+    },
+    []
+  )
 
   useEffect(() => {
     let cancelled = false
     const timer = setTimeout(() => {
       if (cancelled) return
       setDetails(null)
+      setDetailsError(false)
       if (!item) return
-
-      api
-        .get<MediaDetails>(
-          `/api/media/${item.mediaType.toLowerCase()}/${item.tmdbId}`
-        )
-        .then((res) => {
-          if (!cancelled) setDetails(res.data)
-        })
-        .catch(() => {})
+      fetchDetails(item, () => cancelled)
     }, 0)
 
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [item])
+  }, [item, fetchDetails])
+
+  const handleRetryDetails = () => {
+    if (!item) return
+    setDetailsError(false)
+    fetchDetails(item, () => false)
+  }
 
   useEffect(() => {
     if (!item) return
@@ -99,7 +127,7 @@ export function PendingDetailModal({
                 <div className="h-7 w-48 animate-pulse rounded-lg bg-white/[0.08]" />
               ) : (
                 <h2 className="font-display text-[clamp(18px,3vw,24px)] font-bold leading-tight tracking-tight">
-                  {details!.title}
+                  {details?.title ?? item.title}
                 </h2>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#a6a39a]">
@@ -167,7 +195,21 @@ export function PendingDetailModal({
 
           {/* Details */}
           <div className="min-w-0 flex-1">
-            {showSkeleton || !details ? (
+            {detailsError ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-8 text-center">
+                <TriangleAlert className="size-5 text-[#ffb3b3]" />
+                <p className="text-[13px] text-[#ffb3b3]">
+                  Não foi possível carregar os detalhes deste título.
+                </p>
+                <Button
+                  type="button"
+                  onClick={handleRetryDetails}
+                  className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                >
+                  <RefreshCw className="size-3.5" /> Tentar novamente
+                </Button>
+              </div>
+            ) : showSkeleton || !details ? (
               <DetailModalSkeleton showPoster={false} />
             ) : (
               <div className="flex flex-col gap-5">
@@ -302,6 +344,23 @@ export function PendingDetailModal({
                     Curtir
                   </Button>
                 </div>
+
+                {actionError && (
+                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-3 text-center">
+                    <p className="flex items-center gap-2 text-[13px] text-[#ffb3b3]">
+                      <TriangleAlert className="size-4" />
+                      {actionError}
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={onRetryAction}
+                      disabled={actionLoading}
+                      className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                    >
+                      <RefreshCw className="size-3.5" /> Tentar novamente
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -2,6 +2,8 @@ package com.app.media;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -10,6 +12,8 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Service
 public class MediaDetailsService {
+
+	private static final Logger log = LoggerFactory.getLogger(MediaDetailsService.class);
 
 	private static final String POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500";
 
@@ -101,6 +105,7 @@ public class MediaDetailsService {
 			return Integer.parseInt(date.substring(0, 4));
 		}
 		catch (NumberFormatException ex) {
+			log.warn("Data de lancamento em formato inesperado retornada pelo TMDB: {}", date);
 			return null;
 		}
 	}

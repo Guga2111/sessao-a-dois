@@ -1,6 +1,7 @@
 package com.app.auth;
 
 import com.app.couple.Couple;
+import com.app.couple.CoupleResponseMapper;
 import com.app.couple.CoupleService;
 import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
@@ -42,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AuthController.class)
 @Import({ SecurityConfig.class, AuthCookieService.class, ClientIpResolver.class, RateLimitService.class,
-	RateLimitProperties.class, SecurityAuditLogger.class })
+	RateLimitProperties.class, SecurityAuditLogger.class, CoupleResponseMapper.class })
 class AuthControllerTest {
 
 	@Autowired
@@ -290,7 +291,7 @@ class AuthControllerTest {
 		UUID userId = UUID.randomUUID();
 		User user = new User("Ana", "ana@example.com", "hashed-password");
 		ReflectionTestUtils.setField(user, "id", userId);
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(authService.findAuthenticatedUser(userId)).thenReturn(user);
 
 		Couple couple = new Couple(userId, "ABC234");
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple));
@@ -307,7 +308,7 @@ class AuthControllerTest {
 		UUID userId = UUID.randomUUID();
 		User user = new User("Ana", "ana@example.com", "hashed-password");
 		ReflectionTestUtils.setField(user, "id", userId);
-		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(authService.findAuthenticatedUser(userId)).thenReturn(user);
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
 
 		mockMvc.perform(get("/api/auth/me")

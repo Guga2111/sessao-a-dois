@@ -394,6 +394,8 @@ function SuggestionsTab() {
   const { pendingQueue, pendingLoading, fetchPending, removePending } =
     useMatchStore()
   const [actionLoading, setActionLoading] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [lastAction, setLastAction] = useState<"like" | "reject" | null>(null)
   const [detailItem, setDetailItem] = useState<PendingMatch | null>(null)
   const showPendingSkeleton = useDelayedLoading(pendingLoading)
   const compare = useCompareSelection<PendingMatch>(
@@ -410,6 +412,7 @@ function SuggestionsTab() {
   const handleReject = async () => {
     if (!current || actionLoading) return
     setActionLoading(true)
+    setLastAction("reject")
     try {
       await api.post("/api/match/reject", {
         tmdbId: current.tmdbId,
@@ -417,8 +420,9 @@ function SuggestionsTab() {
       })
       removePending(current.tmdbId)
       setDetailItem(null)
+      setActionError(null)
     } catch {
-      // silently ignore
+      setActionError("Nao foi possivel registrar. Tentem novamente.")
     } finally {
       setActionLoading(false)
     }
@@ -427,6 +431,7 @@ function SuggestionsTab() {
   const handleLike = async () => {
     if (!current || actionLoading) return
     setActionLoading(true)
+    setLastAction("like")
     try {
       await api.post("/api/match/like", {
         tmdbId: current.tmdbId,
@@ -437,11 +442,17 @@ function SuggestionsTab() {
       })
       removePending(current.tmdbId)
       setDetailItem(null)
+      setActionError(null)
     } catch {
-      // silently ignore
+      setActionError("Nao foi possivel registrar. Tentem novamente.")
     } finally {
       setActionLoading(false)
     }
+  }
+
+  const handleActionRetry = () => {
+    if (lastAction === "like") handleLike()
+    else if (lastAction === "reject") handleReject()
   }
 
   if (showPendingSkeleton) {
@@ -626,6 +637,23 @@ function SuggestionsTab() {
               1 de {pendingQueue.length}{" "}
               {pendingQueue.length === 1 ? "sugestao" : "sugestoes"}
             </p>
+
+            {actionError && !detailItem && (
+              <div className="mx-auto mt-4 flex max-w-[320px] flex-col items-center gap-2 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-3 text-center">
+                <p className="flex items-center gap-2 text-[13px] text-[#ffb3b3]">
+                  <TriangleAlert className="size-4" />
+                  {actionError}
+                </p>
+                <Button
+                  type="button"
+                  onClick={handleActionRetry}
+                  disabled={actionLoading}
+                  className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                >
+                  <RefreshCw className="size-3.5" /> Tentar novamente
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -636,6 +664,8 @@ function SuggestionsTab() {
         onLike={handleLike}
         onReject={handleReject}
         actionLoading={actionLoading}
+        actionError={actionError}
+        onRetryAction={handleActionRetry}
       />
 
       <ComparisonDialog
@@ -762,7 +792,9 @@ function SearchTab() {
     api
       .get<MediaGenre[]>("/api/media/genres")
       .then((response) => setGenres(response.data))
-      .catch(() => {})
+      .catch((err) => {
+        console.error("Failed to load media genres", { err })
+      })
   }, [])
 
   useEffect(() => {
@@ -773,7 +805,9 @@ function SearchTab() {
           new Set(response.data.map((t) => trackKey(t.mediaType, t.tmdbId)))
         )
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error("Failed to load tracking keys", { err })
+      })
   }, [])
 
   useEffect(() => {

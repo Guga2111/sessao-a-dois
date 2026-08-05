@@ -9,7 +9,7 @@ import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitService;
 import com.app.security.SecurityAuditLogger;
 import com.app.security.SecurityConfig;
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

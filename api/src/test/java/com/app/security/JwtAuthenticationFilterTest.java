@@ -2,6 +2,7 @@ package com.app.security;
 
 import com.app.auth.AuthCookieService;
 import com.app.couple.CoupleController;
+import com.app.couple.CoupleResponseMapper;
 import com.app.couple.CoupleService;
 import com.app.user.UserRepository;
 
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(CoupleController.class)
 @Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class,
-	SecurityAuditLogger.class })
+	SecurityAuditLogger.class, CoupleResponseMapper.class })
 class JwtAuthenticationFilterTest {
 
 	@Autowired

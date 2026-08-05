@@ -2,7 +2,7 @@ package com.app.notification;
 
 import com.app.couple.Couple;
 import com.app.media.MediaType;
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
