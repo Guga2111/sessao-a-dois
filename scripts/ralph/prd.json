@@ -184,7 +184,7 @@
         "Verificar no browser usando a skill `dev-browser`: ticket com prazo, ticket expirado e regeneracao bem-sucedida"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

@@ -20,7 +20,8 @@ export interface PartnerSummary {
 
 export interface Couple {
   id: string
-  inviteCode: string
+  inviteCode: string | null
+  inviteCodeExpiresAt: string | null
   partner: PartnerSummary | null
   createdAt: string
 }
@@ -56,6 +57,7 @@ interface AuthState {
   logout: () => Promise<void>
   joinCouple: (inviteCode: string) => Promise<Couple>
   createCouple: () => Promise<Couple>
+  regenerateInviteCode: () => Promise<Couple>
   loadCurrentUser: () => Promise<void>
 }
 
@@ -132,6 +134,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   createCouple: async () => {
     const { data } = await api.post<Couple>("/api/couple")
+    persistSession(get().user, data)
+    set({ couple: data })
+    return data
+  },
+
+  regenerateInviteCode: async () => {
+    const { data } = await api.post<Couple>("/api/couple/invite-code/regenerate")
     persistSession(get().user, data)
     set({ couple: data })
     return data

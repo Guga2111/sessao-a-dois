@@ -18,6 +18,10 @@ The root `tsconfig.json` has `"files": []` and only `references` to `tsconfig.ap
 
 The `eslint-plugin-react-hooks` config here forbids calling `setState` synchronously inside a `useEffect` body (`react-hooks/set-state-in-effect`) and forbids reading/writing `ref.current` during render (`react-hooks/refs`). To reset a subtree's local state when something external changes (e.g. closing a menu on route navigation), extract the stateful part into its own subcomponent and mount it with `key={someChangingValue}` from the parent — remounting resets `useState` without effects or refs. See `src/components/Header.tsx`'s `MobileNav` for an example.
 
+## Lint gotcha: `Date.now()` (or `new Date()`) called during render
+
+`react-hooks/purity` flags any impure call (e.g. `Date.now()`) made directly in a component's render body, even just to derive a value like "ms until expiry" — not only the `useEffect`/state-reset cases above. Fix: capture it once via `const [now] = useState(() => Date.now())` (the impure call is only inside the lazy initializer, which the rule allows) and derive everything else from that captured value instead of calling `Date.now()` inline. See `InviteCodeTicket.tsx`'s expiry countdown (US-010) for an example.
+
 ## Modal patterns
 
 Two structural patterns exist for modals/dialogs, don't assume they're all the same:
