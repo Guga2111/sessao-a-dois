@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
-import { X } from "lucide-react"
+import { RefreshCw, TriangleAlert, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { DetailModalSkeleton } from "@/components/skeletons/DetailModalSkeleton"
@@ -71,31 +71,55 @@ export function MediaDetailModal({
   onStatusChange,
 }: MediaDetailModalProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
+  const [detailsError, setDetailsError] = useState(false)
   const backdropRef = useRef<HTMLDivElement>(null)
-  const showSkeleton = useDelayedLoading(!details)
+  const showSkeleton = useDelayedLoading(!details && !detailsError)
+
+  const fetchDetails = useCallback(
+    (current: MediaTrackResponse, isCancelled: () => boolean) => {
+      api
+        .get<MediaDetails>(
+          `/api/media/${current.mediaType.toLowerCase()}/${current.tmdbId}`
+        )
+        .then((res) => {
+          if (isCancelled()) return
+          setDetails(res.data)
+          setDetailsError(false)
+        })
+        .catch((err) => {
+          if (isCancelled()) return
+          console.error("Failed to load media details", {
+            tmdbId: current.tmdbId,
+            mediaType: current.mediaType,
+            err,
+          })
+          setDetailsError(true)
+        })
+    },
+    []
+  )
 
   useEffect(() => {
     let cancelled = false
     const timer = setTimeout(() => {
       if (cancelled) return
       setDetails(null)
+      setDetailsError(false)
       if (!track) return
-
-      api
-        .get<MediaDetails>(
-          `/api/media/${track.mediaType.toLowerCase()}/${track.tmdbId}`
-        )
-        .then((res) => {
-          if (!cancelled) setDetails(res.data)
-        })
-        .catch(() => {})
+      fetchDetails(track, () => cancelled)
     }, 0)
 
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [track])
+  }, [track, fetchDetails])
+
+  const handleRetryDetails = () => {
+    if (!track) return
+    setDetailsError(false)
+    fetchDetails(track, () => false)
+  }
 
   useEffect(() => {
     if (!track) return
@@ -228,7 +252,21 @@ export function MediaDetailModal({
 
           {/* Details */}
           <div className="min-w-0 flex-1">
-            {showSkeleton ? (
+            {detailsError ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-8 text-center">
+                <TriangleAlert className="size-5 text-[#ffb3b3]" />
+                <p className="text-[13px] text-[#ffb3b3]">
+                  Não foi possível carregar os detalhes deste título.
+                </p>
+                <Button
+                  type="button"
+                  onClick={handleRetryDetails}
+                  className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                >
+                  <RefreshCw className="size-3.5" /> Tentar novamente
+                </Button>
+              </div>
+            ) : showSkeleton ? (
               <DetailModalSkeleton showPoster={false} />
             ) : (
               <div className="flex flex-col gap-5">

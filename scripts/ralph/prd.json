@@ -137,7 +137,7 @@
         "Verify in browser using dev-browser skill: abrir o modal de detalhes com a rede bloqueada e confirmar a mensagem de estado degradado"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Mesma dispensa da skill frontend-design da US-006: reaproveitar o padrao de erro existente, sem desenhar visual novo. MediaCard.tsx nao entra aqui - o .catch(() => {}) dele ja foi removido pela T3.2."
     },
     {

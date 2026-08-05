@@ -792,7 +792,9 @@ function SearchTab() {
     api
       .get<MediaGenre[]>("/api/media/genres")
       .then((response) => setGenres(response.data))
-      .catch(() => {})
+      .catch((err) => {
+        console.error("Failed to load media genres", { err })
+      })
   }, [])
 
   useEffect(() => {
@@ -803,7 +805,9 @@ function SearchTab() {
           new Set(response.data.map((t) => trackKey(t.mediaType, t.tmdbId)))
         )
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error("Failed to load tracking keys", { err })
+      })
   }, [])
 
   useEffect(() => {
