@@ -5,7 +5,7 @@ import com.app.media.MediaType;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

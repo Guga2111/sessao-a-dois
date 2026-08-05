@@ -10,7 +10,7 @@ import com.app.notification.NotificationType;
 import com.app.tracking.MediaStatus;
 import com.app.tracking.MediaTrack;
 import com.app.tracking.MediaTrackRepository;
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

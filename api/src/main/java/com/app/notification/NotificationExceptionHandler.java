@@ -1,6 +1,6 @@
 package com.app.notification;
 
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 
 import java.util.Map;
 

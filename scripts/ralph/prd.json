@@ -1,264 +1,159 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/epico-5-endurecimento-contas-auth",
-  "description": "Epico 5 - Endurecimento de Contas e Auth: rate limiting (bucket4j em memoria), fim da enumeracao por timing, validacao de entrada, BCrypt forca 12, ciclo de vida completo do codigo de convite (expiracao/invalidacao/regeneracao + UI), trilha de auditoria com correlation id persistida fora do container, e remocao do e-mail do parceiro da API.",
+  "branchName": "ralph/epico6-arquitetura-erros",
+  "description": "Epico 6 - Arquitetura e Tratamento de Erros. Restaura o package-by-feature, unifica o tratamento de erros num GlobalExceptionHandler, desacopla com.app.match de com.app.tracking via porta explicita, tira repositorios dos controllers, sincroniza docs/ARCHITECTURE.md com o codigo e elimina os catch silenciosos do frontend. NENHUM contrato de API muda: status HTTP e corpo de erro ({message} ou {message, errors}) permanecem identicos, e os testes de controller existentes devem passar SEM alteracao de assercao.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Infraestrutura de rate limit (bucket4j, propriedades e IP do cliente)",
-      "description": "As a desenvolvedor, I want uma base de rate limiting configuravel e um resolvedor unico do IP real so that as historias seguintes apliquem limites sem duplicar logica de parsing de X-Forwarded-For.",
+      "title": "Mover ResourceNotFoundException para com.app.common",
+      "description": "Como desenvolvedor, quero que a excecao de recurso nao encontrado viva no pacote comum, para que ela deixe de ser uma excecao de feature usada como global por com.app.match e com.app.notification.",
       "acceptanceCriteria": [
-        "Adicionar `bucket4j-core` ao `api/pom.xml` com versao explicita",
-        "Criar `ClientIpResolver` em `com.app.security`: le o primeiro IP de `X-Forwarded-For`, cai em `request.getRemoteAddr()` quando o header esta ausente ou em branco",
-        "Remover `AuthController.clientIp` (linhas 122-128) e usar o `ClientIpResolver` no controller - uma unica implementacao dessa logica na aplicacao",
-        "Criar `RateLimitProperties` com `@ConfigurationProperties(prefix = \"app.rate-limit\")` expondo capacidade e janela por endpoint, com os defaults de FR-2: login 5/min por IP, register 3/min por IP, refresh 30/min por IP, couple-join 5/min por IP, login 10/hora por e-mail, couple-join 20/hora por usuario",
-        "`application.properties` declara cada limite via variavel de ambiente com default, no padrao `${VAR:default}` ja usado no arquivo",
-        "Criar `RateLimitService` que resolve/cria buckets por chave (`String`), responde se a requisicao e permitida e devolve os segundos ate a proxima liberacao quando nao for",
-        "Buckets ficam em cache com expiracao por inatividade - uma chave nunca reusada nao vaza memoria indefinidamente",
-        "`RateLimitServiceTest` cobre: liberacao dentro do limite, bloqueio ao exceder, liberacao apos a janela",
-        "`ClientIpResolverTest` cobre as tres formas do `X-Forwarded-For`: ausente, IP unico, cadeia de IPs",
-        "`./mvnw test` passa (typecheck implicito na compilacao Maven)"
+        "O arquivo ResourceNotFoundException.java foi movido de api/src/main/java/com/app/tracking/ para api/src/main/java/com/app/common/ e sua declaracao de package e 'package com.app.common;'",
+        "grep -rn 'com.app.tracking.ResourceNotFoundException' api/src retorna zero ocorrencias",
+        "Todos os importadores foram atualizados: MatchService, MatchController, MatchExceptionHandler, NotificationService, NotificationExceptionHandler, TrackingExceptionHandler e as classes de com.app.tracking que a lancam",
+        "Nenhum comportamento muda: a excecao continua sendo tratada pelos mesmos advices, retornando 404 com corpo {\"message\": \"...\"}",
+        "Nenhum teste teve assercao alterada; apenas imports",
+        "./mvnw test passa (compilacao + 100% dos testes verdes)"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "Story puramente mecanica (mover arquivo + corrigir imports). Nao criar o GlobalExceptionHandler aqui - isso e a US-002. com.app.common JA EXISTE (contem PageResponse), nao precisa ser criado."
     },
     {
       "id": "US-002",
-      "title": "Rate limit por IP nos endpoints de auth e de casal",
-      "description": "As a operador do sistema, I want que tentativas repetidas do mesmo IP sejam bloqueadas so that forca bruta contra login e contra codigo de convite deixe de ser viavel. Depende de US-001.",
+      "title": "Criar GlobalExceptionHandler e enxugar os advices por feature",
+      "description": "Como desenvolvedor, quero um unico handler para os erros transversais, para que um ajuste de formato de erro valha para a aplicacao inteira e para que uma excecao nao prevista retorne 500 generico sem vazar detalhe interno.",
       "acceptanceCriteria": [
-        "Criar `RateLimitFilter` em `com.app.security` aplicando os limites por IP a `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/refresh` e `POST /api/couple/join`",
-        "O filtro roda ANTES da cadeia do Spring Security (registrado com `@Order` baixo), para que a requisicao bloqueada nao consuma BCrypt nem banco",
-        "ATENCAO: nao copiar por inercia o arranjo de `SecurityConfig.jwtFilterRegistration` (linhas 113-118), que DESABILITA o filtro na cadeia de servlet padrao - o rate limit tem o requisito oposto",
-        "Exceder o limite retorna 429 com header `Retry-After` em segundos e corpo `{\"message\": \"...\"}` em pt-BR, no mesmo formato dos demais erros da aplicacao",
-        "Existe `app.rate-limit.enabled` (default `true`); com `false` o filtro deixa passar tudo sem contar",
-        "Os limites valem tambem em desenvolvimento com os mesmos numeros do default - nao ha profile com tetos diferentes",
-        "Nenhum outro endpoint e afetado: `GET /api/tracking` e `GET /api/auth/me` respondem normalmente sob qualquer volume",
-        "Requisicoes dentro do limite passam sem alteracao de comportamento ou de payload",
-        "Teste de integracao cobre: bloqueio ao exceder em cada um dos 4 endpoints, presenca e valor plausivel do `Retry-After`, liberacao apos a janela, e contadores independentes para IPs diferentes",
-        "`./mvnw test` passa"
+        "Existe com.app.common.GlobalExceptionHandler anotado com @RestControllerAdvice SEM basePackages",
+        "GlobalExceptionHandler trata MethodArgumentNotValidException com 400 e corpo {\"message\": \"dados invalidos\", \"errors\": {campo: mensagem}} - LinkedHashMap, formato byte a byte identico ao atual",
+        "GlobalExceptionHandler trata AccessDeniedException com 403 e corpo {\"message\": ex.getMessage()}",
+        "GlobalExceptionHandler trata ResourceNotFoundException com 404 e corpo {\"message\": ex.getMessage()}",
+        "GlobalExceptionHandler trata RateLimitExceededException com 429, header Retry-After e corpo {\"message\": ex.getMessage()}",
+        "GlobalExceptionHandler trata Exception com 500 e corpo exatamente {\"message\": \"erro interno\"} - SEM stacktrace, SEM nome de classe, SEM ex.getMessage() - e registra log.error com a excecao completa",
+        "grep -c '@ExceptionHandler(MethodArgumentNotValidException.class)' em api/src/main/java retorna exatamente 1 (hoje sao 4: Auth, Couple, Match, Tracking)",
+        "grep -c '@ExceptionHandler(RateLimitExceededException.class)' em api/src/main/java retorna exatamente 1 (hoje sao 2: Auth e Couple)",
+        "AuthExceptionHandler fica apenas com EmailAlreadyExistsException, InvalidCredentialsException, InvalidRefreshTokenException e RefreshReuseDetectedException",
+        "CoupleExceptionHandler fica apenas com as 7 excecoes de com.app.couple",
+        "MatchExceptionHandler fica apenas com TitleAlreadyTrackedException",
+        "TrackingExceptionHandler fica apenas com IllegalArgumentException (NAO promover IllegalArgumentException para o global - biblioteca lanca isso em situacao que nao e erro do cliente)",
+        "MediaExceptionHandler fica inalterado (suas 5 excecoes ja sao todas de dominio)",
+        "NotificationExceptionHandler.java foi DELETADO (fica vazio apos a migracao de ResourceNotFoundException e AccessDeniedException para o global)",
+        "Existe GlobalExceptionHandlerTest cobrindo os 5 tipos tratados, incluindo assercao explicita de que o corpo do 500 NAO contem a mensagem original da excecao",
+        "Existe teste confirmando que request com token invalido continua retornando 401 (nao 500) - AuthenticationException do JwtAuthenticationFilter nao passa pelo @RestControllerAdvice",
+        "Os testes de controller existentes passam SEM NENHUMA alteracao de assercao - se algum precisar mudar, o formato de erro mudou e a implementacao esta errada",
+        "./mvnw test passa"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Depende da US-001. A maior parte do trabalho e DELECAO de codigo duplicado, nao escrita. Se aparecer conflito de precedencia entre o advice global e um de feature para o mesmo tipo, usar @Order com o global em Ordered.LOWEST_PRECEDENCE."
     },
     {
       "id": "US-003",
-      "title": "Rate limit por conta no login e no join",
-      "description": "As a operador do sistema, I want um limite adicional por e-mail e por usuario so that um atacante distribuido em varios IPs ainda esbarre num teto por conta alvo. Depende de US-002.",
+      "title": "TrackingFacade para desacoplar com.app.match de com.app.tracking",
+      "description": "Como desenvolvedor, quero que a criacao de MediaTrack passe por uma unica porta, para que uma regra nova de criacao valha automaticamente para os dois caminhos (manual e por match) em vez de precisar ser lembrada em dois lugares.",
       "acceptanceCriteria": [
-        "`POST /api/auth/login` aplica 10/hora por e-mail, alem do limite por IP",
-        "`POST /api/couple/join` aplica 20/hora por usuario autenticado, alem do limite por IP",
-        "O limite por conta e aplicado na camada de servico (`AuthService.login`, `CoupleService.joinCouple`), NAO no filtro - o filtro nao pode ler o corpo sem consumir o `InputStream`. Nao usar `ContentCachingRequestWrapper`",
-        "Criar `RateLimitExceededException` com o `Retry-After` embutido, tratada por handler que retorna 429 com o mesmo corpo e header da US-002",
-        "A chave por e-mail e normalizada (minusculas, sem espacos nas pontas) para que variacoes de caixa nao multipliquem o teto",
-        "O limite por e-mail dispara mesmo quando o e-mail NAO existe, para nao virar oraculo de enumeracao",
-        "`AuthServiceTest` e `CoupleServiceTest` cobrem bloqueio e liberacao",
-        "`./mvnw test` passa"
+        "Existe com.app.tracking.TrackingFacade (componente Spring) expondo a criacao de track originada de um match",
+        "MatchService NAO importa MediaTrackRepository, MediaTrack nem MediaStatus - depende apenas de TrackingFacade e dos DTOs dele",
+        "A entidade criada por MatchService.createMatch tem exatamente os mesmos campos preenchidos de hoje: couple, tmdbId, mediaType, status = WANT_TO_SEE, genreIds, title, posterUrl, releaseYear",
+        "createMatch continua fazendo EXATAMENTE UMA chamada a mediaDetailsService.getDetails e reaproveitando a resposta - nenhuma chamada nova ao TMDB",
+        "ratingRequestService.onRatingRegistered continua NAO sendo disparado no caminho de match (o track nasce WANT_TO_SEE, nao WATCHED) - comportamento preservado, nao corrigido",
+        "O evento STOMP em /topic/couple/{id}/match e a notificacao de match continuam sendo emitidos por MatchService",
+        "Existe teste comparando campo a campo a entidade criada pelo caminho de match e a criada por MediaTrackService.addTrack",
+        "MatchServiceTest passa com o TrackingFacade mockado",
+        "./mvnw test passa"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Assinatura recomendada: createTrackFromMatch(Couple couple, Long tmdbId, MediaType mediaType, MediaDetails details) - recebe Couple (entidade), que MatchService ja tem carregado em transacao, evitando um findById redundante. NAO mover o SimpMessagingTemplate.convertAndSend para after-commit: fora do escopo, e task propria."
     },
     {
       "id": "US-004",
-      "title": "Nivelar o tempo de resposta do login (fechar enumeracao por timing)",
-      "description": "As a usuario, I want que o login demore o mesmo tempo para um e-mail que nao existe e para uma senha errada so that ninguem descubra quais e-mails tem conta cronometrando as respostas.",
+      "title": "Tirar UserRepository dos controllers e unificar o mapper de CoupleResponse",
+      "description": "Como desenvolvedor, quero que os controllers dependam apenas de servicos, para que a camada de acesso a dados nao seja acessivel pela borda HTTP e para eliminar a duplicacao do mapeamento Couple para CoupleResponse.",
       "acceptanceCriteria": [
-        "`AuthService.login`, no caminho de e-mail inexistente, executa `passwordEncoder.matches` contra um hash dummy constante antes de lancar `InvalidCredentialsException`",
-        "O hash dummy e gerado uma unica vez (constante estatica ou no construtor), nunca por requisicao, e corresponde a uma senha que nao pertence a ninguem",
-        "O tempo de resposta de `POST /api/auth/login` para e-mail inexistente e para senha incorreta difere em menos de 10%, medido com >=100 amostras; registrar os numeros medidos na mensagem de commit",
-        "A mensagem de erro continua identica nos dois casos (comportamento atual preservado)",
-        "`AuthServiceTest` cobre explicitamente que o caminho de e-mail inexistente invoca o `passwordEncoder`",
-        "`docs/BACKLOG.md` registra a decisao D4 (manter 409 Conflict no registro), com a justificativa (sem infraestrutura de e-mail transacional no roadmap) e a mitigacao associada (rate limit da US-002)",
-        "`./mvnw test` passa"
+        "AuthController e CoupleController nao injetam UserRepository",
+        "grep -rn 'Repository' nos arquivos *Controller.java de api/src/main/java retorna zero ocorrencias de injecao de repositorio",
+        "Existe UMA implementacao de Couple para CoupleResponse (em CoupleService ou num CoupleResponseMapper dedicado), consumida por ambos os controllers",
+        "Os dois metodos toResponse duplicados (AuthController e CoupleController) foram removidos",
+        "O JSON de POST /api/auth/login, GET /api/auth/me, GET /api/couple/me, POST /api/couple e POST /api/couple/join e identico ao anterior",
+        "O caso de casal SEM parceiro continua retornando partner: null (nao objeto vazio, nao omissao do campo)",
+        "AuthControllerTest e CoupleControllerTest passam sem alteracao de assercao",
+        "./mvnw test passa"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Independente das US-001 a US-003, mas colocada depois delas para manter os commits de backend agrupados por tema."
     },
     {
       "id": "US-005",
-      "title": "Validacao de entrada do login e teto de senha no registro",
-      "description": "As a usuario, I want erros de validacao claros em vez de 401 ou 500 so that entradas malformadas sejam rejeitadas com 400 antes de tocar o banco.",
+      "title": "Sincronizar docs/ARCHITECTURE.md com o codigo e adicionar secao de anti-patterns",
+      "description": "Como desenvolvedor (ou agente Ralph, que le este arquivo como fonte de verdade a cada iteracao), quero que a documentacao de arquitetura descreva os pacotes que realmente existem, para que ela deixe de induzir a decisoes erradas.",
       "acceptanceCriteria": [
-        "`LoginRequest`: `@NotBlank` + `@Email` no e-mail, `@NotBlank` na senha, com mensagens em pt-BR no estilo das de `RegisterRequest`",
-        "`AuthController.login` (linha 54) recebe `@Valid @RequestBody`",
-        "`RegisterRequest.password` ganha `@Size(min = 8, max = 72)` - BCrypt trunca em 72 bytes",
-        "`POST /api/auth/login` com e-mail nulo, em branco ou malformado retorna 400 (nao 401, nao 500)",
-        "Senha com mais de 72 caracteres no registro retorna 400 com mensagem clara em pt-BR",
-        "O corpo do erro e o mesmo ja produzido por `AuthExceptionHandler.handleValidation` (`{message, errors}`) - sem mudanca de formato",
-        "`AuthControllerTest` cobre os novos casos de 400",
-        "`./mvnw test` passa"
+        "docs/ARCHITECTURE.md secao 3 lista TODOS os pacotes de api/src/main/java/com/app/ conferidos por ls, cada um com uma linha de responsabilidade",
+        "Os pacotes hoje ausentes foram adicionados: com.app.auth, com.app.notification e com.app.common",
+        "A descricao de com.app.user reflete que ele ficou apenas com User + UserRepository (o registro/login mora em com.app.auth)",
+        "A regra de dependencia entre features esta escrita explicitamente: features nao importam classes internas de outras features, apenas portas explicitas (ex.: TrackingFacade) e tipos de com.app.common",
+        "Existe uma secao 'Anti-patterns' com no minimo 5 itens, cada um com exemplo do que evitar e a alternativa correta: (a) controller acessando repositorio, (b) excecao de feature usada como global, (c) setState sincrono dentro de useEffect, (d) catch vazio sem log, (e) criacao de entidade fora do servico dono dela",
+        "api/CLAUDE.md nao contradiz o ARCHITECTURE.md atualizado",
+        "Cada afirmacao nova foi conferida contra o codigo - nenhuma e falsa"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Story apenas de documentacao - nenhum codigo muda, entao nao ha typecheck/teste a rodar. Depende das US-002 e US-003 para poder documentar o GlobalExceptionHandler e o TrackingFacade como realidade, nao como plano."
     },
     {
       "id": "US-006",
-      "title": "BCrypt com forca 12",
-      "description": "As a operador do sistema, I want senhas hasheadas com custo maior so that um vazamento do banco seja significativamente mais caro de explorar.",
+      "title": "Like e reject que falham nao removem o card da fila",
+      "description": "Como usuario, quero ver quando curtir ou passar um titulo falha e poder tentar de novo, para nao achar que a acao funcionou enquanto o titulo continua pendente.",
       "acceptanceCriteria": [
-        "`SecurityConfig.passwordEncoder` (linha 122) usa `new BCryptPasswordEncoder(12)`",
-        "Usuarios com hash gravado em forca 10 continuam conseguindo logar (BCrypt le o custo do proprio hash)",
-        "NAO ha re-hash automatico de senhas existentes",
-        "Um teste verifica que um hash produzido com forca 10 ainda valida com o encoder configurado em 12",
-        "O tempo de um `matches` com forca 12 e medido e o numero registrado na mensagem de commit, para conferir que cabe no container de 1 CPU / 512M; se passar de ~500ms, registrar o numero e sinalizar revisita da decisao E5.2",
-        "`./mvnw test` passa"
+        "MatchScreen.tsx:421 (reject) e :441 (like) nao tem mais 'catch { // silently ignore }'",
+        "Quando POST /api/match/like falha, o card NAO sai da fila (removePending nao e chamado)",
+        "Quando POST /api/match/reject falha, o card NAO sai da fila",
+        "Uma mensagem de erro visivel aparece e ha botao de tentar novamente que reexecuta a mesma acao",
+        "O estado de erro e limpo quando a acao seguinte tem sucesso",
+        "actionLoading continua sendo desligado no finally - a UI nao trava apos a falha",
+        "O padrao visual reaproveita o que SearchTab ja usa (fetchError + botao 'Tentar novamente', MatchScreen.tsx:1130-1147) - nenhum estado visual novo e desenhado",
+        "bun run typecheck passa",
+        "bun run lint passa",
+        "Verify in browser using dev-browser skill: forcar falha de rede no like e confirmar que o card permanece na fila com erro e retry"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "A skill frontend-design esta DISPENSADA nesta story por decisao explicita do usuario: o padrao de erro ja existe em SearchTab e e reaproveitado sem alteracao visual. Se durante a implementacao ficar claro que algum caso precisa de um visual que nao existe, PARAR e chamar a skill antes de inventar. NAO refatorar MatchScreen.tsx (1439 linhas) - isso e o Epico 7; encostar apenas nos pontos de catch."
     },
     {
       "id": "US-007",
-      "title": "Migration V6 e comprimento fixo do codigo de convite",
-      "description": "As a desenvolvedor, I need a coluna de expiracao e um codigo de tamanho previsivel so that o ciclo de vida do convite possa ser implementado.",
+      "title": "Tratar os catch silenciosos restantes do frontend",
+      "description": "Como usuario, quero que falhas de carregamento de generos, de chaves de tracking e de detalhes de titulo deem algum sinal, para que a tela nao fique degradada sem explicacao.",
       "acceptanceCriteria": [
-        "Criar `V6__add_invite_code_expiry.sql` adicionando `invite_code_expires_at TIMESTAMP WITH TIME ZONE` a `couples`, nullable, com `IF NOT EXISTS`, sem `DROP`/`TRUNCATE`, compativel com o modo PostgreSQL do H2 - seguindo o padrao de `V5__create_refresh_token.sql` e as convencoes de `api/CLAUDE.md`",
-        "Decidir explicitamente no comentario da migration se `invite_code` sera limpo (exige tornar a coluna nullable aqui) ou marcado como usado (exige campo separado), com a justificativa - ver US-008",
-        "`Couple` ganha o campo `inviteCodeExpiresAt` (`Instant`) e o construtor passa a recebe-lo/deriva-lo",
-        "`InviteCodeGenerator` gera codigos de exatamente 8 caracteres (`MIN_LENGTH`/`MAX_LENGTH` viram um unico `LENGTH = 8`), mantendo o alfabeto sem caracteres ambiguos",
-        "Casais ja existentes com codigo de 6-7 caracteres e `invite_code_expires_at` nulo continuam funcionando - nulo e tratado como 'nao expira'",
-        "O TTL do convite e 7 dias, configuravel por `app.couple.invite-code-ttl` (default `7d`)",
-        "O teste dedicado de migrations sobe com V1-V6 aplicadas em sequencia e `ddl-auto=validate`, e a entidade bate com o schema - rodar, nao presumir",
-        "`InviteCodeGeneratorTest` verifica comprimento fixo 8 e alfabeto",
-        "`./mvnw test` passa"
+        "grep -rn 'catch(() => {})' client/src retorna zero ocorrencias",
+        "MatchScreen.tsx:765 (GET /api/media/genres): a falha registra console.error com contexto e a busca continua utilizavel sem os filtros de genero",
+        "MatchScreen.tsx:776 (GET /api/tracking/keys): a falha registra console.error com contexto e a tela continua funcionando (os titulos apenas nao aparecem marcados como ja rastreados)",
+        "MediaDetailModal.tsx:91: a falha mostra estado degradado visivel (mensagem no lugar do conteudo), nao um modal vazio silencioso",
+        "PendingDetailModal.tsx:49: mesmo tratamento do MediaDetailModal",
+        "Nenhum bloco catch em client/src fica sem tratamento visivel ao usuario OU console.error com contexto",
+        "bun run typecheck passa",
+        "bun run lint passa",
+        "Verify in browser using dev-browser skill: abrir o modal de detalhes com a rede bloqueada e confirmar a mensagem de estado degradado"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Mesma dispensa da skill frontend-design da US-006: reaproveitar o padrao de erro existente, sem desenhar visual novo. MediaCard.tsx nao entra aqui - o .catch(() => {}) dele ja foi removido pela T3.2."
     },
     {
       "id": "US-008",
-      "title": "Expiracao e invalidacao do codigo de convite",
-      "description": "As a usuario, I want que meu codigo de convite expire e pare de circular depois que meu par entra so that um codigo adivinhado ou vazado nao sequestre o vinculo do casal. Depende de US-007.",
+      "title": "Reauditar excecoes engolidas no backend",
+      "description": "Como desenvolvedor, quero confirmar que nenhuma excecao e engolida em api/src sem log, para que uma falha de integracao nunca desapareca sem deixar rastro para investigacao.",
       "acceptanceCriteria": [
-        "`CoupleService.createCouple` grava `inviteCodeExpiresAt = agora + TTL`",
-        "`CoupleService.joinCouple` rejeita codigo expirado com nova `InviteCodeExpiredException`, distinta de `InviteCodeNotFoundException`, mapeada no `CoupleExceptionHandler` para 410 Gone com mensagem propria em pt-BR",
-        "O 410 nao colide com os status ja usados em `/api/couple/join` (404 codigo inexistente, 400 proprio codigo, 409 ja pareado/ja em casal)",
-        "`joinCouple` bem-sucedido invalida o codigo (limpa ou marca como usado), de forma que nenhuma tentativa posterior com ele tenha efeito",
-        "`CoupleResponse` deixa de expor `inviteCode` apos o pareamento (campo nulo quando `user2Id != null`) e passa a expor `inviteCodeExpiresAt`",
-        "A invalidacao nao quebra a `UniqueConstraint` de `invite_code` com varios casais formados (varios NULL sao permitidos em unique no Postgres; se marcar em vez de limpar, garantir unicidade)",
-        "`CoupleServiceTest` cobre: codigo expirado, codigo valido, codigo ja usado, e ausencia do campo na resposta pos-pareamento",
-        "`./mvnw test` passa"
+        "Varredura de todos os blocos catch em api/src/main/java foi feita e listada no progress.txt",
+        "Nenhum catch em api/src/main/java fica sem log de nivel apropriado (warn para falha externa tolerada, error para falha inesperada)",
+        "Todo log de excecao engolida carrega contexto suficiente para investigacao (tmdbId, coupleId, userId conforme o caso), seguindo o padrao ja existente em MediaTrackService, RatingRequestService e MatchService.healMetadata",
+        "Se algum catch exigir MUDANCA DE COMPORTAMENTO (nao apenas adicionar log), NAO mudar: registrar o achado no progress.txt como item a escalar",
+        "./mvnw test passa"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-009",
-      "title": "Endpoint de regeneracao do codigo de convite",
-      "description": "As a usuario cujo codigo expirou antes do meu par entrar, I want gerar um novo codigo so that eu nao precise apagar a conta e recomecar. Depende de US-008.",
-      "acceptanceCriteria": [
-        "`POST /api/couple/invite-code/regenerate` existe, exige autenticacao e devolve `CoupleResponse` com o codigo novo e a nova data de expiracao",
-        "So o criador do casal (`user1Id`) pode regenerar - outro usuario e rejeitado",
-        "Regenerar um casal ja pareado e rejeitado",
-        "O codigo antigo deixa de funcionar imediatamente apos a regeneracao",
-        "O novo codigo tem 8 caracteres e passa pela mesma checagem de unicidade de `generateUniqueInviteCode`",
-        "O endpoint entra no rate limit por usuario reaproveitando a infra da US-003",
-        "`CoupleServiceTest` e `CoupleControllerTest` cobrem sucesso, casal pareado e usuario nao-criador",
-        "`./mvnw test` passa"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-010",
-      "title": "UI - expiracao visivel e acao de regenerar no ticket de convite",
-      "description": "As a usuario na tela de convite, I want ver quando meu codigo expira e poder gerar um novo so that eu entenda o prazo e resolva sozinho quando ele passar. Depende de US-009.",
-      "acceptanceCriteria": [
-        "USAR A SKILL `frontend-design` ANTES de escrever o codigo - e UI alterada, nao refatoracao pura (regra do CLAUDE.md da raiz)",
-        "`InviteCodeTicket.tsx` substitui o texto fixo 'Valido ate alguem usar' (linhas 32-33), hoje falso, por uma indicacao real de prazo (ex.: 'Expira em 6 dias')",
-        "A informacao de prazo entra DENTRO da metafora visual do ingresso de cinema (amarelo #ffcb2b, picote tracejado), nao como aviso generico colado por cima",
-        "Quando o codigo esta expirado, o ticket comunica isso claramente e a acao de regenerar fica em evidencia",
-        "Botao de regenerar chama `POST /api/couple/invite-code/regenerate` e atualiza o ticket com o codigo novo, sem recarregar a pagina",
-        "O tipo `Couple` em `client/src/stores/useAuthStore.ts` espelha `inviteCodeExpiresAt` e o `inviteCode` opcional/nulo (sincronizacao manual, nao ha codegen)",
-        "`JoinPage.tsx` ganha um `case 410` no switch de erro (linhas 43-55) com mensagem propria, distinta do 'nao encontramos esse codigo' do `case 404`, orientando a pedir um codigo novo ao par; reusar o padrao `role=\"alert\"` ja usado no arquivo",
-        "Estados de carregamento e de erro do botao de regenerar seguem o padrao ja usado em `handleCreate`",
-        "`bun run typecheck` e `bun run lint` passam",
-        "Verificar no browser usando a skill `dev-browser`: ticket com prazo, ticket expirado e regeneracao bem-sucedida"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Correlation id por request",
-      "description": "As a quem investiga um incidente, I want que todas as linhas de log de uma mesma requisicao compartilhem um identificador so that eu consiga reconstruir o que aconteceu sem cruzar timestamps na mao.",
-      "acceptanceCriteria": [
-        "Criar filtro em `com.app.security` que gera um correlation id por request (ou reaproveita o header `X-Request-Id` quando presente) e o coloca no MDC",
-        "O MDC e SEMPRE limpo ao fim da request, inclusive quando ela lanca excecao (`try/finally`) - senao o id vaza para a proxima request na mesma thread do pool do Tomcat",
-        "O padrao de log da aplicacao inclui o correlation id em toda linha",
-        "O id e devolvido ao cliente num header de resposta",
-        "Teste: duas requisicoes concorrentes produzem ids distintos e nenhuma linha de uma aparece com o id da outra",
-        "`./mvnw test` passa"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Logger de auditoria de seguranca e emissao dos eventos",
-      "description": "As a operador do sistema, I want um registro estruturado dos eventos de seguranca so that eu consiga responder 'quem entrou, quando, de onde' depois de um incidente. Depende de US-002, US-008 e US-011.",
-      "acceptanceCriteria": [
-        "Criar componente de auditoria em `com.app.security` escrevendo num logger dedicado de nome `security.audit`, com formato estruturado (chave=valor ou JSON), separado do log de aplicacao",
-        "Eventos registrados: login OK, login falho (com e-mail e IP), logout, refresh, deteccao de reuso de refresh token, criacao de casal, entrada em casal, regeneracao de codigo de convite e bloqueio por rate limit (429)",
-        "Cada entrada carrega o correlation id da US-011",
-        "NENHUMA entrada contem senha, token em claro, hash de token ou o valor do codigo de convite - verificado por teste que inspeciona a saida do logger",
-        "Pontos de emissao em `AuthService`, `CoupleService`, `RefreshTokenService` e `RateLimitFilter`, sem que nenhum deles construa a string de log a mao (formatacao centralizada no componente)",
-        "O nivel do logger `security.audit` e configuravel independentemente do resto da aplicacao",
-        "Teste cobre a emissao de pelo menos login OK, login falho e deteccao de reuso",
-        "`./mvnw test` passa"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-013",
-      "title": "Persistir o log de auditoria fora do ciclo de vida do container",
-      "description": "As a operador do sistema, I want que a trilha de auditoria sobreviva ao deploy so that ela sirva de fato para investigar um incidente antigo. Depende de US-012.",
-      "acceptanceCriteria": [
-        "Criar `api/src/main/resources/logback-spring.xml` (hoje nao existe) REPRODUZINDO explicitamente o console appender default do Spring Boot - senao o formato do log normal muda sem querer",
-        "Adicionar `RollingFileAppender` para o logger `security.audit` com `SizeBasedTriggeringPolicy` de 10MB por arquivo, `maxHistory` de 10 arquivos e `totalSizeCap` de 100MB",
-        "Verificar o `totalSizeCap` na pratica: gerar volume acima do teto e conferir que os arquivos mais antigos sao descartados em vez de o disco crescer",
-        "O caminho do arquivo e configuravel por propriedade, com default apontando para um diretorio fora do codigo-fonte da aplicacao",
-        "O logger `security.audit` continua saindo TAMBEM no stdout",
-        "`docker-compose-prod.yml` monta um volume da VPS para o diretorio do log, de forma que o `docker compose down` + `up` da etapa 5/5 do `scripts/deploy.sh` nao apague a trilha",
-        "`docker-compose-prod.yml` limita o log driver `json-file` (`max-size`/`max-file`)",
-        "Rodar a aplicacao localmente sem o diretorio montado NAO quebra o startup - verificado",
-        "`docs/DEPLOY.md` documenta: criar o diretorio na VPS antes do primeiro deploy com esta mudanca, onde o arquivo vive, a politica de rotacao e como consulta-lo",
-        "Verificado que, apos um `docker compose down` + `up`, as entradas anteriores continuam no arquivo",
-        "`./mvnw test` passa"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-014",
-      "title": "Remover o e-mail do parceiro da API",
-      "description": "As a usuario, I want que meu e-mail nao seja entregue ao aplicativo do meu parceiro so that PII nao circule sem necessidade.",
-      "acceptanceCriteria": [
-        "`PartnerSummary` nao tem mais o campo `email` (`PartnerSummary.java:5`)",
-        "`AuthController.toResponse` (linha 133) e `CoupleController.toPartnerSummary` (linha 60) param de preenche-lo",
-        "Nenhuma resposta da API expoe o e-mail do parceiro - conferido em `POST /api/auth/login`, `GET /api/auth/me`, `GET /api/couple/me`, `POST /api/couple` e `POST /api/couple/join`",
-        "O tipo `PartnerSummary` em `client/src/stores/useAuthStore.ts` (linhas 15-19) e espelhado sem `email`",
-        "A UI renderiza igual ao anterior - o campo nao era consumido por nenhum componente; nenhuma mudanca visual, portanto a skill `frontend-design` NAO se aplica",
-        "O e-mail do proprio usuario continua sendo devolvido em `UserSummary` - so o do parceiro sai",
-        "`./mvnw test` passa",
-        "`bun run typecheck` passa"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "O caso original do epico (MatchService:103, catch RuntimeException ignored) JA FOI CORRIGIDO antes deste epico - hoje e um catch com log.warn em healMetadata:131. Esta story pode legitimamente terminar sem mudanca de codigo; nesse caso o entregavel e a varredura documentada no progress.txt confirmando que nao ha catch silencioso restante."
     }
   ]
 }

@@ -1,6 +1,6 @@
 package com.app.match;
 
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

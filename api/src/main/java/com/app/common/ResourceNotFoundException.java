@@ -1,4 +1,4 @@
-package com.app.tracking;
+package com.app.common;
 
 public class ResourceNotFoundException extends RuntimeException {
 
