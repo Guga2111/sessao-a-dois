@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Reproduz explicitamente o console appender default do Spring Boot (via os
+mesmos includes que o Boot usa internamente: defaults.xml + console-appender.xml,
+raiz em INFO) para que o formato do log normal NAO mude. Deliberadamente NAO
+inclui org/springframework/boot/logging/logback/base.xml - esse recurso
+tambem liga incondicionalmente um FILE appender em /tmp/spring.log (ou
+LOG_FILE/LOG_PATH), o que mudaria o comportamento atual (so console).
+
+Unico acrescimo real: um RollingFileAppender dedicado ao logger "security.audit"
+(US-012), preservando a saida dele tambem no console via additivity="true".
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <springProperty scope="context" name="securityAuditLogPath"
+                     source="app.security.audit-log.path"
+                     defaultValue="/var/log/sessao-a-dois/security-audit.log"/>
+
+    <appender name="SECURITY_AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${securityAuditLogPath}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${securityAuditLogPath}.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>10</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>${FILE_LOG_CHARSET}</charset>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- additivity="true" (default): mantem a saida tambem no CONSOLE via root,
+         alem de gravar no arquivo dedicado abaixo. -->
+    <logger name="security.audit">
+        <appender-ref ref="SECURITY_AUDIT_FILE"/>
+    </logger>
+</configuration>

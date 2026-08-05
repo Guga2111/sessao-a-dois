@@ -172,7 +172,23 @@ sudo nginx -t && sudo systemctl reload nginx
 | `/api/` | `localhost:8085` | Proxy reverso para a API Spring Boot |
 | `/ws/` | `localhost:8085/ws/` | WebSocket/STOMP com headers de Upgrade |
 
-### 3.4 Emitir certificado SSL
+### 3.4 Criar o diretorio da trilha de auditoria (uma vez, antes do primeiro deploy com esta mudanca)
+
+`docker-compose-prod.yml` monta um volume da VPS para o log de auditoria de
+seguranca (`security.audit`, ver "Seguranca operacional" abaixo), para que ele
+sobreviva ao `docker compose down` + `up` da etapa 5/5 do `scripts/deploy.sh`
+(sem o bind mount, o log ficaria dentro do container e desapareceria a cada
+recriacao). Antes do primeiro deploy com esta mudanca, cria o diretorio na VPS:
+
+```bash
+ssh root@31.97.169.38 "mkdir -p /var/lib/sessao-a-dois/security-audit-logs"
+```
+
+Se o diretorio nao existir, o `docker compose up` cria-o automaticamente como
+`root` (comportamento padrao do Docker para bind mounts inexistentes) - o
+passo acima e so para deixar explicito e evitar surpresas de permissao.
+
+### 3.5 Emitir certificado SSL
 
 ```bash
 sudo certbot --nginx -d sessaoadois.luisgosampaio.com
@@ -377,6 +393,50 @@ precisam ser reaplicados manualmente depois. A aplicacao pratica na VPS e a
 verificacao (`curl -I`, console do browser sem violacao de CSP) ficam
 registradas em US-010.
 
+### Trilha de auditoria de seguranca (security.audit)
+
+`com.app.security.SecurityAuditLogger` (US-012) emite eventos de seguranca
+(login OK/falho, logout, refresh, deteccao de reuso de refresh token, criacao
+e entrada em casal, regeneracao de codigo de convite, bloqueio por rate limit)
+no logger dedicado `security.audit`, sempre com o correlation id da requisicao
+(US-011). Nenhuma linha carrega senha, token em claro/hash ou o valor do
+codigo de convite - so identificadores (id, e-mail, IP).
+
+**Onde o arquivo vive:** `api/src/main/resources/logback-spring.xml` declara
+um `RollingFileAppender` so para esse logger, escrevendo em
+`app.security.audit-log.path` (env `SECURITY_AUDIT_LOG_PATH`, default
+`/var/log/sessao-a-dois/security-audit.log` **dentro do container**). O
+`docker-compose-prod.yml` monta esse caminho a partir de
+`/var/lib/sessao-a-dois/security-audit-logs` na VPS (ver "3.4 Criar o
+diretorio da trilha de auditoria" acima) - por isso o arquivo sobrevive a um
+`docker compose down` + `up`, ao contrario do resto do filesystem do
+container. O logger continua saindo tambem no `stdout` normal (`docker compose
+logs`), o arquivo e so a copia persistente.
+
+**Politica de rotacao:** 10MB por arquivo, historico de 10 arquivos, teto
+total de 100MB (`totalSizeCap`) - ao ultrapassar o teto, os arquivos mais
+antigos sao descartados automaticamente pelo Logback, o disco da VPS nunca
+cresce sem limite.
+
+**Como consultar:**
+
+```bash
+# Direto no host (o volume e um bind mount, nao e preciso entrar no container)
+ssh root@31.97.169.38 "tail -f /var/lib/sessao-a-dois/security-audit-logs/security-audit.log"
+
+# Ou via docker compose, de dentro do container
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml exec api tail -f /var/log/sessao-a-dois/security-audit.log"
+
+# Buscar por um correlation id especifico (cruzar com o header X-Request-Id devolvido ao cliente)
+ssh root@31.97.169.38 "grep 'correlationId=<id>' /var/lib/sessao-a-dois/security-audit-logs/security-audit.log"
+```
+
+Rodar a aplicacao localmente sem o diretorio `/var/log/sessao-a-dois` montado
+nao quebra o startup - o `RollingFileAppender` cria o diretorio e o arquivo
+sozinho na primeira escrita (testado tambem em `api/src/test/resources/application.properties`,
+que aponta `app.security.audit-log.path` para `target/test-logs/` em vez do
+default de producao, para nao tentar escrever em `/var/log` durante os testes).
+
 ---
 
 ## Estrutura de ficheiros na VPS
@@ -390,6 +450,9 @@ registradas em US-010.
   ├── index.html
   ├── assets/
   └── ...
+
+/var/lib/sessao-a-dois/security-audit-logs/   # Trilha de auditoria (bind mount, sobrevive a down+up)
+  └── security-audit.log
 
 /etc/nginx/sites-available/
   └── sessaoadois.luisgosampaio.com   # Config Nginx + SSL (Certbot)

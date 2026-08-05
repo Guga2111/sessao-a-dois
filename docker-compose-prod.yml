@@ -12,6 +12,19 @@ services:
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
     ports:
       - "${API_PORT:-8085}:8080"
+    # Trilha de auditoria de seguranca (com.app.security.SecurityAuditLogger, US-012/US-013):
+    # bind mount de um diretorio da VPS para o mesmo caminho default do
+    # RollingFileAppender (app.security.audit-log.path em application.properties),
+    # para que sobreviva a `docker compose down` + `up` (etapa 5/5 do
+    # scripts/deploy.sh). Ver docs/DEPLOY.md para o passo de criar o
+    # diretorio na VPS antes do primeiro deploy com esta mudanca.
+    volumes:
+      - /var/lib/sessao-a-dois/security-audit-logs:/var/log/sessao-a-dois
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
         limits:
