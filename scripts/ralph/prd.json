@@ -44,7 +44,7 @@
         "./mvnw test passa"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Depende da US-001. A maior parte do trabalho e DELECAO de codigo duplicado, nao escrita. Se aparecer conflito de precedencia entre o advice global e um de feature para o mesmo tipo, usar @Order com o global em Ordered.LOWEST_PRECEDENCE."
     },
     {
