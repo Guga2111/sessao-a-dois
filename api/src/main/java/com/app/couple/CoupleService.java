@@ -73,11 +73,44 @@ public class CoupleService {
 		return coupleRepository.save(couple);
 	}
 
+	/**
+	 * Regenera o codigo de convite do casal (US-009). So o criador (user1Id) pode regenerar, e apenas
+	 * enquanto o casal ainda nao estiver pareado - o codigo antigo deixa de funcionar imediatamente.
+	 */
+	public Couple regenerateInviteCode(UUID userId) {
+		enforceRegenerateInviteCodeRateLimit(userId);
+
+		Couple couple = coupleRepository.findByUser1IdOrUser2Id(userId, userId)
+			.orElseThrow(CoupleNotFoundException::new);
+
+		if (!couple.getUser1Id().equals(userId)) {
+			throw new NotCoupleCreatorException();
+		}
+
+		if (couple.getUser2Id() != null) {
+			throw new CoupleAlreadyFullException();
+		}
+
+		Instant expiresAt = Instant.now().plus(coupleProperties.getInviteCodeTtl());
+		couple.regenerateInviteCode(generateUniqueInviteCode(), expiresAt);
+		return coupleRepository.save(couple);
+	}
+
 	/** Limite por usuario autenticado (US-003), alem do limite por IP ja aplicado pelo {@code RateLimitFilter} (US-002). */
 	private void enforceJoinRateLimit(UUID userId) {
 		Limit limit = rateLimitProperties.getCoupleJoinByUser();
 		RateLimitResult result = rateLimitService.tryConsume("couple-join:user:" + userId, limit.getCapacity(),
 				limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
+	}
+
+	/** Reaproveita a mesma infra/limite por usuario da US-003 (US-009), com chave propria. */
+	private void enforceRegenerateInviteCodeRateLimit(UUID userId) {
+		Limit limit = rateLimitProperties.getCoupleJoinByUser();
+		RateLimitResult result = rateLimitService.tryConsume("invite-code-regenerate:user:" + userId,
+				limit.getCapacity(), limit.getWindow());
 		if (!result.allowed()) {
 			throw new RateLimitExceededException(result.retryAfterSeconds());
 		}

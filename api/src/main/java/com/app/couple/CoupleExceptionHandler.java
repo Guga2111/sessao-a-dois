@@ -40,6 +40,16 @@ public class CoupleExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
 	}
 
+	@ExceptionHandler(CoupleNotFoundException.class)
+	public ResponseEntity<Map<String, String>> handleCoupleNotFound(CoupleNotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+	}
+
+	@ExceptionHandler(NotCoupleCreatorException.class)
+	public ResponseEntity<Map<String, String>> handleNotCoupleCreator(NotCoupleCreatorException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", ex.getMessage()));
+	}
+
 	@ExceptionHandler(RateLimitExceededException.class)
 	public ResponseEntity<Map<String, String>> handleRateLimitExceeded(RateLimitExceededException ex) {
 		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)

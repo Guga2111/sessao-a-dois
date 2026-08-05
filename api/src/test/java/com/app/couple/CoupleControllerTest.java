@@ -194,4 +194,50 @@ class CoupleControllerTest {
 				.content("{\"inviteCode\":\"ABC234\"}"))
 			.andExpect(status().isConflict());
 	}
+
+	@Test
+	void regeneratesInviteCodeForCreator() throws Exception {
+		UUID userId = UUID.randomUUID();
+		Couple couple = new Couple(userId, "NEW0001");
+		when(coupleService.regenerateInviteCode(userId)).thenReturn(couple);
+
+		mockMvc.perform(post("/api/couple/invite-code/regenerate")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.inviteCode").value("NEW0001"));
+	}
+
+	@Test
+	void rejectsRegenerateWhenCoupleAlreadyPaired() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.regenerateInviteCode(userId)).thenThrow(new CoupleAlreadyFullException());
+
+		mockMvc.perform(post("/api/couple/invite-code/regenerate")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isConflict());
+	}
+
+	@Test
+	void rejectsRegenerateWhenUserIsNotCreator() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.regenerateInviteCode(userId)).thenThrow(new NotCoupleCreatorException());
+
+		mockMvc.perform(post("/api/couple/invite-code/regenerate")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void rejectsRegenerateWhenUserHasNoCouple() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.regenerateInviteCode(userId)).thenThrow(new CoupleNotFoundException());
+
+		mockMvc.perform(post("/api/couple/invite-code/regenerate")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isNotFound());
+	}
 }

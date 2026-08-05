@@ -48,6 +48,12 @@ public class CoupleController {
 		return ResponseEntity.ok(toResponse(couple, userId));
 	}
 
+	@PostMapping("/invite-code/regenerate")
+	public ResponseEntity<CoupleResponse> regenerateInviteCode(@AuthenticationPrincipal UUID userId) {
+		Couple couple = coupleService.regenerateInviteCode(userId);
+		return ResponseEntity.ok(toResponse(couple, userId));
+	}
+
 	private CoupleResponse toResponse(Couple couple, UUID currentUserId) {
 		UUID partnerId = couple.getUser1Id().equals(currentUserId) ? couple.getUser2Id() : couple.getUser1Id();
 		PartnerSummary partner = partnerId == null ? null : userRepository.findById(partnerId)

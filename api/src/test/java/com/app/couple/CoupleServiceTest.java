@@ -272,4 +272,59 @@ class CoupleServiceTest {
 
 		verify(coupleRepository, never()).save(any());
 	}
+
+	@Test
+	void regeneratesInviteCodeForCreator() {
+		UUID userId = UUID.randomUUID();
+		Couple couple = new Couple(userId, "OLD0001", Instant.now().minus(Duration.ofMinutes(1)));
+		when(coupleRepository.findByUser1IdOrUser2Id(userId, userId)).thenReturn(Optional.of(couple));
+		when(inviteCodeGenerator.generate()).thenReturn("NEW0001");
+		when(coupleRepository.existsByInviteCode("NEW0001")).thenReturn(false);
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Instant before = Instant.now().plus(Duration.ofDays(7));
+		Couple regenerated = coupleService.regenerateInviteCode(userId);
+		Instant after = Instant.now().plus(Duration.ofDays(7));
+
+		assertThat(regenerated.getInviteCode()).isEqualTo("NEW0001");
+		assertThat(regenerated.getInviteCodeExpiresAt()).isBetween(before.minusSeconds(5), after.plusSeconds(5));
+	}
+
+	@Test
+	void rejectsRegenerateWhenUserHasNoCouple() {
+		UUID userId = UUID.randomUUID();
+		when(coupleRepository.findByUser1IdOrUser2Id(userId, userId)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> coupleService.regenerateInviteCode(userId))
+			.isInstanceOf(CoupleNotFoundException.class);
+
+		verify(coupleRepository, never()).save(any());
+	}
+
+	@Test
+	void rejectsRegenerateWhenUserIsNotCreator() {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234");
+		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.of(couple));
+
+		assertThatThrownBy(() -> coupleService.regenerateInviteCode(user2Id))
+			.isInstanceOf(NotCoupleCreatorException.class);
+
+		verify(coupleRepository, never()).save(any());
+	}
+
+	@Test
+	void rejectsRegenerateWhenCoupleAlreadyPaired() {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, null);
+		couple.setUser2Id(user2Id);
+		when(coupleRepository.findByUser1IdOrUser2Id(user1Id, user1Id)).thenReturn(Optional.of(couple));
+
+		assertThatThrownBy(() -> coupleService.regenerateInviteCode(user1Id))
+			.isInstanceOf(CoupleAlreadyFullException.class);
+
+		verify(coupleRepository, never()).save(any());
+	}
 }

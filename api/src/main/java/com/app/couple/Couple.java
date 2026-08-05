@@ -78,6 +78,12 @@ public class Couple {
 		this.inviteCodeExpiresAt = null;
 	}
 
+	/** Substitui o codigo de convite e sua expiracao (US-009) - o codigo antigo deixa de funcionar imediatamente. */
+	public void regenerateInviteCode(String inviteCode, Instant inviteCodeExpiresAt) {
+		this.inviteCode = inviteCode;
+		this.inviteCodeExpiresAt = inviteCodeExpiresAt;
+	}
+
 	public Instant getCreatedAt() {
 		return createdAt;
 	}
