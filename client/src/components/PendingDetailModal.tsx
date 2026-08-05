@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 
-import { Heart, X } from "lucide-react"
+import { Heart, RefreshCw, TriangleAlert, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { DetailModalSkeleton } from "@/components/skeletons/DetailModalSkeleton"
@@ -14,6 +14,8 @@ interface PendingDetailModalProps {
   onLike: () => void
   onReject: () => void
   actionLoading: boolean
+  actionError?: string | null
+  onRetryAction?: () => void
 }
 
 const TYPE_LABEL: Record<PendingMatch["mediaType"], string> = {
@@ -27,6 +29,8 @@ export function PendingDetailModal({
   onLike,
   onReject,
   actionLoading,
+  actionError,
+  onRetryAction,
 }: PendingDetailModalProps) {
   const [details, setDetails] = useState<MediaDetails | null>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
@@ -302,6 +306,23 @@ export function PendingDetailModal({
                     Curtir
                   </Button>
                 </div>
+
+                {actionError && (
+                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-3 text-center">
+                    <p className="flex items-center gap-2 text-[13px] text-[#ffb3b3]">
+                      <TriangleAlert className="size-4" />
+                      {actionError}
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={onRetryAction}
+                      disabled={actionLoading}
+                      className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                    >
+                      <RefreshCw className="size-3.5" /> Tentar novamente
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -118,7 +118,7 @@
         "Verify in browser using dev-browser skill: forcar falha de rede no like e confirmar que o card permanece na fila com erro e retry"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "A skill frontend-design esta DISPENSADA nesta story por decisao explicita do usuario: o padrao de erro ja existe em SearchTab e e reaproveitado sem alteracao visual. Se durante a implementacao ficar claro que algum caso precisa de um visual que nao existe, PARAR e chamar a skill antes de inventar. NAO refatorar MatchScreen.tsx (1439 linhas) - isso e o Epico 7; encostar apenas nos pontos de catch."
     },
     {
