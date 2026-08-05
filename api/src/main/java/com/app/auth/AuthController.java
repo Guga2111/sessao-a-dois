@@ -125,7 +125,7 @@ public class AuthController {
 	private CoupleResponse toResponse(Couple couple, UUID currentUserId) {
 		UUID partnerId = couple.getUser1Id().equals(currentUserId) ? couple.getUser2Id() : couple.getUser1Id();
 		PartnerSummary partner = partnerId == null ? null : userRepository.findById(partnerId)
-			.map(u -> new PartnerSummary(u.getId(), u.getName(), u.getEmail()))
+			.map(u -> new PartnerSummary(u.getId(), u.getName()))
 			.orElse(null);
 		return new CoupleResponse(couple.getId(), couple.getInviteCode(), couple.getInviteCodeExpiresAt(), partner,
 				couple.getCreatedAt());

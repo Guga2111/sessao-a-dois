@@ -92,7 +92,8 @@ class CoupleControllerTest {
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.inviteCode").value(org.hamcrest.Matchers.nullValue()))
-			.andExpect(jsonPath("$.partner.name").value("Bruno"));
+			.andExpect(jsonPath("$.partner.name").value("Bruno"))
+			.andExpect(jsonPath("$.partner.email").doesNotExist());
 	}
 
 	@Test
@@ -122,7 +123,8 @@ class CoupleControllerTest {
 				.content("{\"inviteCode\":\"ABC234\"}"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.inviteCode").value(org.hamcrest.Matchers.nullValue()))
-			.andExpect(jsonPath("$.partner.name").value("Ana"));
+			.andExpect(jsonPath("$.partner.name").value("Ana"))
+			.andExpect(jsonPath("$.partner.email").doesNotExist());
 	}
 
 	@Test

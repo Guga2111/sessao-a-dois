@@ -64,6 +64,6 @@ public class CoupleController {
 	}
 
 	private PartnerSummary toPartnerSummary(User user) {
-		return new PartnerSummary(user.getId(), user.getName(), user.getEmail());
+		return new PartnerSummary(user.getId(), user.getName());
 	}
 }

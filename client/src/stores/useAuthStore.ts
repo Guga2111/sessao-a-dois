@@ -15,7 +15,6 @@ export interface AuthUser {
 export interface PartnerSummary {
   id: string
   name: string
-  email: string
 }
 
 export interface Couple {
