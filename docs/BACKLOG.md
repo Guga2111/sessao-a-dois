@@ -29,6 +29,20 @@ Este backlog divide a arquitetura e as regras de negocio em epicos e tarefas inc
 > reduziu o TTL do access token de 7 dias para 15 minutos. Mantido aqui, nao
 > apagado, para o historico da decisao original continuar legivel.
 
+### Decisoes de Seguranca (Epico 5 - Endurecimento de Contas e Auth)
+
+> **Decisao D4 (2026-08-04):** manter `409 Conflict` em `POST /api/auth/register`
+> quando o e-mail ja existe, em vez de responder sempre `201`/`200` de forma
+> generica (o padrao normalmente recomendado para evitar enumeracao de contas
+> via cadastro). **Justificativa:** eliminar esse oraculo exigiria confirmar a
+> criacao de conta por e-mail transacional (o usuario tentaria logar e so
+> descobriria que a conta ja existe por fora), e nao ha infraestrutura de
+> e-mail transacional no roadmap deste projeto. **Mitigacao associada:** o
+> rate limit por IP em `POST /api/auth/register` (US-002, 3/min) limita o
+> quanto esse endpoint pode ser usado para varrer e-mails em massa. A mesma
+> nivelagem de timing aplicada ao login (US-004) NAO se estende ao registro -
+> o oraculo aqui e o proprio status code, nao o tempo de resposta.
+
 ---
 
 ## Epico 1: Setup e Infraestrutura (Base)

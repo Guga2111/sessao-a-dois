@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -133,7 +134,21 @@ class AuthServiceTest {
 		assertThatThrownBy(() -> authService.login(request, "Mozilla/5.0", "203.0.113.1"))
 			.isInstanceOf(InvalidCredentialsException.class);
 
-		verify(passwordEncoder, never()).matches(anyString(), anyString());
+		verify(passwordEncoder).matches(eq("senha1234"), anyString());
+	}
+
+	@Test
+	void unknownEmailLoginInvokesPasswordEncoderAgainstDummyHash() {
+		var request = new LoginRequest("desconhecido2@example.com", "qualquer-senha");
+
+		when(userRepository.findByEmail("desconhecido2@example.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> authService.login(request, "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(InvalidCredentialsException.class);
+
+		ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
+		verify(passwordEncoder).matches(eq("qualquer-senha"), hashCaptor.capture());
+		assertThat(hashCaptor.getValue()).isNotNull().startsWith("$2a$");
 	}
 
 	@Test
@@ -149,7 +164,7 @@ class AuthServiceTest {
 		assertThatThrownBy(() -> limitedAuthService.login(request, "Mozilla/5.0", "203.0.113.1"))
 			.isInstanceOf(RateLimitExceededException.class);
 
-		verify(passwordEncoder, never()).matches(anyString(), anyString());
+		verify(passwordEncoder, org.mockito.Mockito.times(1)).matches(anyString(), anyString());
 	}
 
 	@Test
