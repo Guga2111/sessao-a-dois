@@ -99,6 +99,19 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void rejectsPasswordOverSeventyTwoCharsWithBadRequest() throws Exception {
+		String tooLongPassword = "a".repeat(73);
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"name":"Ana","email":"ana@example.com","password":"%s"}
+					""".formatted(tooLongPassword)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.password").exists());
+	}
+
+	@Test
 	void rejectsInvalidEmailWithBadRequest() throws Exception {
 		mockMvc.perform(post("/api/auth/register")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -141,6 +154,45 @@ class AuthControllerTest {
 			.contains("HttpOnly")
 			.contains("SameSite=Strict")
 			.contains("Path=/api/auth/refresh");
+	}
+
+	@Test
+	void rejectsLoginWithBlankEmailAsBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"","password":"senha1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.email").exists());
+
+		verify(authService, never()).login(any(), any(), any());
+	}
+
+	@Test
+	void rejectsLoginWithMalformedEmailAsBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"not-an-email","password":"senha1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.email").exists());
+
+		verify(authService, never()).login(any(), any(), any());
+	}
+
+	@Test
+	void rejectsLoginWithBlankPasswordAsBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com","password":""}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.password").exists());
+
+		verify(authService, never()).login(any(), any(), any());
 	}
 
 	@Test

@@ -62,3 +62,16 @@
   - To generate a real BCrypt hash string outside the Spring context (e.g. for a literal constant), compile a throwaway `.java` file against just `spring-security-crypto` + `commons-logging` + `spring-core` + `spring-jcl` from `~/.m2` (`BCryptPasswordEncoder` needs `org.springframework.util.StringUtils` at runtime, which is NOT in `spring-security-crypto` itself) - faster than spinning up a Spring context or a Maven test just to print one string.
   - US-005 is next: `LoginRequest` validation (`@NotBlank`/`@Email`) plus `RegisterRequest.password` size cap - a good next place to also verify no regression was introduced in this story's "malformed email still returns 401 today" behavior, since US-005 changes that to 400.
 ---
+
+## 2026-08-04 - US-005
+- Implemented input validation for login and a password size ceiling for register:
+  - `LoginRequest` gained `@NotBlank`/`@Email` on `email` and `@NotBlank` on `password` (pt-BR messages, same style as `RegisterRequest`) - it's now an annotated record instead of a bare one.
+  - `AuthController.login` takes `@Valid @RequestBody LoginRequest` - malformed/blank/missing email or blank password now short-circuits to the existing `MethodArgumentNotValidException` handler (400 + `{message, errors}`) before ever reaching `AuthService`/BCrypt/the DB, instead of falling through to a 401 (wrong credentials) path.
+  - `RegisterRequest.password` gained `@Size(min = 8, max = 72)` (was `min = 8` only) - BCrypt silently truncates at 72 bytes, so anything longer is now rejected with a clear 400 instead of a silently-truncated hash.
+- Files changed: `api/src/main/java/com/app/auth/LoginRequest.java`, `api/src/main/java/com/app/auth/RegisterRequest.java`, `api/src/main/java/com/app/auth/AuthController.java`, `api/src/test/java/com/app/auth/AuthControllerTest.java` (added `rejectsLoginWithBlankEmailAsBadRequest`, `rejectsLoginWithMalformedEmailAsBadRequest`, `rejectsLoginWithBlankPasswordAsBadRequest`, `rejectsPasswordOverSeventyTwoCharsWithBadRequest`).
+- `./mvnw test`: 393 tests, 0 failures, 0 errors; jacoco coverage gate passed.
+- **Learnings for future iterations:**
+  - No `@WebMvcTest` `@Import` or test-properties changes were needed - `@Valid` on an existing `@RequestBody` param reuses the `MethodArgumentNotValidException` -> `AuthExceptionHandler.handleValidation` path already wired for `RegisterRequest`, so login validation errors come back in the exact same `{message, errors}` shape for free.
+  - US-004's "malformed email still returns 401 today" observation is now obsolete: malformed/blank email on login returns 400 (validation) before the service layer - and never-existent-but-well-formed email still goes through `AuthService.login`'s dummy-hash timing path and returns 401, so the two behaviors (validation vs. authentication) are now cleanly separated and don't interfere.
+  - Next up: US-006 (BCrypt strength 12) - a `SecurityConfig.passwordEncoder` one-liner plus a test proving a strength-10 hash still validates against the strength-12-configured encoder, and a measured `matches()` timing number to record in the commit message.
+---

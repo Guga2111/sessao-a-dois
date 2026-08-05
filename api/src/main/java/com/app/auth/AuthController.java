@@ -54,7 +54,8 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+	public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request,
+			HttpServletRequest servletRequest) {
 		String userAgent = servletRequest.getHeader("User-Agent");
 		String ip = clientIpResolver.resolve(servletRequest);
 		AuthService.LoginResult result = authService.login(request, userAgent, ip);

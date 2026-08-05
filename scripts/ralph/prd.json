@@ -93,7 +93,7 @@
         "`./mvnw test` passa"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
