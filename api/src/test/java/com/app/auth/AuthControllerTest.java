@@ -4,6 +4,8 @@ import com.app.couple.Couple;
 import com.app.couple.CoupleService;
 import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
 import com.app.security.SecurityConfig;
 import com.app.user.User;
 import com.app.user.UserRepository;
@@ -38,7 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@Import({ SecurityConfig.class, AuthCookieService.class, ClientIpResolver.class })
+@Import({ SecurityConfig.class, AuthCookieService.class, ClientIpResolver.class, RateLimitService.class,
+	RateLimitProperties.class })
 class AuthControllerTest {
 
 	@Autowired

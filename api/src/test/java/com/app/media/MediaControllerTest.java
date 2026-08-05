@@ -3,7 +3,10 @@ package com.app.media;
 import java.util.List;
 import java.util.UUID;
 
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
 import com.app.security.SecurityConfig;
 
 import org.junit.jupiter.api.Test;
@@ -24,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MediaController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class })
 class MediaControllerTest {
 
 	@Autowired

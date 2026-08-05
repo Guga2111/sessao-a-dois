@@ -1,6 +1,9 @@
 package com.app.couple;
 
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
 import com.app.security.SecurityConfig;
 import com.app.user.User;
 import com.app.user.UserRepository;
@@ -27,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CoupleController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class })
 class CoupleControllerTest {
 
 	@Autowired

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.http.HttpStatus;
@@ -114,6 +115,20 @@ public class SecurityConfig {
 	FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter jwtAuthenticationFilter) {
 		FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(jwtAuthenticationFilter);
 		registration.setEnabled(false);
+		return registration;
+	}
+
+	/**
+	 * Ao contrario de {@link #jwtFilterRegistration}, este filtro FICA
+	 * habilitado na cadeia de servlet padrao (nao so via
+	 * {@code addFilterBefore} do Spring Security) - o rate limit precisa
+	 * rodar antes de qualquer coisa, com prioridade alta (ordem baixa), para
+	 * que uma requisicao bloqueada nao chegue a consumir BCrypt nem banco.
+	 */
+	@Bean
+	FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter rateLimitFilter) {
+		FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(rateLimitFilter);
+		registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
 		return registration;
 	}
 

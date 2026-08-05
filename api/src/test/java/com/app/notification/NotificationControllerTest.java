@@ -1,7 +1,10 @@
 package com.app.notification;
 
 import com.app.media.MediaType;
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
 import com.app.security.SecurityConfig;
 
 import org.junit.jupiter.api.Test;
@@ -31,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(NotificationController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class })
 class NotificationControllerTest {
 
 	@Autowired

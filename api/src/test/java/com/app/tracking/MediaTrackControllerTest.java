@@ -3,7 +3,10 @@ package com.app.tracking;
 import com.app.couple.Couple;
 import com.app.couple.CoupleService;
 import com.app.media.MediaType;
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
 import com.app.security.SecurityConfig;
 
 import org.junit.jupiter.api.Test;
@@ -38,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MediaTrackController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class })
 class MediaTrackControllerTest {
 
 	@Autowired
