@@ -9,6 +9,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -30,6 +32,17 @@ class SecurityConfigTest {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Test
+	void passwordEncoderHashesWithStrength12ButStillValidatesStrength10Hashes() {
+		String strength10Hash = new BCryptPasswordEncoder(10).encode("senha1234");
+
+		assertThat(passwordEncoder.matches("senha1234", strength10Hash)).isTrue();
+		assertThat(passwordEncoder.encode("senha1234")).startsWith("$2a$12$");
+	}
 
 	@Test
 	void healthRespondsOkWithoutAuthorizationHeader() throws Exception {
