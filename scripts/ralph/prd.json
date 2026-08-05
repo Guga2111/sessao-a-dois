@@ -98,7 +98,7 @@
         "Cada afirmacao nova foi conferida contra o codigo - nenhuma e falsa"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Story apenas de documentacao - nenhum codigo muda, entao nao ha typecheck/teste a rodar. Depende das US-002 e US-003 para poder documentar o GlobalExceptionHandler e o TrackingFacade como realidade, nao como plano."
     },
     {
