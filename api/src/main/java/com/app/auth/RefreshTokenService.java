@@ -1,5 +1,7 @@
 package com.app.auth;
 
+import com.app.security.SecurityAuditLogger;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,13 +31,16 @@ public class RefreshTokenService {
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final Duration ttl;
 	private final Duration reuseGrace;
+	private final SecurityAuditLogger securityAuditLogger;
 
 	public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
 			@Value("${app.auth.refresh-token-ttl:30d}") Duration ttl,
-			@Value("${app.auth.refresh-reuse-grace:30s}") Duration reuseGrace) {
+			@Value("${app.auth.refresh-reuse-grace:30s}") Duration reuseGrace,
+			SecurityAuditLogger securityAuditLogger) {
 		this.refreshTokenRepository = refreshTokenRepository;
 		this.ttl = ttl;
 		this.reuseGrace = reuseGrace;
+		this.securityAuditLogger = securityAuditLogger;
 	}
 
 	/**
@@ -68,7 +73,10 @@ public class RefreshTokenService {
 	public void revoke(String rawToken) {
 		refreshTokenRepository.findByTokenHash(hash(rawToken))
 			.filter(token -> token.getRevokedAt() == null)
-			.ifPresent(token -> token.setRevokedAt(Instant.now()));
+			.ifPresent(token -> {
+				token.setRevokedAt(Instant.now());
+				securityAuditLogger.logout(token.getUserId());
+			});
 	}
 
 	/**
@@ -110,6 +118,7 @@ public class RefreshTokenService {
 			}
 		}
 		log.warn("Reuso de refresh token detectado para usuario {} a partir do IP {}", current.getUserId(), ip);
+		securityAuditLogger.refreshReuseDetected(current.getUserId(), ip);
 		revokeFamily(current.getUserId());
 		throw new RefreshReuseDetectedException();
 	}
@@ -118,6 +127,7 @@ public class RefreshTokenService {
 		IssuedToken issued = issueToken(current.getUserId(), userAgent, ip);
 		current.setRevokedAt(Instant.now());
 		current.setReplacedById(issued.entity().getId());
+		securityAuditLogger.refresh(current.getUserId());
 		return new RotationResult(current.getUserId(), issued.rawToken());
 	}
 

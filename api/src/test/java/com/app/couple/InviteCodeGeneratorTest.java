@@ -9,10 +9,10 @@ class InviteCodeGeneratorTest {
 	private final InviteCodeGenerator generator = new InviteCodeGenerator();
 
 	@Test
-	void generatesCodeWithLengthBetweenSixAndEightCharacters() {
+	void generatesCodeWithFixedLengthOfEightCharacters() {
 		for (int i = 0; i < 50; i++) {
 			String code = generator.generate();
-			assertThat(code.length()).isBetween(6, 8);
+			assertThat(code).hasSize(8);
 		}
 	}
 

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.http.HttpStatus;
@@ -117,8 +118,36 @@ public class SecurityConfig {
 		return registration;
 	}
 
+	/**
+	 * Ao contrario de {@link #jwtFilterRegistration}, este filtro FICA
+	 * habilitado na cadeia de servlet padrao (nao so via
+	 * {@code addFilterBefore} do Spring Security) - o rate limit precisa
+	 * rodar antes de qualquer coisa, com prioridade alta (ordem baixa), para
+	 * que uma requisicao bloqueada nao chegue a consumir BCrypt nem banco.
+	 */
+	@Bean
+	FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter rateLimitFilter) {
+		FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(rateLimitFilter);
+		registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+		return registration;
+	}
+
+	/**
+	 * Roda antes ate do {@link #rateLimitFilterRegistration}, para que o
+	 * correlation id (US-011) esteja no MDC para toda linha de log emitida
+	 * por qualquer filtro/servico ao longo da requisicao, incluindo um
+	 * eventual bloqueio por rate limit.
+	 */
+	@Bean
+	FilterRegistrationBean<CorrelationIdFilter> correlationIdFilterRegistration(
+			CorrelationIdFilter correlationIdFilter) {
+		FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(correlationIdFilter);
+		registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+		return registration;
+	}
+
 	@Bean
 	PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
+		return new BCryptPasswordEncoder(12);
 	}
 }

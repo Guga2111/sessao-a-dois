@@ -1,7 +1,15 @@
 package com.app.couple;
 
+import com.app.security.RateLimitExceededException;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitProperties.Limit;
+import com.app.security.RateLimitService;
+import com.app.security.RateLimitService.RateLimitResult;
+import com.app.security.SecurityAuditLogger;
+
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,10 +18,20 @@ public class CoupleService {
 
 	private final CoupleRepository coupleRepository;
 	private final InviteCodeGenerator inviteCodeGenerator;
+	private final RateLimitService rateLimitService;
+	private final RateLimitProperties rateLimitProperties;
+	private final CoupleProperties coupleProperties;
+	private final SecurityAuditLogger securityAuditLogger;
 
-	public CoupleService(CoupleRepository coupleRepository, InviteCodeGenerator inviteCodeGenerator) {
+	public CoupleService(CoupleRepository coupleRepository, InviteCodeGenerator inviteCodeGenerator,
+			RateLimitService rateLimitService, RateLimitProperties rateLimitProperties,
+			CoupleProperties coupleProperties, SecurityAuditLogger securityAuditLogger) {
 		this.coupleRepository = coupleRepository;
 		this.inviteCodeGenerator = inviteCodeGenerator;
+		this.rateLimitService = rateLimitService;
+		this.rateLimitProperties = rateLimitProperties;
+		this.coupleProperties = coupleProperties;
+		this.securityAuditLogger = securityAuditLogger;
 	}
 
 	public Couple createCouple(UUID userId) {
@@ -21,8 +39,11 @@ public class CoupleService {
 			throw new UserAlreadyInCoupleException();
 		}
 
-		Couple couple = new Couple(userId, generateUniqueInviteCode());
-		return coupleRepository.save(couple);
+		Instant expiresAt = Instant.now().plus(coupleProperties.getInviteCodeTtl());
+		Couple couple = new Couple(userId, generateUniqueInviteCode(), expiresAt);
+		Couple saved = coupleRepository.save(couple);
+		securityAuditLogger.coupleCreated(userId, saved.getId());
+		return saved;
 	}
 
 	public Optional<Couple> getCurrentCouple(UUID userId) {
@@ -30,8 +51,15 @@ public class CoupleService {
 	}
 
 	public Couple joinCouple(UUID userId, String inviteCode) {
+		enforceJoinRateLimit(userId);
+
 		Couple couple = coupleRepository.findByInviteCode(inviteCode)
 			.orElseThrow(InviteCodeNotFoundException::new);
+
+		Instant expiresAt = couple.getInviteCodeExpiresAt();
+		if (expiresAt != null && Instant.now().isAfter(expiresAt)) {
+			throw new InviteCodeExpiredException();
+		}
 
 		if (couple.getUser1Id().equals(userId)) {
 			throw new CannotJoinOwnCoupleException();
@@ -46,7 +74,55 @@ public class CoupleService {
 		}
 
 		couple.setUser2Id(userId);
-		return coupleRepository.save(couple);
+		couple.clearInviteCode();
+		Couple saved = coupleRepository.save(couple);
+		securityAuditLogger.coupleJoined(userId, saved.getId());
+		return saved;
+	}
+
+	/**
+	 * Regenera o codigo de convite do casal (US-009). So o criador (user1Id) pode regenerar, e apenas
+	 * enquanto o casal ainda nao estiver pareado - o codigo antigo deixa de funcionar imediatamente.
+	 */
+	public Couple regenerateInviteCode(UUID userId) {
+		enforceRegenerateInviteCodeRateLimit(userId);
+
+		Couple couple = coupleRepository.findByUser1IdOrUser2Id(userId, userId)
+			.orElseThrow(CoupleNotFoundException::new);
+
+		if (!couple.getUser1Id().equals(userId)) {
+			throw new NotCoupleCreatorException();
+		}
+
+		if (couple.getUser2Id() != null) {
+			throw new CoupleAlreadyFullException();
+		}
+
+		Instant expiresAt = Instant.now().plus(coupleProperties.getInviteCodeTtl());
+		couple.regenerateInviteCode(generateUniqueInviteCode(), expiresAt);
+		Couple saved = coupleRepository.save(couple);
+		securityAuditLogger.inviteCodeRegenerated(userId, saved.getId());
+		return saved;
+	}
+
+	/** Limite por usuario autenticado (US-003), alem do limite por IP ja aplicado pelo {@code RateLimitFilter} (US-002). */
+	private void enforceJoinRateLimit(UUID userId) {
+		Limit limit = rateLimitProperties.getCoupleJoinByUser();
+		RateLimitResult result = rateLimitService.tryConsume("couple-join:user:" + userId, limit.getCapacity(),
+				limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
+	}
+
+	/** Reaproveita a mesma infra/limite por usuario da US-003 (US-009), com chave propria. */
+	private void enforceRegenerateInviteCodeRateLimit(UUID userId) {
+		Limit limit = rateLimitProperties.getCoupleJoinByUser();
+		RateLimitResult result = rateLimitService.tryConsume("invite-code-regenerate:user:" + userId,
+				limit.getCapacity(), limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
 	}
 
 	private String generateUniqueInviteCode() {

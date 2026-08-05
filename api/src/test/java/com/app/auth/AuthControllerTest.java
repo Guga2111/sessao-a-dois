@@ -2,7 +2,11 @@ package com.app.auth;
 
 import com.app.couple.Couple;
 import com.app.couple.CoupleService;
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 import com.app.security.SecurityConfig;
 import com.app.user.User;
 import com.app.user.UserRepository;
@@ -37,7 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@Import({ SecurityConfig.class, AuthCookieService.class })
+@Import({ SecurityConfig.class, AuthCookieService.class, ClientIpResolver.class, RateLimitService.class,
+	RateLimitProperties.class, SecurityAuditLogger.class })
 class AuthControllerTest {
 
 	@Autowired
@@ -95,6 +100,19 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void rejectsPasswordOverSeventyTwoCharsWithBadRequest() throws Exception {
+		String tooLongPassword = "a".repeat(73);
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"name":"Ana","email":"ana@example.com","password":"%s"}
+					""".formatted(tooLongPassword)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.password").exists());
+	}
+
+	@Test
 	void rejectsInvalidEmailWithBadRequest() throws Exception {
 		mockMvc.perform(post("/api/auth/register")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -137,6 +155,45 @@ class AuthControllerTest {
 			.contains("HttpOnly")
 			.contains("SameSite=Strict")
 			.contains("Path=/api/auth/refresh");
+	}
+
+	@Test
+	void rejectsLoginWithBlankEmailAsBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"","password":"senha1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.email").exists());
+
+		verify(authService, never()).login(any(), any(), any());
+	}
+
+	@Test
+	void rejectsLoginWithMalformedEmailAsBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"not-an-email","password":"senha1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.email").exists());
+
+		verify(authService, never()).login(any(), any(), any());
+	}
+
+	@Test
+	void rejectsLoginWithBlankPasswordAsBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com","password":""}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.password").exists());
+
+		verify(authService, never()).login(any(), any(), any());
 	}
 
 	@Test

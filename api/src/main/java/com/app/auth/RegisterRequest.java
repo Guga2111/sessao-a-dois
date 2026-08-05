@@ -14,7 +14,7 @@ public record RegisterRequest(
 	String email,
 
 	@NotBlank(message = "senha nao pode ser vazia")
-	@Size(min = 8, message = "senha deve ter no minimo 8 caracteres")
+	@Size(min = 8, max = 72, message = "senha deve ter entre 8 e 72 caracteres")
 	String password
 ) {
 }

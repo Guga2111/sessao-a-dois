@@ -47,7 +47,7 @@ class FlywayMigrationTest {
         assertThat(applied)
                 .extracting(info -> info.getVersion().toString())
                 .as("todas as migrations de db/migration devem ter sido aplicadas em sequencia")
-                .contains("1", "2", "3", "4", "5");
+                .contains("1", "2", "3", "4", "5", "6");
 
         assertThat(applied)
                 .as("nenhuma migration aplicada pode estar em estado diferente de sucesso")

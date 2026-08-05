@@ -1,9 +1,14 @@
 package com.app.auth;
 
 import com.app.security.JwtService;
+import com.app.security.RateLimitExceededException;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,11 +44,28 @@ class AuthServiceTest {
 	@Mock
 	private RefreshTokenService refreshTokenService;
 
+	private RateLimitProperties rateLimitProperties;
+
 	private AuthService authService;
+
+	@BeforeEach
+	void setUp() {
+		rateLimitProperties = new RateLimitProperties();
+		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
+				new RateLimitService(), rateLimitProperties, new SecurityAuditLogger());
+	}
+
+	private static AuthService newAuthServiceWithLoginByEmailLimit(UserRepository userRepository,
+			PasswordEncoder passwordEncoder, JwtService jwtService, RefreshTokenService refreshTokenService,
+			int capacity, Duration window) {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setLoginByEmail(new RateLimitProperties.Limit(capacity, window));
+		return new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
+				new RateLimitService(), properties, new SecurityAuditLogger());
+	}
 
 	@Test
 	void registersUserWithHashedPassword() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new RegisterRequest("Ana", "ana@example.com", "senha1234");
 
 		when(userRepository.existsByEmail("ana@example.com")).thenReturn(false);
@@ -61,7 +85,6 @@ class AuthServiceTest {
 
 	@Test
 	void rejectsDuplicateEmail() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new RegisterRequest("Ana", "ana@example.com", "senha1234");
 
 		when(userRepository.existsByEmail("ana@example.com")).thenReturn(true);
@@ -75,7 +98,6 @@ class AuthServiceTest {
 
 	@Test
 	void logsInSuccessfullyAndReturnsTokens() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new LoginRequest("ana@example.com", "senha1234");
 		User user = new User("Ana", "ana@example.com", "hashed-password");
 
@@ -94,7 +116,6 @@ class AuthServiceTest {
 
 	@Test
 	void rejectsLoginWithWrongPassword() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new LoginRequest("ana@example.com", "wrong-password");
 		User user = new User("Ana", "ana@example.com", "hashed-password");
 
@@ -107,7 +128,6 @@ class AuthServiceTest {
 
 	@Test
 	void rejectsLoginWithUnknownEmail() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		var request = new LoginRequest("desconhecido@example.com", "senha1234");
 
 		when(userRepository.findByEmail("desconhecido@example.com")).thenReturn(Optional.empty());
@@ -115,12 +135,74 @@ class AuthServiceTest {
 		assertThatThrownBy(() -> authService.login(request, "Mozilla/5.0", "203.0.113.1"))
 			.isInstanceOf(InvalidCredentialsException.class);
 
-		verify(passwordEncoder, never()).matches(anyString(), anyString());
+		verify(passwordEncoder).matches(eq("senha1234"), anyString());
+	}
+
+	@Test
+	void unknownEmailLoginInvokesPasswordEncoderAgainstDummyHash() {
+		var request = new LoginRequest("desconhecido2@example.com", "qualquer-senha");
+
+		when(userRepository.findByEmail("desconhecido2@example.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> authService.login(request, "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(InvalidCredentialsException.class);
+
+		ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
+		verify(passwordEncoder).matches(eq("qualquer-senha"), hashCaptor.capture());
+		assertThat(hashCaptor.getValue()).isNotNull().startsWith("$2a$");
+	}
+
+	@Test
+	void blocksLoginByEmailAfterExceedingLimitEvenWhenEmailDoesNotExist() {
+		AuthService limitedAuthService = newAuthServiceWithLoginByEmailLimit(userRepository, passwordEncoder,
+				jwtService, refreshTokenService, 1, Duration.ofMinutes(1));
+		var request = new LoginRequest("nao-existe@example.com", "senha1234");
+		when(userRepository.findByEmail("nao-existe@example.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> limitedAuthService.login(request, "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(InvalidCredentialsException.class);
+
+		assertThatThrownBy(() -> limitedAuthService.login(request, "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(passwordEncoder, org.mockito.Mockito.times(1)).matches(anyString(), anyString());
+	}
+
+	@Test
+	void loginByEmailRateLimitIgnoresCaseAndSurroundingSpaces() {
+		AuthService limitedAuthService = newAuthServiceWithLoginByEmailLimit(userRepository, passwordEncoder,
+				jwtService, refreshTokenService, 1, Duration.ofMinutes(1));
+		when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+
+		assertThatThrownBy(
+				() -> limitedAuthService.login(new LoginRequest("ana@example.com", "x"), "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(InvalidCredentialsException.class);
+
+		assertThatThrownBy(() -> limitedAuthService.login(new LoginRequest(" ANA@Example.com ", "x"), "Mozilla/5.0",
+				"203.0.113.1"))
+			.isInstanceOf(RateLimitExceededException.class);
+	}
+
+	@Test
+	void releasesLoginByEmailRateLimitAfterWindow() throws InterruptedException {
+		AuthService limitedAuthService = newAuthServiceWithLoginByEmailLimit(userRepository, passwordEncoder,
+				jwtService, refreshTokenService, 1, Duration.ofMillis(150));
+		var request = new LoginRequest("nao-existe2@example.com", "senha1234");
+		when(userRepository.findByEmail("nao-existe2@example.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> limitedAuthService.login(request, "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(InvalidCredentialsException.class);
+		assertThatThrownBy(() -> limitedAuthService.login(request, "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		Thread.sleep(300);
+
+		assertThatThrownBy(() -> limitedAuthService.login(request, "Mozilla/5.0", "203.0.113.1"))
+			.isInstanceOf(InvalidCredentialsException.class);
 	}
 
 	@Test
 	void refreshRotatesTokenAndIssuesNewAccessTokenForRotatedUser() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		UUID userId = UUID.randomUUID();
 		when(refreshTokenService.rotate("raw-refresh-token", "Mozilla/5.0", "203.0.113.1"))
 			.thenReturn(new RefreshTokenService.RotationResult(userId, "new-refresh-token"));
@@ -134,8 +216,6 @@ class AuthServiceTest {
 
 	@Test
 	void logoutDelegatesToRefreshTokenServiceRevoke() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
-
 		authService.logout("raw-refresh-token");
 
 		verify(refreshTokenService).revoke("raw-refresh-token");
@@ -143,7 +223,6 @@ class AuthServiceTest {
 
 	@Test
 	void refreshPropagatesRotationFailure() {
-		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService);
 		when(refreshTokenService.rotate(anyString(), any(), any())).thenThrow(new RefreshReuseDetectedException());
 
 		assertThatThrownBy(() -> authService.refresh("reused-token", "Mozilla/5.0", "203.0.113.1"))
