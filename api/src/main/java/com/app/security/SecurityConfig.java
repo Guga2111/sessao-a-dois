@@ -128,6 +128,20 @@ public class SecurityConfig {
 	@Bean
 	FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter rateLimitFilter) {
 		FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(rateLimitFilter);
+		registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+		return registration;
+	}
+
+	/**
+	 * Roda antes ate do {@link #rateLimitFilterRegistration}, para que o
+	 * correlation id (US-011) esteja no MDC para toda linha de log emitida
+	 * por qualquer filtro/servico ao longo da requisicao, incluindo um
+	 * eventual bloqueio por rate limit.
+	 */
+	@Bean
+	FilterRegistrationBean<CorrelationIdFilter> correlationIdFilterRegistration(
+			CorrelationIdFilter correlationIdFilter) {
+		FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(correlationIdFilter);
 		registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
 		return registration;
 	}
