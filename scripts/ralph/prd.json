@@ -152,7 +152,7 @@
         "./mvnw test passa"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "O caso original do epico (MatchService:103, catch RuntimeException ignored) JA FOI CORRIGIDO antes deste epico - hoje e um catch com log.warn em healMetadata:131. Esta story pode legitimamente terminar sem mudanca de codigo; nesse caso o entregavel e a varredura documentada no progress.txt confirmando que nao ha catch silencioso restante."
     }
   ]
