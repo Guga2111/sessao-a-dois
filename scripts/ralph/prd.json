@@ -63,7 +63,7 @@
         "./mvnw test passa"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Assinatura recomendada: createTrackFromMatch(Couple couple, Long tmdbId, MediaType mediaType, MediaDetails details) - recebe Couple (entidade), que MatchService ja tem carregado em transacao, evitando um findById redundante. NAO mover o SimpMessagingTemplate.convertAndSend para after-commit: fora do escopo, e task propria."
     },
     {

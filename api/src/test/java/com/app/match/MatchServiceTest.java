@@ -7,9 +7,7 @@ import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
 import com.app.notification.NotificationService;
 import com.app.notification.NotificationType;
-import com.app.tracking.MediaStatus;
-import com.app.tracking.MediaTrack;
-import com.app.tracking.MediaTrackRepository;
+import com.app.tracking.TrackingFacade;
 import com.app.common.ResourceNotFoundException;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +46,7 @@ class MatchServiceTest {
 	private MatchRejectRepository matchRejectRepository;
 
 	@Mock
-	private MediaTrackRepository mediaTrackRepository;
+	private TrackingFacade trackingFacade;
 
 	@Mock
 	private CoupleRepository coupleRepository;
@@ -66,7 +64,7 @@ class MatchServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		matchService = new MatchService(matchLikeRepository, matchRejectRepository, mediaTrackRepository,
+		matchService = new MatchService(matchLikeRepository, matchRejectRepository, trackingFacade,
 				coupleRepository, mediaDetailsService, messagingTemplate, notificationService);
 	}
 
@@ -82,7 +80,7 @@ class MatchServiceTest {
 		UUID userId = UUID.randomUUID();
 		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 603L)).thenReturn(false);
+		when(trackingFacade.isTracked(coupleId, 603L)).thenReturn(false);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L)).thenReturn(Optional.empty());
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 603L, userId))
@@ -100,28 +98,24 @@ class MatchServiceTest {
 		UUID userId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
 		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
-		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
+		Couple couple = couple(coupleId);
+		MatchLike partnerLike = new MatchLike(couple, partnerId, 603L, MediaType.MOVIE);
+		MediaDetails details = new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null, List.of(28), null,
+				null, null);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 603L)).thenReturn(false, false);
+		when(trackingFacade.isTracked(coupleId, 603L)).thenReturn(false, false);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L)).thenReturn(Optional.empty());
-		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
+		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 603L, userId))
 			.thenReturn(Optional.of(partnerLike));
-		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
-			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null, List.of(28), null, null, null));
+		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L)).thenReturn(details);
 
 		LikeResponse response = matchService.like(coupleId, userId, request);
 
 		assertThat(response.matched()).isTrue();
 		verify(matchLikeRepository, times(1)).save(any(MatchLike.class));
 
-		ArgumentCaptor<MediaTrack> trackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
-		verify(mediaTrackRepository, times(1)).save(trackCaptor.capture());
-		assertThat(trackCaptor.getValue().getStatus()).isEqualTo(MediaStatus.WANT_TO_SEE);
-		assertThat(trackCaptor.getValue().getTmdbId()).isEqualTo(603L);
-		assertThat(trackCaptor.getValue().getGenreIds()).containsExactly(28);
-		assertThat(trackCaptor.getValue().getTitle()).isEqualTo("Matrix");
-		assertThat(trackCaptor.getValue().getReleaseYear()).isEqualTo(1999);
+		verify(trackingFacade, times(1)).createTrackFromMatch(eq(couple), eq(603L), eq(MediaType.MOVIE), eq(details));
 		verify(mediaDetailsService, times(1)).getDetails(MediaType.MOVIE, 603L);
 
 		ArgumentCaptor<MatchEvent> eventCaptor = ArgumentCaptor.forClass(MatchEvent.class);
@@ -143,7 +137,7 @@ class MatchServiceTest {
 		MatchLike existingLike = new MatchLike(couple(coupleId), userId, 603L, MediaType.MOVIE);
 		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 603L, MediaType.MOVIE);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 603L)).thenReturn(false, true);
+		when(trackingFacade.isTracked(coupleId, 603L)).thenReturn(false, true);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L))
 			.thenReturn(Optional.of(existingLike));
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 603L, userId))
@@ -152,7 +146,8 @@ class MatchServiceTest {
 		LikeResponse response = matchService.like(coupleId, userId, request);
 
 		assertThat(response.matched()).isTrue();
-		verify(mediaTrackRepository, never()).save(any(MediaTrack.class));
+		verify(trackingFacade, never()).createTrackFromMatch(any(Couple.class), any(Long.class), any(MediaType.class),
+				any(MediaDetails.class));
 		verify(messagingTemplate, never()).convertAndSend(anyString(), any(MatchEvent.class));
 		verify(notificationService, never()).notifyCouple(any(Couple.class), any(NotificationType.class), any(Long.class),
 				any(MediaType.class), anyString(), any(UUID.class));
@@ -164,7 +159,7 @@ class MatchServiceTest {
 		UUID userId = UUID.randomUUID();
 		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 603L)).thenReturn(true);
+		when(trackingFacade.isTracked(coupleId, 603L)).thenReturn(true);
 
 		assertThatThrownBy(() -> matchService.like(coupleId, userId, request))
 			.isInstanceOf(TitleAlreadyTrackedException.class);
@@ -178,7 +173,7 @@ class MatchServiceTest {
 		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
 		MatchLike existingLike = new MatchLike(couple(coupleId), userId, 603L, MediaType.MOVIE);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 603L)).thenReturn(false);
+		when(trackingFacade.isTracked(coupleId, 603L)).thenReturn(false);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L))
 			.thenReturn(Optional.of(existingLike));
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 603L, userId))
@@ -197,7 +192,7 @@ class MatchServiceTest {
 		UUID userId = UUID.randomUUID();
 		LikeRequest request = new LikeRequest(1399L, MediaType.TV);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 1399L)).thenReturn(false);
+		when(trackingFacade.isTracked(coupleId, 1399L)).thenReturn(false);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 1399L)).thenReturn(Optional.empty());
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 1399L, userId))
@@ -224,7 +219,7 @@ class MatchServiceTest {
 		UUID userId = UUID.randomUUID();
 		LikeRequest request = new LikeRequest(1399L, MediaType.TV, "Game of Thrones", "/got.jpg", 2011);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 1399L)).thenReturn(false);
+		when(trackingFacade.isTracked(coupleId, 1399L)).thenReturn(false);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 1399L)).thenReturn(Optional.empty());
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 1399L, userId))
@@ -249,7 +244,7 @@ class MatchServiceTest {
 		LikeRequest request = new LikeRequest(1399L, MediaType.TV);
 		MatchLike partnerLike = new MatchLike(couple(coupleId), partnerId, 1399L, MediaType.TV);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 1399L)).thenReturn(false, false);
+		when(trackingFacade.isTracked(coupleId, 1399L)).thenReturn(false, false);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 1399L)).thenReturn(Optional.empty());
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple(coupleId)));
 		when(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, 1399L, userId))
@@ -261,10 +256,10 @@ class MatchServiceTest {
 
 		assertThat(response.matched()).isTrue();
 
-		ArgumentCaptor<MediaTrack> trackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
-		verify(mediaTrackRepository, times(1)).save(trackCaptor.capture());
-		assertThat(trackCaptor.getValue().getMediaType()).isEqualTo(MediaType.TV);
-		assertThat(trackCaptor.getValue().getGenreIds()).containsExactly(18, 10765);
+		ArgumentCaptor<MediaDetails> detailsCaptor = ArgumentCaptor.forClass(MediaDetails.class);
+		verify(trackingFacade, times(1)).createTrackFromMatch(any(Couple.class), eq(1399L), eq(MediaType.TV),
+				detailsCaptor.capture());
+		assertThat(detailsCaptor.getValue().genreIds()).containsExactly(18, 10765);
 
 		ArgumentCaptor<MatchEvent> eventCaptor = ArgumentCaptor.forClass(MatchEvent.class);
 		verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/couple/" + coupleId + "/match"),
@@ -282,7 +277,7 @@ class MatchServiceTest {
 		UUID userId = UUID.randomUUID();
 		LikeRequest request = new LikeRequest(603L, MediaType.MOVIE);
 
-		when(mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, 603L)).thenReturn(false);
+		when(trackingFacade.isTracked(coupleId, 603L)).thenReturn(false);
 		when(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, 603L)).thenReturn(Optional.empty());
 		when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
 

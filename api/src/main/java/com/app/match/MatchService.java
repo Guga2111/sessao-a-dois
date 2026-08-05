@@ -6,9 +6,7 @@ import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.notification.NotificationService;
 import com.app.notification.NotificationType;
-import com.app.tracking.MediaStatus;
-import com.app.tracking.MediaTrack;
-import com.app.tracking.MediaTrackRepository;
+import com.app.tracking.TrackingFacade;
 import com.app.common.ResourceNotFoundException;
 
 import org.slf4j.Logger;
@@ -29,19 +27,19 @@ public class MatchService {
 
 	private final MatchLikeRepository matchLikeRepository;
 	private final MatchRejectRepository matchRejectRepository;
-	private final MediaTrackRepository mediaTrackRepository;
+	private final TrackingFacade trackingFacade;
 	private final CoupleRepository coupleRepository;
 	private final MediaDetailsService mediaDetailsService;
 	private final SimpMessagingTemplate messagingTemplate;
 	private final NotificationService notificationService;
 
 	public MatchService(MatchLikeRepository matchLikeRepository, MatchRejectRepository matchRejectRepository,
-			MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
+			TrackingFacade trackingFacade, CoupleRepository coupleRepository,
 			MediaDetailsService mediaDetailsService, SimpMessagingTemplate messagingTemplate,
 			NotificationService notificationService) {
 		this.matchLikeRepository = matchLikeRepository;
 		this.matchRejectRepository = matchRejectRepository;
-		this.mediaTrackRepository = mediaTrackRepository;
+		this.trackingFacade = trackingFacade;
 		this.coupleRepository = coupleRepository;
 		this.mediaDetailsService = mediaDetailsService;
 		this.messagingTemplate = messagingTemplate;
@@ -50,7 +48,7 @@ public class MatchService {
 
 	@Transactional
 	public LikeResponse like(UUID coupleId, UUID userId, LikeRequest request) {
-		if (mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, request.tmdbId())) {
+		if (trackingFacade.isTracked(coupleId, request.tmdbId())) {
 			throw new TitleAlreadyTrackedException();
 		}
 
@@ -70,7 +68,7 @@ public class MatchService {
 			.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, request.tmdbId(), userId)
 			.isPresent();
 
-		if (matched && !mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, request.tmdbId())) {
+		if (matched && !trackingFacade.isTracked(coupleId, request.tmdbId())) {
 			if (couple == null) {
 				couple = coupleRepository.findById(coupleId)
 					.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
@@ -137,12 +135,7 @@ public class MatchService {
 	private void createMatch(Couple couple, LikeRequest request, UUID actorUserId) {
 		MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
 
-		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), MediaStatus.WANT_TO_SEE);
-		track.setGenreIds(details.genreIds());
-		track.setTitle(details.title());
-		track.setPosterUrl(details.posterUrl());
-		track.setReleaseYear(details.year());
-		mediaTrackRepository.save(track);
+		trackingFacade.createTrackFromMatch(couple, request.tmdbId(), request.mediaType(), details);
 
 		MatchEvent event = new MatchEvent(request.tmdbId(), details.title(), request.mediaType());
 		messagingTemplate.convertAndSend("/topic/couple/" + couple.getId() + "/match", event);
