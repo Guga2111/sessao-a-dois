@@ -28,6 +28,15 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!--
+			jjwt NAO e gerenciado pelo BOM do Spring Boot (verificado em 2026-08-06 no
+			spring-boot-dependencies-4.1.0.pom: zero ocorrencias de io.jsonwebtoken).
+			Por isso a versao precisa ser declarada aqui e subir por bump manual — quem
+			avisa que ela defasou e o Dependabot (.github/dependabot.yml, ecossistema
+			maven em /api). Property unica: os 3 artefatos (api/impl/jackson) tem que
+			subir sempre juntos, versoes diferentes entre eles quebram em runtime.
+		-->
+		<jjwt.version>0.12.6</jjwt.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -83,18 +92,18 @@
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
-			<version>0.12.6</version>
+			<version>${jjwt.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-impl</artifactId>
-			<version>0.12.6</version>
+			<version>${jjwt.version}</version>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-jackson</artifactId>
-			<version>0.12.6</version>
+			<version>${jjwt.version}</version>
 			<scope>runtime</scope>
 		</dependency>
 

@@ -1,0 +1,128 @@
+name: CD - Deploy para producao
+
+# Dispara quando um PR de dev -> main e mergeado (todo merge produz um push na
+# main), e tambem manualmente pelo botao "Run workflow" da aba Actions.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Um deploy de cada vez. Dois workflows a fazer `docker compose down`/`up -d` na
+# mesma VPS ao mesmo tempo deixariam a producao num estado indefinido.
+# cancel-in-progress fica FALSE de proposito: cancelar um deploy a meio (entre o
+# `down` e o `up -d`) e pior do que esperar o anterior terminar.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # Reexecuta a suite completa (API + frontend) no codigo ja mergeado.
+  tests:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy para a VPS
+    needs: tests
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://sessaoadois.luisgosampaio.com
+
+    env:
+      VPS_IP: ${{ vars.VPS_IP || '31.97.169.38' }}
+      VPS_USER: ${{ vars.VPS_USER || 'root' }}
+      APP_URL: ${{ vars.APP_URL || 'https://sessaoadois.luisgosampaio.com' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Configurar chave SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+
+          if [[ -n "${SSH_KNOWN_HOSTS}" ]]; then
+            # Host key fixada por secret: protege contra MITM no momento do deploy.
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            # Fallback trust-on-first-use. Ver docs/DEPLOY.md para fixar a chave.
+            ssh-keyscan -H "$VPS_IP" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+
+          cat > ~/.ssh/config << EOF
+          Host $VPS_IP
+            User $VPS_USER
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+          EOF
+
+      # O deploy.sh envia este ficheiro por scp tal como esta. Nada e escrito em
+      # /tmp e o runner e efemero; ainda assim o passo de limpeza no fim apaga-o.
+      - name: Escrever .env a partir dos secrets
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          CORS_ALLOWED_ORIGIN: ${{ vars.CORS_ALLOWED_ORIGIN || 'https://sessaoadois.luisgosampaio.com' }}
+          API_PORT: ${{ vars.API_PORT || '8085' }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          for var in DB_URL DB_USER DB_PASSWORD JWT_SECRET TMDB_API_KEY; do
+            if [[ -z "${!var}" ]]; then
+              echo "❌ Secret obrigatorio em falta: ${var}"
+              echo "   Configurar em Settings > Secrets and variables > Actions."
+              exit 1
+            fi
+          done
+
+          {
+            printf 'DB_URL=%s\n' "$DB_URL"
+            printf 'DB_USER=%s\n' "$DB_USER"
+            printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+            printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
+            printf 'CORS_ALLOWED_ORIGIN=%s\n' "$CORS_ALLOWED_ORIGIN"
+            printf 'TMDB_API_KEY=%s\n' "$TMDB_API_KEY"
+            printf 'API_PORT=%s\n' "$API_PORT"
+          } > .env
+
+      - name: Executar deploy.sh
+        run: ./scripts/deploy.sh
+
+      # O deploy.sh ja mostra o estado do container, mas so a partir de dentro da
+      # VPS. Isto valida o caminho completo: DNS -> nginx -> container.
+      - name: Smoke test do endpoint publico de health
+        run: |
+          set -uo pipefail
+          for attempt in $(seq 1 12); do
+            if curl -fsS --max-time 10 "${APP_URL}/api/health" > /dev/null; then
+              echo "✅ ${APP_URL}/api/health respondeu (tentativa ${attempt})."
+              exit 0
+            fi
+            echo "⏳ Ainda nao respondeu (tentativa ${attempt}/12), a repetir em 10s..."
+            sleep 10
+          done
+          echo "❌ A API nao respondeu em ${APP_URL}/api/health apos 2 minutos."
+          echo "   Ver docs/DEPLOY.md > Troubleshooting. Rollback: revert do commit + novo merge na main."
+          exit 1
+
+      - name: Limpar segredos do runner
+        if: always()
+        run: |
+          shred -u .env ~/.ssh/id_deploy 2>/dev/null || rm -f .env ~/.ssh/id_deploy

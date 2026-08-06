@@ -9,7 +9,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
       TMDB_API_KEY: ${TMDB_API_KEY}
-      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      # SPRING_FLYWAY_BASELINE_ON_MIGRATE foi REMOVIDO daqui (Epico 8, 2026-08-06).
+      # Producao ja tem flyway_schema_history com V1..V6; com a variavel ligada,
+      # uma migration que nao aplicasse seria mascarada como baseline em vez de
+      # quebrar o deploy. Um ambiente NOVO (schema pre-existente sem historico)
+      # passa a variavel pontualmente na propria linha de comando -- ver
+      # docs/DEPLOY.md ("Ambiente novo com schema pre-existente") e docs/FLYWAY.md.
     ports:
       - "${API_PORT:-8085}:8080"
     # Trilha de auditoria de seguranca (com.app.security.SecurityAuditLogger, US-012/US-013):

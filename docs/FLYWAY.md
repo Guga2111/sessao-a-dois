@@ -2,6 +2,62 @@
 
 Este documento explica como o Flyway se comporta neste projeto (`spring.flyway.baseline-on-migrate=true` + `spring.flyway.baseline-version=1`) e o checklist a seguir no primeiro deploy que usa Flyway em producao.
 
+## 2026-08-06 — `SPRING_FLYWAY_BASELINE_ON_MIGRATE` removido do compose de producao
+
+A linha `SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"` foi **removida** de
+`docker-compose-prod.yml` em **2026-08-06** (Epico 8, US-008 do PRD
+`tasks/prd-epico-8-cicd-e-infraestrutura.md`).
+
+**Porque:** ela era necessaria apenas no *primeiro* deploy com Flyway, quando o
+Supabase ja tinha o schema mas nao tinha `flyway_schema_history`. Esse deploy ja
+aconteceu. Mantida ligada permanentemente, ela deixa de ser uma facilidade e vira
+um risco: se um dia o `flyway_schema_history` sumir ou divergir, o Flyway cria uma
+baseline nova e **marca migrations como aplicadas sem as executar** — o deploy sobe
+"verde" com o schema errado, e a falha so aparece depois, como erro de validacao do
+Hibernate ou como coluna inexistente em runtime. Sem a variavel, o mesmo cenario
+quebra o startup imediatamente, que e o comportamento que queremos.
+
+**Como passar pontualmente** (unico caso legitimo: ambiente novo, com schema
+pre-existente e sem `flyway_schema_history`):
+
+```bash
+SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d
+```
+
+Ver tambem `docs/DEPLOY.md`, seccao "Flyway: ambiente novo com schema
+pre-existente".
+
+### ⚠️ GATE HUMANO — verificacao obrigatoria ANTES do merge para a `main`
+
+A mudanca de codigo e **inerte** ate o proximo deploy, mas ela depende de uma
+verificacao operacional (US-007 do PRD) que **nao foi executada por um agente** —
+exige credencial de producao do Supabase. Antes de mergear esta alteracao para a
+`main` (push na `main` = deploy automatico, ver `.github/workflows/deploy.yml`),
+o mantenedor tem de rodar no banco de producao:
+
+```sql
+SELECT installed_rank, version, description, type, success
+FROM flyway_schema_history
+ORDER BY installed_rank;
+```
+
+E confirmar:
+
+- [ ] Existem linhas para **V1 ate V6** (`V6__add_invite_code_expiry.sql` e a
+      ultima migration do repo).
+- [ ] **Todas** tem `success = true`.
+- [ ] A unica linha com `type = 'BASELINE'` e a legitima da V1 (o baseline do
+      primeiro deploy). Nenhuma migration que deveria ter sido executada de fato
+      aparece como baseline.
+
+**Se qualquer migration estiver faltando ou com `success = false`: PARAR.** Esta
+alteracao tem de ser **revertida antes do deploy** — com o schema divergente e sem
+a variavel, o proximo deploy falha no startup e a API nao sobe. Corrigir o
+historico primeiro, depois reaplicar a remocao.
+
+Resultado da verificacao (preencher com a data e a saida da query, sem dado
+sensivel): _pendente — nao executado por agente._
+
 Contexto: ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi criado inteiramente por `spring.jpa.hibernate.ddl-auto=update`. Nao existe `flyway_schema_history` em producao. As migrations atuais sao:
 
 - `api/src/main/resources/db/migration/V1__baseline.sql` — reproduz o schema ja existente em producao (`users`, `couples`, `media_track`, `media_track_genre`, `user_review`, `match_like`, `match_reject`), ver `docs/SCHEMA_BASELINE.md`.

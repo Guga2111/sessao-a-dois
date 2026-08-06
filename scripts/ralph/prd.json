@@ -1,196 +1,117 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "epico7/qol-frontend",
-  "description": "Epico 7 - Qualidade do Frontend. Elimina a duplicacao da selecao-para-comparar (hook em 2 copias, construtor de ComparisonItem em 3), decompoe MatchScreen.tsx (1482 linhas) e HubScreen.tsx (609 linhas) em diretorios por responsabilidade com teto de 400 linhas por arquivo e 8 useState por componente, e corrige os vazamentos da useMatchStore (celebratedMatchKeys em escopo de modulo nunca limpo, subscription STOMP descartada, corrida connect/disconnect). REFATORACAO PURA: nenhum pixel muda, nenhuma chamada de API e criada ou removida, nenhum contrato com o backend e tocado. Unica excecao declarada: os dois catch silenciosos (US-007 e US-009). PRD completo em tasks/prd-epico-7-qualidade-frontend.md - ler antes de comecar qualquer story.",
+  "branchName": "epico8/cicd-infraestrutura",
+  "description": "Epico 8 - CI/CD e Infraestrutura. Fecha a ultima lacuna de cobertura da T8.1 (HealthController), tira o processo Java de root DENTRO do container e da healthcheck ao Docker, cria vigilancia de dependencia nos dois ecossistemas (Dependabot + bun audit com triagem), resolve o pin manual do jjwt e remove o SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose de producao. NAO ha mudanca de UI neste epico - nenhum pixel do client/ e tocado, exceto bun.lock na US-004. NAO ha migration nova (a ultima e V6). PRD completo em tasks/prd-epico-8-cicd-e-infraestrutura.md - ler ANTES de comecar qualquer story, especialmente a tabela de decisoes E8.1 a E8.9. As stories US-007 (conferir flyway_schema_history no Supabase) e US-009 (cadastrar secrets no GitHub e validar o CD na VPS) do PRD sao OPERACIONAIS, exigem credencial de producao e NAO estao neste prd.json - sao executadas manualmente pelo mantenedor.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Extrair useCompareSelection para arquivo proprio",
-      "description": "Como desenvolvedor, quero o hook de selecao-para-comparar num arquivo compartilhado, para que as duas telas consumam a mesma maquina de estados em vez de duas copias que podem divergir. (PRD US-001)",
+      "title": "Teste do HealthController",
+      "description": "Como mantenedor, quero o endpoint de health coberto por teste, para que o probe usado pelo HEALTHCHECK do Docker e pelo smoke test do CD nao possa quebrar sem o CI perceber. (PRD US-001)",
       "acceptanceCriteria": [
-        "useCompareSelection<T> vive em client/src/lib/useCompareSelection.ts e NAO existe mais em client/src/screens/MatchScreen.tsx",
-        "MatchScreen.tsx importa o hook de @/lib/useCompareSelection; as duas chamadas existentes (SuggestionsTab com PendingMatch, SearchTab com MediaSearchResult) funcionam sem alteracao de assinatura",
-        "O setTimeout(..., 0) que embrulha o efeito de fetch foi preservado LITERALMENTE - e o contorno documentado em client/CLAUDE.md para a regra react-hooks/set-state-in-effect, remover quebra o lint",
-        "O retry por nova identidade de array (setSelected(prev => [...prev])) foi preservado",
-        "O listener de Escape que sai do modo comparar foi preservado",
-        "PROVA DE REFATORACAO PURA: git diff de MatchScreen.tsx nesta story mostra apenas remocao de linhas + uma linha de import - nenhum valor de className ou style alterado",
-        "bun run typecheck passa (script usa tsc -b, nao tsc --noEmit)",
-        "bun run lint passa sem novos avisos de react-hooks",
-        "bun run build passa"
+        "Existe api/src/test/java/com/app/HealthControllerTest.java usando @WebMvcTest(HealthController.class)",
+        "Teste afirma GET /api/health -> status 200 e corpo JSON {\"status\":\"UP\"}",
+        "Teste afirma que o endpoint responde SEM autenticacao - a rota e consumida pelo Docker e pelo runner do CD, que nao tem cookie de sessao",
+        "./mvnw test passa e o gate do JaCoCo (minimo 90% de linha, execution 'check' em api/pom.xml) continua verde"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Primeira story do epico e a base das US-002/003. Movimentacao de codigo, nao reescrita: copiar o bloco MatchScreen.tsx:212-310 inteiro para o arquivo novo, exportar, importar de volta. NAO 'melhorar' o hook de passagem - qualquer mudanca de comportamento aqui se propaga para as duas telas nas stories seguintes. Sandbox nao tem browser (sem Chromium/Playwright, sem sudo): a skill dev-browser NAO roda aqui, a verificacao e typecheck+lint+build+diff."
+      "notes": "Story pequena e sem dependencia - serve de aquecimento. HealthController vive em com.app (raiz do pacote), NAO em com.app.common nem numa feature. Cuidado com @WebMvcTest e a SecurityConfig: se o slice nao carregar a config de seguranca, o teste de acesso anonimo prova pouco - conferir como SecurityConfigTest (api/src/test/java/com/app/security/) resolve isso e seguir o mesmo padrao em vez de inventar outro."
     },
     {
       "id": "US-002",
-      "title": "Unificar os tres construtores de ComparisonItem",
-      "description": "Como desenvolvedor, quero uma unica funcao que monte um ComparisonItem, para que uma mudanca no formato do card de comparacao nao precise ser lembrada em tres arquivos. (PRD US-002)",
+      "title": "Container roda como nao-root e expoe healthcheck",
+      "description": "Como operador da VPS, quero o processo Java rodando sem privilegio e com sinal de saude no Docker, para que um escape de container nao entregue root no host e um docker ps mostre imediatamente se a API esta viva. (PRD US-002)",
       "acceptanceCriteria": [
-        "Existe UMA funcao buildComparisonItem(mediaType, tmdbId, overrides?: Partial<ComparisonItem>) em client/src/lib/comparisonItem.ts",
-        "As tres copias sairam: buildComparisonItemFromDetails (MatchScreen.tsx:160), buildComparisonItemFromSearchResult (MatchScreen.tsx:187) e buildComparisonItem (HubScreen.tsx:28)",
-        "buildComparisonItemFromPending (MatchScreen.tsx:183), que e so um repasse, virou chamada direta da funcao unificada ou desapareceu",
-        "Os overrides preservam a preferencia atual: quando o resultado da busca ja traz titulo/ano/poster, esses valores vencem os do endpoint de detalhes; quando nao traz, o endpoint manda",
-        "NENHUMA chamada de API criada ou removida: grep -rn '/api/media/' client/src mostra o mesmo conjunto de chamadas de antes da story",
-        "Comparar 2 titulos no HubScreen e nas duas abas do MatchScreen continua produzindo o mesmo conteudo no ComparisonDialog (revisar por leitura do codigo - nao ha browser no sandbox)",
-        "bun run typecheck passa",
-        "bun run lint passa",
-        "bun run build passa"
+        "No estagio de runtime de api/Dockerfile: addgroup -g 10001 -S app && adduser -u 10001 -S app -G app, seguido de USER app - UID/GID FIXOS em 10001, nao os que o adduser escolheria sozinho",
+        "O jar e copiado com dono app: COPY --from=build --chown=app:app /app/target/*.jar app.jar",
+        "HEALTHCHECK --interval=30s --timeout=3s --start-period=40s CMD wget -qO- http://localhost:8080/api/health || exit 1 - porta INTERNA 8080, nunca a 8085 (que e so o mapeamento do host no docker-compose-prod.yml)",
+        "A ordem de cache das camadas do multi-stage foi preservada: COPY .mvn/, mvnw, pom.xml e dependency:go-offline continuam ANTES de COPY src/",
+        "docs/DEPLOY.md ganha o passo obrigatorio, ANTES do primeiro deploy com esta mudanca: ssh root@31.97.169.38 \"chown -R 10001:10001 /var/lib/sessao-a-dois/security-audit-logs\"",
+        "docs/DEPLOY.md explica POR QUE esse chown e obrigatorio: o bind mount pertence a root e o usuario app nao conseguiria escrever security-audit.log - a trilha de auditoria do Epico 5 morreria em silencio, sem derrubar o app",
+        "Nenhuma outra mudanca de comportamento no Dockerfile: mesma imagem base, mesmo ENTRYPOINT, mesmo EXPOSE"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Depende da US-001. Sao TRES copias, nao duas - o POST-MVP-TASK.md so contou as do MatchScreen, HubScreen.tsx:28 tem a terceira. As tres chamam o MESMO endpoint de detalhes; a unica diferenca real e que a versao do SearchTab prefere titulo/ano/poster que ja vieram no resultado da busca - e exatamente isso que o parametro overrides modela."
+      "notes": "ATENCAO: NAO HA DOCKER NESTE SANDBOX (docker: command not found). Os criterios de 'docker build', 'whoami' e 'docker ps (healthy)' do PRD sao para o mantenedor executar na maquina dele - NAO tente rodar docker aqui e NAO marque a story como incompleta por isso. A verificacao possivel aqui e leitura do Dockerfile + coerencia com docker-compose-prod.yml. Registre no progress.txt que a verificacao com docker ficou pendente do lado humano. A imagem base eclipse-temurin:21-jre-alpine ja traz wget (BusyBox) - NAO instale curl, isso aumentaria a imagem e quebraria o criterio de tamanho do PRD. O risco real desta story nao esta no Dockerfile, esta no chown: reler a secao 'Trilha de auditoria de seguranca' de docs/DEPLOY.md antes de escrever a documentacao."
     },
     {
       "id": "US-003",
-      "title": "HubScreen passa a consumir o hook compartilhado",
-      "description": "Como desenvolvedor, quero remover a reimplementacao inline do HubScreen, para que uma correcao no fluxo de comparacao valha para as duas telas de uma vez. (PRD US-003)",
+      "title": "Dependabot para Maven, npm e GitHub Actions",
+      "description": "Como mantenedor, quero PRs automaticos de atualizacao de dependencia, para que uma CVE no backend ou no frontend nao fique meses sem ser notada. (PRD US-003)",
       "acceptanceCriteria": [
-        "HubScreen.tsx chama useCompareSelection<MediaTrackResponse>(buildComparisonItem, (t) => t.id)",
-        "HubScreen.tsx nao declara mais nenhum dos 6 useState de comparacao: compareMode, selectedForCompare, compareLeft, compareRight, compareLoading, compareError",
-        "O efeito de Promise.all (HubScreen.tsx:206-231) e o listener de Escape (HubScreen.tsx:232-239) foram removidos - o hook ja os fornece",
-        "HubScreen.tsx fica com exatamente 7 useState (13 hoje menos os 6 de comparacao) - conferir com grep -c 'useState' no componente",
-        "Comportamento de comparacao identico: entrar/sair do modo comparar, selecionar 2, contador 'n/2 selecionados', Escape cancela, dialog so abre com ambos carregados, erro mostra retry ao lado da selecao (NAO dentro do dialog), retry funciona",
-        "MediaCard continua recebendo os mesmos props (compareMode/compareSelected/compareOrder/onCompareToggle) com a mesma semantica - o contrato descrito em client/CLAUDE.md nao muda",
-        "PROVA DE REFATORACAO PURA: git diff nao contem nenhuma alteracao de valor de className ou style; o JSX so muda na origem das variaveis",
-        "bun run typecheck passa",
-        "bun run lint passa",
-        "bun run build passa"
+        "Existe .github/dependabot.yml com version: 2 e tres entradas em updates: maven em /api, npm em /client e github-actions em /",
+        "Cadencia semanal (schedule.interval: weekly) nas tres, com open-pull-requests-limit no maximo 5 por ecossistema",
+        "groups configurado para juntar patch e minor num unico PR por ecossistema, deixando major em PR separado",
+        "target-branch: dev nas tres entradas - PR do Dependabot NUNCA abre contra main, senao um bump automatico dispararia deploy de producao",
+        "O YAML e valido (parsear com um validador de YAML antes de commitar; nao existe schema check local)"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Depende das US-001 e US-002. Fecha a T7.1 do POST-MVP-TASK.md. HubScreen.tsx perde ~75 linhas e sai desta story com ~535, o que prepara a US-007. ATENCAO: o catch de HubScreen.tsx:219 (dentro do Promise.all) NAO e silencioso - preenche compareError, visivel ao usuario - e some junto com o efeito. O catch silencioso de verdade e o da linha 260 (fetchSectionPage), tratado na US-007."
+      "notes": "Arquivo novo, sem dependencia de outras stories. O diretorio do maven e /api e o do npm e /client - o repo tem os dois projetos em subpastas, entao 'directory: /' estaria errado para ambos. A entrada github-actions existe porque .github/workflows/ci.yml e deploy.yml pinam actions (actions/checkout@v4, actions/setup-java@v4, oven-sh/setup-bun@v2) que tambem defasam. Nao ha como validar o arquivo de verdade sem o GitHub - a verificacao real (aba Insights > Dependency graph > Dependabot sem erro de parsing) fica do lado humano."
     },
     {
       "id": "US-004",
-      "title": "Extrair useDiscoverSearch com useReducer",
-      "description": "Como desenvolvedor, quero o estado da busca do SearchTab num hook com useReducer, para que os 19 useState virem os ~4 agregados que eles realmente sao, antes de mover o componente de arquivo. (PRD US-004)",
+      "title": "Limpar o que der de vulnerabilidade e triar o resto",
+      "description": "Como mantenedor, quero a arvore de dependencias do frontend atualizada e cada advisory restante classificado, para que o gate da US-005 possa ser ligado sem deixar o CI vermelho no primeiro commit. (PRD US-004)",
       "acceptanceCriteria": [
-        "Existe client/src/screens/match/useDiscoverSearch.ts implementado com useReducer (decisao E5 do PRD: mora na tela, NAO em lib/, porque tem um consumidor so)",
-        "O hook expoe no minimo {query, results, page, totalPages, totalResults, searching, searched, fetchError, resultsContext, runFetch}",
-        "Os 19 useState do SearchTab (MatchScreen.tsx:692-718) ficam agrupados em ~4 fatias: filtros (sortBy, selectedDecades, selectedCertifications, selectedGenres, voteRange, runtimeRange, filtersOpen, genres), resultado (results, totalResults, resultsContext, searched), paginacao (page, totalPages) e status de rede (searching, fetchError)",
-        "O padrao lastFetchRef/lastAttemptRef (MatchScreen.tsx:724-725), documentado em client/CLAUDE.md, foi preservado INTEGRALMENTE: trocar de pagina replica a ultima requisicao bem-sucedida mudando so page, sem re-derivar qual endpoint/filtro esta ativo",
-        "O debounce da busca e o setTimeout(..., 0) do efeito de fetch inicial (/api/media/trending) foram preservados",
-        "likeStates e trackedKeys NAO entram no hook (sao estado de match, nao de busca) e NAO viram um hook proprio compartilhado com o SuggestionsTab (decisao E7 do PRD)",
-        "Sequencia de requests identica: mesmo endpoint, mesmos params, mesma quantidade, para busca com texto, filtros aplicados, trending inicial e troca de pagina",
-        "MatchScreen.tsx continua funcionando com o hook novo - esta story NAO move componentes de arquivo, so extrai o estado",
-        "bun run typecheck passa",
-        "bun run lint passa",
-        "bun run build passa"
+        "bun update executado em client/ (SEM --latest, para nao puxar breaking change), bun.lock commitado",
+        "bun run typecheck && bun run lint && bun run build passam depois do update",
+        "Nova execucao de bun audit registrada no progress.txt: quantos advisories restam, por severidade",
+        "Cada advisory ALTO ou CRITICO restante esta numa tabela em client/CLAUDE.md com: pacote, caminho de dependencia, se e dependencies ou devDependencies, e se ha versao corrigida disponivel",
+        "O caso do react-router esta registrado explicitamente: o advisory GHSA-qwww-vcr4-c8h2 e 'RSC Mode CSRF Bypass', e este app e uma SPA em Vite que NAO usa React Server Components - o vetor nao existe aqui; a correcao seria o major 7.x -> 8.x, que NAO entra neste epico",
+        "Nenhuma dependencia de PRODUCAO com advisory alto/critico fica sem decisao escrita (corrigir agora ou ignorar com justificativa)",
+        "NENHUMA mudanca de codigo do client/ alem de package.json/bun.lock - esta story nao altera nenhum componente, nenhum pixel"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Primeira metade da T7.2. A ordem (extrair estado ANTES de mover arquivos, US-005/US-006) e deliberada: fazer as duas coisas no mesmo commit torna o diff impossivel de revisar, e o diff e justamente o criterio de aceite deste epico. Nao criar o diretorio screens/match/ inteiro aqui - so o arquivo do hook."
+      "notes": "Estado medido em 2026-08-06 (rodar de novo, pode ter mudado): 15 advisories, 6 altos. Os altos vem de ip-address, brace-expansion (x2), undici e fast-uri - todos por shadcn e eslint, ou seja devDependencies que nao entram no bundle do usuario - mais react-router, que e o unico de producao. bun audit da versao 1.3.14 NAO tem flag --prod/--production (so --json, --audit-level e --ignore), por isso a separacao prod/dev e feita por lista explicita, nao por flag (decisao E8.9 do PRD). Se o bun update quebrar typecheck/lint/build, REVERTA o update e registre no progress.txt qual pacote quebrou - deixar o build quebrado e pior do que deixar um advisory de devDependency."
     },
     {
       "id": "US-005",
-      "title": "Criar screens/match/ com o shell, o SuggestionsTab e os helpers",
-      "description": "Como desenvolvedor, quero o shell do MatchScreen e a aba de sugestoes em arquivos proprios, para comecar a decomposicao pela metade menor e de menor risco. (PRD US-005, parte 1 de 2)",
+      "title": "Ligar o gate do bun audit no CI",
+      "description": "Como mantenedor, quero o CI barrando dependencia do frontend com vulnerabilidade alta ou critica, para que ela nao chegue a producao pelo merge na main. (PRD US-005)",
       "acceptanceCriteria": [
-        "Existe client/src/screens/match/ com: MatchScreen.tsx (shell + tabs), SuggestionsTab.tsx e um modulo de helpers compartilhados",
-        "Os helpers foram movidos SEM alteracao de logica: trackKey, paginationRange, formatResultsCount, formatVoteRangeLabel, formatMinutes, formatRuntimeRangeLabel, keyOfCompareItem",
-        "Os componentes CompareToggleButton e CompareSelectionChip foram movidos para o diretorio novo e sao consumidos pelas duas abas",
-        "SuggestionsTab.tsx nao passa de 400 linhas e nao tem mais de 8 useState (decisao E6 do PRD: NAO subdividir mais o SuggestionsTab, ~300 linhas num arquivo so esta correto)",
-        "O SearchTab continua funcionando - nesta story ele pode permanecer temporariamente no arquivo antigo ou ja migrado sem quebrar; a US-006 e quem o decompoe de vez",
-        "A rota em client/src/App.tsx continua funcionando: o caminho do import muda, a URL nao",
-        "As duas abas continuam sendo renderizadas como {cond && <TabA/>} / {cond && <TabB/>} - NAO trocar por render simultaneo com hidden, isso mudaria o reset de estado na troca de aba (client/CLAUDE.md)",
-        "PROVA DE REFATORACAO PURA: git diff nao contem nenhuma alteracao de valor de className ou style - apenas movimentacao de linhas entre arquivos",
-        "NENHUMA chamada de API criada ou removida",
-        "bun run typecheck passa",
-        "bun run lint passa",
-        "bun run build passa"
+        "O job frontend de .github/workflows/ci.yml ganha um step 'bun audit --audit-level=high' DEPOIS do bun install e ANTES do build",
+        "Severidade moderada ou baixa NAO quebra o build; alta e critica quebram",
+        "Os advisories triados na US-004 como sem risco real entram como --ignore=<id> no proprio step, cada um com comentario dizendo o pacote, por que nao alcanca o usuario (ex.: 'so devDependency da CLI do shadcn') e o que faria revisitar a decisao",
+        "Com a lista de ignores em vigor, 'cd client && bun audit --audit-level=high <ignores>' sai com codigo 0 - verificar rodando de verdade, nao presumir",
+        "Verificado que o gate FUNCIONA: removendo temporariamente um dos --ignore, o comando falha; depois desfazer a remocao",
+        "O step nao usa continue-on-error nem '|| true' - se e gate, tem que falhar o job"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Depende das US-001, US-002 e US-004. Esta e a parte 1 de 2 da PRD US-005 - foi dividida porque mover 1482 linhas numa iteracao so estoura o contexto. Aqui vai a metade menor: shell (MatchScreen.tsx:1422-1482), SuggestionsTab (393-690) e helpers (103-210). O SearchTab (691-1420), que e a metade grande, fica para a US-006. Ao mover codigo para arquivos novos, rodar bun run lint a cada passo: o que era legal dentro de um useCallback pode acabar no corpo de um componente novo e violar react-hooks/refs ou react-hooks/purity."
+      "notes": "DEPENDE DA US-004 - ligar o gate antes da triagem deixa o CI vermelho e, por tabela, bloqueia TODO deploy (o deploy.yml reusa o ci.yml via workflow_call). Este e o unico ponto do epico que pode travar producao se feito na ordem errada. O ci.yml hoje tem 2 jobs (test e frontend) e o trigger workflow_call ja existe - nao mexer neles alem de acrescentar o step. Os ids aceitos pelo --ignore sao os que o bun audit imprime (formato GHSA-xxxx-xxxx-xxxx); confirmar na pratica que o bun aceita GHSA e nao so CVE, e se so aceitar CVE, registrar isso no progress.txt e usar o id correspondente."
     },
     {
       "id": "US-006",
-      "title": "Decompor o SearchTab e trocar a cadeia de condicionais por um switch",
-      "description": "Como desenvolvedor, quero o SearchTab dividido em componentes e sua maquina de estados implicita tornada explicita, para conseguir alterar a busca sem ler 700 linhas de JSX. (PRD US-005, parte 2 de 2)",
+      "title": "Resolver o pin manual do jjwt",
+      "description": "Como mantenedor, quero saber se o 0.12.6 do jjwt e um pin necessario ou apenas heranca, para que a biblioteca que assina os tokens de sessao nao defase em silencio. (PRD US-006)",
       "acceptanceCriteria": [
-        "Existem client/src/screens/match/SearchTab.tsx, FiltersPanel.tsx e SearchResultCard.tsx",
-        "NENHUM arquivo em client/src/screens/match/ passa de 400 linhas - provar com wc -l",
-        "NENHUM componente em client/src/screens/match/ tem mais de 8 useState",
-        "A cadeia de 5 blocos condicionais (MatchScreen.tsx:1165-1206) virou um status derivado 'idle' | 'loading' | 'error' | 'empty' | 'ready' renderizado por switch",
-        "Os 5 ramos produzem exatamente o mesmo JSX de hoje, incluindo os textos ('Comecem digitando o nome de um filme ou serie ai em cima.', 'Nao foi possivel carregar os titulos em alta agora.', 'Algo deu errado ao buscar no TMDB.', 'Nada encontrado para...') e a distincao trending vs discover vs busca por texto nas mensagens",
-        "ARMADILHA CRITICA: o grid de resultados continua MONTADO enquanto o skeleton aparece. Hoje ele nao e desmontado - recebe className={cn(..., showSearchSkeleton && 'hidden')} na linha 1200. Um switch ingenuo que renderize Skeleton OU Grid desmontaria o grid a cada busca: mudanca de comportamento que um diff de className NAO pega. O ramo loading deve renderizar o skeleton E o grid oculto, como hoje",
-        "Todos os estados continuam existindo: busca com debounce, filtros, ordenacao, paginacao numerada, modo comparar, like nos 5 estados (idle/loading/liked/matched/error), skeletons via useDelayedLoading e erro com retry",
-        "client/src/screens/MatchScreen.tsx (arquivo antigo na raiz de screens/) nao existe mais",
-        "PROVA DE REFATORACAO PURA: git diff nao contem nenhuma alteracao de valor de className ou style",
-        "NENHUMA chamada de API criada ou removida - a lista de endpoints consumidos por screens/match/ e identica a consumida por MatchScreen.tsx antes do epico",
-        "bun run typecheck passa",
-        "bun run lint passa",
-        "bun run build passa"
+        "Executado ./mvnw dependency:tree -Dincludes=io.jsonwebtoken (ou help:effective-pom) e o resultado registrado no progress.txt: o BOM do Spring Boot gerencia io.jsonwebtoken ou nao?",
+        "SE O BOM GERENCIA: as 3 tags <version>0.12.6</version> de jjwt-api, jjwt-impl e jjwt-jackson sao removidas de api/pom.xml",
+        "SE O BOM NAO GERENCIA: as 3 declaracoes passam a usar uma property unica <jjwt.version> em <properties>, com comentario explicando que o jjwt esta fora do BOM do Spring Boot e por isso precisa de bump manual, e que o Dependabot da US-003 e quem passa a avisar",
+        "Em qualquer dos dois caminhos: a versao efetiva do jjwt NAO regride em relacao a 0.12.6 - conferir com dependency:tree depois da mudanca",
+        "./mvnw test passa",
+        "api/CLAUDE.md menciona a situacao resolvida, para a proxima pessoa nao repetir a investigacao"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Depende da US-005. Fecha a T7.2. Esta e a story de maior risco do epico: o SearchTab tem 19 useState (ja agrupados pela US-004), ternarios aninhados em 3 niveis e a cadeia de condicionais. Se o contexto apertar, priorizar nesta ordem: (1) extrair FiltersPanel e SearchResultCard para baixar as linhas, (2) o switch de status. O criterio de 400 linhas e o que prova que a story terminou."
+      "notes": "Story de investigacao com dois caminhos possiveis - a decisao E8.3 do PRD manda executar o comando ANTES de escolher. Nao presumir que o BOM gerencia (o backlog levantou a duvida justamente porque ninguem verificou). jjwt e a biblioteca que assina os JWT de sessao (com.app.security.JwtService), entao um downgrade acidental de versao aqui e serio: conferir a versao efetiva depois da mudanca e nao so o fato de o build passar."
     },
     {
       "id": "US-007",
-      "title": "Decompor HubScreen.tsx em screens/hub/",
-      "description": "Como desenvolvedor, quero o mesmo tratamento no HubScreen, para que a tela principal do app nao continue sendo um unico arquivo de 600 linhas com 7 estados e 5 modais. (PRD US-006)",
+      "title": "Remover SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose",
+      "description": "Como mantenedor, quero que uma migration que nao aplique quebre o deploy visivelmente, para que um schema divergente nunca seja mascarado como baseline. (PRD US-008)",
       "acceptanceCriteria": [
-        "Existe client/src/screens/hub/ com no minimo: HubScreen.tsx (shell + orquestracao), TrackSection.tsx (uma secao colapsavel com seu grid e paginacao incremental) e LoadMoreSentinel.tsx",
-        "Nenhum arquivo em client/src/screens/hub/ passa de 400 linhas - provar com wc -l",
-        "Nenhum componente em client/src/screens/hub/ tem mais de 8 useState",
-        "A orquestracao dos 5 modais (TitleModal, MediaDetailModal, WatchModal, ReviewModal, DeleteTrackDialog) fica no shell; as secoes recebem callbacks, nao estado de modal",
-        "O IntersectionObserver do LoadMoreSentinel e o padrao sectionsRef (que evita re-registrar o observer a cada render) foram preservados",
-        "REGRA ESTRUTURAL: um Dialog continua sendo IRMAO, nunca filho, de um div clicavel ou de um Popover (client/CLAUDE.md) - quebrar um componente em dois e exatamente o momento em que isso se perde por acidente",
-        "O catch silencioso de fetchSectionPage (HubScreen.tsx:260) passa a registrar console.error com contexto (status da secao e page). UNICA mudanca nao-pura desta story; o estado visual de falha (parar o skeleton, manter o que ja carregou) permanece exatamente o de hoje",
-        "UI pixel-identica: as 3 secoes com contador, colapso/expansao, skeletons, scroll horizontal com carregamento incremental, modo comparar e todos os 5 modais",
-        "client/src/screens/HubScreen.tsx (arquivo antigo na raiz de screens/) nao existe mais e a rota em App.tsx continua funcionando",
-        "PROVA DE REFATORACAO PURA: fora a linha de console.error, git diff nao contem nenhuma alteracao de valor de className ou style",
-        "NENHUMA chamada de API criada ou removida",
-        "bun run typecheck passa",
-        "bun run lint passa",
-        "bun run build passa"
+        "A linha SPRING_FLYWAY_BASELINE_ON_MIGRATE: \"true\" nao existe mais em docker-compose-prod.yml",
+        "docs/DEPLOY.md documenta como passa-la pontualmente, caso um ambiente novo precise: SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d",
+        "docs/FLYWAY.md registra que a variavel foi removida, em que data, e que a remocao depende da verificacao manual do flyway_schema_history em producao (US-007 do PRD, operacional)",
+        "O comentario de api/src/main/resources/application.properties sobre 'apenas no primeiro deploy' continua coerente com o estado novo - ajustar se ficou contraditorio",
+        "./mvnw test passa (a mudanca nao deve afetar teste nenhum; se afetar, entender por que antes de seguir)"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Depende da US-003 (que ja tirou ~75 linhas de comparacao inline, deixando o arquivo em ~535 linhas). NAO esta no POST-MVP-TASK.md: foi acrescentada por decisao do usuario (E2 do PRD). Os dois padroes estruturais de modal (shadcn Dialog vs backdrop fixed inset-0 feito a mao) coexistem de proposito - mover de arquivo, nao converter um no outro."
-    },
-    {
-      "id": "US-008",
-      "title": "Corrigir os vazamentos da useMatchStore",
-      "description": "Como usuario, quero que trocar de conta na mesma aba me de uma sessao limpa, para nao perder a celebracao de um match so porque a pessoa anterior ja tinha visto aquele titulo. (PRD US-007)",
-      "acceptanceCriteria": [
-        "celebratedMatchKeys saiu do escopo de modulo (useMatchStore.ts:38) e vive DENTRO do estado da store",
-        "disconnect() zera celebratedMatchKeys",
-        "BUG CORRIGIDO: usuario A celebra um match do tmdbId X, faz logout, usuario B entra na mesma aba, um match do mesmo tmdbId X abre o modal de celebracao normalmente (hoje nao abre). useAuthStore.logout() ja chama disconnect(), entao zerar em disconnect() cobre o caso",
-        "A deduplicacao continua funcionando DENTRO de uma sessao: o mesmo match, chegando pelo evento /topic/couple/{id}/match E pela notificacao, abre o modal UMA vez",
-        "TODAS as subscriptions vao para um array no estado (hoje o retorno do subscribe de /notifications, linha 65, e descartado) e disconnect() desinscreve todas",
-        "Existe um flag connecting que torna o par connect/disconnect idempotente",
-        "disconnect() guarda a promise de deactivate() no estado (pendingDisconnect) e a limpa ao concluir; connect a aguarda com Promise.race contra um timeout - NUNCA com await nu",
-        "O timeout e uma constante nomeada (3000ms), nao um literal solto, com comentario explicando: deactivate() do @stomp/stompjs 7.3.0 so resolve no evento close do socket e NAO tem timeout proprio, entao um socket que nunca fecha travaria a reconexao em definitivo",
-        "Ciclos rapidos de connect/disconnect (o efeito de App.tsx:40-58 dispara em mudanca de isAuthenticated/hasPartner/coupleId e no cleanup) nao geram conexao duplicada nem Client vazando",
-        "Um deactivate() que nunca resolve nao impede uma reconexao posterior - o timeout vence e o cliente novo sobe",
-        "bun run typecheck passa",
-        "bun run lint passa"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "T7.3. Independente das US-001 a US-007 - so encosta em client/src/stores/useMatchStore.ts. Contexto verificado em node_modules/@stomp/stompjs/esm6/client.js v7.3.0: (1) deactivate() resolve na hora se o cliente ja esta INACTIVE ou o socket ja esta CLOSED; (2) senao, so resolve quando onWebSocketClose dispara, sem timeout; (3) activate() ja trata o estado DEACTIVATING, mas so para a MESMA instancia de Client - a store cria uma nova a cada connect(), entao essa protecao nao nos alcanca. Dai o Promise.race."
-    },
-    {
-      "id": "US-009",
-      "title": "Falha ao carregar a fila de pendentes deixa de ser silenciosa",
-      "description": "Como usuario, quero distinguir 'nao ha sugestoes pendentes' de 'nao deu para carregar as sugestoes', para nao achar que avaliei tudo quando na verdade a requisicao falhou. (PRD US-008)",
-      "acceptanceCriteria": [
-        "fetchPending (useMatchStore.ts:110) registra console.error com contexto no catch, em vez de engolir a excecao",
-        "A store expoe um flag de erro (ex.: pendingError) distinto de 'fila vazia'",
-        "O SuggestionsTab usa o padrao de erro QUE JA EXISTE no SearchTab (mensagem + botao 'Tentar novamente') - NENHUM estado visual novo e desenhado",
-        "Falha no GET /api/match/pending mostra erro com retry, NAO o estado 'Fim das sugestoes'",
-        "O retry refaz o fetch e, dando certo, mostra a fila normalmente",
-        "grep -rn 'catch {$' e grep -rn 'catch(() => {})' em client/src nao retornam nenhum bloco que engula excecao sem log ou sinal visivel ao usuario",
-        "bun run typecheck passa",
-        "bun run lint passa",
-        "bun run build passa"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Depende da US-008 (mesmo arquivo de store) e da US-005 (o SuggestionsTab ja estara em screens/match/SuggestionsTab.tsx). Achado fora do POST-MVP-TASK.md: o Epico 6 zerou seis catch silenciosos em telas e modais, mas nao alcancou este, que estava na store. Incluido por decisao do usuario (E4 do PRD). SE ficar claro que o caso exige um visual que nao existe hoje, PARAR e chamar a skill frontend-design antes de inventar - a dispensa da skill neste epico vale porque nada visual e novo."
+      "notes": "ATENCAO - GATE HUMANO: esta story corresponde a US-008 do PRD e depende da US-007 do PRD, que e OPERACIONAL e nao esta neste prd.json (conferir no Supabase que flyway_schema_history tem V1 a V6 todas com success = true). A mudanca de codigo aqui e inerte ate o proximo deploy, entao pode ser implementada - MAS escreva em docs/FLYWAY.md e no progress.txt, de forma explicita, que o mantenedor precisa rodar a query de verificacao ANTES de mergear para a main. Se a verificacao falhar, esta mudanca tem que ser revertida antes do deploy. Migrations atuais: V1 a V6 (a ultima e V6__add_invite_code_expiry.sql). Este epico NAO cria migration nova."
     }
   ]
 }
