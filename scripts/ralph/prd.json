@@ -58,7 +58,7 @@
         "bun run build passa"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Depende das US-001 e US-002. Fecha a T7.1 do POST-MVP-TASK.md. HubScreen.tsx perde ~75 linhas e sai desta story com ~535, o que prepara a US-007. ATENCAO: o catch de HubScreen.tsx:219 (dentro do Promise.all) NAO e silencioso - preenche compareError, visivel ao usuario - e some junto com o efeito. O catch silencioso de verdade e o da linha 260 (fetchSectionPage), tratado na US-007."
     },
     {

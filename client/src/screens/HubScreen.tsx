@@ -17,6 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
 import { buildComparisonItem as buildComparisonItemBase } from "@/lib/comparisonItem"
+import { useCompareSelection } from "@/lib/useCompareSelection"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { useIsMobile } from "@/lib/useIsMobile"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -145,83 +146,10 @@ export function HubScreen() {
     WATCHED: true,
   })
 
-  const [compareMode, setCompareMode] = useState(false)
-  const [selectedForCompare, setSelectedForCompare] = useState<MediaTrackResponse[]>([])
-  const [compareLeft, setCompareLeft] = useState<ComparisonItem | null>(null)
-  const [compareRight, setCompareRight] = useState<ComparisonItem | null>(null)
-  const [compareLoading, setCompareLoading] = useState(false)
-  const [compareError, setCompareError] = useState<string | null>(null)
-  const compareDialogOpen = compareLoading || (compareLeft !== null && compareRight !== null)
-
-  const exitCompareMode = useCallback(() => {
-    setCompareMode(false)
-    setSelectedForCompare([])
-    setCompareLeft(null)
-    setCompareRight(null)
-    setCompareLoading(false)
-    setCompareError(null)
-  }, [])
-
-  const clearCompareSelection = useCallback(() => {
-    setSelectedForCompare([])
-    setCompareLeft(null)
-    setCompareRight(null)
-    setCompareLoading(false)
-    setCompareError(null)
-  }, [])
-
-  // Re-triggers the fetch effect below by giving `selectedForCompare` a new
-  // array identity (same 2 tracks) — used by the "Tentar novamente" retry.
-  const retryCompareFetch = useCallback(() => {
-    setSelectedForCompare((prev) => [...prev])
-  }, [])
-
-  const toggleCompareSelection = useCallback((track: MediaTrackResponse) => {
-    setSelectedForCompare((prev) => {
-      if (prev.some((t) => t.id === track.id)) {
-        return prev.filter((t) => t.id !== track.id)
-      }
-      if (prev.length >= 2) return prev
-      return [...prev, track]
-    })
-  }, [])
-
-  useEffect(() => {
-    if (selectedForCompare.length !== 2) return
-    let cancelled = false
-    const timer = setTimeout(() => {
-      if (cancelled) return
-      setCompareLoading(true)
-      setCompareError(null)
-      Promise.all(selectedForCompare.map(buildComparisonItem))
-        .then(([left, right]) => {
-          if (cancelled) return
-          setCompareLeft(left)
-          setCompareRight(right)
-          setCompareLoading(false)
-        })
-        .catch(() => {
-          if (cancelled) return
-          setCompareError(
-            "Não foi possível carregar os detalhes para comparação. Tente novamente."
-          )
-          setCompareLoading(false)
-        })
-    }, 0)
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [selectedForCompare])
-
-  useEffect(() => {
-    if (!compareMode) return
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") exitCompareMode()
-    }
-    window.addEventListener("keydown", handleKey)
-    return () => window.removeEventListener("keydown", handleKey)
-  }, [compareMode, exitCompareMode])
+  const compare = useCompareSelection<MediaTrackResponse>(
+    buildComparisonItem,
+    (track) => track.id
+  )
 
   const fetchSectionPage = useCallback((status: MediaStatus, page: number) => {
     return api
@@ -323,25 +251,27 @@ export function HubScreen() {
                       type="button"
                       variant="outline"
                       onClick={() =>
-                        compareMode ? exitCompareMode() : setCompareMode(true)
+                        compare.compareMode
+                          ? compare.exitCompareMode()
+                          : compare.enterCompareMode()
                       }
                       aria-label={
-                        compareMode ? "Cancelar comparação" : "Comparar títulos"
+                        compare.compareMode ? "Cancelar comparação" : "Comparar títulos"
                       }
                       className={
-                        compareMode
+                        compare.compareMode
                           ? "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-[rgba(255,203,43,.35)] bg-[rgba(255,203,43,.12)] px-4.5 py-3.5 text-[14px] font-semibold text-[#ffcb2b] hover:bg-[rgba(255,203,43,.18)] hover:text-[#ffcb2b]"
                           : "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-white/12 bg-transparent px-4.5 py-3.5 text-[14px] font-semibold text-[#f6f4ec] hover:bg-white/[0.06] hover:text-[#f6f4ec]"
                       }
                     />
                   }
                 >
-                  {compareMode ? (
+                  {compare.compareMode ? (
                     <X className="size-4" />
                   ) : (
                     <Columns2 className="size-4" />
                   )}
-                  {compareMode ? "Cancelar" : "Comparar"}
+                  {compare.compareMode ? "Cancelar" : "Comparar"}
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[240px] rounded-lg border border-[rgba(255,255,255,.1)] bg-[#201e18] px-3 py-2 text-[#f6f4ec] shadow-xl">
                   {COMPARE_TOOLTIP}
@@ -432,15 +362,15 @@ export function HubScreen() {
                             }}
                             onClick={setDetailTrack}
                             onDelete={setDeleteTrack}
-                            compareMode={compareMode}
-                            compareSelected={selectedForCompare.some(
+                            compareMode={compare.compareMode}
+                            compareSelected={compare.selected.some(
                               (t) => t.id === track.id
                             )}
                             compareOrder={
-                              selectedForCompare.findIndex((t) => t.id === track.id) + 1 ||
+                              compare.selected.findIndex((t) => t.id === track.id) + 1 ||
                               null
                             }
-                            onCompareToggle={toggleCompareSelection}
+                            onCompareToggle={compare.toggle}
                           />
                         </div>
                       ))}
@@ -480,28 +410,28 @@ export function HubScreen() {
         })}
       </main>
 
-      {compareMode && (
+      {compare.compareMode && (
         <div className="fixed inset-x-0 bottom-8 z-[35] flex justify-center px-4">
           <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-[#161513]/95 px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,.5)] backdrop-blur-md">
             <div className="flex items-center gap-3">
               <span className="text-[13.5px] font-semibold text-[#f6f4ec]">
-                {selectedForCompare.length}/2 selecionados
+                {compare.selected.length}/2 selecionados
               </span>
               <button
                 type="button"
-                onClick={clearCompareSelection}
+                onClick={compare.clearSelection}
                 aria-label="Limpar seleção"
                 className="grid size-6 cursor-pointer place-items-center rounded-full bg-white/[0.08] text-[#a6a39a] transition hover:bg-white/[0.14] hover:text-[#f6f4ec]"
               >
                 <X className="size-3.5" />
               </button>
             </div>
-            {compareError && (
+            {compare.error && (
               <div className="flex items-center gap-2.5 text-[12.5px] text-[#ffb3b3]">
-                <span>{compareError}</span>
+                <span>{compare.error}</span>
                 <button
                   type="button"
-                  onClick={retryCompareFetch}
+                  onClick={compare.retry}
                   className="cursor-pointer font-semibold text-[#ffcb2b] hover:text-[#ffe08a]"
                 >
                   Tentar novamente
@@ -513,12 +443,12 @@ export function HubScreen() {
       )}
 
       <ComparisonDialog
-        open={compareDialogOpen}
+        open={compare.dialogOpen}
         onOpenChange={(open) => {
-          if (!open) exitCompareMode()
+          if (!open) compare.exitCompareMode()
         }}
-        left={compareLeft}
-        right={compareRight}
+        left={compare.left}
+        right={compare.right}
       />
 
       <Button
