@@ -14,7 +14,7 @@ import {
   RequireCouple,
 } from "@/routes/guards"
 import { DashboardScreen } from "@/screens/DashboardScreen"
-import { HubScreen } from "@/screens/HubScreen"
+import { HubScreen } from "@/screens/hub/HubScreen"
 import { LandingScreen } from "@/screens/LandingScreen"
 import { MatchScreen } from "@/screens/match/MatchScreen"
 import { useAuthStore } from "@/stores/useAuthStore"

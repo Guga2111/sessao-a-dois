@@ -148,7 +148,7 @@
         "bun run build passa"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Depende da US-003 (que ja tirou ~75 linhas de comparacao inline, deixando o arquivo em ~535 linhas). NAO esta no POST-MVP-TASK.md: foi acrescentada por decisao do usuario (E2 do PRD). Os dois padroes estruturais de modal (shadcn Dialog vs backdrop fixed inset-0 feito a mao) coexistem de proposito - mover de arquivo, nao converter um no outro."
     },
     {

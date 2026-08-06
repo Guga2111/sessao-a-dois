@@ -1,135 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { ChevronDown, Columns2, X } from "lucide-react"
+import { Columns2, X } from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { Button } from "@/components/ui/button"
-import { ComparisonDialog, type ComparisonItem } from "@/components/ComparisonDialog"
+import { ComparisonDialog } from "@/components/ComparisonDialog"
 import { DeleteTrackDialog } from "@/components/DeleteTrackDialog"
-import { MediaCard } from "@/components/MediaCard"
 import { MediaDetailModal } from "@/components/MediaDetailModal"
-import { MediaCardSkeleton } from "@/components/skeletons/MediaCardSkeleton"
 import { ReviewModal } from "@/components/ReviewModal"
-import { Skeleton } from "@/components/ui/skeleton"
 import { TitleModal } from "@/components/TitleModal"
 import { WatchModal } from "@/components/WatchModal"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
-import { buildComparisonItem as buildComparisonItemBase } from "@/lib/comparisonItem"
 import { useCompareSelection } from "@/lib/useCompareSelection"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { useIsMobile } from "@/lib/useIsMobile"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { MediaStatus, MediaTrackResponse, PagedMediaTrackResponse } from "@/types/tracking"
-
-const COMPARE_TOOLTIP =
-  "Selecione 2 títulos para comparar informações como notas, gêneros e onde assistir."
-
-function buildComparisonItem(track: MediaTrackResponse): Promise<ComparisonItem> {
-  const ratedReviews = track.reviews.filter(
-    (review) => review.rating !== null && review.rating !== undefined
-  )
-  const coupleRating =
-    ratedReviews.length > 0
-      ? ratedReviews.reduce((sum, review) => sum + review.rating!, 0) /
-        ratedReviews.length
-      : null
-  return buildComparisonItemBase(track.mediaType, track.tmdbId, { coupleRating })
-}
-
-interface Section {
-  status: MediaStatus
-  title: string
-  dotColor: string
-  emptyMessage: string
-}
-
-const SECTIONS: Section[] = [
-  {
-    status: "WATCHING",
-    title: "Assistindo Atualmente",
-    dotColor: "#ff9e2c",
-    emptyMessage: "Nada em andamento agora. Que tal começar algo hoje à noite?",
-  },
-  {
-    status: "WANT_TO_SEE",
-    title: "Queremos Ver",
-    dotColor: "#ffcb2b",
-    emptyMessage: "A lista de desejos está vazia. Adicionem um título para começar.",
-  },
-  {
-    status: "WATCHED",
-    title: "Já Vimos",
-    dotColor: "#3ddc97",
-    emptyMessage: "Ainda não marcaram nada como visto.",
-  },
-]
-
-const PAGE_SIZE = 20
-
-interface SectionState {
-  items: MediaTrackResponse[]
-  page: number
-  total: number
-  loading: boolean
-  loadingMore: boolean
-}
-
-function emptySectionState(): SectionState {
-  return { items: [], page: 0, total: 0, loading: true, loadingMore: false }
-}
-
-function emptySections(): Record<MediaStatus, SectionState> {
-  return {
-    WATCHING: emptySectionState(),
-    WANT_TO_SEE: emptySectionState(),
-    WATCHED: emptySectionState(),
-  }
-}
-
-interface LoadMoreSentinelProps {
-  status: MediaStatus
-  hasMore: boolean
-  loadingMore: boolean
-  onLoadMore: (status: MediaStatus) => void
-}
-
-/** Invisible sentinel appended after the last mobile carousel card; triggers
- *  `onLoadMore` via IntersectionObserver instead of a "load more" tap. Only
- *  ever mounted on mobile (see call site), so the observer never registers
- *  on desktop. Flags are read from a ref synced in an effect rather than the
- *  closure so the observer callback (created once per `status`) always sees
- *  the latest `hasMore`/`loadingMore` without needing to be recreated. */
-function LoadMoreSentinel({ status, hasMore, loadingMore, onLoadMore }: LoadMoreSentinelProps) {
-  const flagsRef = useRef({ hasMore, loadingMore })
-  useEffect(() => {
-    flagsRef.current = { hasMore, loadingMore }
-  })
-
-  const observerRef = useRef<IntersectionObserver | null>(null)
-  const sentinelRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      observerRef.current?.disconnect()
-      observerRef.current = null
-      if (!node) return
-      const observer = new IntersectionObserver(
-        (entries) => {
-          const flags = flagsRef.current
-          if (entries[0]?.isIntersecting && flags.hasMore && !flags.loadingMore) {
-            onLoadMore(status)
-          }
-        },
-        { threshold: 0.5 }
-      )
-      observer.observe(node)
-      observerRef.current = observer
-    },
-    [status, onLoadMore]
-  )
-
-  return <div ref={sentinelRef} aria-hidden="true" className="w-px shrink-0" />
-}
+import { TrackSection } from "./TrackSection"
+import {
+  buildComparisonItem,
+  COMPARE_TOOLTIP,
+  emptySections,
+  PAGE_SIZE,
+  SECTIONS,
+  type SectionState,
+} from "./helpers"
 
 export function HubScreen() {
   const user = useAuthStore((state) => state.user)
@@ -169,7 +65,8 @@ export function HubScreen() {
           },
         }))
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error(`Falha ao carregar a seção ${status} (página ${page})`, error)
         setSections((prev) => ({
           ...prev,
           [status]: { ...prev[status], loading: false, loadingMore: false },
@@ -289,125 +186,41 @@ export function HubScreen() {
           </div>
         </div>
 
-        {SECTIONS.map((section) => {
-          const state = sections[section.status]
-          const { items, loading, loadingMore, total } = state
-          const hasMore = !loading && items.length < total
-          const isOpen = openSections[section.status]
-          const showSkeleton = showSectionSkeleton[section.status]
-          const showLoadMore = showLoadMoreSkeleton[section.status]
-          return (
-            <Collapsible
-              key={section.status}
-              open={isOpen}
-              onOpenChange={(open) =>
-                setOpenSections((prev) => ({ ...prev, [section.status]: open }))
-              }
-              className="mb-11"
-            >
-              <CollapsibleTrigger className="mb-4.5 flex w-full cursor-pointer items-center gap-3">
-                <span
-                  className="size-2.5 rounded-full"
-                  style={{
-                    background: section.dotColor,
-                    boxShadow: `0 0 12px ${section.dotColor}`,
-                  }}
-                />
-                <h2 className="font-display text-xl tracking-tight">{section.title}</h2>
-                <span className="flex items-center rounded-full bg-white/[0.05] px-2.5 py-0.5 text-[13px] text-[#a6a39a]">
-                  {showSkeleton ? <Skeleton className="h-3 w-4" /> : total}
-                </span>
-                <ChevronDown
-                  className="ml-auto size-4 text-[#a6a39a] transition-transform duration-200"
-                  style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}
-                />
-              </CollapsibleTrigger>
-
-              <CollapsibleContent>
-                {showSkeleton ? (
-                  <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
-                    <MediaCardSkeleton />
-                    <MediaCardSkeleton />
-                    <MediaCardSkeleton />
-                    <MediaCardSkeleton />
-                  </div>
-                ) : items.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-[#a6a39a]">
-                    {section.emptyMessage}
-                  </div>
-                ) : (
-                  <>
-                    <div className="no-scrollbar flex gap-5.5 overflow-x-auto pr-[20vw] [overscroll-behavior-x:contain] [scroll-snap-type:x_mandatory] md:grid md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:overflow-visible md:pr-0 md:[overscroll-behavior-x:auto] md:[scroll-snap-type:none]">
-                      {items.map((track) => (
-                        <div
-                          key={track.id}
-                          className="min-w-[72vw] max-w-[72vw] shrink-0 [scroll-snap-align:start] md:min-w-0 md:max-w-none md:shrink md:[scroll-snap-align:none]"
-                        >
-                          <MediaCard
-                            track={track}
-                            myUserId={user?.id ?? ""}
-                            onStatusChange={setWatchTrack}
-                            onStartWatching={reloadAllFirstPages}
-                            onReview={setReviewTrack}
-                            onRated={(updated) => {
-                              setSections((prev) => ({
-                                ...prev,
-                                [updated.status]: {
-                                  ...prev[updated.status],
-                                  items: prev[updated.status].items.map((t) =>
-                                    t.id === updated.id ? updated : t
-                                  ),
-                                },
-                              }))
-                            }}
-                            onClick={setDetailTrack}
-                            onDelete={setDeleteTrack}
-                            compareMode={compare.compareMode}
-                            compareSelected={compare.selected.some(
-                              (t) => t.id === track.id
-                            )}
-                            compareOrder={
-                              compare.selected.findIndex((t) => t.id === track.id) + 1 ||
-                              null
-                            }
-                            onCompareToggle={compare.toggle}
-                          />
-                        </div>
-                      ))}
-                      {showLoadMore && <MediaCardSkeleton />}
-                      {isMobile && hasMore && (
-                        <LoadMoreSentinel
-                          status={section.status}
-                          hasMore={hasMore}
-                          loadingMore={loadingMore}
-                          onLoadMore={handleLoadMore}
-                        />
-                      )}
-                    </div>
-                    {hasMore && (
-                      <div className="mt-6 hidden justify-center md:flex">
-                        {showLoadMore ? (
-                          <div className="w-[220px]">
-                            <MediaCardSkeleton />
-                          </div>
-                        ) : (
-                          <Button
-                            type="button"
-                            onClick={() => handleLoadMore(section.status)}
-                            disabled={loadingMore}
-                            className="h-auto cursor-pointer rounded-full border border-white/10 bg-white/[0.04] px-6 py-2.5 text-[13px] font-semibold text-[#f6f4ec] transition-colors hover:border-[rgba(255,203,43,.4)] hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Carregar mais
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-          )
-        })}
+        {SECTIONS.map((section) => (
+          <TrackSection
+            key={section.status}
+            section={section}
+            state={sections[section.status]}
+            isOpen={openSections[section.status]}
+            onOpenChange={(open) =>
+              setOpenSections((prev) => ({ ...prev, [section.status]: open }))
+            }
+            showSkeleton={showSectionSkeleton[section.status]}
+            showLoadMoreSkeleton={showLoadMoreSkeleton[section.status]}
+            isMobile={isMobile}
+            myUserId={user?.id ?? ""}
+            onStatusChange={setWatchTrack}
+            onStartWatching={reloadAllFirstPages}
+            onReview={setReviewTrack}
+            onRated={(updated) => {
+              setSections((prev) => ({
+                ...prev,
+                [updated.status]: {
+                  ...prev[updated.status],
+                  items: prev[updated.status].items.map((t) =>
+                    t.id === updated.id ? updated : t
+                  ),
+                },
+              }))
+            }}
+            onClick={setDetailTrack}
+            onDelete={setDeleteTrack}
+            onLoadMore={handleLoadMore}
+            compareMode={compare.compareMode}
+            compareSelected={compare.selected}
+            onCompareToggle={compare.toggle}
+          />
+        ))}
       </main>
 
       {compare.compareMode && (
