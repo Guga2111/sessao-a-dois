@@ -31,7 +31,7 @@
         "Nenhuma outra mudanca de comportamento no Dockerfile: mesma imagem base, mesmo ENTRYPOINT, mesmo EXPOSE"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "ATENCAO: NAO HA DOCKER NESTE SANDBOX (docker: command not found). Os criterios de 'docker build', 'whoami' e 'docker ps (healthy)' do PRD sao para o mantenedor executar na maquina dele - NAO tente rodar docker aqui e NAO marque a story como incompleta por isso. A verificacao possivel aqui e leitura do Dockerfile + coerencia com docker-compose-prod.yml. Registre no progress.txt que a verificacao com docker ficou pendente do lado humano. A imagem base eclipse-temurin:21-jre-alpine ja traz wget (BusyBox) - NAO instale curl, isso aumentaria a imagem e quebraria o criterio de tamanho do PRD. O risco real desta story nao esta no Dockerfile, esta no chown: reler a secao 'Trilha de auditoria de seguranca' de docs/DEPLOY.md antes de escrever a documentacao."
     },
     {

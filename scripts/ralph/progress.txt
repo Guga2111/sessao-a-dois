@@ -59,3 +59,44 @@ Started: Thu Aug  6 10:59:06 PDT 2026
     `tasks/`. Elas nao foram produzidas por esta story — estao aqui porque a
     instrucao do Ralph e commitar tudo.
 ---
+
+## 2026-08-06 - US-002 (Container roda como nao-root e expoe healthcheck)
+- `api/Dockerfile`, estagio de runtime:
+  - `RUN addgroup -g 10001 -S app && adduser -u 10001 -S app -G app` + `USER app`
+    (UID/GID FIXOS, nao os que o adduser escolheria — o bind mount da VPS
+    depende do numero).
+  - `COPY --from=build --chown=app:app /app/target/*.jar app.jar`.
+  - `HEALTHCHECK --interval=30s --timeout=3s --start-period=40s CMD
+    wget -qO- http://localhost:8080/api/health || exit 1` (porta INTERNA 8080).
+  - Ordem do multi-stage preservada (`.mvn/`, `mvnw`, `pom.xml`,
+    `dependency:go-offline` continuam antes de `COPY src/`); mesma imagem base,
+    mesmo `EXPOSE`, mesmo `ENTRYPOINT`; nenhum pacote novo instalado (wget do
+    BusyBox ja vem na alpine).
+- `docs/DEPLOY.md` secao 3.4 ganhou o
+  `chown -R 10001:10001 /var/lib/sessao-a-dois/security-audit-logs` como passo
+  obrigatorio ANTES do primeiro deploy com esta mudanca, com o porque escrito:
+  sem ele o `RollingFileAppender` do `security.audit` falha por permissao e o
+  Logback NAO derruba o app — a API sobe, o site funciona e a trilha some em
+  silencio. Adicionado tambem o comando de verificacao pos-deploy e uma
+  referencia cruzada na secao "Trilha de auditoria de seguranca".
+- `api/CLAUDE.md`: duas entradas novas na secao Docker (UID fixo 10001 + a
+  regra de que todo caminho gravavel novo dentro do container tem a mesma
+  restricao; e o healthcheck na 8080 com wget do BusyBox).
+- Arquivos alterados: `api/Dockerfile`, `docs/DEPLOY.md`, `api/CLAUDE.md`,
+  `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> 424 testes, 0 falhas, JaCoCo verde.
+  **PENDENTE DO LADO HUMANO** (nao ha `docker` neste sandbox): `docker build`,
+  `docker run --rm --entrypoint sh sessao-api:latest -c whoami` != root,
+  `docker ps` reportando `(healthy)` apos o start-period, e a comparacao de
+  tamanho da imagem (<= +5MB). E, na VPS, o `chown` antes do proximo deploy.
+- **Learnings for future iterations:**
+  - Trocar o processo para nao-root e barato no Dockerfile; o risco real esta
+    fora dele, em todo caminho gravavel montado de fora (hoje so o bind mount
+    da trilha de auditoria). Antes de adicionar qualquer volume novo ao
+    `docker-compose-prod.yml`, conferir o dono no host.
+  - `HEALTHCHECK` usa a porta de dentro do container (8080). O 8085 do compose
+    e so `ports:` do host — usa-lo deixaria o container eternamente unhealthy.
+  - `docs/DEPLOY.md` tem a mesma informacao em dois lugares (secao 3.4 de setup
+    e secao "Trilha de auditoria de seguranca"); mudanca em uma pede referencia
+    cruzada na outra.
+---

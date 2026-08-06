@@ -182,11 +182,31 @@ recriacao). Antes do primeiro deploy com esta mudanca, cria o diretorio na VPS:
 
 ```bash
 ssh root@31.97.169.38 "mkdir -p /var/lib/sessao-a-dois/security-audit-logs"
+ssh root@31.97.169.38 "chown -R 10001:10001 /var/lib/sessao-a-dois/security-audit-logs"
 ```
 
 Se o diretorio nao existir, o `docker compose up` cria-o automaticamente como
 `root` (comportamento padrao do Docker para bind mounts inexistentes) - o
-passo acima e so para deixar explicito e evitar surpresas de permissao.
+`mkdir` acima e so para deixar explicito e evitar surpresas de permissao.
+
+**O `chown` e obrigatorio e nao e cosmetico.** Desde o Epico 8 (US-002) o
+`api/Dockerfile` roda o processo Java como o usuario nao-privilegiado `app`,
+de UID/GID fixos `10001` **dentro do container**. O diretorio do bind mount
+pertence a `root` na VPS, entao sem o `chown` o `RollingFileAppender` do logger
+`security.audit` nao consegue criar `security-audit.log` - e o Logback **nao
+derruba a aplicacao por causa disso**: a API sobe normalmente, o site funciona,
+e a trilha de auditoria simplesmente deixa de existir, em silencio. Ou seja, a
+falha so aparece no dia em que alguem precisar investigar um incidente e
+descobrir que nao ha registro. Por isso o `chown` roda **antes** do primeiro
+deploy com container nao-root, nao depois.
+
+Verificacao apos o primeiro deploy com esta mudanca (um login deve gerar linha
+nova no arquivo):
+
+```bash
+ssh root@31.97.169.38 "ls -l /var/lib/sessao-a-dois/security-audit-logs/"
+ssh root@31.97.169.38 "tail -f /var/lib/sessao-a-dois/security-audit-logs/security-audit.log"
+```
 
 ### 3.5 Emitir certificado SSL
 
@@ -510,7 +530,8 @@ um `RollingFileAppender` so para esse logger, escrevendo em
 `/var/lib/sessao-a-dois/security-audit-logs` na VPS (ver "3.4 Criar o
 diretorio da trilha de auditoria" acima) - por isso o arquivo sobrevive a um
 `docker compose down` + `up`, ao contrario do resto do filesystem do
-container. O logger continua saindo tambem no `stdout` normal (`docker compose
+container. Como o processo Java roda como o usuario `app` (UID 10001), o
+diretorio na VPS precisa pertencer a esse UID - ver o `chown` da secao 3.4. O logger continua saindo tambem no `stdout` normal (`docker compose
 logs`), o arquivo e so a copia persistente.
 
 **Politica de rotacao:** 10MB por arquivo, historico de 10 arquivos, teto
