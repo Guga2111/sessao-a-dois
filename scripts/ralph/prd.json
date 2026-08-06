@@ -170,7 +170,7 @@
         "bun run lint passa"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "T7.3. Independente das US-001 a US-007 - so encosta em client/src/stores/useMatchStore.ts. Contexto verificado em node_modules/@stomp/stompjs/esm6/client.js v7.3.0: (1) deactivate() resolve na hora se o cliente ja esta INACTIVE ou o socket ja esta CLOSED; (2) senao, so resolve quando onWebSocketClose dispara, sem timeout; (3) activate() ja trata o estado DEACTIVATING, mas so para a MESMA instancia de Client - a store cria uma nova a cada connect(), entao essa protecao nao nos alcanca. Dai o Promise.race."
     },
     {
