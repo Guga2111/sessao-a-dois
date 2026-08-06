@@ -101,7 +101,7 @@
         "bun run build passa"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Depende das US-001, US-002 e US-004. Esta e a parte 1 de 2 da PRD US-005 - foi dividida porque mover 1482 linhas numa iteracao so estoura o contexto. Aqui vai a metade menor: shell (MatchScreen.tsx:1422-1482), SuggestionsTab (393-690) e helpers (103-210). O SearchTab (691-1420), que e a metade grande, fica para a US-006. Ao mover codigo para arquivos novos, rodar bun run lint a cada passo: o que era legal dentro de um useCallback pode acabar no corpo de um componente novo e violar react-hooks/refs ou react-hooks/purity."
     },
     {
