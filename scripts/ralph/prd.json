@@ -46,7 +46,7 @@
         "O YAML e valido (parsear com um validador de YAML antes de commitar; nao existe schema check local)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Arquivo novo, sem dependencia de outras stories. O diretorio do maven e /api e o do npm e /client - o repo tem os dois projetos em subpastas, entao 'directory: /' estaria errado para ambos. A entrada github-actions existe porque .github/workflows/ci.yml e deploy.yml pinam actions (actions/checkout@v4, actions/setup-java@v4, oven-sh/setup-bun@v2) que tambem defasam. Nao ha como validar o arquivo de verdade sem o GitHub - a verificacao real (aba Insights > Dependency graph > Dependabot sem erro de parsing) fica do lado humano."
     },
     {

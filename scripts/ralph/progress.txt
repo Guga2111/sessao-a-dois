@@ -100,3 +100,42 @@ Started: Thu Aug  6 10:59:06 PDT 2026
     e secao "Trilha de auditoria de seguranca"); mudanca em uma pede referencia
     cruzada na outra.
 ---
+
+## 2026-08-06 - US-003 (Dependabot para Maven, npm e GitHub Actions)
+- Criado `.github/dependabot.yml` (arquivo novo, unico arquivo de codigo da story):
+  - `version: 2` e tres entradas em `updates`: `maven` em `/api`, `npm` em
+    `/client` e `github-actions` em `/`. Os dois projetos vivem em subpastas —
+    `directory: /` estaria errado para maven e npm.
+  - `schedule.interval: weekly` e `open-pull-requests-limit: 5` nas tres.
+  - Um `groups` por ecossistema (`maven-minor-patch`, `npm-minor-patch`,
+    `actions-minor-patch`) com `update-types: [minor, patch]`. Major fica fora do
+    grupo por construcao — o Dependabot abre PR proprio para o que o grupo nao
+    captura, entao um salto de major do Spring Boot/React vem isolado (E8.6).
+  - `target-branch: dev` nas tres. Isto e o item de risco da story: o
+    `deploy.yml` dispara no push da `main`, entao um PR do Dependabot contra a
+    `main` viraria deploy de producao a partir de um bump nao revisado.
+  - O cabecalho do arquivo carrega o porque de `target-branch` e de `groups`, para
+    quem editar depois nao "simplificar" removendo.
+- Verificacao feita aqui: YAML parseado com `bunx js-yaml` (o `python3` do
+  sandbox NAO tem o modulo `yaml`) + assercoes de schema sobre o objeto
+  resultante (version, os tres ecossistemas/diretorios, target-branch, cadencia,
+  limite <= 5, update-types de cada grupo). Todas passaram.
+- Confirmado que a branch `dev` existe no remoto (`git branch -r` -> `origin/dev`);
+  um `target-branch` inexistente e erro de configuracao silencioso no Dependabot.
+- NAO rodado `./mvnw test`: a story nao toca nenhum arquivo de `api/` nem de
+  `client/`.
+- PENDENTE DO LADO HUMANO: a validacao real do arquivo so acontece no GitHub —
+  aba **Insights > Dependency graph > Dependabot**, que deve listar os tres
+  ecossistemas sem erro de parsing. Nao ha schema check local.
+- Arquivos alterados: `.github/dependabot.yml` (novo), `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`.
+- **Learnings for future iterations:**
+  - Nao existe `python3 -c "import yaml"` neste sandbox. Para validar YAML use
+    `bunx --bun js-yaml <arquivo>` — imprime o JSON equivalente e falha com
+    codigo != 0 se o YAML for invalido.
+  - O repo tem `origin/dev` alem da `main`, e o fluxo do CD e `dev` -> `main`
+    (push na `main` = deploy). Qualquer automacao que abra PR tem que mirar `dev`.
+  - Este epico nao tem CLAUDE.md em `.github/`; a decisao de `target-branch`
+    ficou como comentario dentro do proprio `dependabot.yml`, que e onde alguem
+    editando o arquivo vai olhar.
+---
