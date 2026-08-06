@@ -124,7 +124,7 @@
         "bun run build passa"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Depende da US-005. Fecha a T7.2. Esta e a story de maior risco do epico: o SearchTab tem 19 useState (ja agrupados pela US-004), ternarios aninhados em 3 niveis e a cadeia de condicionais. Se o contexto apertar, priorizar nesta ordem: (1) extrair FiltersPanel e SearchResultCard para baixar as linhas, (2) o switch de status. O criterio de 400 linhas e o que prova que a story terminou."
     },
     {

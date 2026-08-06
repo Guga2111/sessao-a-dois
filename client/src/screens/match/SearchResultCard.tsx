@@ -1,0 +1,156 @@
+import { Heart, Loader2, Sparkles } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import type { MediaSearchResult } from "@/types/media"
+
+import { TYPE_LABEL, type LikeState } from "./helpers"
+
+export function SearchResultCard({
+  result,
+  alreadyTracked,
+  likeState,
+  compareMode,
+  isCompareSelected,
+  compareOrder,
+  onToggleCompare,
+  onLike,
+}: {
+  result: MediaSearchResult
+  alreadyTracked: boolean
+  likeState: LikeState
+  compareMode: boolean
+  isCompareSelected: boolean
+  compareOrder: number | null
+  onToggleCompare: () => void
+  onLike: () => void
+}) {
+  const hue = result.tmdbId % 360
+
+  return (
+    <div
+      onClick={() => compareMode && onToggleCompare()}
+      aria-pressed={compareMode ? isCompareSelected : undefined}
+      className={cn(
+        "overflow-hidden rounded-[18px] border bg-[#161513] transition-colors",
+        compareMode
+          ? cn(
+              "cursor-pointer",
+              isCompareSelected
+                ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+                : "border-dashed border-white/20 hover:border-white/35"
+            )
+          : "border-[rgba(255,255,255,.07)]"
+      )}
+    >
+      <div
+        className="relative aspect-[3/4]"
+        style={{
+          background: `linear-gradient(160deg, hsl(${hue} 42% 24%), hsl(${hue} 46% 11%))`,
+        }}
+      >
+        {result.posterUrl ? (
+          <img
+            src={result.posterUrl}
+            alt={result.title}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 8px, transparent 8px 16px)",
+            }}
+          />
+        )}
+        <div className="absolute top-2.5 left-2.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+          {TYPE_LABEL[result.mediaType]}
+        </div>
+        {compareMode ? (
+          isCompareSelected && (
+            <div className="absolute top-2.5 right-2.5 grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+              {compareOrder}
+            </div>
+          )
+        ) : (
+          result.voteAverage != null && (
+            <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+              <span className="size-1.5 rounded-full bg-[#01b47f]" />
+              {result.voteAverage.toFixed(1)}
+            </div>
+          )
+        )}
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="truncate text-[15px] font-bold leading-tight">
+            {result.title}
+          </div>
+          {result.year && (
+            <span className="flex-none text-[13px] text-[#a6a39a]">
+              {result.year}
+            </span>
+          )}
+        </div>
+
+        {result.overview && (
+          <p className="mt-2 line-clamp-2 text-[12.5px] leading-snug text-[#a6a39a]">
+            {result.overview}
+          </p>
+        )}
+
+        {!compareMode && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={(event) => {
+              event.stopPropagation()
+              onLike()
+            }}
+            disabled={alreadyTracked || likeState === "loading"}
+            className={cn(
+              "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] font-semibold transition-colors",
+              likeState === "matched" &&
+                "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.16)] text-[#ffdd7a]",
+              likeState === "liked" &&
+                "border-[rgba(61,220,151,.35)] bg-[rgba(61,220,151,.1)] text-[#8fe9c4]",
+              likeState === "error" &&
+                "border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.1)] text-[#ffb3b3]",
+              (likeState === "idle" || likeState === "loading") &&
+                "border-white/12 bg-transparent text-[#f6f4ec] hover:bg-white/[0.06]"
+            )}
+          >
+            {likeState === "loading" && (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Curtindo...
+              </>
+            )}
+            {likeState === "idle" && (
+              <>
+                <Heart className="size-4" /> Curtir
+              </>
+            )}
+            {likeState === "matched" && (
+              <>
+                <Sparkles className="size-4" /> E um match!
+              </>
+            )}
+            {likeState === "liked" && alreadyTracked && (
+              <>
+                <Heart className="size-4 fill-current" /> Ja na lista
+              </>
+            )}
+            {likeState === "liked" && !alreadyTracked && (
+              <>
+                <Heart className="size-4 fill-current" /> Curtido
+              </>
+            )}
+            {likeState === "error" && "Tente novamente"}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}

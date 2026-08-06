@@ -1,6 +1,8 @@
 import type { MediaSearchResult } from "@/types/media"
 import type { MediaType } from "@/types/tracking"
 
+export type LikeState = "idle" | "loading" | "liked" | "matched" | "error"
+
 export const TYPE_LABEL: Record<MediaSearchResult["mediaType"], string> = {
   MOVIE: "Filme",
   TV: "Serie",

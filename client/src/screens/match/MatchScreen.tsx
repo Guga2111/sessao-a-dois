@@ -4,7 +4,7 @@ import { Header } from "@/components/Header"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-import { SearchTab } from "../MatchScreen"
+import { SearchTab } from "./SearchTab"
 import { SuggestionsTab } from "./SuggestionsTab"
 
 type ActiveTab = "suggestions" | "search"
