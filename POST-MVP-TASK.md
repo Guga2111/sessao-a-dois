@@ -28,9 +28,27 @@ vinculantes para as tasks abaixo — não reabrir sem registrar o motivo aqui.
 | D11 | Skill `frontend-design` em refatoração | **Não usar** quando não há mudança visual. A regra do `CLAUDE.md` da raiz vale para UI nova ou alterada. | T7.1, T7.2 e T7.3 são refatorações puras e estão dispensadas. Registrado no `CLAUDE.md` da raiz. |
 | D12 | Cache do TMDB | A decisão #5 de `docs/BACKLOG.md` ("Cache TMDB: não por enquanto") continua válida. A T3.2 resolve a latência por **desnormalização**, não por cache. | Se depois de medir o cache ainda fizer sentido, vira task nova. |
 
+### Decisões da segunda rodada (2026-08-06) — Épicos 9 a 14
+
+Os Épicos 9–14 vieram de uma varredura de lacunas de **MVP** (o que falta para o app
+servir um usuário real), não da auditoria técnica de 2026-08-02. As decisões abaixo
+são vinculantes da mesma forma.
+
+| # | Questão | Decisão | Consequência |
+|---|---------|---------|--------------|
+| D13 | **O que acontece com os dados quando um casal se desfaz** | **Dissolver, não apagar.** O `couples` ganha `dissolved_at`; o casal dissolvido some das consultas, mas `media_track`/`user_review`/`notification` continuam no banco. Ambos ficam livres para formar um casal novo, do zero. | T9.1 precisa de migration e de filtro em **toda** consulta que hoje resolve o casal do usuário. Não há "histórico do relacionamento anterior" na UI — dado preservado ≠ dado acessível. |
+| D14 | **E-mail transacional** | **Entra no roadmap** (Épico 10), em provedor com free tier suficiente para ~8 usuários. **Supera a D4**, que dizia "não há infraestrutura de e-mail transacional no roadmap". | Recuperação de senha vira possível. A D4 em si (manter `409` no registro) **continua valendo** — reabrir enumeração de conta não é objetivo do Épico 10, e está no Fora do escopo dele. |
+| D15 | **Backup gerenciado do banco** | **Não fazer.** Backup automatizado sai do free tier do Supabase e o custo não se justifica hoje. | **Não existe Épico de backup.** A recuperação de um incidente de dados depende do que o free tier oferecer no momento + do snapshot manual pontual que a `docs/FLYWAY.md` já recomenda antes de deploy com migration. Risco aceito conscientemente: perda de dados é possível e não há RPO definido. Revisitar se o app ganhar usuários fora do círculo conhecido, ou pela via gratuita (`pg_dump` em cron na VPS, custo zero), se um dia virar prioridade. |
+| D16 | **Escopo de microsserviços** | **Não agora.** A feature de comunidade, quando vier, é um pacote `com.app.community` dentro do monólito modular, seguindo a regra de dependência da `docs/ARCHITECTURE.md` seção 3. | Nenhum épico de API gateway / extração de serviço. O package-by-feature com portas explícitas já é o que torna a extração barata *depois*, se a escala justificar. |
+
 **Ordem de execução:** Épicos 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8, com a **T8.1 (CI)
 antecipada** para junto do Épico 1. As dependências declaradas por task são as únicas
 restrições rígidas; o resto da ordem é negociável.
+
+**Segunda rodada:** Épicos 9 → 10 → 11 → 12 → 13 → 14. O 9 vem primeiro por ser a
+lacuna funcional mais visível para o usuário; o 11 (testes de frontend) vale antecipar
+se o Épico 13 for encarado, porque o 13 mexe em arquivo visual em massa. O 14 é de
+meia hora e pode entrar em qualquer momento.
 
 ## Legenda de criticidade
 
@@ -51,6 +69,12 @@ restrições rígidas; o resto da ordem é negociável.
 | [6](#épico-6--arquitetura-e-tratamento-de-erros) | Arquitetura e Tratamento de Erros | T6.1 – T6.5 | Médio |
 | [7](#épico-7--qualidade-do-frontend) | Qualidade do Frontend | T7.1 – T7.3 | Alto |
 | [8](#épico-8--cicd-e-infraestrutura) | CI/CD e Infraestrutura | T8.1 – T8.5 | Médio |
+| [9](#épico-9--ciclo-de-vida-de-conta-e-casal) | Ciclo de Vida de Conta e Casal | T9.1 – T9.5 | Alto |
+| [10](#épico-10--recuperação-de-senha-e-e-mail-transacional) | Recuperação de Senha e E-mail Transacional | T10.1 – T10.4 | Alto |
+| [11](#épico-11--rede-de-testes-do-frontend) | Rede de Testes do Frontend | T11.1 – T11.4 | Alto |
+| [12](#épico-12--observabilidade-e-alerta) | Observabilidade e Alerta | T12.1 – T12.5 | Médio |
+| [13](#épico-13--governança-do-design-system) | Governança do Design System | T13.1 – T13.5 | Médio |
+| [14](#épico-14--documentação-de-entrada) | Documentação de Entrada | T14.1 | Baixo |
 
 ---
 
@@ -1406,6 +1430,925 @@ Este é o achado mais recente — foi introduzido no commit `059690c`.
 
 ---
 
+# Épico 9 — Ciclo de Vida de Conta e Casal
+
+**Objetivo:** fechar o caminho de volta. Hoje conta e casal só têm o caminho de ida —
+cria-se, entra-se, e não há como sair, corrigir ou apagar. Este épico entrega
+dissolução de casal, edição de perfil, troca de senha e exclusão de conta.
+
+**Origem:** varredura de lacunas de MVP (2026-08-06), lacunas #2 e #3.
+
+**Dependências:** T9.2, T9.3 e T9.4 dependem da T9.1 (todas precisam do conceito de
+casal dissolvido). A T9.5 depende das quatro.
+
+---
+
+## T9.1 — Dissolver o vínculo do casal
+
+**Criticidade:** Alto
+**Arquivos:** `api/src/main/java/com/app/couple/{CoupleController,CoupleService,Couple,CoupleRepository}.java`, `api/src/main/resources/db/migration/V7__add_couple_dissolved_at.sql`, `api/src/main/java/com/app/tracking/MediaTrackService.java`, `api/src/main/java/com/app/match/MatchService.java`
+
+### Problema
+`CoupleController` expõe `POST /api/couple`, `GET /api/couple/me`, `POST /api/couple/join`
+e `POST /api/couple/invite-code/regenerate`. **Não há saída.** Quem digitou o código de
+convite errado e entrou no casal errado fica preso ali para sempre: `joinCouple` lança
+`UserAlreadyInCoupleException` em qualquer tentativa de entrar em outro, e não existe
+endpoint que desfaça o vínculo. O mesmo vale para um casal que simplesmente termina.
+
+É a lacuna mais visível do domínio central do app — o único caminho de correção hoje é
+`UPDATE` manual no banco.
+
+### O que fazer
+Conforme a **decisão D13** (dissolver, não apagar):
+
+1. Migration `V7__add_couple_dissolved_at.sql`: `ALTER TABLE couples ADD COLUMN IF NOT
+   EXISTS dissolved_at TIMESTAMPTZ NULL;` — seguir o padrão aditivo e idempotente das
+   migrations existentes (`IF NOT EXISTS`, sem `DROP`/`TRUNCATE`, ver `docs/FLYWAY.md`).
+2. `Couple` ganha `dissolvedAt` + método de domínio `dissolve()`.
+3. `CoupleRepository.findByUser1IdOrUser2Id` passa a ignorar casais dissolvidos (novo
+   método `findActiveByUserId`, ou cláusula `AND dissolvedAt IS NULL`). **Este é o ponto
+   de risco da task:** essa consulta é a porta pela qual o app inteiro descobre o casal
+   do usuário (`CoupleService:38,50,68,90`). Um caminho não coberto significa usuário
+   dissolvido ainda enxergando dados do casal antigo.
+4. `POST /api/couple/leave` (ou `DELETE /api/couple/me`): marca `dissolved_at = now()`,
+   registra no `SecurityAuditLogger` (método novo `coupleDissolved`) e responde `204`.
+   Ação **unilateral** — qualquer um dos dois dissolve, sem confirmação do parceiro. O
+   parceiro descobre na próxima requisição; notificar via STOMP está fora do escopo.
+5. Rate limit por usuário reaproveitando a infra da `CoupleService` (chave
+   `couple-dissolve:user:<id>`), para o endpoint não virar ferramenta de flood.
+6. **Achado colateral a corrigir junto:** `MediaTrackService:64` e `MatchService:57,73,87`
+   importam `com.app.couple.CoupleRepository` **diretamente**, o que viola a regra de
+   dependência entre features da `docs/ARCHITECTURE.md` seção 3 e é exatamente o
+   anti-pattern #2/#5 registrado lá. Como esta task muda a semântica de "casal do
+   usuário", é o momento certo: expor uma porta `CoupleFacade` em `com.app.couple` (no
+   mesmo espírito do `TrackingFacade`) e fazer `tracking`/`match` dependerem só dela.
+
+### Critérios de aceite
+- [ ] `POST /api/couple/leave` dissolve o casal e responde `204`.
+- [ ] Depois de dissolver, `GET /api/couple/me` responde `404` para **ambos** os usuários.
+- [ ] Depois de dissolver, ambos conseguem criar um casal novo e entrar num casal novo.
+- [ ] Nenhum endpoint de `tracking`, `match` ou `notification` retorna dado do casal dissolvido para os ex-membros.
+- [ ] As linhas de `media_track`, `user_review` e `notification` do casal dissolvido **continuam no banco** (verificar por contagem antes/depois).
+- [ ] Dissolver um casal inexistente responde `404`, não `500`.
+- [ ] `tracking` e `match` não importam mais `CoupleRepository`; a dependência passa por uma porta explícita.
+- [ ] Testes: `CoupleServiceTest` e `CoupleControllerTest` cobrem dissolver, dissolver duas vezes, dissolver sem casal, e recriar depois de dissolver.
+
+### Fora do escopo
+Notificar o parceiro em tempo real; exigir confirmação dos dois lados; qualquer UI de
+"histórico de relacionamentos anteriores"; exportação dos dados antes de dissolver.
+
+---
+
+## T9.2 — Editar perfil (nome e e-mail)
+
+**Criticidade:** Médio
+**Arquivos:** novos em `api/src/main/java/com/app/user/`, `api/src/main/java/com/app/auth/UserSummary.java`
+
+### Problema
+`com.app.user` tem apenas a entidade `User` e o `UserRepository` — **nenhum endpoint**.
+Um usuário que digitou o nome errado no cadastro, ou que trocou de e-mail, não tem como
+corrigir. O `User` já expõe `setName`/`setEmail`; falta só a camada de cima.
+
+### O que fazer
+Criar `UserProfileController` + `UserProfileService` em `com.app.user` (a feature dona
+do dado), com `PATCH /api/user/me` aceitando `name` e/ou `email`.
+
+- Validar `email` com `@Email` e unicidade — colidir com e-mail existente responde `409`,
+  coerente com a **D4** e com o `EmailAlreadyExistsException` que já existe em `com.app.auth`.
+- Trocar o e-mail **não** invalida a sessão (o token carrega `userId`, não e-mail).
+- Registrar no `SecurityAuditLogger` (`profileUpdated`), sem logar o valor novo do e-mail.
+- Não tocar em senha — isso é a T9.3.
+- Respeitar o anti-pattern #1: o controller não injeta `UserRepository`.
+
+### Critérios de aceite
+- [ ] `PATCH /api/user/me` altera nome, e-mail, ou ambos, e responde com o perfil atualizado.
+- [ ] E-mail já usado por outra conta responde `409`.
+- [ ] E-mail malformado responde `400` pelo `GlobalExceptionHandler`.
+- [ ] `GET /api/auth/me` reflete o valor novo na requisição seguinte.
+- [ ] A sessão continua válida depois da troca de e-mail.
+- [ ] Testes de service e controller cobrindo sucesso, conflito e payload inválido.
+
+### Fora do escopo
+Verificação do e-mail novo por link de confirmação (depende do Épico 10); upload de foto
+de perfil; alterar o nome exibido ao parceiro de forma diferente do nome da conta.
+
+---
+
+## T9.3 — Trocar a senha estando autenticado
+
+**Criticidade:** Alto
+**Arquivos:** `api/src/main/java/com/app/auth/{AuthController,AuthService}.java`, `api/src/main/java/com/app/auth/RefreshTokenService.java`
+
+### Problema
+Não existe troca de senha. Um usuário que suspeita que a senha vazou não tem nenhuma
+ação disponível — nem trocar, nem derrubar as sessões ativas. O Épico 4 construiu
+refresh token com rotação e `revokeFamily(userId)`, mas nada no app chama isso fora do
+logout.
+
+### O que fazer
+`PUT /api/auth/password`, exigindo `currentPassword` + `newPassword`:
+
+1. Conferir a senha atual com o mesmo encoder do login; errada → `401`, sem revelar mais nada.
+2. Aplicar a **mesma política de senha** da T5.3 no `newPassword` (não duplicar a regra — reusar o validador existente).
+3. Salvar o hash novo e chamar `RefreshTokenService.revokeFamily(userId)` — **todas** as sessões caem, inclusive a que fez a troca. É o comportamento correto: se a senha estava comprometida, a sessão do atacante morre junto. O frontend trata isso redirecionando para o login.
+4. Limpar os cookies `access_token`/`refresh_token` na resposta, via `AuthCookieService`.
+5. Rate limit por usuário e log de auditoria (`passwordChanged`).
+
+### Critérios de aceite
+- [ ] `PUT /api/auth/password` com senha atual correta troca a senha e responde `204`.
+- [ ] Senha atual errada responde `401` e **não** troca nada.
+- [ ] Senha nova fora da política responde `400` com a mesma mensagem da T5.3.
+- [ ] Depois da troca, o refresh token antigo não funciona mais (`POST /api/auth/refresh` → `401`).
+- [ ] Depois da troca, o login com a senha nova funciona e com a antiga falha.
+- [ ] Os cookies de sessão vêm limpos na resposta.
+- [ ] `AuthServiceTest`/`AuthControllerTest` cobrem os cinco cenários acima.
+
+### Fora do escopo
+Troca de senha sem estar autenticado (é o Épico 10); manter viva a sessão que fez a
+troca; notificar por e-mail que a senha mudou (depende do Épico 10).
+
+---
+
+## T9.4 — Excluir a conta
+
+**Criticidade:** Alto
+**Arquivos:** novos em `api/src/main/java/com/app/user/`, porta de `com.app.couple`, `api/src/main/java/com/app/tracking/`
+
+### Problema
+Não há como excluir a conta. Além de ser o pedido mais básico de privacidade, é
+exigência da LGPD (art. 18, eliminação de dado pessoal a pedido do titular). Hoje a
+única forma é `DELETE` manual no banco — e o `user_review.user_id` tem FK para `users`,
+então nem isso funciona sem cuidado.
+
+### O que fazer
+`DELETE /api/user/me`, exigindo a senha atual no corpo (mesma verificação da T9.3 —
+exclusão é irreversível e não pode depender só do cookie).
+
+Ordem da operação, em uma transação:
+
+1. Dissolver o casal, se houver — reusar a porta da T9.1, não duplicar a lógica.
+2. Apagar os `user_review` do usuário (opinião e nota são dado pessoal dele).
+3. Apagar os `refresh_token` do usuário.
+4. Apagar os `match_like`/`match_reject` atribuídos a ele.
+5. Apagar a linha de `users`.
+
+Os `media_track` **permanecem**: pertencem ao `couple_id`, não ao usuário, e apagá-los
+destruiria o histórico do parceiro que não pediu nada. Coerente com a D13.
+
+Definir a ordem respeitando as FKs declaradas em `V1__baseline.sql` (`fk_user_review_user`,
+`fk_refresh_token_user`) — a exclusão precisa passar sem violar constraint.
+
+### Critérios de aceite
+- [ ] `DELETE /api/user/me` com a senha correta apaga a conta e responde `204`.
+- [ ] Senha errada responde `401` e **nada** é apagado.
+- [ ] Depois da exclusão, o login com aquele e-mail responde `401` e o e-mail fica livre para um cadastro novo.
+- [ ] O casal foi dissolvido e o ex-parceiro consegue formar um casal novo.
+- [ ] Os `media_track` do casal continuam no banco; os `user_review` do usuário excluído, não.
+- [ ] Nenhuma violação de FK — teste de integração real contra o Postgres do CI, não só mock.
+- [ ] A exclusão é atômica: falha no meio não deixa conta meio-apagada (teste com rollback forçado).
+
+### Fora do escopo
+Período de carência / "desfazer exclusão" em N dias; exportação dos dados antes de
+apagar (portabilidade); anonimização em vez de exclusão.
+
+---
+
+## T9.5 — Tela de Conta no frontend
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/screens/` (nova tela), `client/src/App.tsx`, `client/src/stores/useAuthStore.ts`, `client/src/lib/api.ts`
+
+### Problema
+As T9.1–T9.4 não existem para o usuário sem UI. Hoje o app não tem nenhuma tela de
+configurações — `App.tsx` roteia landing, login, register, join, hub, match e dashboard,
+e nada mais.
+
+### O que fazer
+Rota protegida `/conta`, alcançável pelo `Header`, com quatro blocos:
+
+1. **Perfil** — nome e e-mail editáveis (T9.2).
+2. **Senha** — senha atual + nova (T9.3), com redirect para `/login` no sucesso, já que todas as sessões caem.
+3. **Casal** — mostra o parceiro e o botão de desfazer o vínculo (T9.1), atrás de confirmação explícita que diga o que acontece com o histórico.
+4. **Excluir conta** — zona destrutiva, exige senha e confirmação por digitação (T9.4).
+
+**Esta task usa a skill `frontend-design`** — é UI nova, então a regra do `CLAUDE.md` da
+raiz vale integralmente (a dispensa da D11 é só para refatoração sem mudança visual).
+
+Cuidados de coerência com o que já existe: erros vindos da API precisam aparecer na tela
+(anti-pattern #4 — nada de `.catch(() => {})`); depois de dissolver o casal, limpar o
+`couple` do `useAuthStore` e desconectar o WebSocket, senão a store fica apontando para
+um casal que não existe mais.
+
+### Critérios de aceite
+- [ ] `/conta` é protegida e acessível pelo `Header`.
+- [ ] Os quatro blocos funcionam ponta a ponta contra a API.
+- [ ] Ações destrutivas (dissolver, excluir) exigem confirmação explícita e dizem exatamente o que será perdido.
+- [ ] Todo erro da API vira mensagem visível, nunca falha silenciosa.
+- [ ] Depois de dissolver, a store e a conexão STOMP são limpas e o app vai para o fluxo de convite.
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- [ ] A skill `frontend-design` foi invocada antes da implementação.
+
+### Fora do escopo
+Preferências (tema, idioma, notificações); avatar; qualquer redesenho de tela existente.
+
+---
+
+# Épico 10 — Recuperação de Senha e E-mail Transacional
+
+**Objetivo:** eliminar o único caminho hoje sem volta — esquecer a senha significa
+perder a conta e todo o histórico do casal.
+
+**Origem:** varredura de lacunas de MVP (2026-08-06), lacuna #1.
+
+**Dependências:** T10.2 depende da T10.1. A T10.3 depende da T10.2. Todo o épico se
+apoia na política de senha da T5.3 e no `RefreshTokenService` do Épico 4.
+
+**Decisão habilitante:** **D14** — e-mail transacional entra no roadmap, superando a
+parte da D4 que dizia o contrário.
+
+---
+
+## T10.1 — Infraestrutura de e-mail
+
+**Criticidade:** Alto
+**Arquivos:** novo pacote `api/src/main/java/com/app/email/`, `api/src/main/resources/application.properties`, `docker-compose-prod.yml`, `docs/DEPLOY.md`
+
+### Problema
+Não há nenhuma forma de o backend alcançar o usuário fora da sessão HTTP. Isso bloqueou
+a recuperação de senha, empurrou a D4 para "manter o 409" e deixa qualquer aviso de
+segurança (senha alterada, login novo) impossível.
+
+### O que fazer
+Criar `com.app.email` como feature nova, seguindo package-by-feature:
+
+- Interface `EmailSender` — a **porta** que as outras features usam (`sendPasswordReset(...)`). Nenhuma feature fora daqui conhece o provedor.
+- Implementação sobre um provedor com free tier compatível com ~8 usuários (Resend, Brevo ou equivalente — decidir na task e **registrar a escolha e o limite do plano** no `docs/DEPLOY.md`). Nada de SMTP do Gmail com senha de app.
+- Fail-fast da credencial no startup, no mesmo padrão de `TmdbConfig:31-34` e da T1.1: sem API key em produção, a aplicação não sobe.
+- Implementação **no-op que loga** para dev/test, selecionada por property — o devcontainer não pode depender de rede para rodar a suíte.
+- A chave entra no `.env` da VPS e no `docker-compose-prod.yml` como os outros segredos, nunca versionada.
+
+### Critérios de aceite
+- [ ] `EmailSender` é a única superfície pública da feature; nenhuma outra feature importa classe do provedor.
+- [ ] Subir em produção sem a API key falha no startup com mensagem em pt-BR nomeando a variável.
+- [ ] Em teste/dev a implementação no-op é usada e a suíte roda sem rede.
+- [ ] Um e-mail real chega à caixa de entrada em um teste manual documentado no PR.
+- [ ] `docs/DEPLOY.md` registra provedor, variável de ambiente, limite do free tier e o que fazer se estourar.
+- [ ] Nenhuma credencial no repositório.
+
+### Fora do escopo
+Templates elaborados em HTML; fila/retry de envio; e-mail de boas-vindas ou marketing;
+verificação de e-mail no cadastro.
+
+---
+
+## T10.2 — Fluxo de "esqueci minha senha"
+
+**Criticidade:** Alto
+**Arquivos:** `api/src/main/java/com/app/auth/`, `api/src/main/resources/db/migration/V8__create_password_reset_token.sql`, `api/src/main/java/com/app/security/RateLimitProperties.java`
+
+### Problema
+`AuthController` tem register, login, refresh, logout e me. Sem recuperação, senha
+esquecida = conta perdida.
+
+### O que fazer
+Modelar o token de reset **com o mesmo rigor do refresh token** (Épico 4), não como um
+UUID solto:
+
+1. Migration `V8__create_password_reset_token.sql`, aditiva e idempotente: `id`, `user_id` (FK), `token_hash`, `expires_at`, `used_at`, `created_at`, índice por `token_hash`. **Guardar apenas o hash**, como o `refresh_token` faz.
+2. `POST /api/auth/forgot-password` — recebe o e-mail, responde **sempre `202`**, independente de a conta existir. Isso não conflita com a D4: ali o oráculo aceito é o `409` do registro; aqui não há motivo para criar um segundo.
+3. Token de **uso único**, TTL curto (30 min), invalidado no uso e na emissão de um novo.
+4. `POST /api/auth/reset-password` — token + senha nova. Aplica a política da T5.3, salva o hash, marca `used_at` e chama `revokeFamily(userId)`, derrubando todas as sessões.
+5. Rate limit em **duas dimensões**: por IP e por e-mail alvo, seguindo o padrão `login`/`loginByEmail` que já existe em `RateLimitProperties:19-24` e nas properties `app.rate-limit.*`.
+6. Log de auditoria para pedido e conclusão do reset (sem o token, sem o e-mail completo).
+7. Limpeza dos tokens expirados, no mesmo molde do `NotificationCleanupService`.
+
+### Critérios de aceite
+- [ ] `POST /api/auth/forgot-password` responde `202` para e-mail existente e inexistente, com tempo de resposta equivalente.
+- [ ] O e-mail chega com link contendo o token em texto claro; o banco guarda só o hash.
+- [ ] Token válido redefine a senha; token usado, expirado ou adulterado responde `400`, sem distinguir os casos.
+- [ ] Depois do reset, todas as sessões anteriores estão revogadas.
+- [ ] Senha nova fora da política responde `400` com a mensagem da T5.3.
+- [ ] Rate limit por IP e por e-mail alvo funcionando, com teste.
+- [ ] Testes cobrindo: fluxo feliz, token expirado, token reusado, e-mail inexistente, política violada.
+
+### Fora do escopo
+Reabrir a D4 (enumeração no registro); verificação de e-mail no cadastro; 2FA;
+"magic link" como forma de login.
+
+---
+
+## T10.3 — Telas de recuperação no frontend
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/routes/auth/`, `client/src/App.tsx`
+
+### Problema
+O fluxo da T10.2 não existe para o usuário sem tela. `LoginPage` também não tem link
+nenhum apontando para recuperação.
+
+### O que fazer
+Duas rotas públicas, no `AuthLayout` já existente, reaproveitando o visual de
+`LoginPage`/`RegisterPage`:
+
+- `/esqueci-senha` — campo de e-mail, e confirmação genérica ("se existir uma conta com esse e-mail, enviamos as instruções"), coerente com o `202` do backend.
+- `/redefinir-senha?token=...` — senha nova + confirmação, com os requisitos de senha visíveis **antes** do submit, e redirect para `/login` no sucesso.
+- Link "Esqueci minha senha" na `LoginPage`.
+
+**Esta task usa a skill `frontend-design`** (telas novas).
+
+### Critérios de aceite
+- [ ] As duas rotas existem, são públicas e usam o `AuthLayout`.
+- [ ] A confirmação do pedido é genérica e não revela se a conta existe.
+- [ ] Token ausente ou inválido na URL mostra estado de erro claro, com caminho para pedir outro.
+- [ ] Erros da API viram mensagem visível.
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- [ ] A skill `frontend-design` foi invocada antes da implementação.
+
+### Fora do escopo
+Medidor de força de senha; mudar o visual das telas de login/cadastro existentes.
+
+---
+
+## T10.4 — Aviso de segurança por e-mail
+
+**Criticidade:** Baixo
+**Arquivos:** `api/src/main/java/com/app/auth/AuthService.java`, `api/src/main/java/com/app/email/`
+
+### Problema
+Com a T9.3 e a T10.2, a senha pode mudar por dois caminhos. Se a mudança não foi o
+titular, ele não fica sabendo por lugar nenhum.
+
+### O que fazer
+Disparar e-mail informativo (não acionável, sem link de "reverter") quando a senha for
+alterada, pelos dois caminhos. Falha no envio **não** pode derrubar a operação — a senha
+já mudou; logar em `warn` e seguir.
+
+### Critérios de aceite
+- [ ] Troca autenticada (T9.3) e reset (T10.2) disparam o aviso.
+- [ ] Provedor de e-mail fora do ar não faz a troca de senha falhar; o erro aparece no log com contexto.
+- [ ] O e-mail não contém senha, token nem link de ação.
+- [ ] Teste garantindo que a falha de envio é tolerada.
+
+### Fora do escopo
+Avisos de login em dispositivo novo; digest de atividade; preferências de notificação.
+
+---
+
+# Épico 11 — Rede de Testes do Frontend
+
+**Objetivo:** dar ao `client/` a mesma rede de regressão que o `api/` já tem, e fechar
+o non-goal que o PRD do Épico 8 deixou explicitamente em aberto ("Testes no frontend —
+é épico próprio, não um item de CI/CD").
+
+**Origem:** varredura de lacunas de MVP (2026-08-06), lacuna #4.
+
+**Dependências:** T11.2, T11.3 e T11.4 dependem da T11.1.
+
+---
+
+## T11.1 — Infraestrutura de teste
+
+**Criticidade:** Alto
+**Arquivos:** `client/package.json`, `client/vite.config.ts`, novo `client/src/test/setup.ts`, `client/CLAUDE.md`
+
+### Problema
+`client/package.json` tem `dev`, `build`, `lint`, `format`, `typecheck` e `preview` —
+**nenhum `test`**, nenhuma dependência de teste. O `api/` tem 48 arquivos de teste; o
+`client/` tem zero. O Épico 7 acabou de fazer as refatorações mais invasivas do projeto
+(decompor `HubScreen`, `SearchTab`, corrigir vazamentos da `useMatchStore`) sem nenhuma
+verificação automática de que o comportamento se manteve.
+
+### O que fazer
+Vitest + `@testing-library/react` + `@testing-library/user-event` + `jsdom`,
+configurados dentro do `vite.config.ts` já existente (sem arquivo de config separado).
+
+- Scripts `test` (watch) e `test:run` (CI, sem watch).
+- `setup.ts` com `@testing-library/jest-dom` e limpeza entre testes.
+- Um teste-canário trivial provando que a infra roda.
+- Registrar em `client/CLAUDE.md` como rodar e onde ficam os testes — é a convenção que as tasks seguintes vão seguir.
+- Decidir e registrar a estratégia de mock de HTTP: `axios` é o cliente (`client/src/lib/api.ts`), então mockar o módulo já resolve. MSW só se a T11.3 provar que é necessário — não introduzir a dependência antes.
+
+### Critérios de aceite
+- [ ] `bun run test:run` executa e passa localmente.
+- [ ] `bun run typecheck` continua passando com os tipos de teste incluídos.
+- [ ] O teste-canário roda em ambiente jsdom com um componente React real.
+- [ ] `client/CLAUDE.md` documenta comando, localização e convenção de nome dos testes.
+- [ ] Nenhuma mudança de comportamento no app.
+
+### Fora do escopo
+Teste E2E (Playwright/Cypress); teste de regressão visual; cobertura mínima (é a T11.4).
+
+---
+
+## T11.2 — Testes das stores e hooks
+
+**Criticidade:** Alto
+**Arquivos:** testes novos para `client/src/stores/{useAuthStore,useMatchStore,useNotificationStore}.ts`, `client/src/screens/match/useDiscoverSearch.ts`, `client/src/lib/useCompareSelection.ts`
+
+### Problema
+É onde mora a lógica de verdade e onde os bugs do Épico 7 apareceram: vazamento de
+subscription na `useMatchStore`, `celebratedMatchKeys` sem limpeza, assimetria de
+subscription STOMP. Todos foram corrigidos **sem teste** — nada impede a regressão.
+
+### O que fazer
+Priorizar por risco, não por cobertura:
+
+1. `useMatchStore` — `connect`/`disconnect` idempotentes, subscription liberada no disconnect, `celebratedMatchKeys` sem crescimento ilimitado. São exatamente os bugs da T7.3.
+2. `useAuthStore` — bootstrap via `GET /api/auth/me`, sessão ausente, e o cache de UI em `localStorage` não sendo tratado como credencial.
+3. `useDiscoverSearch` — as transições do `useReducer` introduzido na T7 (busca, filtro, paginação, erro).
+4. `useCompareSelection` — limites de seleção e limpeza.
+5. `useNotificationStore` — contagem de não-lidas e marcar-como-lida.
+
+### Critérios de aceite
+- [ ] Cada um dos 5 módulos tem teste cobrindo o caminho feliz **e** o caso de erro.
+- [ ] Existe teste que falharia se o vazamento de subscription da T7.3 voltasse.
+- [ ] Existe teste que falharia se `celebratedMatchKeys` voltasse a crescer sem limite.
+- [ ] Nenhum teste depende de rede real.
+- [ ] `bun run test:run` verde.
+
+### Fora do escopo
+Testar componentes (é a T11.3); testar o servidor STOMP de verdade.
+
+---
+
+## T11.3 — Testes de componente das telas críticas
+
+**Criticidade:** Médio
+**Arquivos:** testes para `client/src/screens/hub/`, `client/src/screens/match/`, `client/src/routes/guards.tsx`
+
+### Problema
+As telas decompostas no Épico 7 (`HubScreen` → `screens/hub/`, `MatchScreen` →
+`screens/match/`) e os guards de rota concentram o comportamento visível do app e não
+têm nenhuma verificação.
+
+### O que fazer
+Testes de comportamento observável pelo usuário, não de detalhe de implementação:
+
+- `guards.tsx` — `ProtectedRoute`, `PublicOnlyRoute`, `RequireCouple`, `RedirectIfCoupled`: cada um redireciona para onde deve, em cada estado de sessão.
+- `TrackSection`/`HubScreen` — listas vazia, carregando e com erro (o Épico 7 tornou a falha da fila de pendentes visível na US-009; garantir que continua).
+- `SearchTab` — o `switch` que substituiu a cadeia de condicionais na T7, com todos os estados.
+
+### Critérios de aceite
+- [ ] Os 4 guards têm teste para cada estado de sessão relevante.
+- [ ] Estados de carregando, vazio e **erro** cobertos nas telas listadas.
+- [ ] Existe teste que falharia se a falha de carregamento voltasse a ser silenciosa.
+- [ ] Os testes consultam por papel/texto acessível, não por classe CSS — assim o Épico 13 pode mexer em estilo sem quebrá-los.
+- [ ] `bun run test:run` verde.
+
+### Fora do escopo
+Cobrir todos os 14 componentes de `client/src/components/`; testes de landing page.
+
+---
+
+## T11.4 — Gate no CI
+
+**Criticidade:** Médio
+**Arquivos:** `.github/workflows/ci.yml`
+
+### Problema
+O job `frontend` do `ci.yml` roda `typecheck`, `lint` e `build`. Depois das T11.1–T11.3
+haverá testes que ninguém executa automaticamente.
+
+### O que fazer
+Adicionar `bun run test:run` ao job `frontend`, antes do `build`. Configurar limiar de
+cobertura no patamar recém-alcançado, **não** num número aspiracional — mesma abordagem
+adotada para o JaCoCo na T8.1.
+
+### Critérios de aceite
+- [ ] O CI roda os testes do frontend e falha se algum quebrar.
+- [ ] Limiar de cobertura declarado e no patamar atual.
+- [ ] Um PR com teste quebrado é bloqueado.
+- [ ] O tempo total do CI continua aceitável (registrar o antes/depois no PR).
+
+### Fora do escopo
+Subir o limiar de cobertura; badge de cobertura; publicar relatório em serviço externo.
+
+---
+
+# Épico 12 — Observabilidade e Alerta
+
+**Objetivo:** saber que a aplicação caiu antes do usuário avisar, e conseguir investigar
+depois com o que ficou registrado.
+
+**Origem:** varredura de lacunas de MVP (2026-08-06), lacuna #5.
+
+**Dependências:** T12.1 depende da T12.2 (monitorar um health check raso é
+falso-negativo garantido). O resto é independente.
+
+**Restrição de custo:** tudo aqui cabe em free tier ou em infra que já existe. Coerente
+com a **D15**, nenhuma task deste épico introduz custo recorrente.
+
+---
+
+## T12.1 — Uptime check externo
+
+**Criticidade:** Médio
+**Arquivos:** `docs/DEPLOY.md`
+
+### Problema
+`docs/DEPLOY.md` só oferece investigação manual (`docker compose logs`, `docker ps` via
+SSH). Não há nada que perceba a aplicação fora do ar. Se a API cair de madrugada, a
+descoberta vem pelo parceiro reclamando no dia seguinte.
+
+### O que fazer
+Configurar um monitor externo gratuito (UptimeRobot, BetterStack ou equivalente) sobre
+`https://sessaoadois.luisgosampaio.com/api/health`, com alerta por e-mail e/ou Telegram.
+Intervalo de 5 min é suficiente.
+
+Task **operacional** — executada pelo mantenedor no painel do serviço, não por um
+agente. A entrega em repositório é a documentação.
+
+### Critérios de aceite
+- [ ] Monitor ativo, apontando para o health check, com alerta configurado.
+- [ ] Derrubar a API deliberadamente (`docker compose stop api`) gera alerta em até 10 min — teste feito e registrado.
+- [ ] `docs/DEPLOY.md` ganha seção de monitoramento: serviço, o que é monitorado, para onde vai o alerta, e como pausar durante deploy planejado.
+- [ ] Nenhum custo recorrente.
+
+### Fora do escopo
+APM, tracing distribuído, dashboard de métricas, SLO formal.
+
+---
+
+## T12.2 — Health check com profundidade
+
+**Criticidade:** Médio
+**Arquivos:** `api/src/main/java/com/app/HealthController.java`, `api/src/test/java/com/app/HealthControllerTest.java`, `api/Dockerfile`
+
+### Problema
+`HealthController:16-18` responde `Map.of("status", "UP")` — uma constante. Ele diz
+apenas "o processo Java está de pé e o Tomcat aceita conexão". Se o Postgres cair ou as
+credenciais expirarem, o health check continua `200 UP`, o `HEALTHCHECK` do container
+(T8.2) continua saudável e o monitor da T12.1 continua verde, com o app 100% quebrado.
+
+### O que fazer
+Verificar a dependência crítica antes de responder:
+
+- Um `SELECT 1` com timeout curto (1–2s) contra o `DataSource`. Falhou → `503` com o motivo, sem vazar detalhe de conexão (host, usuário, senha).
+- Manter a resposta barata: o endpoint é chamado a cada 30s pelo container e a cada 5 min pelo monitor externo.
+- Manter `/api/health` público (`SecurityConfig`), como já é hoje e como a `SecurityConfigTest` afirma.
+- Avaliar Spring Boot Actuator: o `pom.xml` **não** o inclui hoje. Se entrar, expor **somente** o grupo de health, sem `/actuator/**` aberto — caso contrário, resolver no controller manual, que é o caminho mais simples.
+
+### Critérios de aceite
+- [ ] Banco no ar → `200` com status detalhado.
+- [ ] Banco fora → `503` em no máximo ~2s, sem pendurar a thread.
+- [ ] A resposta de falha não contém credencial, host nem stack trace.
+- [ ] `/api/health` continua público e a `SecurityConfigTest` continua passando.
+- [ ] `HealthControllerTest` cobre os dois cenários.
+- [ ] O `HEALTHCHECK` do container passa a refletir o estado real (container fica `unhealthy` com o banco fora).
+
+### Fora do escopo
+Checar TMDB no health (dependência externa fora do ar não deve derrubar o container);
+métricas de negócio.
+
+---
+
+## T12.3 — Erro não tratado no frontend deixa de ser tela branca
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/main.tsx`, novo componente de error boundary, `api/src/main/java/com/app/`
+
+### Problema
+Não existe **nenhum** error boundary no `client/` (busca por `ErrorBoundary` em
+`client/src/` não retorna nada). Uma exceção durante o render desmonta a árvore React e
+o usuário fica com tela branca, sem mensagem e sem qualquer rastro do lado do servidor.
+O Épico 6 tratou os `catch` silenciosos das chamadas de API; o erro de render não foi
+coberto.
+
+### O que fazer
+1. Error boundary no topo da árvore (`main.tsx`), com tela de erro que ofereça recarregar. **Usa a skill `frontend-design`** — é UI nova, ainda que raramente vista.
+2. Endpoint `POST /api/client-errors` que recebe mensagem, stack e o correlation id, e grava no log do backend usando o `CorrelationIdFilter` que já existe. **Sem serviço externo, custo zero** — dado o volume (~8 usuários), o log do backend é agregação suficiente.
+3. Proteger o endpoint: rate limit por IP na infra que já existe, limite de tamanho do corpo, e nada de refletir o conteúdo recebido em resposta.
+
+### Critérios de aceite
+- [ ] Erro de render mostra a tela de erro, não tela branca.
+- [ ] O erro chega ao log do backend com correlation id, rota e mensagem.
+- [ ] O endpoint é rate-limited e rejeita corpo acima do limite.
+- [ ] Nenhum dado sensível (token, e-mail) é enviado no relatório.
+- [ ] Teste do boundary (renderizar filho que lança) e teste do endpoint.
+- [ ] A skill `frontend-design` foi invocada para a tela de erro.
+
+### Fora do escopo
+Sentry ou qualquer SaaS de erro; source maps em produção; captura de `unhandledrejection`
+global.
+
+---
+
+## T12.4 — Retenção e consulta de log
+
+**Criticidade:** Baixo
+**Arquivos:** `api/src/main/resources/logback-spring.xml`, `docs/DEPLOY.md`
+
+### Problema
+`logback-spring.xml` já configura o `RollingFileAppender` do logger `security.audit`,
+montado em volume na VPS (`docs/DEPLOY.md:177-208`). O log **da aplicação**, porém, vive
+só no `docker logs`: some no `docker compose down`, não tem retenção definida, e não há
+procedimento escrito para investigar um incidente por correlation id.
+
+### O que fazer
+- Definir política de retenção explícita para o audit log (tamanho máximo total e histórico em dias) — hoje o rolling não tem teto documentado, e volume cheio na VPS derruba tudo.
+- Decidir e registrar se o log da aplicação também vai para arquivo, ou se `docker logs` com `max-size`/`max-file` no compose basta. **Recomendação:** limitar no compose, que é mais simples e evita o risco de disco cheio.
+- Documentar o procedimento de investigação em `docs/DEPLOY.md`: dado um correlation id vindo da T12.3, quais comandos rodar.
+
+### Critérios de aceite
+- [ ] Retenção do audit log declarada em configuração, com teto de tamanho.
+- [ ] Log da aplicação com limite de tamanho, sem risco de encher o disco.
+- [ ] `docs/DEPLOY.md` traz o passo a passo de investigação por correlation id.
+- [ ] Um incidente simulado é rastreado ponta a ponta seguindo só a documentação.
+
+### Fora do escopo
+ELK, Loki, Grafana; log estruturado em JSON; envio de log para fora da VPS.
+
+---
+
+## T12.5 — Alerta de falha de deploy
+
+**Criticidade:** Baixo
+**Arquivos:** `.github/workflows/deploy.yml`
+
+### Problema
+Fecha a **Open Question #1** do PRD do Épico 8. Hoje uma falha de deploy só aparece na
+aba Actions do GitHub. O e-mail automático do GitHub vai para o autor do commit e é
+fácil de perder.
+
+### O que fazer
+Step `if: failure()` no final do `deploy.yml` disparando notificação que alcance o
+celular (webhook de Telegram é o caminho gratuito e mais direto; o token entra como
+secret do repositório). A mensagem precisa dizer qual job falhou e trazer o link da run.
+
+### Critérios de aceite
+- [ ] Falha no deploy dispara a notificação; sucesso não dispara nada.
+- [ ] A mensagem identifica o job e linka a run.
+- [ ] O token está em secret do repositório, nunca no YAML.
+- [ ] Testado com uma falha forçada, registrada no PR.
+- [ ] A Open Question #1 do PRD do Épico 8 é marcada como fechada, referenciando esta task.
+
+### Fora do escopo
+Rollback automático (segue sendo `git revert` + merge, por decisão do Épico 8);
+notificação de deploy bem-sucedido; abrir issue automática.
+
+---
+
+# Épico 13 — Governança do Design System
+
+**Objetivo:** fazer os tokens de design serem a fonte da verdade. Os primitivos já
+existem; o que não existe é a regra que impede o app de contorná-los.
+
+**Origem:** varredura de lacunas de MVP (2026-08-06).
+
+**Dependências:** T13.2 depende da T13.1. A T13.4 depende da T13.2. **Fortemente
+recomendado fazer o Épico 11 antes** — a T13.2 toca dezenas de arquivos visuais e hoje
+não há nada que detecte uma quebra.
+
+### O diagnóstico, medido
+
+O `client/` **não** precisa de Button/Card/Input: `client/src/components/ui/` já tem 14
+primitivos, e o `button.tsx` sozinho declara 6 variantes e 8 tamanhos via `cva`.
+`index.css` já tem tokens em `oklch`, escala de raio de `sm` a `4xl` e três famílias
+tipográficas.
+
+O problema é que **o app quase não usa nada disso**. Fora de `components/ui/`:
+
+| Medida | Valor |
+|---|---|
+| Literais hexadecimais em `.tsx` | **689** |
+| Utilitários de cor arbitrários (`bg-[...]`, `text-[...]`, `border-[...]`) | **1033** |
+| `<button>` cru em vez do componente `Button` | **12** |
+| Arquivo mais afetado | `PendingDetailModal.tsx` (71 arbitrários), `ComparisonDialog.tsx` (70), `MediaCard.tsx` (69) |
+
+Os hex mais repetidos revelam que a paleta real do app existe — ela só mora
+copiada-e-colada dentro de strings de classe, não em token:
+
+| Cor | Ocorrências | Papel aparente |
+|---|---|---|
+| `#a6a39a` | 148 | texto secundário |
+| `#ffcb2b` | 140 | primária / destaque |
+| `#f6f4ec` | 116 | texto sobre fundo escuro |
+| `#161513` | 54 | superfície de card |
+| `#09090a` | 39 | fundo |
+| `#ff6b6b` | 31 | destrutivo / erro |
+
+Consequência concreta: `main.tsx:11` monta um `ThemeProvider` que suporta
+`dark`/`light`/`system` — e **nenhum componente do app consome esse contexto**. Não há
+alternador de tema em lugar nenhum, e as telas fixam cores escuras em hex. Um usuário com
+sistema em modo claro recebe os primitivos de `ui/` em tokens claros **por cima** de telas
+codificadas em escuro.
+
+---
+
+## T13.1 — Extrair a paleta real para tokens
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/index.css`
+
+### Problema
+Os tokens de `:root`/`.dark` em `index.css:68-133` são majoritariamente o preset neutro
+do shadcn (`oklch(0.145 0 0)`, `oklch(0.97 0 0)`…). A identidade visual do app — o
+amarelo `#ffcb2b`, o creme `#f6f4ec`, os cinzas quentes — não está lá. Quem lê o
+`index.css` não descobre a cara do produto.
+
+### O que fazer
+Mapear a paleta medida acima para os tokens semânticos existentes (`--background`,
+`--card`, `--foreground`, `--muted-foreground`, `--primary`, `--destructive`), convertendo
+para `oklch` como o resto do arquivo. Adicionar token novo apenas onde nenhum semântico
+existente couber — e, nesse caso, comentar o porquê.
+
+**Sem nenhuma mudança visual nesta task**: os componentes ainda usam hex, então redefinir
+token não move pixel. É deliberado — a T13.1 pode ir sozinha e ser conferida isoladamente.
+
+### Critérios de aceite
+- [ ] As 6+ cores mais frequentes têm token semântico correspondente.
+- [ ] Valores em `oklch`, consistentes com o arquivo.
+- [ ] Cada token tem comentário dizendo o papel (o que é `--card` neste app).
+- [ ] O app está **pixel-idêntico** ao anterior (comparar antes/depois nas telas principais).
+- [ ] `bun run build` passa.
+
+### Fora do escopo
+Trocar o hex nos componentes (T13.2); redesenhar qualquer coisa; escolher cor nova.
+
+---
+
+## T13.2 — Substituir cor crua por token nos componentes
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/components/`, `client/src/screens/`, `client/src/routes/`
+
+### Problema
+1033 utilitários arbitrários e 689 hex espalhados por ~30 arquivos. Trocar o amarelo do
+produto hoje significa 140 edições manuais, e errar uma passa despercebido.
+
+### O que fazer
+Substituição mecânica, **por arquivo**, do maior para o menor volume: `bg-[#161513]` →
+`bg-card`, `text-[#a6a39a]` → `text-muted-foreground`, e assim por diante.
+
+- **Refatoração pura, pixel-idêntica** — se algum pixel mudar, o mapeamento da T13.1 está errado; corrigir o token, não o componente. Por ser refatoração sem mudança visual, a **D11** dispensa a skill `frontend-design`.
+- Um commit por arquivo (ou por grupo pequeno), para revisão viável e revert cirúrgico.
+- Substituir também os **12 `<button>` crus** pelo componente `Button` com a variante equivalente.
+- Onde a cor não tiver token correspondente, **parar e voltar à T13.1** em vez de inventar arbitrário novo.
+
+### Critérios de aceite
+- [ ] Zero literal hexadecimal fora de `components/ui/` e de SVG decorativo declaradamente ilustrativo.
+- [ ] Utilitários de cor arbitrários reduzidos a um punhado justificado caso a caso.
+- [ ] Os 12 `<button>` crus viraram `Button`.
+- [ ] Nenhuma mudança visual — verificado tela a tela.
+- [ ] Os testes do Épico 11 continuam verdes (é o principal motivo de fazer o 11 antes).
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Mudar layout, espaçamento ou tipografia; redesenhar componentes; tema claro (T13.3).
+
+---
+
+## T13.3 — Decidir o destino do tema claro
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/main.tsx`, `client/src/components/theme-provider.tsx`, `client/src/index.css`
+
+### Problema
+`ThemeProvider` está montado em `main.tsx:11`, suporta `dark`/`light`/`system`, tem
+`localStorage` e listener de `prefers-color-scheme` — e **nada no app o consome**. Não há
+alternador. As telas assumem escuro. É um recurso pela metade que dá trabalho de manter e
+não entrega nada ao usuário.
+
+### O que fazer
+Escolher **um** caminho e executar até o fim:
+
+**(a) Assumir dark-only.** Remover o `ThemeProvider`, fixar `.dark` no `<html>`, apagar os
+tokens `:root` claros não usados. Mais barato, honesto sobre o que o app é hoje.
+
+**(b) Entregar o tema claro de verdade.** Depende da T13.2 estar completa (sem hex fixo,
+o tema passa a funcionar quase sozinho); revisar contraste de cada token claro e adicionar
+o alternador no `Header` ou na tela de Conta da T9.5.
+
+**Recomendação: (a) agora, (b) quando alguém pedir.** Registrar a decisão neste arquivo,
+como decisão nova, seja qual for a escolha.
+
+Se a escolha for **(b)**, a task **usa a skill `frontend-design`** (o alternador é UI nova
+e a paleta clara é decisão de design). Se for **(a)**, é remoção pura e está dispensada.
+
+### Critérios de aceite
+- [ ] A decisão está registrada na tabela de decisões deste arquivo, com justificativa.
+- [ ] Não sobra código de tema não utilizado (se (a)) nem tema pela metade (se (b)).
+- [ ] Se (b): toda tela legível em claro e escuro, com contraste AA no texto.
+- [ ] Se (a): nenhuma referência residual a `theme`/`ThemeProvider` no `client/`.
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Temas adicionais; tema por casal; transição animada entre temas.
+
+---
+
+## T13.4 — Barrar a regressão no CI
+
+**Criticidade:** Médio
+**Arquivos:** `client/eslint.config.js` ou `.github/workflows/ci.yml`
+
+### Problema
+Sem um portão, o hex volta. Foi assim que chegaram 689 — um de cada vez, cada um
+justificável isoladamente.
+
+### O que fazer
+Regra que falhe quando aparecer literal de cor fora de `components/ui/`. Duas opções, a
+mais simples que funcionar:
+
+- ESLint `no-restricted-syntax` sobre literais de string de className, com `overrides` liberando `src/components/ui/**`.
+- Ou, se a regra de ESLint ficar frágil, um step de CI com `grep` sobre o padrão, no
+  mesmo espírito do gate de `bun audit` da US-005 do Épico 8.
+
+Toda exceção precisa de comentário explicando por quê — mesma disciplina exigida dos
+`--ignore` do `bun audit`.
+
+### Critérios de aceite
+- [ ] Um `#ffcb2b` novo em `src/screens/` faz o CI falhar.
+- [ ] O mesmo hex dentro de `src/components/ui/` não falha.
+- [ ] A mensagem de erro diz qual token usar em vez da cor crua.
+- [ ] Exceções existentes documentadas uma a uma.
+- [ ] O CI não fica mais lento de forma perceptível.
+
+### Fora do escopo
+Lint de espaçamento, tipografia ou ordem de classes (o `prettier-plugin-tailwindcss` já
+cobre ordenação).
+
+---
+
+## T13.5 — Documentar o inventário e o critério de uso
+
+**Criticidade:** Baixo
+**Arquivos:** novo `client/docs/DESIGN-SYSTEM.md`, `client/CLAUDE.md`
+
+### Problema
+Mesmo com tokens e lint, falta a parte que só se resolve escrevendo: **quando usar cada
+variante**. `Button` tem 6 variantes e 8 tamanhos e nada diz qual usar onde — foi assim
+que apareceram 12 `<button>` crus, provavelmente porque era mais fácil que descobrir a
+variante certa.
+
+### O que fazer
+Documento curto e operacional, não catálogo enfeitado:
+
+- Inventário dos 14 primitivos de `ui/`, com o que cada um resolve.
+- Para `Button`, `Card` e `Input`: qual variante em qual situação, com exemplo de uso errado.
+- Tabela de tokens (T13.1): nome, papel, quando usar.
+- A regra: **primitivo antes de elemento cru; token antes de cor**. Se nenhum atende, a saída é estender o primitivo, não contornar.
+- Link a partir de `client/CLAUDE.md`, para virar contexto obrigatório de quem for mexer em `client/`.
+
+### Critérios de aceite
+- [ ] O documento existe e cobre os 14 primitivos.
+- [ ] `Button`, `Card` e `Input` têm critério explícito de escolha de variante.
+- [ ] Tabela de tokens com papel de cada um.
+- [ ] `client/CLAUDE.md` aponta para ele.
+- [ ] Nenhum código alterado.
+
+### Fora do escopo
+Storybook; site de documentação; catálogo de componentes navegável.
+
+---
+
+# Épico 14 — Documentação de Entrada
+
+**Objetivo:** o `README.md` da raiz tem **15 bytes**. Quem clona o repositório — outra
+pessoa, ou você mesmo daqui a seis meses — não descobre o que é o projeto, como subir,
+nem por onde começar a ler.
+
+**Origem:** varredura de lacunas de MVP (2026-08-06), lacuna #7.
+
+**Dependências:** nenhuma.
+
+---
+
+## T14.1 — Escrever o README da raiz
+
+**Criticidade:** Baixo
+**Arquivos:** `README.md`
+
+### Problema
+`README.md` está praticamente vazio, enquanto `docs/` acumulou material denso e correto
+(`ARCHITECTURE.md`, `DEPLOY.md` com 609 linhas, `FLYWAY.md`, `SCHEMA_BASELINE.md`,
+`BACKLOG.md`, este arquivo). Falta a porta de entrada que aponta para tudo isso.
+
+### O que fazer
+README enxuto, apontando em vez de duplicar:
+
+1. O que é o app, em dois parágrafos.
+2. Stack em uma tabela (Java 21 + Spring Boot + Postgres | React + TS + Vite + Bun | Docker + Nginx na VPS).
+3. **Como subir local**: `docker compose -f docker-compose-dev.yml up`, `./mvnw spring-boot:run`, `bun install && bun run dev` — com as variáveis de ambiente obrigatórias e o que acontece se faltarem (fail-fast do `JWT_SECRET` e da chave do TMDB).
+4. Como rodar os testes de cada lado.
+5. Mapa do `docs/`: uma linha por arquivo dizendo quando consultar cada um.
+6. Estrutura do repositório em um parágrafo (`api/`, `client/`, `deploy/`, `scripts/`, `tasks/`).
+
+Duplicar conteúdo de `docs/` é o erro a evitar — README que repete documentação
+desatualiza primeiro e passa a mentir.
+
+### Critérios de aceite
+- [ ] Alguém que nunca viu o projeto sobe o ambiente local seguindo **só** o README.
+- [ ] Todo arquivo de `docs/` aparece no mapa com uma frase de quando consultar.
+- [ ] Variáveis de ambiente obrigatórias listadas, sem nenhum valor real.
+- [ ] Nenhum conteúdo copiado de `docs/` — só referência.
+- [ ] Comandos testados de verdade, não escritos de memória.
+
+### Fora do escopo
+Badges; screenshots; CONTRIBUTING.md; licença; tradução para inglês.
+
+---
+
 # Rastreabilidade — auditoria → task
 
 Cada achado da auditoria de 2026-08-02 mapeia para **exatamente uma** task. Nenhum
@@ -1465,3 +2408,27 @@ Descobertos depois do relatório original, ao executar a suíte pela primeira ve
 | Migrations nunca executadas por nenhum teste; `ddl-auto=validate` nunca exercitado | `spring.flyway.enabled=false` em `api/src/test/resources/application.properties:29` | **T2.0** |
 | `PageImpl` serializado direto nos endpoints paginados — formato de wire sem estabilidade garantida entre versões do Spring | Warning `ration$PageModule$WarningLoggingModifier` no log de teste | **T3.3** |
 | Auto-config de usuário padrão do Spring ativa (`inMemoryUserDetailsManager` + senha gerada no boot) | `UserDetailsServiceAutoConfiguration` no log de `SessaoADoisApplicationTests` | **T1.1** |
+
+## Rastreabilidade — lacunas de MVP (2026-08-06) → task
+
+Segunda rodada. Origem diferente da auditoria de 2026-08-02: aqui a pergunta não foi
+"onde o código está errado", e sim "o que falta para o app servir um usuário real".
+
+| Lacuna | Evidência | Épico / Task |
+|---|---|---|
+| Sem recuperação de senha | `AuthController` só tem register/login/refresh/logout/me | **Épico 10** (T10.1–T10.4) |
+| Sem desfazer o vínculo do casal | `CoupleController` sem sair/dissolver | **T9.1** |
+| Sem editar perfil | Nenhum endpoint em `com.app.user` | **T9.2** |
+| Sem trocar senha autenticado | `revokeFamily` existente, nunca usado fora do logout | **T9.3** |
+| Sem excluir conta (LGPD) | Nenhum endpoint em `com.app.user` | **T9.4** |
+| Frontend sem testes | `client/package.json` sem vitest/testing-library; 0 testes contra 48 no `api/` | **Épico 11** (T11.1–T11.4) |
+| Sem observabilidade | `docs/DEPLOY.md` só com `docker logs` manual | **Épico 12** (T12.1, T12.4) |
+| Health check raso | `HealthController:16-18` retorna constante | **T12.2** |
+| Sem error boundary no frontend | Nenhuma ocorrência de `ErrorBoundary` em `client/src/` | **T12.3** |
+| Falha de deploy sem alerta | Open Question #1 do PRD do Épico 8 | **T12.5** |
+| Design system contornado | 689 hex + 1033 utilitários de cor arbitrários fora de `components/ui/` | **Épico 13** (T13.1–T13.5) |
+| Tema claro pela metade | `ThemeProvider` montado em `main.tsx:11` sem nenhum consumidor | **T13.3** |
+| `tracking`/`match` importam `CoupleRepository` direto | Viola `docs/ARCHITECTURE.md` §3; `MediaTrackService:64`, `MatchService:57,73,87` | **T9.1** (corrigido junto) |
+| README vazio | 15 bytes | **T14.1** |
+| Backup do banco | — | **Sem épico**, por decisão **D15** (custo). Risco de perda de dados aceito. |
+| Microsserviços / API gateway | — | **Sem épico**, por decisão **D16**. Comunidade vira `com.app.community` no monólito modular. |
