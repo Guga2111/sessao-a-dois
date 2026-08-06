@@ -44,6 +44,9 @@ export function JoinPage() {
           case 404:
             setError("Não encontramos esse código. Confira e tente de novo.")
             break
+          case 410:
+            setError("Esse código expirou. Peça um código novo para o seu par.")
+            break
           case 400:
             setError("Você não pode entrar no seu próprio código.")
             break
@@ -89,7 +92,7 @@ export function JoinPage() {
     }
   }
 
-  if (couple && !couple.partner) {
+  if (couple && !couple.partner && couple.inviteCode) {
     return (
       <AuthLayout
         eyebrow="Quase lá"
@@ -97,7 +100,7 @@ export function JoinPage() {
         subtitle="Envie este ingresso para a pessoa com quem você quer dividir a sessão. Assim que ela entrar com o código, vocês formam o casal."
       >
         <div className="flex flex-col gap-5">
-          <InviteCodeTicket code={couple.inviteCode} />
+          <InviteCodeTicket code={couple.inviteCode} expiresAt={couple.inviteCodeExpiresAt} />
           {notLinkedYet ? (
             <p
               role="alert"

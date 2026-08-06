@@ -1,9 +1,15 @@
 package com.app.tracking;
 
+import com.app.common.ResourceNotFoundException;
+
 import com.app.couple.Couple;
 import com.app.couple.CoupleService;
 import com.app.media.MediaType;
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 import com.app.security.SecurityConfig;
 
 import org.junit.jupiter.api.Test;
@@ -28,6 +34,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -37,7 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MediaTrackController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class, SecurityAuditLogger.class })
 class MediaTrackControllerTest {
 
 	@Autowired
@@ -69,19 +76,35 @@ class MediaTrackControllerTest {
 	}
 
 	@Test
-	void list_withoutStatusReturnsUnpagedArray() throws Exception {
+	void listKeys_returnsCoupleTrackKeys() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
-		MediaTrackResponse track = new MediaTrackResponse(
-			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
-		when(mediaTrackService.listByStatus(coupleId, null)).thenReturn(List.of(track));
+		when(mediaTrackService.listKeys(coupleId))
+			.thenReturn(List.of(new TrackKeyResponse(MediaType.MOVIE, 603L)));
 
-		mockMvc.perform(get("/api/tracking")
+		mockMvc.perform(get("/api/tracking/keys")
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].tmdbId").value(603))
-			.andExpect(jsonPath("$[0].status").value("WATCHING"));
+			.andExpect(jsonPath("$[0].mediaType").value("MOVIE"));
+	}
+
+	@Test
+	void listKeys_returnsNotFoundWhenUserHasNoCouple() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+
+		mockMvc.perform(get("/api/tracking/keys")
+				.with(authentication(authenticatedUser(userId))))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.message").value("usuario nao pertence a nenhum casal"));
+	}
+
+	@Test
+	void listKeys_deniesAccessWithoutAuthentication() throws Exception {
+		mockMvc.perform(get("/api/tracking/keys"))
+			.andExpect(status().isUnauthorized());
 	}
 
 	@Test
@@ -90,7 +113,7 @@ class MediaTrackControllerTest {
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse track = new MediaTrackResponse(
-			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		Page<MediaTrackResponse> page = new PageImpl<>(List.of(track), PageRequest.of(0, 20), 1);
 		when(mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHING, 0, 20)).thenReturn(page);
 
@@ -126,6 +149,7 @@ class MediaTrackControllerTest {
 	@Test
 	void create_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(post("/api/tracking")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\",\"status\":\"WATCHING\"}"))
 			.andExpect(status().isUnauthorized());
@@ -137,11 +161,12 @@ class MediaTrackControllerTest {
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.addTrack(eq(coupleId), eq(userId), any(CreateMediaTrackRequest.class)))
 			.thenReturn(response);
 
 		mockMvc.perform(post("/api/tracking")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\",\"status\":\"WATCHING\"}"))
@@ -157,6 +182,7 @@ class MediaTrackControllerTest {
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 
 		mockMvc.perform(delete("/api/tracking/" + trackId)
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isNoContent());
 
@@ -173,6 +199,7 @@ class MediaTrackControllerTest {
 			.when(mediaTrackService).deleteTrack(trackId, coupleId);
 
 		mockMvc.perform(delete("/api/tracking/" + trackId)
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.message").value("titulo nao encontrado"));
@@ -180,7 +207,7 @@ class MediaTrackControllerTest {
 
 	@Test
 	void delete_deniesAccessWithoutAuthentication() throws Exception {
-		mockMvc.perform(delete("/api/tracking/" + UUID.randomUUID()))
+		mockMvc.perform(delete("/api/tracking/" + UUID.randomUUID()).with(csrf()))
 			.andExpect(status().isUnauthorized());
 	}
 
@@ -191,10 +218,11 @@ class MediaTrackControllerTest {
 		UUID trackId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING)).thenReturn(response);
 
 		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"status\":\"WATCHING\"}"))
@@ -212,6 +240,7 @@ class MediaTrackControllerTest {
 			.thenThrow(new ResourceNotFoundException("titulo nao encontrado"));
 
 		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"status\":\"WATCHING\"}"))
@@ -229,6 +258,7 @@ class MediaTrackControllerTest {
 			.thenThrow(new IllegalArgumentException("transicao de status invalida"));
 
 		mockMvc.perform(patch("/api/tracking/" + trackId + "/status")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"status\":\"WATCHING\"}"))
@@ -241,6 +271,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/status")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{}"))
@@ -251,6 +282,7 @@ class MediaTrackControllerTest {
 	@Test
 	void updateStatus_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/status")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"status\":\"WATCHING\"}"))
 			.andExpect(status().isUnauthorized());
@@ -299,6 +331,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(post("/api/tracking")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"status\":\"WATCHING\"}"))
@@ -316,6 +349,7 @@ class MediaTrackControllerTest {
 			.thenThrow(new IllegalArgumentException("rating e opinion so podem ser enviados com status WATCHED"));
 
 		mockMvc.perform(post("/api/tracking")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\",\"status\":\"WATCHING\",\"rating\":5}"))
@@ -330,11 +364,12 @@ class MediaTrackControllerTest {
 		UUID trackId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.markAsWatched(eq(trackId), eq(coupleId), eq(userId), any(WatchRequest.class)))
 			.thenReturn(response);
 
 		mockMvc.perform(patch("/api/tracking/" + trackId + "/watch")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"rating\":5,\"opinion\":\"otimo\"}"))
@@ -345,6 +380,7 @@ class MediaTrackControllerTest {
 	@Test
 	void markAsWatched_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/watch")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"rating\":5}"))
 			.andExpect(status().isUnauthorized());
@@ -360,6 +396,7 @@ class MediaTrackControllerTest {
 			.thenThrow(new ResourceNotFoundException("titulo nao encontrado"));
 
 		mockMvc.perform(patch("/api/tracking/" + trackId + "/watch")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"rating\":5}"))
@@ -372,6 +409,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(patch("/api/tracking/" + UUID.randomUUID() + "/watch")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"rating\":9}"))
@@ -386,11 +424,12 @@ class MediaTrackControllerTest {
 		UUID trackId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		MediaTrackResponse response = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(userReviewService.upsertReview(eq(trackId), eq(userId), eq(coupleId), any(UpsertReviewRequest.class)))
 			.thenReturn(response);
 
 		mockMvc.perform(put("/api/tracking/" + trackId + "/review")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"rating\":4,\"opinion\":\"bom\"}"))
@@ -401,6 +440,7 @@ class MediaTrackControllerTest {
 	@Test
 	void upsertReview_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(put("/api/tracking/" + UUID.randomUUID() + "/review")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"rating\":4}"))
 			.andExpect(status().isUnauthorized());
@@ -416,6 +456,7 @@ class MediaTrackControllerTest {
 			.thenThrow(new AccessDeniedException("titulo nao pertence ao casal do usuario"));
 
 		mockMvc.perform(put("/api/tracking/" + trackId + "/review")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"rating\":4}"))
@@ -428,6 +469,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(put("/api/tracking/" + UUID.randomUUID() + "/review")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"rating\":0}"))

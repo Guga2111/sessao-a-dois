@@ -67,6 +67,9 @@ WHERE tc.table_schema = 'public';
 | `watched_date` | date | nullable |
 | `runtime` | integer | nullable |
 | `created_at` | timestamp (`LocalDateTime`, `@CreationTimestamp`) | NOT NULL |
+| `title` | varchar(255) | nullable (V4) |
+| `poster_url` | varchar(500) | nullable (V4) |
+| `release_year` | integer | nullable (V4) |
 
 ### `media_track_genre` (`@ElementCollection` de `MediaTrack.genreIds`)
 | Coluna | Tipo | Constraints |
@@ -96,12 +99,35 @@ UNIQUE(`media_track_id`, `user_id`).
 | `tmdb_id` | bigint | NOT NULL |
 | `media_type` | varchar (enum STRING) | NOT NULL |
 | `created_at` | timestamp (`LocalDateTime`, `@CreationTimestamp`) | NOT NULL |
+| `title` | varchar(255) | nullable (V4) |
+| `poster_url` | varchar(500) | nullable (V4) |
+| `release_year` | integer | nullable (V4) |
 
 UNIQUE(`couple_id`, `user_id`, `tmdb_id`).
 
 ### `match_reject` (`com.app.match.MatchReject`)
 
 Identica em forma a `match_like` (mesmas colunas e mesmo UNIQUE composto).
+
+### `refresh_token` (`com.app.auth.RefreshToken`, V5)
+
+Nova em V5, epico 4 (migracao de autenticacao). Guarda apenas o hash do refresh
+token (nunca o valor em claro) e a cadeia de substituicao usada na rotacao e na
+deteccao de reuso.
+
+| Coluna | Tipo | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `user_id` | UUID | NOT NULL, FK -> `users.id` |
+| `token_hash` | varchar(64) | NOT NULL, UNIQUE (SHA-256 em hex) |
+| `expires_at` | timestamptz (`Instant`) | NOT NULL |
+| `revoked_at` | timestamptz (`Instant`) | nullable |
+| `replaced_by_id` | UUID | nullable, FK -> `refresh_token.id` |
+| `user_agent` | varchar(255) | nullable |
+| `ip` | varchar(45) | nullable (cabe IPv6) |
+| `created_at` | timestamptz (`Instant`) | NOT NULL |
+
+Indices `idx_refresh_token_user` (`user_id`) e `idx_refresh_token_expires` (`expires_at`).
 
 ## Fora do escopo do V1 (documentado para referencia do V2)
 

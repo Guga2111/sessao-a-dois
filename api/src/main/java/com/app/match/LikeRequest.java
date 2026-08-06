@@ -10,6 +10,16 @@ public record LikeRequest(
 	Long tmdbId,
 
 	@NotNull(message = "mediaType nao pode ser vazio")
-	MediaType mediaType
+	MediaType mediaType,
+
+	String title,
+
+	String posterUrl,
+
+	Integer releaseYear
 ) {
+
+	public LikeRequest(Long tmdbId, MediaType mediaType) {
+		this(tmdbId, mediaType, null, null, null);
+	}
 }

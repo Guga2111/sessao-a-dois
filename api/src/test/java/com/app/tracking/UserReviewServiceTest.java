@@ -1,5 +1,7 @@
 package com.app.tracking;
 
+import com.app.common.ResourceNotFoundException;
+
 import com.app.couple.Couple;
 import com.app.media.MediaType;
 import com.app.user.User;
@@ -19,6 +21,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -37,7 +40,7 @@ class UserReviewServiceTest {
 	private UserRepository userRepository;
 
 	@Mock
-	private MediaTrackService mediaTrackService;
+	private MediaTrackMapper mediaTrackMapper;
 
 	@Mock
 	private RatingRequestService ratingRequestService;
@@ -47,7 +50,7 @@ class UserReviewServiceTest {
 	@BeforeEach
 	void setUp() {
 		userReviewService = new UserReviewService(userReviewRepository, mediaTrackRepository, userRepository,
-			mediaTrackService, ratingRequestService);
+			mediaTrackMapper, ratingRequestService);
 	}
 
 	private Couple coupleOwnedBy(UUID coupleId) {
@@ -66,12 +69,12 @@ class UserReviewServiceTest {
 		User user = new User("Ana", "ana@example.com", "hash");
 		UpsertReviewRequest request = new UpsertReviewRequest(4, "Gostei bastante");
 		MediaTrackResponse expectedResponse = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of(), null, null, null);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.empty());
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-		when(mediaTrackService.toResponse(track)).thenReturn(expectedResponse);
+		when(mediaTrackMapper.toResponse(eq(track), any())).thenReturn(expectedResponse);
 
 		MediaTrackResponse response = userReviewService.upsertReview(trackId, userId, coupleId, request);
 
@@ -93,11 +96,11 @@ class UserReviewServiceTest {
 		UserReview existingReview = new UserReview(track, user, 2, "Regular");
 		UpsertReviewRequest request = new UpsertReviewRequest(5, "Mudei de ideia, adorei");
 		MediaTrackResponse expectedResponse = new MediaTrackResponse(
-			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of());
+			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, java.util.List.of(), null, null, null);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.of(existingReview));
-		when(mediaTrackService.toResponse(track)).thenReturn(expectedResponse);
+		when(mediaTrackMapper.toResponse(eq(track), any())).thenReturn(expectedResponse);
 
 		MediaTrackResponse response = userReviewService.upsertReview(trackId, userId, coupleId, request);
 

@@ -1,7 +1,11 @@
 package com.app.notification;
 
 import com.app.media.MediaType;
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 import com.app.security.SecurityConfig;
 
 import org.junit.jupiter.api.Test;
@@ -24,13 +28,14 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(NotificationController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class, SecurityAuditLogger.class })
 class NotificationControllerTest {
 
 	@Autowired
@@ -84,7 +89,7 @@ class NotificationControllerTest {
 
 	@Test
 	void markAsRead_deniesAccessWithoutAuthentication() throws Exception {
-		mockMvc.perform(patch("/api/notifications/{id}/read", UUID.randomUUID()))
+		mockMvc.perform(patch("/api/notifications/{id}/read", UUID.randomUUID()).with(csrf()))
 			.andExpect(status().isUnauthorized());
 	}
 
@@ -96,6 +101,7 @@ class NotificationControllerTest {
 
 		mockMvc
 			.perform(patch("/api/notifications/{id}/read", notificationId)
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isOk());
 	}
@@ -109,13 +115,14 @@ class NotificationControllerTest {
 
 		mockMvc
 			.perform(patch("/api/notifications/{id}/read", notificationId)
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isForbidden());
 	}
 
 	@Test
 	void markAllAsRead_deniesAccessWithoutAuthentication() throws Exception {
-		mockMvc.perform(patch("/api/notifications/read-all")).andExpect(status().isUnauthorized());
+		mockMvc.perform(patch("/api/notifications/read-all").with(csrf())).andExpect(status().isUnauthorized());
 	}
 
 	@Test
@@ -123,7 +130,7 @@ class NotificationControllerTest {
 		UUID userId = UUID.randomUUID();
 		doNothing().when(notificationService).markAllAsRead(userId);
 
-		mockMvc.perform(patch("/api/notifications/read-all").with(authentication(authenticatedUser(userId))))
+		mockMvc.perform(patch("/api/notifications/read-all").with(csrf()).with(authentication(authenticatedUser(userId))))
 			.andExpect(status().isOk());
 	}
 }

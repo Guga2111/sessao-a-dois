@@ -1,6 +1,7 @@
 package com.app.notification;
 
-import org.springframework.data.domain.Page;
+import com.app.common.PageResponse;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,9 +24,9 @@ public class NotificationController {
 	}
 
 	@GetMapping
-	public ResponseEntity<Page<NotificationDto>> list(@AuthenticationPrincipal UUID userId,
+	public ResponseEntity<PageResponse<NotificationDto>> list(@AuthenticationPrincipal UUID userId,
 			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-		return ResponseEntity.ok(notificationService.listNotifications(userId, page, size));
+		return ResponseEntity.ok(PageResponse.from(notificationService.listNotifications(userId, page, size)));
 	}
 
 	@GetMapping("/unread-count")

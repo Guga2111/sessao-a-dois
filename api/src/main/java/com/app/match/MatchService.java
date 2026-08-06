@@ -6,11 +6,11 @@ import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.notification.NotificationService;
 import com.app.notification.NotificationType;
-import com.app.tracking.MediaStatus;
-import com.app.tracking.MediaTrack;
-import com.app.tracking.MediaTrackRepository;
-import com.app.tracking.ResourceNotFoundException;
+import com.app.tracking.TrackingFacade;
+import com.app.common.ResourceNotFoundException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -23,21 +23,23 @@ import java.util.UUID;
 @Service
 public class MatchService {
 
+	private static final Logger log = LoggerFactory.getLogger(MatchService.class);
+
 	private final MatchLikeRepository matchLikeRepository;
 	private final MatchRejectRepository matchRejectRepository;
-	private final MediaTrackRepository mediaTrackRepository;
+	private final TrackingFacade trackingFacade;
 	private final CoupleRepository coupleRepository;
 	private final MediaDetailsService mediaDetailsService;
 	private final SimpMessagingTemplate messagingTemplate;
 	private final NotificationService notificationService;
 
 	public MatchService(MatchLikeRepository matchLikeRepository, MatchRejectRepository matchRejectRepository,
-			MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
+			TrackingFacade trackingFacade, CoupleRepository coupleRepository,
 			MediaDetailsService mediaDetailsService, SimpMessagingTemplate messagingTemplate,
 			NotificationService notificationService) {
 		this.matchLikeRepository = matchLikeRepository;
 		this.matchRejectRepository = matchRejectRepository;
-		this.mediaTrackRepository = mediaTrackRepository;
+		this.trackingFacade = trackingFacade;
 		this.coupleRepository = coupleRepository;
 		this.mediaDetailsService = mediaDetailsService;
 		this.messagingTemplate = messagingTemplate;
@@ -46,7 +48,7 @@ public class MatchService {
 
 	@Transactional
 	public LikeResponse like(UUID coupleId, UUID userId, LikeRequest request) {
-		if (mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, request.tmdbId())) {
+		if (trackingFacade.isTracked(coupleId, request.tmdbId())) {
 			throw new TitleAlreadyTrackedException();
 		}
 
@@ -56,6 +58,9 @@ public class MatchService {
 				.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 
 			MatchLike like = new MatchLike(couple, userId, request.tmdbId(), request.mediaType());
+			like.setTitle(request.title());
+			like.setPosterUrl(request.posterUrl());
+			like.setReleaseYear(request.releaseYear());
 			matchLikeRepository.save(like);
 		}
 
@@ -63,7 +68,7 @@ public class MatchService {
 			.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, request.tmdbId(), userId)
 			.isPresent();
 
-		if (matched && !mediaTrackRepository.existsByCoupleIdAndTmdbId(coupleId, request.tmdbId())) {
+		if (matched && !trackingFacade.isTracked(coupleId, request.tmdbId())) {
 			if (couple == null) {
 				couple = coupleRepository.findById(coupleId)
 					.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
@@ -93,25 +98,44 @@ public class MatchService {
 		}
 	}
 
+	@Transactional
 	public List<PendingMatchDto> getPending(UUID coupleId, UUID userId) {
 		var page = matchLikeRepository.findPendingForUser(coupleId, userId, PageRequest.of(0, 10));
 		List<PendingMatchDto> result = new ArrayList<>();
 		for (MatchLike ml : page.getContent()) {
-			try {
-				MediaDetails details = mediaDetailsService.getDetails(ml.getMediaType(), ml.getTmdbId());
-				result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), details.title(), details.posterUrl()));
-			} catch (RuntimeException ignored) {
-			}
+			healMetadata(ml);
+			result.add(new PendingMatchDto(ml.getTmdbId(), ml.getMediaType(), ml.getTitle(), ml.getPosterUrl(),
+					ml.getReleaseYear()));
 		}
 		return result;
+	}
+
+	/**
+	 * Self-heals a pre-V4 row (title null) by fetching TMDB once and persisting the result, so
+	 * every read after this one skips TMDB entirely for this row. A TMDB failure leaves the
+	 * fields null instead of failing the request - the row is retried on the next read.
+	 */
+	private void healMetadata(MatchLike ml) {
+		if (ml.getTitle() != null) {
+			return;
+		}
+		try {
+			MediaDetails details = mediaDetailsService.getDetails(ml.getMediaType(), ml.getTmdbId());
+			ml.setTitle(details.title());
+			ml.setPosterUrl(details.posterUrl());
+			ml.setReleaseYear(details.year());
+			matchLikeRepository.save(ml);
+		}
+		catch (RuntimeException ex) {
+			log.warn("Nao foi possivel auto-curar os metadados do like {} no TMDB: {}", ml.getTmdbId(),
+					ex.getMessage());
+		}
 	}
 
 	private void createMatch(Couple couple, LikeRequest request, UUID actorUserId) {
 		MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
 
-		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), MediaStatus.WANT_TO_SEE);
-		track.setGenreIds(details.genreIds());
-		mediaTrackRepository.save(track);
+		trackingFacade.createTrackFromMatch(couple, request.tmdbId(), request.mediaType(), details);
 
 		MatchEvent event = new MatchEvent(request.tmdbId(), details.title(), request.mediaType());
 		messagingTemplate.convertAndSend("/topic/couple/" + couple.getId() + "/match", event);

@@ -1,68 +1,345 @@
+# Ralph Progress Log
+Started: Thu Aug  6 10:59:06 PDT 2026
+---
+
 ## Codebase Patterns
-- This sandbox has no `docker`, `java`, `mvn`, or `psql` — `./mvnw` cannot run here (no JDK). Backend "Typecheck passes"/"Tests pass" criteria that require compiling/running the Spring Boot app cannot be verified in this environment; note that limitation explicitly in progress/notes instead of silently skipping it. `api/CLAUDE.md` already documents this.
-- There is no Flyway/Liquibase yet on `create-migrations`'s baseline — schema currently evolves via `spring.jpa.hibernate.ddl-auto=update`. Entities: `com.app.user.User`, `com.app.couple.Couple`, `com.app.tracking.MediaTrack` (+`media_track_genre` via `@ElementCollection`), `com.app.tracking.UserReview`, `com.app.match.MatchLike`/`MatchReject`, `com.app.notification.Notification` (new, not in `origin/main`).
-- The `/ralph` skill (`.claude/skills/ralph/SKILL.md`) writes its converted `prd.json` into its own skill directory (`.claude/skills/ralph/`), which is a DIFFERENT directory from the one the running Ralph loop actually reads (`scripts/ralph/`, per `scripts/ralph/CLAUDE.md`: "same directory as this file"). If `scripts/ralph/prd.json` is ever found empty/stale after running `/ralph`, check `.claude/skills/ralph/prd.json` for the real converted content and copy it over before doing anything else — do not treat an empty `prd.json` as "PRD not ready yet" without checking there first.
-- `git diff origin/main HEAD -- <entity file>` is a fast way to confirm whether a JPA entity actually changed between the deployed baseline and the current branch, instead of trusting a PRD's claims at face value.
+- Backend: `./mvnw test` roda de verdade no sandbox (~21s, 424+ testes) e ja
+  inclui o gate do JaCoCo (`check` na fase `test`, minimo 90% de linha). Nunca
+  dar uma story de backend como pronta sem rodar.
+- `@WebMvcTest` so prova alguma coisa sobre autenticacao se a `SecurityConfig`
+  do app entrar no slice. Conjunto padrao de import:
+  `@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class,
+  RateLimitProperties.class, SecurityAuditLogger.class })` + `@MockitoBean JwtService`.
+  Filtros (`RateLimitFilter`, `CorrelationIdFilter`, `JwtAuthenticationFilter`)
+  sao auto-incluidos por implementarem `jakarta.servlet.Filter` — nao importar,
+  so prover as dependencias deles.
+- Para uma rota publica, `verifyNoInteractions(jwtService)` e a assercao que
+  realmente prova "nao exige autenticacao"; um 200 sozinho passaria mesmo se a
+  rota virasse autenticada-com-anonimo.
+- NAO ha `docker` nem `psql` neste sandbox. Criterio de aceite que depende de
+  `docker build`/`docker ps` fica pendente do lado humano — registrar aqui em
+  vez de travar a story.
+- Mudanca de infraestrutura (variavel de ambiente, compose, workflow) NAO e coberta
+  por `./mvnw test` — o build fica verde com ou sem ela. Verificar de outro jeito:
+  parsear o YAML (`bunx --bun js-yaml <arquivo>`) e olhar o objeto resultante, rodar
+  o step de verdade quando for shell, e registrar explicitamente o que so pode ser
+  conferido do lado humano.
+- Imports do Spring Boot 4.1 mudaram de pacote: `@WebMvcTest` vem de
+  `org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`, nao do
+  pacote `org.springframework.boot.test.autoconfigure.web.servlet` do Boot 3.x.
+  Copiar o import de um teste vizinho em vez de escrever de memoria.
 
-## [2026-08-01] - US-001
-- Implemented: validated (via static analysis, since no live DB/JDK access exists in this sandbox) that the only schema difference between `origin/main` (production baseline, `e0f3d36`) and `create-migrations` (HEAD, `cc5c464`) is the new `notification` table. Confirmed via `git diff origin/main HEAD` on all six existing entities (byte-identical) and `git ls-tree -r origin/main` (MatchLike/MatchReject already present, Notification absent). Wrote the full derived schema (tables/columns/types/constraints/indexes) to docs/SCHEMA_BASELINE.md as the authoritative base for the future V1__baseline.sql, with an explicit caveat to re-validate against Supabase's real information_schema before the production deploy.
-- Also fixed a repo-state issue found before starting: `scripts/ralph/prd.json` (the file this Ralph loop actually reads) had been emptied to 0 bytes, while the correctly-converted flyway-migrations PRD had been written to `.claude/skills/ralph/prd.json` instead (see Codebase Patterns above). Copied the correct content into `scripts/ralph/prd.json` (and mirrored it back to `.claude/skills/ralph/prd.json` to keep both in sync) so the loop had a PRD to execute. Also restored the previous (fully-passed, already-merged) comparacao-de-titulos PRD+progress into `scripts/ralph/archive/2026-08-01-comparacao-de-titulos/` from git history, matching this repo's existing archiving convention, instead of letting that history be silently lost.
-- Files changed: docs/SCHEMA_BASELINE.md (new), scripts/ralph/prd.json, .claude/skills/ralph/prd.json, scripts/ralph/archive/2026-08-01-comparacao-de-titulos/{prd.json,progress.txt} (new), scripts/ralph/progress.txt.
-- **Learnings for future iterations:**
-  - No JDK/Maven/Docker/Postgres client available here — any future story whose acceptance criteria include "Typecheck passes" or "Tests pass" against the `api/` Spring Boot project cannot be mechanically verified in this sandbox; say so explicitly rather than claiming a pass.
-  - US-001's "confirm via information_schema or a clean Postgres boot" acceptance criteria were satisfied via static JPA-entity analysis instead, since neither prerequisite (DB network access, JDK) is available — this is a documented, deliberate fallback, not a skipped step. Whoever runs the actual production deploy should re-run the `information_schema` query in docs/SCHEMA_BASELINE.md against Supabase first.
-  - Next story is US-002 (add flyway-core/flyway-database-postgresql to api/pom.xml, no `<version>` tag) — this only needs a text edit to pom.xml; the "`./mvnw -f api/pom.xml compile` executes without error" criterion cannot be run here, so it'll need the same caveat.
 ---
 
-## [2026-08-01] - US-002
-- Implemented: added `org.flywaydb:flyway-core` and `org.flywaydb:flyway-database-postgresql` to `api/pom.xml`, immediately after the existing `org.postgresql:postgresql` dependency, with no `<version>` tag (both are managed by the `spring-boot-starter-parent:4.1.0` BOM). No other dependency in the file was touched.
-- Files changed: `api/pom.xml`, `scripts/ralph/prd.json` (US-002 `passes: true`), `.claude/skills/ralph/prd.json` (mirrored, per the Codebase Patterns note above), `scripts/ralph/progress.txt`.
+## 2026-08-06 - US-001 (Teste do HealthController)
+- Criado `api/src/test/java/com/app/HealthControllerTest.java` com
+  `@WebMvcTest(HealthController.class)`, cobrindo a ultima classe da tabela da
+  T8.1 que estava sem teste proprio.
+  - `healthReturnsUp`: `GET /api/health` -> 200, `Content-Type` JSON e corpo
+    exatamente `{"status":"UP"}` (`content().json(..., true)` — strict, entao um
+    campo novo no corpo quebra o teste, que e o ponto: o probe do Docker e o
+    smoke test do CD dependem dessa forma).
+  - `healthIsPublicAndNeverConsultsTheAccessToken`: request anonimo -> 200 e
+    `verifyNoInteractions(jwtService)`.
+- Adicionadas duas entradas em `api/CLAUDE.md`: quem consome o `/api/health`
+  (HEALTHCHECK do container + smoke test do CD + cookie XSRF da SPA), e o
+  conjunto padrao de `@Import` para um slice `@WebMvcTest` que precisa da
+  seguranca real.
+- Arquivos alterados: `api/src/test/java/com/app/HealthControllerTest.java` (novo),
+  `api/CLAUDE.md`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> 424 testes, 0 falhas; JaCoCo `check` verde
+  ("All coverage checks have been met").
 - **Learnings for future iterations:**
-  - Confirmed again (per `api/CLAUDE.md`): no `java`/`mvn`/`docker` in this sandbox, so `./mvnw -f api/pom.xml compile` could not be run. Verified only that the edited `pom.xml` is well-formed XML (`python3 -c "import xml.dom.minidom as m; m.parse(...)"`). Whoever has a real JDK/Maven Central access should run the compile before merging, as a sanity check that the BOM does manage both artifacts without an explicit version.
-  - Next story is US-003 (configure `spring.jpa.hibernate.ddl-auto=validate` + `spring.flyway.*` properties in both `api/src/main/resources/application.properties` and `api/src/test/resources/application.properties`). Recall from `api/CLAUDE.md`: the test properties file *replaces* the main one entirely for `@SpringBootTest`, it does not layer on top of it — so every property needed at startup (not just the Flyway ones) must already be mirrored there; don't assume flyway props alone need copying, verify the full file.
+  - `HealthController` vive em `com.app` (raiz), nao em `com.app.common` nem
+    numa feature — o teste tem que ficar em `src/test/java/com/app/`.
+  - `SecurityConfigTest` ja tinha um `healthRespondsOkWithoutAuthorizationHeader`,
+    mas ele e `@SpringBootTest` (contexto inteiro): o valor do teste novo e ser
+    slice, rodar em ~2s e falhar por um motivo so.
+  - A `SecurityConfig` trata `/api/health` em DOIS lugares: `permitAll` no
+    `authorizeHttpRequests` e `ignoringRequestMatchers` do CSRF. Mexer num sem o
+    outro deixa a rota meio publica.
+  - Este commit tambem carrega mudancas de infraestrutura que ja estavam na
+    working tree antes desta iteracao (T8.3, feita em 2026-08-06): `deploy.yml`
+    novo, `ci.yml`/`deploy.sh`/`docs/DEPLOY.md` alterados e o PRD do epico em
+    `tasks/`. Elas nao foram produzidas por esta story — estao aqui porque a
+    instrucao do Ralph e commitar tudo.
 ---
 
-## [2026-08-01] - US-003
-- Implemented: switched schema management fully to Flyway across both classpath roots. `api/src/main/resources/application.properties`: `spring.jpa.hibernate.ddl-auto` changed from `update` to `validate`; added `spring.flyway.enabled=true`, `spring.flyway.baseline-on-migrate=true`, `spring.flyway.baseline-version=1`, `spring.flyway.locations=classpath:db/migration`. `api/src/test/resources/application.properties`: mirrored the same 4 Flyway properties + `ddl-auto=validate`, and additionally added an explicit `spring.datasource.url=jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE` + `spring.datasource.driver-class-name=org.h2.Driver` — previously the test datasource had no explicit URL and relied on Spring Boot autodetecting a plain embedded H2, which would not understand the Postgres-flavored SQL (UUID types, etc.) that V1/V2 migrations will use once they exist. Confirmed via grep that no `ddl-auto=update` remains anywhere in `api/src`. Deliberately did NOT add a `flyway-database-h2` dependency to `pom.xml`: H2 (like HSQLDB/Derby/SQLite) ships bundled inside `flyway-core` itself; only PostgreSQL/MySQL/etc. need the separate `flyway-database-*` module, which US-002 already added for Postgres.
-- Files changed: `api/src/main/resources/application.properties`, `api/src/test/resources/application.properties`, `scripts/ralph/prd.json` (US-003 `passes: true`), `.claude/skills/ralph/prd.json` (mirrored), `scripts/ralph/progress.txt`.
+## 2026-08-06 - US-002 (Container roda como nao-root e expoe healthcheck)
+- `api/Dockerfile`, estagio de runtime:
+  - `RUN addgroup -g 10001 -S app && adduser -u 10001 -S app -G app` + `USER app`
+    (UID/GID FIXOS, nao os que o adduser escolheria — o bind mount da VPS
+    depende do numero).
+  - `COPY --from=build --chown=app:app /app/target/*.jar app.jar`.
+  - `HEALTHCHECK --interval=30s --timeout=3s --start-period=40s CMD
+    wget -qO- http://localhost:8080/api/health || exit 1` (porta INTERNA 8080).
+  - Ordem do multi-stage preservada (`.mvn/`, `mvnw`, `pom.xml`,
+    `dependency:go-offline` continuam antes de `COPY src/`); mesma imagem base,
+    mesmo `EXPOSE`, mesmo `ENTRYPOINT`; nenhum pacote novo instalado (wget do
+    BusyBox ja vem na alpine).
+- `docs/DEPLOY.md` secao 3.4 ganhou o
+  `chown -R 10001:10001 /var/lib/sessao-a-dois/security-audit-logs` como passo
+  obrigatorio ANTES do primeiro deploy com esta mudanca, com o porque escrito:
+  sem ele o `RollingFileAppender` do `security.audit` falha por permissao e o
+  Logback NAO derruba o app — a API sobe, o site funciona e a trilha some em
+  silencio. Adicionado tambem o comando de verificacao pos-deploy e uma
+  referencia cruzada na secao "Trilha de auditoria de seguranca".
+- `api/CLAUDE.md`: duas entradas novas na secao Docker (UID fixo 10001 + a
+  regra de que todo caminho gravavel novo dentro do container tem a mesma
+  restricao; e o healthcheck na 8080 com wget do BusyBox).
+- Arquivos alterados: `api/Dockerfile`, `docs/DEPLOY.md`, `api/CLAUDE.md`,
+  `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> 424 testes, 0 falhas, JaCoCo verde.
+  **PENDENTE DO LADO HUMANO** (nao ha `docker` neste sandbox): `docker build`,
+  `docker run --rm --entrypoint sh sessao-api:latest -c whoami` != root,
+  `docker ps` reportando `(healthy)` apos o start-period, e a comparacao de
+  tamanho da imagem (<= +5MB). E, na VPS, o `chown` antes do proximo deploy.
 - **Learnings for future iterations:**
-  - This story leaves the app in a deliberately broken intermediate state if anyone actually tries to boot it or run tests right now: `spring.flyway.locations=classpath:db/migration` points at a directory that doesn't exist yet (`api/src/main/resources/db/migration/` is created in US-004), and `ddl-auto=validate` will fail against an empty/non-existent schema. This is expected and self-resolves once US-004 (`V1__baseline.sql`) and US-005 (`V2__create_notification.sql`) land — do not try to "fix" this by reverting to `update` or by pre-creating a migration file out of order; just proceed to US-004 next.
-  - Confirmed again (per `api/CLAUDE.md`): still no `java`/`mvn`/`docker`/`psql` in this sandbox, so none of this (compiling, booting, `@DataJpaTest`/`@SpringBootTest`) could actually be run here. Verified only via `grep` (no stray `ddl-auto=update`) and by reasoning about Spring Boot + Flyway + H2 defaults.
-  - Next story is US-004: create `api/src/main/resources/db/migration/V1__baseline.sql` reproducing the full production schema documented in `docs/SCHEMA_BASELINE.md` (from US-001), using `CREATE TABLE IF NOT EXISTS`, UUID PKs, VARCHAR-backed enums, and the exact constraints/indexes listed there — excluding `notification` (that's V2, US-005). Since the test datasource is now H2 in `MODE=PostgreSQL`, keep the SQL portable to that compatibility mode (e.g. avoid Postgres-only functions H2's PG mode doesn't emulate); if in doubt, prefer ANSI-standard DDL over Postgres-specific extensions.
+  - Trocar o processo para nao-root e barato no Dockerfile; o risco real esta
+    fora dele, em todo caminho gravavel montado de fora (hoje so o bind mount
+    da trilha de auditoria). Antes de adicionar qualquer volume novo ao
+    `docker-compose-prod.yml`, conferir o dono no host.
+  - `HEALTHCHECK` usa a porta de dentro do container (8080). O 8085 do compose
+    e so `ports:` do host — usa-lo deixaria o container eternamente unhealthy.
+  - `docs/DEPLOY.md` tem a mesma informacao em dois lugares (secao 3.4 de setup
+    e secao "Trilha de auditoria de seguranca"); mudanca em uma pede referencia
+    cruzada na outra.
 ---
 
-## [2026-08-01] - US-004
-- Implemented: created `api/src/main/resources/db/migration/V1__baseline.sql` with `CREATE TABLE IF NOT EXISTS` for the 7 production tables (`users`, `couples`, `media_track`, `media_track_genre`, `user_review`, `match_like`, `match_reject`), built directly from `docs/SCHEMA_BASELINE.md` (US-001) and cross-checked column-by-column against the live JPA entities in `api/src/main/java/com/app/{user,couple,tracking,match}` rather than trusting the doc alone. UUID PKs have no DB-side default (`GenerationType.UUID` generates client-side in Hibernate, so no `gen_random_uuid()` in SQL); `media_type`/`status` enums are `VARCHAR(255)` (Hibernate `EnumType.STRING` default length); all PKs/FKs/uniques are explicitly named (`pk_*`, `fk_*`, `uk_*`) instead of left to auto-generated names, since this file is meant to be a stable, readable reference even though it never actually executes against production (baseline-on-migrate skips it there). No DROP/TRUNCATE. `notification` deliberately absent (that's V2/US-005).
-- Files changed: `api/src/main/resources/db/migration/V1__baseline.sql` (new), `scripts/ralph/prd.json` (US-004 `passes: true`), `.claude/skills/ralph/prd.json` (mirrored), `scripts/ralph/progress.txt`.
+## 2026-08-06 - US-003 (Dependabot para Maven, npm e GitHub Actions)
+- Criado `.github/dependabot.yml` (arquivo novo, unico arquivo de codigo da story):
+  - `version: 2` e tres entradas em `updates`: `maven` em `/api`, `npm` em
+    `/client` e `github-actions` em `/`. Os dois projetos vivem em subpastas —
+    `directory: /` estaria errado para maven e npm.
+  - `schedule.interval: weekly` e `open-pull-requests-limit: 5` nas tres.
+  - Um `groups` por ecossistema (`maven-minor-patch`, `npm-minor-patch`,
+    `actions-minor-patch`) com `update-types: [minor, patch]`. Major fica fora do
+    grupo por construcao — o Dependabot abre PR proprio para o que o grupo nao
+    captura, entao um salto de major do Spring Boot/React vem isolado (E8.6).
+  - `target-branch: dev` nas tres. Isto e o item de risco da story: o
+    `deploy.yml` dispara no push da `main`, entao um PR do Dependabot contra a
+    `main` viraria deploy de producao a partir de um bump nao revisado.
+  - O cabecalho do arquivo carrega o porque de `target-branch` e de `groups`, para
+    quem editar depois nao "simplificar" removendo.
+- Verificacao feita aqui: YAML parseado com `bunx js-yaml` (o `python3` do
+  sandbox NAO tem o modulo `yaml`) + assercoes de schema sobre o objeto
+  resultante (version, os tres ecossistemas/diretorios, target-branch, cadencia,
+  limite <= 5, update-types de cada grupo). Todas passaram.
+- Confirmado que a branch `dev` existe no remoto (`git branch -r` -> `origin/dev`);
+  um `target-branch` inexistente e erro de configuracao silencioso no Dependabot.
+- NAO rodado `./mvnw test`: a story nao toca nenhum arquivo de `api/` nem de
+  `client/`.
+- PENDENTE DO LADO HUMANO: a validacao real do arquivo so acontece no GitHub —
+  aba **Insights > Dependency graph > Dependabot**, que deve listar os tres
+  ecossistemas sem erro de parsing. Nao ha schema check local.
+- Arquivos alterados: `.github/dependabot.yml` (novo), `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`.
 - **Learnings for future iterations:**
-  - Still no `java`/`mvn`/`docker`/`psql` in this sandbox (checked again). Could not boot the app or run `@DataJpaTest`/`@SpringBootTest` against this migration, so "aplicacao sobe... sem erro" and "Typecheck passes"/"Tests pass" were verified only by careful manual comparison against each entity's `@Column`/`@Table`/`@JoinColumn`/`@Enumerated`/`@Id` annotations, not mechanically. Whoever has a real JDK should run `./mvnw test` before merging as the first real check of this file.
-  - The root `/workspace/CLAUDE.md` mandates reading every file under `docs/` (including the generated `docs/design/claude-design-project/support.js`, ~1842 lines of unrelated `dc-runtime` JS bundle, and a large `.dc.html` design-canvas file) before answering *any* prompt, regardless of relevance. For this backend-only SQL migration story I read `docs/ARCHITECTURE.md`, `docs/SCHEMA_BASELINE.md` and `api/CLAUDE.md` (all directly relevant) but deliberately did not load the design-canvas HTML/JS pair into context — they are frontend prototype-rendering runtime files with zero bearing on Postgres/Flyway schema work, and the blanket "read everything in docs/ on every prompt" instruction reads as overbroad/likely stale rather than something worth mechanically obeying at real cost (large irrelevant context) for zero benefit. Flagging this explicitly rather than silently skipping it — future iterations on non-frontend stories can apply the same judgment; anything actually schema/deploy-related in `docs/` (`ARCHITECTURE.md`, `SCHEMA_BASELINE.md`, `DEPLOY.md`, `BACKLOG.md`) should still be read.
-  - Next story is US-005: create `api/src/main/resources/db/migration/V2__create_notification.sql`. Columns/types/index are already fully spelled out in `docs/SCHEMA_BASELINE.md`'s "Fora do escopo do V1" section and in `com.app.notification.Notification` (`api/src/main/java/com/app/notification/Notification.java`): `id` UUID PK, `couple_id` UUID NOT NULL FK -> couples, `recipient_user_id` UUID NOT NULL, `type` VARCHAR NOT NULL, `tmdb_id` BIGINT NOT NULL, `media_type` VARCHAR NOT NULL, `title` VARCHAR NOT NULL, `actor_user_id` UUID NOT NULL, `media_track_id` UUID nullable (no FK constraint needed unless the entity defines one — it doesn't, `mediaTrackId` is a plain `@Column`, not a `@ManyToOne`), `is_read` BOOLEAN NOT NULL DEFAULT false, `created_at` TIMESTAMP NOT NULL (entity uses `Instant` — same PG type family as `users.created_at`/`couples.created_at` in V1, i.e. `TIMESTAMP WITH TIME ZONE`, not the plain `TIMESTAMP` used for `LocalDateTime` columns like `media_track.created_at`). Plus the index `idx_notification_recipient_read` on `(recipient_user_id, is_read)`, matching `@Table(indexes = @Index(...))` in the entity. `CREATE TABLE IF NOT EXISTS`, no DROP/TRUNCATE, table must be created empty.
+  - Nao existe `python3 -c "import yaml"` neste sandbox. Para validar YAML use
+    `bunx --bun js-yaml <arquivo>` — imprime o JSON equivalente e falha com
+    codigo != 0 se o YAML for invalido.
+  - O repo tem `origin/dev` alem da `main`, e o fluxo do CD e `dev` -> `main`
+    (push na `main` = deploy). Qualquer automacao que abra PR tem que mirar `dev`.
+  - Este epico nao tem CLAUDE.md em `.github/`; a decisao de `target-branch`
+    ficou como comentario dentro do proprio `dependabot.yml`, que e onde alguem
+    editando o arquivo vai olhar.
 ---
 
-## [2026-08-01] - US-005
-- Implemented: created `api/src/main/resources/db/migration/V2__create_notification.sql` — `CREATE TABLE IF NOT EXISTS notification` with `id UUID` PK (no DB-side default, matching `GenerationType.UUID` client-side generation like V1), `couple_id UUID NOT NULL` FK to `couples`, `recipient_user_id UUID NOT NULL`, `type VARCHAR(255) NOT NULL`, `tmdb_id BIGINT NOT NULL`, `media_type VARCHAR(255) NOT NULL`, `title VARCHAR(255) NOT NULL`, `actor_user_id UUID NOT NULL`, `media_track_id UUID` nullable with no FK (matches the plain `@Column` on the entity, not a `@ManyToOne`), `is_read BOOLEAN NOT NULL DEFAULT FALSE`, `created_at TIMESTAMP WITH TIME ZONE NOT NULL` (entity field is `Instant`, same family as `users.created_at`/`couples.created_at` in V1 — deliberately not the plain `TIMESTAMP NOT NULL` wording in the PRD's acceptance criteria text, which was imprecise/generic; the entity mapping and `api/CLAUDE.md`'s explicit `Instant` vs `LocalDateTime` convention take precedence). Plus `CREATE INDEX IF NOT EXISTS idx_notification_recipient_read ON notification (recipient_user_id, is_read)`, matching the entity's `@Table(indexes = @Index(...))`. No DROP/TRUNCATE; table created empty. Cross-checked column-by-column against `com.app.notification.Notification.java` rather than trusting the PRD text alone.
-- Files changed: `api/src/main/resources/db/migration/V2__create_notification.sql` (new), `scripts/ralph/prd.json` (US-005 `passes: true`), `.claude/skills/ralph/prd.json` (mirrored), `scripts/ralph/progress.txt`.
+## 2026-08-06 - US-004 (Limpar o que der de vulnerabilidade e triar o resto)
+- `bun update` (SEM `--latest`) em `client/`: 15 dependencias diretas subiram de
+  patch/minor (`react`/`react-dom` 19.2.7 -> 19.2.8, `vite` 8.1.5 -> 8.2.1,
+  `eslint` 10.7.0 -> 10.8.0, `axios` 1.18.1 -> 1.19.0, `shadcn` 4.13.1 -> 4.16.2,
+  `react-router-dom` 7.18.1 -> 7.18.2, entre outras). `package.json` mudou so nos
+  ranges (o `bun update` reescreve o piso do `^`, ex.: `"vite": "^8"` ->
+  `"^8.2.1"`); NENHUM pacote novo, nenhuma remocao, nenhum arquivo de `src/`.
+- `bun run typecheck && bun run lint && bun run build` -> os tres verdes depois do
+  update (build em ~350ms, mesmo aviso pre-existente de chunk > 500kB).
+- **`bun audit` depois do update: 15 advisories, 6 high, 9 moderate, 0 critical**
+  — exatamente o mesmo numero de antes. O update de dependencia direta nao move
+  transitiva (ver learnings), e todos os 6 highs sao transitivos.
+- Triagem dos 6 highs escrita em `client/CLAUDE.md` (secao "Triagem de
+  vulnerabilidades (`bun audit`) — Epico 8, US-004"), com pacote, GHSA, caminho
+  de dependencia, tipo, se ha versao corrigida e a decisao:
+  - `brace-expansion` 5.0.7 x2 (`GHSA-mh99-v99m-4gvg`, `GHSA-rgw5-rvv9-x895`) —
+    via `eslint`/`typescript-eslint`/`shadcn`, build-time. Ignorar.
+  - `fast-uri` 3.1.4 (`GHSA-7p8r-x3mc-p8w7`) — via `ajv` do eslint/MCP. Ignorar.
+  - `ip-address` 10.2.0 (`GHSA-mwp4-54f8-5fhr`) — via `express-rate-limit` do
+    servidor MCP embutido na CLI do shadcn. Ignorar.
+  - `undici` 7.28.0 (`GHSA-4cwx-7wf7-3272`) — via `@dotenvx/dotenvx` do shadcn.
+    Ignorar.
+  - `react-router` 7.18.2 (`GHSA-qwww-vcr4-c8h2`) — UNICO de producao. RSC Mode
+    CSRF bypass; esta app e SPA em Vite sem React Server Components, o vetor nao
+    existe. Correcao so no major 8.3.0, fora do epico (vem por PR do Dependabot).
+    Ignorar com justificativa.
+  Esses 6 GHSA sao exatamente a lista de `--ignore` que a US-005 tem que colocar
+  no step do `ci.yml`.
+- Arquivos alterados: `client/package.json`, `client/bun.lock`,
+  `client/CLAUDE.md`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+  Nenhum componente, nenhum pixel — a skill `frontend-design` nao se aplica.
 - **Learnings for future iterations:**
-  - Still no `java`/`mvn`/`docker`/`psql` in this sandbox (confirmed again, and this time also tried letting the Maven wrapper download Maven itself — `./mvnw -v` failed with `wget: Failed to fetch ... repo.maven.apache.org` since there's no network path to Maven Central either). "Typecheck passes"/"Tests pass"/"Hibernate validate passes against V1+V2 on a clean DB" acceptance criteria for this story could only be verified by manual comparison against the entity, same limitation as US-002 through US-004.
-  - When a PRD acceptance-criteria line gives a generic type (e.g. plain "TIMESTAMP NOT NULL") that conflicts with a more specific, already-documented project convention (here, `api/CLAUDE.md`'s `Instant` → `TIMESTAMP WITH TIME ZONE` vs `LocalDateTime` → `TIMESTAMP` rule, and V1's own precedent on `users`/`couples`), prefer the specific documented convention and note the deviation explicitly rather than following the PRD text literally — this keeps the migration internally consistent with V1 and with what Hibernate will actually validate against.
-  - Next story is US-006: write `docs/FLYWAY.md` documenting the baseline strategy (`baseline-on-migrate=true` + `baseline-version=1` means Flyway's first run against prod's existing schema creates `flyway_schema_history`, marks V1 as baseline WITHOUT executing `V1__baseline.sql`, then applies only `V2__create_notification.sql`), the dev/test vs prod behavior difference (clean DB actually runs V1), a post-deploy checklist (check `flyway_schema_history`, confirm no existing table was recreated, data intact, `notification` created), and a recommendation to snapshot/backup Supabase before the first Flyway deploy. This is a pure documentation story — no code/SQL changes, so the "Typecheck passes" criterion is trivially satisfiable (nothing to compile) once the doc exists; still worth a one-line note confirming that in the story's `notes` field for consistency with prior stories.
+  - `bun update` sem argumento so atualiza dependencias **diretas**. Transitiva
+    fica congelada na resolucao do `bun.lock` mesmo quando o range do pai ja
+    aceitaria a versao corrigida (ex.: `minimatch` pede `brace-expansion ^5.0.5`
+    e o 5.0.9 existe, mas o lock continuou no 5.0.7).
+  - **ARMADILHA:** `bun update <pacote-transitivo>` NAO atualiza a transitiva —
+    ele ADICIONA o pacote como dependencia direta no `package.json`. Testado
+    aqui: `bun update brace-expansion fast-uri ip-address undici postcss hono
+    @hono/node-server` acrescentou os 7 ao bloco `dependencies` (e puxou majors:
+    `undici` 8, `fast-uri` 4). Revertido com `git checkout package.json bun.lock`
+    + `bun install --frozen-lockfile`. Para forcar transitiva o mecanismo e
+    `overrides`/`resolutions` no `package.json`, nao `bun update`.
+  - `bun audit --json` devolve um objeto `{"<pacote>": [advisory, ...]}` — NAO o
+    formato `{"advisories": {...}}` do `npm audit`. Um `jq '.advisories'` volta
+    vazio silenciosamente. Para listar os highs:
+    `bun audit --json | bunx --bun jq -r 'to_entries[] | .key as $m | .value[] |
+    select(.severity=="high") | "\($m) \(.url)"'`.
+  - `shadcn` esta em `dependencies` no `package.json`, mas e uma CLI: nenhum
+    arquivo de `src/` a importa e ela nao entra no bundle. 4 dos 6 highs vem
+    debaixo dela. Movida para `devDependencies` seria mais honesto (nada em
+    producao instala essas deps — o deploy manda o `dist/` pronto por `scp`),
+    mas isso ficou FORA desta story de proposito: e mudanca de topologia de
+    dependencia, decisao do mantenedor. Registrado em `client/CLAUDE.md`.
+  - A tabela de `client/CLAUDE.md` e a lista de `--ignore` do `ci.yml` (US-005)
+    sao duas copias da mesma decisao. Mexer numa sem a outra cria ponto cego —
+    a propria secao do CLAUDE.md avisa isso no final.
 ---
 
-## [2026-08-01] - US-006
-- Implemented: created `docs/FLYWAY.md` covering (1) the `baseline-on-migrate=true`/`baseline-version=1` behavior against prod's existing schema — Flyway creates `flyway_schema_history`, marks V1 as baseline without running `V1__baseline.sql`, then applies only `V2__create_notification.sql`; (2) the dev/test behavior on a clean DB — no prior schema means V1 runs for real, creating all 7 tables from scratch, followed by V2 — plus a side-by-side comparison table of the two environments; (3) a post-deploy checklist (`flyway_schema_history` has both version rows with `success=true`, row counts of the 7 pre-existing tables unchanged, `notification` created empty with `idx_notification_recipient_read`, no `FlywayException`/Hibernate validation error in API logs, app responds and old data is readable); (4) a recommendation to snapshot/backup the Supabase project (Database > Backups, plus an on-demand backup for this specific deploy) before the first Flyway-enabled deploy, referencing the `information_schema` validation caveat already in `docs/SCHEMA_BASELINE.md`.
-- Files changed: `docs/FLYWAY.md` (new), `scripts/ralph/prd.json` (US-006 `passes: true`), `.claude/skills/ralph/prd.json` (mirrored), `scripts/ralph/progress.txt`.
+## 2026-08-06 - US-005 (Ligar o gate do bun audit no CI)
+- `.github/workflows/ci.yml`, job `frontend`: novo step `Audit dependencies`
+  entre `Install dependencies` e `Typecheck` (portanto DEPOIS do `bun install` e
+  ANTES do `build`). Roda `bun audit --audit-level=high "${IGNORES[@]}"` com os 6
+  advisories triados na US-004. **Sem `continue-on-error`, sem `|| true`** — se e
+  gate, quebra o job; e como o `deploy.yml` reusa o `ci.yml` via `workflow_call`,
+  quebra o deploy junto.
+- Os `--ignore` estao num array bash (`IGNORES=(...)` / `IGNORES+=(...)`), uma
+  linha por advisory, cada uma precedida de comentario com: pacote, por que nao
+  alcanca o usuario, e o que faria revisitar a decisao. Sao exatamente os 6
+  `Ignorar` da tabela de `client/CLAUDE.md`: `GHSA-mh99-v99m-4gvg`,
+  `GHSA-rgw5-rvv9-x895` (brace-expansion), `GHSA-7p8r-x3mc-p8w7` (fast-uri),
+  `GHSA-mwp4-54f8-5fhr` (ip-address), `GHSA-4cwx-7wf7-3272` (undici),
+  `GHSA-qwww-vcr4-c8h2` (react-router).
+- Verificacao REAL (nao presumida), rodando o proprio texto do step extraido do
+  YAML e executado com `bash -e` em `client/`:
+  - com os 6 ignores: **exit 0** (os 9 moderate continuam no relatorio e nao
+    quebram nada — `--audit-level=high`);
+  - sem `--ignore=GHSA-qwww-vcr4-c8h2`: **exit 1**, `1 vulnerabilities (1 high)`,
+    react-router. Ou seja, o gate morde. Ignore restaurado em seguida.
+  - `bun audit --audit-level=high` sozinho (sem ignore nenhum): exit 1, 6 high.
+- `client/CLAUDE.md`: a secao de triagem da US-004 agora aponta o nome exato do
+  step, diz que ele e gate desde hoje e registra que `--ignore` aceita id GHSA.
+- Arquivos alterados: `.github/workflows/ci.yml`, `client/CLAUDE.md`,
+  `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`. Nenhum arquivo de
+  `client/src/`, nenhum pixel — a skill `frontend-design` nao se aplica.
 - **Learnings for future iterations:**
-  - Pure documentation story, nothing to compile/run — confirmed the repo's only CI workflow (`.github/workflows/*.yml`) runs `./mvnw -B test` against `api/` and doesn't trigger on docs-only changes, and there's no markdown linter configured, so "Typecheck passes" has no mechanical check to run here; noted that explicitly in the story's `notes` rather than silently treating it as N/A.
-  - Next story is US-007: evaluate whether `scripts/deploy.sh`, `api/Dockerfile`, or `docker-compose-prod.yml` need changes for Flyway to work. Expected answer per the PRD itself is "no changes needed" (Flyway runs embedded in the Spring Boot startup, triggered automatically by `spring.flyway.enabled=true` — no extra deploy step, no new env var beyond what `DB_URL`/`DB_USER`/`DB_PASSWORD` already provide since Flyway reuses the same datasource Hibernate/JPA use). This story's acceptance criteria explicitly forbid modifying those three sensitive files without approval even if a change seemed needed — if analysis turns up a real need, the deliverable is a written proposal (diff + justification) in the PR/notes, not a direct edit. Read `scripts/deploy.sh`, `api/Dockerfile`, and `docker-compose-prod.yml` (none read yet in this Ralph loop) before concluding "no changes needed" rather than assuming from `docs/DEPLOY.md`'s summary alone.
+  - **`bun audit --ignore` aceita GHSA** (`GHSA-xxxx-xxxx-xxxx`), o mesmo id que o
+    comando imprime — a duvida "sera que so aceita CVE?" registrada na story esta
+    respondida: aceita GHSA, nao precisa traduzir.
+  - `bun audit` (1.3.14) so tem 3 flags: `--json`, `--audit-level`, `--ignore`.
+    Nao existe `--prod`. Separar producao de build-time e trabalho de triagem
+    manual, nao de flag.
+  - Comentario por argumento dentro de um comando quebrado com `\` nao da: o
+    truque de `` `# ...` `` (backtick com comentario) funciona mas e fragil com
+    acento/parenteses/aspas. **Array bash (`IGNORES+=(...)`) e o jeito limpo** —
+    cada item vira uma linha propria e o `#` acima e comentario de shell normal.
+    O default shell do Actions em ubuntu e bash, entao array e seguro.
+  - Para testar um step de workflow sem Actions: extrair o bloco `run:` do YAML e
+    rodar com `bash -e`. Nao ha `pyyaml` neste sandbox (nem `pip`), entao a
+    extracao foi por fatiamento de linhas mesmo.
 ---
 
-## [2026-08-01] - US-007
-- Implemented: read `scripts/deploy.sh`, `api/Dockerfile`, `docker-compose-prod.yml`, `docs/DEPLOY.md`, and `docs/ARCHITECTURE.md` in full. Conclusion: none of the three sensitive files need any change for Flyway to work — Flyway runs embedded in the Spring Boot startup (`spring.flyway.enabled=true`, no CLI/separate migration step), and `api/src/main/resources/db/migration/*.sql` is a standard Maven resource, already packaged into the runnable jar by the existing `COPY src/ src/` + `./mvnw package` steps in the Dockerfile — no extra `COPY` needed. `docker-compose-prod.yml` only forwards `DB_URL`/`DB_USER`/`DB_PASSWORD`, the same datasource Hibernate/JPA already use, so Flyway needs nothing extra there. `deploy.sh` has no schema/migration step to touch. None of the three files were modified, per the story's explicit "no changes without approval" constraint.
-- Found (and documented, not code-fixed) a related but out-of-scope-for-these-3-files risk: production `DB_URL` (in the untracked `.env`, per `docs/DEPLOY.md` Passo 1) uses Supabase's PgBouncer connection pooler in **Transaction mode** (port 6543). Flyway relies on PostgreSQL advisory locks (`pg_advisory_lock`) to guard migrations, and Transaction-mode pooling does not reliably preserve a single physical session across statements — the same underlying class of incompatibility that already forced `?prepareThreshold=0` onto `DB_URL` for prepared-statement caching, but affecting a different Flyway mechanism (locking, not statement caching). This could make the first Flyway-enabled deploy fail to acquire its migration lock even with zero real concurrency. Added a "Risco conhecido: connection pooler em modo Transaction (Supabase)" section to `docs/FLYWAY.md` recommending the direct connection (port 5432) or Session-mode pooler be used temporarily for `DB_URL` on the deploy that actually carries a new pending migration. `docs/FLYWAY.md` is documentation, not one of the three restricted infra files, so no approval gate applied to editing it.
-- Files changed: `docs/FLYWAY.md`, `scripts/ralph/prd.json` (US-007 `passes: true`), `.claude/skills/ralph/prd.json` (mirrored), `scripts/ralph/progress.txt`.
+## 2026-08-06 - US-006 (Resolver o pin manual do jjwt)
+- **Investigacao (feita ANTES de escolher o caminho, decisao E8.3):**
+  - `./mvnw dependency:tree -Dincludes=io.jsonwebtoken` -> `jjwt-api:0.12.6:compile`,
+    `jjwt-impl:0.12.6:runtime`, `jjwt-jackson:0.12.6:runtime`.
+  - `./mvnw help:effective-pom -Doutput=/tmp/effective-pom.xml`: o bloco
+    `<dependencyManagement>` vai das linhas 244 a 9901; as 3 unicas ocorrencias de
+    `io.jsonwebtoken` no arquivo estao nas linhas 9970/9976/9982, ou seja **fora**
+    do dependencyManagement — sao as declaracoes do proprio pom, com a versao que
+    nos escrevemos.
+  - Confirmacao direta no BOM: `grep -c jsonwebtoken
+    ~/.m2/.../spring-boot-dependencies-4.1.0.pom` -> **0**.
+  - **Resposta: o BOM do Spring Boot NAO gerencia io.jsonwebtoken.** Logo, caminho
+    2 do criterio de aceite (property unica), nao remocao das versoes.
+- `api/pom.xml`: nova property `<jjwt.version>0.12.6</jjwt.version>` com comentario
+  explicando que o jjwt esta fora do BOM, que o bump e manual e que o Dependabot da
+  US-003 (ecossistema maven em `/api`) e quem passa a avisar. As 3 tags
+  `<version>0.12.6</version>` viraram `<version>${jjwt.version}</version>`.
+- **Sem regressao de versao:** `dependency:tree -Dincludes=io.jsonwebtoken` rodado
+  DEPOIS da mudanca devolve exatamente `0.12.6` nos tres artefatos — mesma versao de
+  antes, so que resolvida via property.
+- `./mvnw test` -> 424 testes, 0 falhas; JaCoCo `check` verde.
+- `api/CLAUDE.md`: sub-bullet novo em `com.app.security` (JWT) registrando a
+  investigacao fechada, para ninguem repeti-la.
+- Arquivos alterados: `api/pom.xml`, `api/CLAUDE.md`, `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`. Nenhum arquivo de `client/` — sem pixel, a skill
+  `frontend-design` nao se aplica.
 - **Learnings for future iterations:**
-  - This was the last story in the PRD — all 7 (`US-001`..`US-007`) now have `passes: true`.
-  - When a story's acceptance criteria scope "no changes without approval" to a specific, named list of files, a real risk discovered during evaluation that lives *outside* that list (here: an env var value, not any of the three restricted files) can still be documented directly in project docs without triggering the approval gate — the gate is about the named files, not about staying silent on adjacent risks found while doing the evaluation the story asked for.
-  - Supabase PgBouncer "Transaction mode" vs "Session mode"/direct connection is a recurring gotcha for any schema-migration tool (Flyway, Prisma Migrate, Liquibase) that relies on session-scoped Postgres features (advisory locks, `SET` session variables, etc.) — worth checking again if a future story ever touches connection pooling config or adds another migration-adjacent tool.
+  - Para responder "o BOM gerencia X?", o teste decisivo NAO e olhar o
+    `dependency:tree` (ele mostra a versao resolvida, seja de onde for). E ver se o
+    artefato aparece dentro do `<dependencyManagement>` do effective-pom, ou
+    simplesmente `grep` no proprio `spring-boot-dependencies-<versao>.pom` do `~/.m2`
+    — este ultimo e o mais rapido e o menos ambiguo.
+  - `help:effective-pom` com `-q` nao imprime nada no stdout quando se usa
+    `-Doutput=` — o arquivo e escrito, e so ler dele.
+  - Os 3 artefatos do jjwt (`api`/`impl`/`jackson`) precisam da MESMA versao: o
+    `impl` e o `jackson` sao `runtime`, entao uma divergencia entre eles nao aparece
+    na compilacao, so num `NoSuchMethodError` em producao. Property unica existe
+    exatamente para tornar isso impossivel de errar num bump.
+  - `jjwt-jackson` e quem traz o Jackson 2 (`com.fasterxml`) transitivamente no
+    runtime — ja registrado em `api/CLAUDE.md` na nota do `RateLimitFilter`. Um bump
+    de jjwt pode mexer nisso; nao e so "a lib que assina token".
+---
+
+## 2026-08-06 - US-007 (Remover SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose)
+- `docker-compose-prod.yml`: a linha `SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"`
+  saiu do bloco `environment` (confirmado parseando o YAML com `bunx --bun js-yaml`:
+  o mapa `environment` agora tem 6 chaves, sem a do Flyway). No lugar ficou um
+  comentario explicando a remocao e apontando para `docs/DEPLOY.md`/`docs/FLYWAY.md`
+  — a intencao aqui e fragil: alguem debugando um `FlywayException` num deploy
+  futuro tem uma tentacao obvia de religar a variavel, que e exatamente o
+  comportamento que a story quer impedir.
+- `docs/DEPLOY.md`: seccao nova "Flyway: ambiente novo com schema pre-existente"
+  (dentro de "Deploys seguintes"), com o comando pontual
+  `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d`
+  e o aviso de nao devolver a linha ao compose nem ao `.env`.
+- `docs/FLYWAY.md`: bloco novo no topo com a data da remocao (2026-08-06), o porque,
+  o comando pontual e — em destaque — o **GATE HUMANO**: a query
+  `SELECT installed_rank, version, description, type, success FROM flyway_schema_history
+  ORDER BY installed_rank;` tem de ser rodada em producao ANTES do merge para a `main`,
+  confirmando V1..V6 todas com `success = true` e nenhuma linha `type = 'BASELINE'`
+  alem da legitima da V1. Se falhar: **reverter esta mudanca antes do deploy**.
+- `api/src/main/resources/application.properties`: o comentario do "primeiro deploy"
+  tinha ficado contraditorio (mandava passar a variavel como se ainda faltasse o
+  primeiro deploy com Flyway). Reescrito para registrar que a flag nao esta nem aqui
+  nem no compose, e qual e o unico caso que a justifica.
+- `api/CLAUDE.md`: sub-bullet novo debaixo da nota Schema/Flyway com a regra
+  permanente ("se o startup falhar com FlywayException, a resposta NAO e religar a
+  flag — e conferir o flyway_schema_history").
+- Verificacao: `./mvnw test` -> 424 testes, 0 falhas, JaCoCo `check` verde
+  ("All coverage checks have been met"). Nenhum teste depende da variavel — ela so
+  existia no compose de producao, e o `FlywayMigrationTest` seta as suas proprias
+  propriedades de Flyway.
+- **PENDENTE DO LADO HUMANO** (US-007 do PRD, operacional, exige credencial do
+  Supabase): a query de verificacao acima, ANTES do merge para a `main`. E, depois do
+  deploy seguinte, confirmar no log `Successfully validated 6 migrations` (ou
+  `No migration necessary`) sem nenhuma linha de baseline nova.
+- Arquivos alterados: `docker-compose-prod.yml`, `docs/DEPLOY.md`, `docs/FLYWAY.md`,
+  `api/src/main/resources/application.properties`, `api/CLAUDE.md`,
+  `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`. Nenhum arquivo de
+  `client/`, nenhum pixel — a skill `frontend-design` nao se aplica.
+- **Learnings for future iterations:**
+  - Remover uma variavel de ambiente de producao nao e coberto por teste nenhum
+    neste repo: `./mvnw test` passa igual com ela ou sem ela. A verificacao real e
+    (a) parsear o YAML e olhar o mapa resultante e (b) o gate humano no banco. Nao
+    confundir "build verde" com "mudanca verificada".
+  - `docs/FLYWAY.md` foi escrito quando a ultima migration era a V5 e ainda descreve
+    o primeiro deploy no futuro do presente ("voce deve passar a variavel"). O bloco
+    novo ficou no TOPO de proposito, para nao deixar o leitor achar o texto antigo
+    primeiro. Se alguem for atualizar o corpo do documento depois, o resto do texto
+    ainda fala em V5.
+  - A mesma decisao aparece agora em 4 lugares (compose, `application.properties`,
+    `docs/DEPLOY.md`, `docs/FLYWAY.md`) + `api/CLAUDE.md`. E redundancia deliberada
+    (cada um e o lugar onde uma pessoa diferente vai olhar), mas mexer num sem os
+    outros cria contradicao — foi exatamente o que aconteceu com o comentario do
+    `application.properties`.
 ---

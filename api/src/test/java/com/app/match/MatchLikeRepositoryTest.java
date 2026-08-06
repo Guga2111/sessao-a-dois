@@ -3,11 +3,16 @@ package com.app.match;
 import com.app.couple.Couple;
 import com.app.couple.CoupleRepository;
 import com.app.media.MediaType;
+import com.app.tracking.MediaStatus;
+import com.app.tracking.MediaTrack;
+import com.app.tracking.MediaTrackRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.UUID;
 
@@ -19,6 +24,12 @@ class MatchLikeRepositoryTest {
 
 	@Autowired
 	private MatchLikeRepository matchLikeRepository;
+
+	@Autowired
+	private MatchRejectRepository matchRejectRepository;
+
+	@Autowired
+	private MediaTrackRepository mediaTrackRepository;
 
 	@Autowired
 	private CoupleRepository coupleRepository;
@@ -79,5 +90,54 @@ class MatchLikeRepositoryTest {
 		assertThatThrownBy(() ->
 			matchLikeRepository.saveAndFlush(new MatchLike(couple, userId, 603L, MediaType.MOVIE))
 		).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void findPendingForUserIsEmptyWhenPartnerHasNoLikes() {
+		Couple couple = persistedCouple();
+		UUID userId = UUID.randomUUID();
+
+		Page<MatchLike> pending = matchLikeRepository.findPendingForUser(couple.getId(), userId, PageRequest.of(0, 10));
+
+		assertThat(pending.getContent()).isEmpty();
+	}
+
+	@Test
+	void findPendingForUserExcludesTitlesAlreadyRejectedByCurrentUser() {
+		Couple couple = persistedCouple();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		matchLikeRepository.save(new MatchLike(couple, partnerId, 603L, MediaType.MOVIE));
+		matchRejectRepository.save(new MatchReject(couple, userId, 603L, MediaType.MOVIE));
+
+		Page<MatchLike> pending = matchLikeRepository.findPendingForUser(couple.getId(), userId, PageRequest.of(0, 10));
+
+		assertThat(pending.getContent()).isEmpty();
+	}
+
+	@Test
+	void findPendingForUserExcludesTitlesAlreadyTrackedAsMediaTrack() {
+		Couple couple = persistedCouple();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		matchLikeRepository.save(new MatchLike(couple, partnerId, 603L, MediaType.MOVIE));
+		mediaTrackRepository.save(new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE));
+
+		Page<MatchLike> pending = matchLikeRepository.findPendingForUser(couple.getId(), userId, PageRequest.of(0, 10));
+
+		assertThat(pending.getContent()).isEmpty();
+	}
+
+	@Test
+	void findPendingForUserReturnsPartnerLikeStillPending() {
+		Couple couple = persistedCouple();
+		UUID userId = UUID.randomUUID();
+		UUID partnerId = UUID.randomUUID();
+		MatchLike partnerLike = matchLikeRepository.save(new MatchLike(couple, partnerId, 603L, MediaType.MOVIE));
+
+		Page<MatchLike> pending = matchLikeRepository.findPendingForUser(couple.getId(), userId, PageRequest.of(0, 10));
+
+		assertThat(pending.getContent()).hasSize(1);
+		assertThat(pending.getContent().get(0).getId()).isEqualTo(partnerLike.getId());
 	}
 }

@@ -4,6 +4,12 @@ on:
   pull_request:
     branches:
       - dev
+      - main
+  # Permite que o workflow de CD (deploy.yml) reexecute esta suite no push da
+  # main, antes de subir para producao. Sem isto, um push direto na main (ou um
+  # merge cuja combinacao quebra algo que nenhum dos PRs sozinho quebrava) iria
+  # a producao sem nenhum teste.
+  workflow_call:
 
 jobs:
   test:
@@ -45,3 +51,72 @@ jobs:
           DB_PASSWORD: sessao
           JWT_SECRET: ci-only-secret-please-override-in-prod-32bytes+
           CORS_ALLOWED_ORIGIN: http://localhost:5173
+
+  frontend:
+    name: Run Frontend Checks (client)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        working-directory: client
+        run: bun install
+
+      # Gate de seguranca do frontend (Epico 8, US-005). Falha o job em
+      # severidade high/critical; moderate e low so aparecem no log.
+      # Sem continue-on-error e sem "|| true" DE PROPOSITO: se e gate, tem que
+      # quebrar o build. O deploy.yml reusa este workflow via workflow_call,
+      # entao um advisory novo de alta tambem barra o deploy.
+      #
+      # Cada --ignore abaixo e um advisory triado na US-004 e documentado em
+      # client/CLAUDE.md ("Triagem de vulnerabilidades (`bun audit`)"). Essa
+      # tabela e esta lista sao duas copias da mesma decisao: mexer numa sem a
+      # outra cria ponto cego. A fonte da verdade e `cd client && bun audit`.
+      - name: Audit dependencies
+        working-directory: client
+        run: |
+          # brace-expansion (DoS por expansao ilimitada): entra so via eslint,
+          # typescript-eslint e a CLI do shadcn - lint/build time, sobre globs que
+          # nos mesmos escrevemos, nunca vai para o bundle.
+          # Revisitar se brace-expansion aparecer sob dependencia de runtime.
+          IGNORES=(--ignore=GHSA-mh99-v99m-4gvg)
+          # brace-expansion (bypass da mitigacao anterior): mesmo caminho, mesmo motivo.
+          IGNORES+=(--ignore=GHSA-rgw5-rvv9-x895)
+          # fast-uri (host confusion): vem do ajv do eslint e do MCP da CLI do
+          # shadcn, que so validam schema de config em build time - nao ha URL de
+          # atacante nesse caminho.
+          # Revisitar se ajv/fast-uri passar a processar URL vinda do usuario.
+          IGNORES+=(--ignore=GHSA-7p8r-x3mc-p8w7)
+          # ip-address (SSRF por octeto com zero a esquerda): so sob
+          # shadcn > @modelcontextprotocol/sdk > express-rate-limit, o servidor MCP
+          # embutido na CLI - nunca executado por esta app nem pelo build.
+          # Revisitar se o servidor MCP do shadcn passar a rodar no CI.
+          IGNORES+=(--ignore=GHSA-mwp4-54f8-5fhr)
+          # undici (cache poisoning): cliente HTTP do @dotenvx/dotenvx dentro da CLI
+          # do shadcn; o runtime do usuario usa fetch/axios do browser.
+          # Revisitar se undici aparecer fora do subgrafo do shadcn.
+          IGNORES+=(--ignore=GHSA-4cwx-7wf7-3272)
+          # react-router (RSC Mode CSRF bypass): UNICO advisory de producao. O vetor
+          # e o RSC mode; esta app e SPA em Vite sem React Server Components, entao
+          # nao existe server action para executar antes do 400. A correcao so vem
+          # no major 8.3.0, que chega por PR do Dependabot (US-003), revisado a parte.
+          # Revisitar quando o PR do major 8 entrar, ou se a app adotar SSR/RSC.
+          IGNORES+=(--ignore=GHSA-qwww-vcr4-c8h2)
+          bun audit --audit-level=high "${IGNORES[@]}"
+
+      - name: Typecheck
+        working-directory: client
+        run: bun run typecheck
+
+      - name: Lint
+        working-directory: client
+        run: bun run lint
+
+      - name: Build
+        working-directory: client
+        run: bun run build

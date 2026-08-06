@@ -17,16 +17,6 @@ export function DeleteTrackDialog({
   onClose,
   onSuccess,
 }: DeleteTrackDialogProps) {
-  const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!track) {
-      setError(null)
-      setDeleting(false)
-    }
-  }, [track])
-
   useEffect(() => {
     if (!track) return
     const onKeyDown = (e: KeyboardEvent) => {
@@ -37,6 +27,30 @@ export function DeleteTrackDialog({
   }, [track, onClose])
 
   if (!track) return null
+
+  return (
+    <DeleteTrackDialogContent
+      key={track.id}
+      track={track}
+      onClose={onClose}
+      onSuccess={onSuccess}
+    />
+  )
+}
+
+interface DeleteTrackDialogContentProps {
+  track: MediaTrackResponse
+  onClose: () => void
+  onSuccess: (track: MediaTrackResponse) => void
+}
+
+function DeleteTrackDialogContent({
+  track,
+  onClose,
+  onSuccess,
+}: DeleteTrackDialogContentProps) {
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleConfirm = async () => {
     setDeleting(true)

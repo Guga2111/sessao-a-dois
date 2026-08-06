@@ -2,23 +2,26 @@
 set -e
 
 PROJECT="sessao-a-dois"
-VPS_IP="31.97.169.38"
-VPS_USER="root"
+
+# Alvo do deploy. Configuravel por variavel de ambiente (o workflow de CD passa
+# estes valores); os defaults sao a VPS Hostinger de producao.
+VPS_IP="${VPS_IP:-31.97.169.38}"
+VPS_USER="${VPS_USER:-root}"
 
 BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 CLIENT_DIR="${BASE_DIR}/client"
 API_DIR="${BASE_DIR}/api"
 
-# Carrega variaveis do .env da raiz
-if [[ ! -f "${BASE_DIR}/.env" ]]; then
-  echo "❌ Ficheiro .env nao encontrado na raiz do repo."
-  echo "   Copia .env.example para .env e preenche com valores reais."
+# Ficheiro de segredos enviado para a VPS. E copiado por scp tal como esta -
+# nenhum segredo e reescrito para /tmp nem para qualquer outro temporario.
+ENV_FILE="${ENV_FILE:-${BASE_DIR}/.env}"
+
+if [[ ! -f "${ENV_FILE}" ]]; then
+  echo "❌ Ficheiro de ambiente nao encontrado: ${ENV_FILE}"
+  echo "   Local: copia .env.example para .env e preenche com valores reais."
+  echo "   CI:    o workflow de CD escreve o .env a partir dos secrets do GitHub."
   exit 1
 fi
-
-set -a
-source "${BASE_DIR}/.env"
-set +a
 
 VERSION=$(date +%Y%m%d-%H%M%S)
 
@@ -64,18 +67,8 @@ scp -r "${CLIENT_DIR}/dist/"* ${VPS_USER}@${VPS_IP}:/var/www/sessaoadois/
 scp sessao-api-${VERSION}.tar.gz ${VPS_USER}@${VPS_IP}:~/projects/${PROJECT}/
 scp "${BASE_DIR}/docker-compose-prod.yml" ${VPS_USER}@${VPS_IP}:~/projects/${PROJECT}/
 
-# .env file (written locally, uploaded — never hardcoded on the VPS in plaintext)
-cat > /tmp/${PROJECT}.env << EOF
-DB_URL=${DB_URL}
-DB_USER=${DB_USER}
-DB_PASSWORD=${DB_PASSWORD}
-JWT_SECRET=${JWT_SECRET}
-CORS_ALLOWED_ORIGIN=${CORS_ALLOWED_ORIGIN}
-TMDB_API_KEY=${TMDB_API_KEY}
-API_PORT=${API_PORT}
-EOF
-scp /tmp/${PROJECT}.env ${VPS_USER}@${VPS_IP}:~/projects/${PROJECT}/.env
-rm /tmp/${PROJECT}.env
+# .env file — copiado diretamente da origem, sem passar por /tmp
+scp "${ENV_FILE}" ${VPS_USER}@${VPS_IP}:~/projects/${PROJECT}/.env
 
 # ====================
 # DEPLOY ON VPS

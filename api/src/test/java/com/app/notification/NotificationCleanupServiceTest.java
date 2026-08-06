@@ -22,7 +22,7 @@ class NotificationCleanupServiceTest {
 
 	@Test
 	void expireOldNotificationsDeletesByThirtyDayCutoff() {
-		when(notificationRepository.deleteByCreatedAtBefore(any())).thenReturn(3L);
+		when(notificationRepository.deleteByCreatedAtBefore(any())).thenReturn(3);
 		NotificationCleanupService service = new NotificationCleanupService(notificationRepository);
 
 		service.expireOldNotifications();

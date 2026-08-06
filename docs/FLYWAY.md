@@ -2,10 +2,69 @@
 
 Este documento explica como o Flyway se comporta neste projeto (`spring.flyway.baseline-on-migrate=true` + `spring.flyway.baseline-version=1`) e o checklist a seguir no primeiro deploy que usa Flyway em producao.
 
+## 2026-08-06 — `SPRING_FLYWAY_BASELINE_ON_MIGRATE` removido do compose de producao
+
+A linha `SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"` foi **removida** de
+`docker-compose-prod.yml` em **2026-08-06** (Epico 8, US-008 do PRD
+`tasks/prd-epico-8-cicd-e-infraestrutura.md`).
+
+**Porque:** ela era necessaria apenas no *primeiro* deploy com Flyway, quando o
+Supabase ja tinha o schema mas nao tinha `flyway_schema_history`. Esse deploy ja
+aconteceu. Mantida ligada permanentemente, ela deixa de ser uma facilidade e vira
+um risco: se um dia o `flyway_schema_history` sumir ou divergir, o Flyway cria uma
+baseline nova e **marca migrations como aplicadas sem as executar** — o deploy sobe
+"verde" com o schema errado, e a falha so aparece depois, como erro de validacao do
+Hibernate ou como coluna inexistente em runtime. Sem a variavel, o mesmo cenario
+quebra o startup imediatamente, que e o comportamento que queremos.
+
+**Como passar pontualmente** (unico caso legitimo: ambiente novo, com schema
+pre-existente e sem `flyway_schema_history`):
+
+```bash
+SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d
+```
+
+Ver tambem `docs/DEPLOY.md`, seccao "Flyway: ambiente novo com schema
+pre-existente".
+
+### ⚠️ GATE HUMANO — verificacao obrigatoria ANTES do merge para a `main`
+
+A mudanca de codigo e **inerte** ate o proximo deploy, mas ela depende de uma
+verificacao operacional (US-007 do PRD) que **nao foi executada por um agente** —
+exige credencial de producao do Supabase. Antes de mergear esta alteracao para a
+`main` (push na `main` = deploy automatico, ver `.github/workflows/deploy.yml`),
+o mantenedor tem de rodar no banco de producao:
+
+```sql
+SELECT installed_rank, version, description, type, success
+FROM flyway_schema_history
+ORDER BY installed_rank;
+```
+
+E confirmar:
+
+- [ ] Existem linhas para **V1 ate V6** (`V6__add_invite_code_expiry.sql` e a
+      ultima migration do repo).
+- [ ] **Todas** tem `success = true`.
+- [ ] A unica linha com `type = 'BASELINE'` e a legitima da V1 (o baseline do
+      primeiro deploy). Nenhuma migration que deveria ter sido executada de fato
+      aparece como baseline.
+
+**Se qualquer migration estiver faltando ou com `success = false`: PARAR.** Esta
+alteracao tem de ser **revertida antes do deploy** — com o schema divergente e sem
+a variavel, o proximo deploy falha no startup e a API nao sobe. Corrigir o
+historico primeiro, depois reaplicar a remocao.
+
+Resultado da verificacao (preencher com a data e a saida da query, sem dado
+sensivel): _pendente — nao executado por agente._
+
 Contexto: ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi criado inteiramente por `spring.jpa.hibernate.ddl-auto=update`. Nao existe `flyway_schema_history` em producao. As migrations atuais sao:
 
 - `api/src/main/resources/db/migration/V1__baseline.sql` — reproduz o schema ja existente em producao (`users`, `couples`, `media_track`, `media_track_genre`, `user_review`, `match_like`, `match_reject`), ver `docs/SCHEMA_BASELINE.md`.
 - `api/src/main/resources/db/migration/V2__create_notification.sql` — cria a tabela `notification`, que ainda nao existe em producao.
+- `api/src/main/resources/db/migration/V3__add_indexes.sql` — cria indices em colunas de FK/filtro (`couples.user1_id`/`user2_id`, `media_track.couple_id`+`status`/`tmdb_id`, `user_review.media_track_id`/`user_id`, `match_like.couple_id`+`tmdb_id`, `match_reject.couple_id`+`user_id`, `media_track_genre.media_track_id`) — apenas `CREATE INDEX IF NOT EXISTS`, nenhuma tabela e recriada ou alterada.
+- `api/src/main/resources/db/migration/V4__denormalize_media_metadata.sql` — adiciona as colunas `title` (VARCHAR(255)), `poster_url` (VARCHAR(500)) e `release_year` (INTEGER), todas nullable, em `media_track` e `match_like` (epico 3, US-002) — apenas `ADD COLUMN IF NOT EXISTS`, nenhuma tabela e recriada ou alterada, sem default no lado do banco.
+- `api/src/main/resources/db/migration/V5__create_refresh_token.sql` — cria a tabela `refresh_token` (epico 4, US-001), que ainda nao existe em producao. Guarda hash do refresh token, expiracao, revogacao e cadeia de substituicao (`replaced_by_id`), com FK para `users.id` e para a propria `refresh_token.id` — apenas `CREATE TABLE`/`CREATE INDEX IF NOT EXISTS`, nenhuma tabela existente e tocada.
 
 ## Comportamento em producao (schema existente, sem `flyway_schema_history`)
 
@@ -59,6 +118,8 @@ Apos rodar `./scripts/deploy.sh` pela primeira vez com Flyway habilitado, confir
 - Na pratica, isso pode fazer o Flyway falhar ao obter o lock de migration no primeiro deploy (startup trava ou lanca erro), mesmo sem nenhuma migration concorrente real — o problema e o pooler, nao concorrencia.
 
 **Recomendacao:** para o primeiro deploy com Flyway (ou qualquer deploy que rode uma nova migration), usar temporariamente em `DB_URL` a **connection string direta** (porta 5432) ou o **Connection Pooler em modo Session** do Supabase, em vez do modo Transaction (6543), especificamente para essa execucao. O modo Transaction pode voltar a ser usado depois, ja que o Flyway so faz um trabalho real de migration na inicializacao com uma nova versao pendente. Isso nao exige alterar `scripts/deploy.sh`, `api/Dockerfile` ou `docker-compose-prod.yml` (nenhum dos tres fixa a porta ou o modo do pooler) — e apenas o valor de `DB_URL` no `.env`, que ja e editado manualmente a cada deploy conforme `docs/DEPLOY.md`.
+
+Isso vale tanto para o deploy que aplicar `V2__create_notification.sql` quanto para o que aplicar `V3__add_indexes.sql`, `V4__denormalize_media_metadata.sql` ou `V5__create_refresh_token.sql` (ou qualquer migration nova subsequente) — qualquer deploy com uma versao pendente > 1 deve usar a porta 5432 (direta) ou o pooler em modo Session, nao o modo Transaction (6543), so para essa execucao.
 
 ## Recomendacao: backup antes do primeiro deploy com Flyway
 

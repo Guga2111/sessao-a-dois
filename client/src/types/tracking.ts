@@ -18,14 +18,22 @@ export interface MediaTrackResponse {
   runtime: number | null
   createdAt: string
   reviews: ReviewDto[]
+  title: string | null
+  posterUrl: string | null
+  releaseYear: number | null
 }
 
-// Shape of GET /api/tracking?status=...&page=...&size=... (Spring Data `Page<T>` JSON).
-// GET /api/tracking without `status` stays unpaged (MediaTrackResponse[]).
+// Shape of GET /api/tracking?status=...&page=...&size=... (backend `PageResponse<T>`, not Spring Data's `Page<T>`).
 export interface PagedMediaTrackResponse {
   content: MediaTrackResponse[]
   totalElements: number
   totalPages: number
   number: number
   size: number
+}
+
+// Shape of GET /api/tracking/keys - mediaType + tmdbId only, no reviews/metadata.
+export interface TrackKeyResponse {
+  mediaType: MediaType
+  tmdbId: number
 }

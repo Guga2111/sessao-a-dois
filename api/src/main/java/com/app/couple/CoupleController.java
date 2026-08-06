@@ -1,8 +1,5 @@
 package com.app.couple;
 
-import com.app.user.User;
-import com.app.user.UserRepository;
-
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -21,23 +18,23 @@ import java.util.UUID;
 public class CoupleController {
 
 	private final CoupleService coupleService;
-	private final UserRepository userRepository;
+	private final CoupleResponseMapper coupleResponseMapper;
 
-	public CoupleController(CoupleService coupleService, UserRepository userRepository) {
+	public CoupleController(CoupleService coupleService, CoupleResponseMapper coupleResponseMapper) {
 		this.coupleService = coupleService;
-		this.userRepository = userRepository;
+		this.coupleResponseMapper = coupleResponseMapper;
 	}
 
 	@PostMapping
 	public ResponseEntity<CoupleResponse> create(@AuthenticationPrincipal UUID userId) {
 		Couple couple = coupleService.createCouple(userId);
-		return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(couple, userId));
+		return ResponseEntity.status(HttpStatus.CREATED).body(coupleResponseMapper.toResponse(couple, userId));
 	}
 
 	@GetMapping("/me")
 	public ResponseEntity<CoupleResponse> me(@AuthenticationPrincipal UUID userId) {
 		return coupleService.getCurrentCouple(userId)
-			.map(couple -> ResponseEntity.ok(toResponse(couple, userId)))
+			.map(couple -> ResponseEntity.ok(coupleResponseMapper.toResponse(couple, userId)))
 			.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
@@ -45,18 +42,12 @@ public class CoupleController {
 	public ResponseEntity<CoupleResponse> join(@AuthenticationPrincipal UUID userId,
 			@Valid @RequestBody JoinCoupleRequest request) {
 		Couple couple = coupleService.joinCouple(userId, request.inviteCode());
-		return ResponseEntity.ok(toResponse(couple, userId));
+		return ResponseEntity.ok(coupleResponseMapper.toResponse(couple, userId));
 	}
 
-	private CoupleResponse toResponse(Couple couple, UUID currentUserId) {
-		UUID partnerId = couple.getUser1Id().equals(currentUserId) ? couple.getUser2Id() : couple.getUser1Id();
-		PartnerSummary partner = partnerId == null ? null : userRepository.findById(partnerId)
-			.map(this::toPartnerSummary)
-			.orElse(null);
-		return new CoupleResponse(couple.getId(), couple.getInviteCode(), partner, couple.getCreatedAt());
-	}
-
-	private PartnerSummary toPartnerSummary(User user) {
-		return new PartnerSummary(user.getId(), user.getName(), user.getEmail());
+	@PostMapping("/invite-code/regenerate")
+	public ResponseEntity<CoupleResponse> regenerateInviteCode(@AuthenticationPrincipal UUID userId) {
+		Couple couple = coupleService.regenerateInviteCode(userId);
+		return ResponseEntity.ok(coupleResponseMapper.toResponse(couple, userId));
 	}
 }

@@ -1,117 +1,117 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "ralph/flyway-migrations",
-  "description": "Migracao de ddl-auto=update para Flyway com dados em producao. Baseline de producao = origin/main (e0f3d36). Unica diferenca de schema para o estado-alvo (branch create-migrations) e a nova tabela notification; todas as demais tabelas (users, couples, media_track, media_track_genre, user_review, match_like, match_reject) ja existem em producao. Estrategia: V1 = baseline do schema existente (nao executado em prod via baseline-on-migrate), V2 = criar notification. Zero perda de dados; nenhum DROP/TRUNCATE.",
+  "branchName": "epico8/cicd-infraestrutura",
+  "description": "Epico 8 - CI/CD e Infraestrutura. Fecha a ultima lacuna de cobertura da T8.1 (HealthController), tira o processo Java de root DENTRO do container e da healthcheck ao Docker, cria vigilancia de dependencia nos dois ecossistemas (Dependabot + bun audit com triagem), resolve o pin manual do jjwt e remove o SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose de producao. NAO ha mudanca de UI neste epico - nenhum pixel do client/ e tocado, exceto bun.lock na US-004. NAO ha migration nova (a ultima e V6). PRD completo em tasks/prd-epico-8-cicd-e-infraestrutura.md - ler ANTES de comecar qualquer story, especialmente a tabela de decisoes E8.1 a E8.9. As stories US-007 (conferir flyway_schema_history no Supabase) e US-009 (cadastrar secrets no GitHub e validar o CD na VPS) do PRD sao OPERACIONAIS, exigem credencial de producao e NAO estao neste prd.json - sao executadas manualmente pelo mantenedor.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Validar o schema real de producao antes de escrever o baseline",
-      "description": "As a developer, I want to confirm the actual physical schema of production (created by ddl-auto=update) so that the V1 baseline is faithful to what really exists.",
+      "title": "Teste do HealthController",
+      "description": "Como mantenedor, quero o endpoint de health coberto por teste, para que o probe usado pelo HEALTHCHECK do Docker e pelo smoke test do CD nao possa quebrar sem o CI perceber. (PRD US-001)",
       "acceptanceCriteria": [
-        "Confirmar o schema real: preferir information_schema do Postgres de producao (Supabase); se indisponivel, subir a app no commit origin/main (e0f3d36) contra um Postgres limpo e capturar o schema gerado pelo Hibernate",
-        "Registrar tabelas, colunas, tipos, defaults, PKs (UUID), FKs, unique constraints e indices auto-gerados",
-        "Confirmar que existem: users, couples, media_track, media_track_genre, user_review, match_like, match_reject",
-        "Confirmar que a tabela notification NAO existe em producao",
-        "Documentar o resultado como base autoritativa para o V1 (ex.: nota no PR ou arquivo em docs/)",
-        "Typecheck passes"
+        "Existe api/src/test/java/com/app/HealthControllerTest.java usando @WebMvcTest(HealthController.class)",
+        "Teste afirma GET /api/health -> status 200 e corpo JSON {\"status\":\"UP\"}",
+        "Teste afirma que o endpoint responde SEM autenticacao - a rota e consumida pelo Docker e pelo runner do CD, que nao tem cookie de sessao",
+        "./mvnw test passa e o gate do JaCoCo (minimo 90% de linha, execution 'check' em api/pom.xml) continua verde"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Sem acesso a Supabase de producao nem a docker/java/mvn/psql neste ambiente (confirmado); schema derivado por analise estatica das entidades JPA de origin/main + git diff/ls-tree confirmando que User/Couple/MediaTrack/UserReview/MatchLike/MatchReject sao identicas a origin/main e que Notification e a unica tabela nova. Documentado em docs/SCHEMA_BASELINE.md, que recomenda validar contra information_schema real antes do deploy."
+      "notes": "Story pequena e sem dependencia - serve de aquecimento. HealthController vive em com.app (raiz do pacote), NAO em com.app.common nem numa feature. Cuidado com @WebMvcTest e a SecurityConfig: se o slice nao carregar a config de seguranca, o teste de acesso anonimo prova pouco - conferir como SecurityConfigTest (api/src/test/java/com/app/security/) resolve isso e seguir o mesmo padrao em vez de inventar outro."
     },
     {
       "id": "US-002",
-      "title": "Adicionar a dependencia do Flyway ao pom.xml",
-      "description": "As a developer, I want Flyway available in the build so I can version the schema.",
+      "title": "Container roda como nao-root e expoe healthcheck",
+      "description": "Como operador da VPS, quero o processo Java rodando sem privilegio e com sinal de saude no Docker, para que um escape de container nao entregue root no host e um docker ps mostre imediatamente se a API esta viva. (PRD US-002)",
       "acceptanceCriteria": [
-        "Adicionar flyway-core e flyway-database-postgresql ao api/pom.xml SEM tag <version> (versao gerenciada pelo BOM do Spring Boot 4.1.0)",
-        "./mvnw -f api/pom.xml compile executa sem erros de resolucao de dependencia",
-        "Nenhuma outra dependencia do projeto e alterada",
-        "Typecheck passes"
+        "No estagio de runtime de api/Dockerfile: addgroup -g 10001 -S app && adduser -u 10001 -S app -G app, seguido de USER app - UID/GID FIXOS em 10001, nao os que o adduser escolheria sozinho",
+        "O jar e copiado com dono app: COPY --from=build --chown=app:app /app/target/*.jar app.jar",
+        "HEALTHCHECK --interval=30s --timeout=3s --start-period=40s CMD wget -qO- http://localhost:8080/api/health || exit 1 - porta INTERNA 8080, nunca a 8085 (que e so o mapeamento do host no docker-compose-prod.yml)",
+        "A ordem de cache das camadas do multi-stage foi preservada: COPY .mvn/, mvnw, pom.xml e dependency:go-offline continuam ANTES de COPY src/",
+        "docs/DEPLOY.md ganha o passo obrigatorio, ANTES do primeiro deploy com esta mudanca: ssh root@31.97.169.38 \"chown -R 10001:10001 /var/lib/sessao-a-dois/security-audit-logs\"",
+        "docs/DEPLOY.md explica POR QUE esse chown e obrigatorio: o bind mount pertence a root e o usuario app nao conseguiria escrever security-audit.log - a trilha de auditoria do Epico 5 morreria em silencio, sem derrubar o app",
+        "Nenhuma outra mudanca de comportamento no Dockerfile: mesma imagem base, mesmo ENTRYPOINT, mesmo EXPOSE"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Adicionadas as dependencias flyway-core e flyway-database-postgresql ao api/pom.xml (sem <version>, gerenciadas pelo BOM do spring-boot-starter-parent 4.1.0), logo apos a dependencia postgresql. Nao foi possivel rodar './mvnw -f api/pom.xml compile' neste sandbox (sem java/mvn/docker, ver api/CLAUDE.md); verificado apenas que o XML resultante e bem formado. Nenhuma outra dependencia foi alterada."
+      "notes": "ATENCAO: NAO HA DOCKER NESTE SANDBOX (docker: command not found). Os criterios de 'docker build', 'whoami' e 'docker ps (healthy)' do PRD sao para o mantenedor executar na maquina dele - NAO tente rodar docker aqui e NAO marque a story como incompleta por isso. A verificacao possivel aqui e leitura do Dockerfile + coerencia com docker-compose-prod.yml. Registre no progress.txt que a verificacao com docker ficou pendente do lado humano. A imagem base eclipse-temurin:21-jre-alpine ja traz wget (BusyBox) - NAO instale curl, isso aumentaria a imagem e quebraria o criterio de tamanho do PRD. O risco real desta story nao esta no Dockerfile, esta no chown: reler a secao 'Trilha de auditoria de seguranca' de docs/DEPLOY.md antes de escrever a documentacao."
     },
     {
       "id": "US-003",
-      "title": "Configurar Flyway e ddl-auto=validate (application.properties main + test)",
-      "description": "As a developer, I want Flyway to be the schema mechanism in all environments with Hibernate only validating, so the schema is never mutated by Hibernate.",
+      "title": "Dependabot para Maven, npm e GitHub Actions",
+      "description": "Como mantenedor, quero PRs automaticos de atualizacao de dependencia, para que uma CVE no backend ou no frontend nao fique meses sem ser notada. (PRD US-003)",
       "acceptanceCriteria": [
-        "Em api/src/main/resources/application.properties: spring.jpa.hibernate.ddl-auto=validate, spring.flyway.enabled=true, spring.flyway.baseline-on-migrate=true, spring.flyway.baseline-version=1, spring.flyway.locations=classpath:db/migration",
-        "api/src/test/resources/application.properties espelha as mesmas propriedades do Flyway (mirror), ajustado ao banco de teste",
-        "Substituir/remover explicitamente spring.jpa.hibernate.ddl-auto=update onde existir",
-        "A aplicacao sobe localmente (banco limpo) aplicando V1 e V2 sem erro e passa na validacao do Hibernate",
-        "Typecheck passes",
-        "Tests pass"
+        "Existe .github/dependabot.yml com version: 2 e tres entradas em updates: maven em /api, npm em /client e github-actions em /",
+        "Cadencia semanal (schedule.interval: weekly) nas tres, com open-pull-requests-limit no maximo 5 por ecossistema",
+        "groups configurado para juntar patch e minor num unico PR por ecossistema, deixando major em PR separado",
+        "target-branch: dev nas tres entradas - PR do Dependabot NUNCA abre contra main, senao um bump automatico dispararia deploy de producao",
+        "O YAML e valido (parsear com um validador de YAML antes de commitar; nao existe schema check local)"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Editados api/src/main/resources/application.properties (ddl-auto=update -> validate; adicionados spring.flyway.enabled=true, baseline-on-migrate=true, baseline-version=1, locations=classpath:db/migration) e api/src/test/resources/application.properties (mesmas 4 propriedades de Flyway + ddl-auto=validate, mais spring.datasource.url apontando para um H2 em memoria em MODE=PostgreSQL/DATABASE_TO_LOWER=TRUE e spring.datasource.driver-class-name=org.h2.Driver, ja que antes o datasource de teste nao era declarado explicitamente e caia no H2 puro autodetectado pelo Spring Boot, incompativel com a sintaxe Postgres que V1/V2 vao usar). Nenhum outro ddl-auto=update restante no repo (confirmado via grep). Nao foi adicionada nenhuma dependencia flyway-database-h2 ao pom.xml: suporte a H2 e HSQLDB/Derby/SQLite vem embutido no flyway-core (so PostgreSQL/MySQL/etc. exigem o modulo separado, que ja foi adicionado na US-002). O criterio 'a aplicacao sobe localmente (banco limpo) aplicando V1 e V2 sem erro e passa na validacao do Hibernate' e 'Tests pass' NAO puderam ser verificados nem mecanica nem logicamente ainda: db/migration nao existe (US-004/US-005 ainda pendentes), entao com flyway.enabled=true + ddl-auto=validate e sem migrations, tanto o boot local quanto a suite de testes (@DataJpaTest/@SpringBootTest) ficarao quebrados ate a V1__baseline.sql (US-004) e V2__create_notification.sql (US-005) serem criadas -- estado intermediario esperado dado o encadeamento sequencial do PRD. Como nas US-001/US-002, este sandbox continua sem java/mvn/docker/psql (confirmado de novo), entao nada disso pode ser executado aqui de qualquer forma."
+      "notes": "Arquivo novo, sem dependencia de outras stories. O diretorio do maven e /api e o do npm e /client - o repo tem os dois projetos em subpastas, entao 'directory: /' estaria errado para ambos. A entrada github-actions existe porque .github/workflows/ci.yml e deploy.yml pinam actions (actions/checkout@v4, actions/setup-java@v4, oven-sh/setup-bun@v2) que tambem defasam. Nao ha como validar o arquivo de verdade sem o GitHub - a verificacao real (aba Insights > Dependency graph > Dependabot sem erro de parsing) fica do lado humano."
     },
     {
       "id": "US-004",
-      "title": "Criar V1__baseline.sql (schema completo de producao)",
-      "description": "As a developer, I want a baseline migration reproducing the exact production schema so it is created from scratch in dev/test and recognized (not executed) in production.",
+      "title": "Limpar o que der de vulnerabilidade e triar o resto",
+      "description": "Como mantenedor, quero a arvore de dependencias do frontend atualizada e cada advisory restante classificado, para que o gate da US-005 possa ser ligado sem deixar o CI vermelho no primeiro commit. (PRD US-004)",
       "acceptanceCriteria": [
-        "Criar o diretorio api/src/main/resources/db/migration/",
-        "V1__baseline.sql cria: users (unique email), couples (unique invite_code, colunas user1_id/user2_id), media_track (FK couple_id; colunas tmdb_id/media_type/status/watched_date/runtime/created_at), media_track_genre (FK media_track_id, coluna genre_id), user_review (unique media_track_id+user_id), match_like e match_reject (unique couple_id+user_id+tmdb_id)",
-        "IDs como UUID; enums (media_type, status) como VARCHAR/STRING; PKs, FKs e unique constraints conforme US-001",
-        "Usa CREATE TABLE IF NOT EXISTS; nenhum DROP/TRUNCATE",
-        "NAO contem a tabela notification",
-        "Em banco limpo, aplicar V1 gera schema equivalente ao gerado por ddl-auto em origin/main",
-        "Typecheck passes"
+        "bun update executado em client/ (SEM --latest, para nao puxar breaking change), bun.lock commitado",
+        "bun run typecheck && bun run lint && bun run build passam depois do update",
+        "Nova execucao de bun audit registrada no progress.txt: quantos advisories restam, por severidade",
+        "Cada advisory ALTO ou CRITICO restante esta numa tabela em client/CLAUDE.md com: pacote, caminho de dependencia, se e dependencies ou devDependencies, e se ha versao corrigida disponivel",
+        "O caso do react-router esta registrado explicitamente: o advisory GHSA-qwww-vcr4-c8h2 e 'RSC Mode CSRF Bypass', e este app e uma SPA em Vite que NAO usa React Server Components - o vetor nao existe aqui; a correcao seria o major 7.x -> 8.x, que NAO entra neste epico",
+        "Nenhuma dependencia de PRODUCAO com advisory alto/critico fica sem decisao escrita (corrigir agora ou ignorar com justificativa)",
+        "NENHUMA mudanca de codigo do client/ alem de package.json/bun.lock - esta story nao altera nenhum componente, nenhum pixel"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Criado api/src/main/resources/db/migration/V1__baseline.sql com CREATE TABLE IF NOT EXISTS para users, couples, media_track, media_track_genre, user_review, match_like e match_reject, seguindo fielmente docs/SCHEMA_BASELINE.md (US-001) e conferido linha a linha contra as 6 entidades JPA (User/Couple/MediaTrack/UserReview/MatchLike/MatchReject) em api/src/main/java/com/app. IDs UUID sem default de banco (Hibernate gera com GenerationType.UUID em Java, nao ha gen_random_uuid() no SQL); enums media_type/status como VARCHAR(255); PKs e FKs nomeadas explicitamente (pk_*, fk_*); UNIQUE(email) em users, UNIQUE(invite_code) em couples, UNIQUE(media_track_id,user_id) em user_review, UNIQUE(couple_id,user_id,tmdb_id) em match_like/match_reject. Nenhum DROP/TRUNCATE; tabela notification propositalmente ausente (fica para V2/US-005). Nao foi possivel rodar a app localmente nem os testes (sem java/mvn/docker/psql neste sandbox, confirmado de novo); verificacao foi por leitura cuidadosa comparando cada coluna/constraint do SQL com o mapeamento Hibernate de cada entidade."
+      "notes": "Estado medido em 2026-08-06 (rodar de novo, pode ter mudado): 15 advisories, 6 altos. Os altos vem de ip-address, brace-expansion (x2), undici e fast-uri - todos por shadcn e eslint, ou seja devDependencies que nao entram no bundle do usuario - mais react-router, que e o unico de producao. bun audit da versao 1.3.14 NAO tem flag --prod/--production (so --json, --audit-level e --ignore), por isso a separacao prod/dev e feita por lista explicita, nao por flag (decisao E8.9 do PRD). Se o bun update quebrar typecheck/lint/build, REVERTA o update e registre no progress.txt qual pacote quebrou - deixar o build quebrado e pior do que deixar um advisory de devDependency."
     },
     {
       "id": "US-005",
-      "title": "Criar V2__create_notification.sql",
-      "description": "As a developer, I want the migration that adds the notification table, applicable safely over the existing production database.",
+      "title": "Ligar o gate do bun audit no CI",
+      "description": "Como mantenedor, quero o CI barrando dependencia do frontend com vulnerabilidade alta ou critica, para que ela nao chegue a producao pelo merge na main. (PRD US-005)",
       "acceptanceCriteria": [
-        "V2__create_notification.sql usa CREATE TABLE IF NOT EXISTS para a tabela notification com colunas: id (UUID PK), couple_id (UUID NOT NULL, FK para couples), recipient_user_id (UUID NOT NULL), type (VARCHAR NOT NULL), tmdb_id (BIGINT NOT NULL), media_type (VARCHAR NOT NULL), title (VARCHAR NOT NULL), actor_user_id (UUID NOT NULL), media_track_id (UUID nullable), is_read (BOOLEAN NOT NULL default false), created_at (TIMESTAMP NOT NULL)",
-        "Cria o indice idx_notification_recipient_read sobre (recipient_user_id, is_read)",
-        "Nenhum DROP/TRUNCATE; tabela nasce vazia",
-        "Sintaxe valida para PostgreSQL do Supabase (pooler 6543, prepareThreshold=0)",
-        "Apos aplicar V1+V2 em banco limpo, o Hibernate validate passa contra as entidades de create-migrations sem discrepancias",
-        "Typecheck passes",
-        "Tests pass"
+        "O job frontend de .github/workflows/ci.yml ganha um step 'bun audit --audit-level=high' DEPOIS do bun install e ANTES do build",
+        "Severidade moderada ou baixa NAO quebra o build; alta e critica quebram",
+        "Os advisories triados na US-004 como sem risco real entram como --ignore=<id> no proprio step, cada um com comentario dizendo o pacote, por que nao alcanca o usuario (ex.: 'so devDependency da CLI do shadcn') e o que faria revisitar a decisao",
+        "Com a lista de ignores em vigor, 'cd client && bun audit --audit-level=high <ignores>' sai com codigo 0 - verificar rodando de verdade, nao presumir",
+        "Verificado que o gate FUNCIONA: removendo temporariamente um dos --ignore, o comando falha; depois desfazer a remocao",
+        "O step nao usa continue-on-error nem '|| true' - se e gate, tem que falhar o job"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Criado api/src/main/resources/db/migration/V2__create_notification.sql com CREATE TABLE IF NOT EXISTS para notification (id UUID PK, couple_id UUID NOT NULL FK->couples, recipient_user_id UUID NOT NULL, type VARCHAR(255) NOT NULL, tmdb_id BIGINT NOT NULL, media_type VARCHAR(255) NOT NULL, title VARCHAR(255) NOT NULL, actor_user_id UUID NOT NULL, media_track_id UUID nullable sem FK, is_read BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP WITH TIME ZONE NOT NULL) e o indice idx_notification_recipient_read sobre (recipient_user_id, is_read) via CREATE INDEX IF NOT EXISTS. created_at usa TIMESTAMP WITH TIME ZONE (nao TIMESTAMP simples) porque Notification.createdAt e Instant, seguindo a mesma convencao de users/couples em V1 (documentada em api/CLAUDE.md); id sem default de banco, consistente com GenerationType.UUID client-side. Cross-checado linha a linha contra com.app.notification.Notification.java. Nao foi possivel rodar ./mvnw test (sem java/mvn/docker/psql neste sandbox, confirmado de novo, inclusive tentativa de baixar o Maven wrapper falhou por falta de rede ate o Maven Central)."
+      "notes": "DEPENDE DA US-004 - ligar o gate antes da triagem deixa o CI vermelho e, por tabela, bloqueia TODO deploy (o deploy.yml reusa o ci.yml via workflow_call). Este e o unico ponto do epico que pode travar producao se feito na ordem errada. O ci.yml hoje tem 2 jobs (test e frontend) e o trigger workflow_call ja existe - nao mexer neles alem de acrescentar o step. Os ids aceitos pelo --ignore sao os que o bun audit imprime (formato GHSA-xxxx-xxxx-xxxx); confirmar na pratica que o bun aceita GHSA e nao so CVE, e se so aceitar CVE, registrar isso no progress.txt e usar o id correspondente."
     },
     {
       "id": "US-006",
-      "title": "Documentar estrategia de baseline e procedimento de deploy",
-      "description": "As the deploy owner, I want documentation of how the Flyway baseline works so I can run the next production deploy safely.",
+      "title": "Resolver o pin manual do jjwt",
+      "description": "Como mantenedor, quero saber se o 0.12.6 do jjwt e um pin necessario ou apenas heranca, para que a biblioteca que assina os tokens de sessao nao defase em silencio. (PRD US-006)",
       "acceptanceCriteria": [
-        "Criar docs/FLYWAY.md explicando que com baseline-on-migrate=true + baseline-version=1 o Flyway, no primeiro run em prod (schema existente sem flyway_schema_history), cria o historico, marca V1 como baseline SEM executar V1__baseline.sql e aplica apenas V2",
-        "Documentar o comportamento em dev/test (banco limpo executa V1 normalmente) e a diferenca vs producao",
-        "Incluir checklist pos-deploy: conferir flyway_schema_history, confirmar que nenhuma tabela existente foi recriada, dados intactos, notification criada",
-        "Recomendar snapshot/backup do Supabase antes do primeiro deploy com Flyway",
-        "Typecheck passes"
+        "Executado ./mvnw dependency:tree -Dincludes=io.jsonwebtoken (ou help:effective-pom) e o resultado registrado no progress.txt: o BOM do Spring Boot gerencia io.jsonwebtoken ou nao?",
+        "SE O BOM GERENCIA: as 3 tags <version>0.12.6</version> de jjwt-api, jjwt-impl e jjwt-jackson sao removidas de api/pom.xml",
+        "SE O BOM NAO GERENCIA: as 3 declaracoes passam a usar uma property unica <jjwt.version> em <properties>, com comentario explicando que o jjwt esta fora do BOM do Spring Boot e por isso precisa de bump manual, e que o Dependabot da US-003 e quem passa a avisar",
+        "Em qualquer dos dois caminhos: a versao efetiva do jjwt NAO regride em relacao a 0.12.6 - conferir com dependency:tree depois da mudanca",
+        "./mvnw test passa",
+        "api/CLAUDE.md menciona a situacao resolvida, para a proxima pessoa nao repetir a investigacao"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Criado docs/FLYWAY.md explicando o comportamento de baseline-on-migrate=true + baseline-version=1: em producao (schema existente sem flyway_schema_history), o Flyway cria o historico, marca V1 como baseline SEM executar V1__baseline.sql, e aplica apenas V2__create_notification.sql; em dev/test (banco limpo) V1 executa normalmente do zero. Inclui tabela comparativa dos dois ambientes, checklist pos-deploy (conferir flyway_schema_history com as duas versoes, contagem de linhas das 7 tabelas antigas inalterada, notification criada vazia com o indice idx_notification_recipient_read, logs sem FlywayException/erro de validacao do Hibernate) e recomendacao de snapshot/backup do Supabase (Database > Backups) antes do primeiro deploy com Flyway. Historia puramente documental: nenhum codigo/SQL foi alterado, entao 'Typecheck passes' e trivialmente satisfeito (nada para compilar); nao ha CI de lint de markdown neste repo (unico workflow em .github/workflows e o de testes Maven do api/, que nao roda para mudancas so em docs/)."
+      "notes": "Story de investigacao com dois caminhos possiveis - a decisao E8.3 do PRD manda executar o comando ANTES de escolher. Nao presumir que o BOM gerencia (o backlog levantou a duvida justamente porque ninguem verificou). jjwt e a biblioteca que assina os JWT de sessao (com.app.security.JwtService), entao um downgrade acidental de versao aqui e serio: conferir a versao efetiva depois da mudanca e nao so o fato de o build passar."
     },
     {
       "id": "US-007",
-      "title": "Avaliar e propor (para aprovacao) mudancas em arquivos sensiveis de deploy",
-      "description": "As the project owner, I want to pre-approve any change to sensitive infra files before they are applied.",
+      "title": "Remover SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose",
+      "description": "Como mantenedor, quero que uma migration que nao aplique quebre o deploy visivelmente, para que um schema divergente nunca seja mascarado como baseline. (PRD US-008)",
       "acceptanceCriteria": [
-        "Avaliar se scripts/deploy.sh, api/Dockerfile e docker-compose-prod.yml precisam de alteracao para o Flyway funcionar (esperado: nenhuma, pois o Flyway roda embutido no startup do Spring Boot)",
-        "Se alguma mudanca for necessaria, escrever a proposta (diff + justificativa) e NAO alterar esses arquivos diretamente sem aprovacao explicita",
-        "Se nenhuma mudanca for necessaria, registrar essa conclusao explicitamente (ex.: nota no PR)",
-        "Nao modificar scripts/deploy.sh, api/Dockerfile nem docker-compose-prod.yml sem aprovacao",
-        "Typecheck passes"
+        "A linha SPRING_FLYWAY_BASELINE_ON_MIGRATE: \"true\" nao existe mais em docker-compose-prod.yml",
+        "docs/DEPLOY.md documenta como passa-la pontualmente, caso um ambiente novo precise: SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d",
+        "docs/FLYWAY.md registra que a variavel foi removida, em que data, e que a remocao depende da verificacao manual do flyway_schema_history em producao (US-007 do PRD, operacional)",
+        "O comentario de api/src/main/resources/application.properties sobre 'apenas no primeiro deploy' continua coerente com o estado novo - ajustar se ficou contraditorio",
+        "./mvnw test passa (a mudanca nao deve afetar teste nenhum; se afetar, entender por que antes de seguir)"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Avaliados scripts/deploy.sh, api/Dockerfile e docker-compose-prod.yml (lidos integralmente). Conclusao: NENHUMA alteracao e necessaria nos tres. O Flyway roda embutido no startup do Spring Boot (spring.flyway.enabled=true), sem etapa extra de deploy; api/src/main/resources/db/migration/*.sql e um recurso Maven padrao, entao ja e empacotado dentro do jar pelo build normal (COPY src/ src/ no Dockerfile ja copia db/migration junto, nenhum COPY adicional necessario); docker-compose-prod.yml so repassa DB_URL/DB_USER/DB_PASSWORD, que ja sao as mesmas credenciais usadas por Hibernate/Flyway (mesma datasource); deploy.sh nao tem nenhuma etapa de schema/migration para ajustar. Nenhum dos tres arquivos foi modificado. Achado relacionado (fora do escopo dos 3 arquivos, mas relevante para 'o Flyway funcionar'): DB_URL de producao usa o Connection Pooler do Supabase em modo Transaction (porta 6543, conforme docs/DEPLOY.md Passo 1), e o Flyway depende de advisory locks do Postgres, que modo Transaction nao suporta de forma confiavel (mesma classe de problema que ja motivou o ?prepareThreshold=0 existente em DB_URL, mas para um mecanismo diferente). Documentada a ressalva e a recomendacao (usar temporariamente conexao direta porta 5432 ou pooler em modo Session so para o deploy com a nova migration) em docs/FLYWAY.md, secao 'Risco conhecido: connection pooler em modo Transaction (Supabase)' -- nao um arquivo sensivel de infra, entao nao precisou de aprovacao previa para ser editado. Nao modificado nem proposto qualquer alteracao a scripts/deploy.sh, api/Dockerfile ou docker-compose-prod.yml. Typecheck passes: nenhum codigo/SQL alterado nesta historia (apenas docs/FLYWAY.md), nada para compilar."
+      "notes": "ATENCAO - GATE HUMANO: esta story corresponde a US-008 do PRD e depende da US-007 do PRD, que e OPERACIONAL e nao esta neste prd.json (conferir no Supabase que flyway_schema_history tem V1 a V6 todas com success = true). A mudanca de codigo aqui e inerte ate o proximo deploy, entao pode ser implementada - MAS escreva em docs/FLYWAY.md e no progress.txt, de forma explicita, que o mantenedor precisa rodar a query de verificacao ANTES de mergear para a main. Se a verificacao falhar, esta mudanca tem que ser revertida antes do deploy. Migrations atuais: V1 a V6 (a ultima e V6__add_invite_code_expiry.sql). Este epico NAO cria migration nova."
     }
   ]
 }

@@ -3,9 +3,13 @@ package com.app.match;
 import com.app.couple.Couple;
 import com.app.couple.CoupleService;
 import com.app.media.MediaType;
+import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 import com.app.security.SecurityConfig;
-import com.app.tracking.ResourceNotFoundException;
+import com.app.common.ResourceNotFoundException;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,13 +29,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MatchController.class)
-@Import(SecurityConfig.class)
+@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class, RateLimitProperties.class, SecurityAuditLogger.class })
 class MatchControllerTest {
 
 	@Autowired
@@ -59,6 +64,7 @@ class MatchControllerTest {
 	@Test
 	void like_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
 			.andExpect(status().isUnauthorized());
@@ -73,6 +79,7 @@ class MatchControllerTest {
 			.thenReturn(new LikeResponse(true));
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -89,6 +96,7 @@ class MatchControllerTest {
 			.thenThrow(new TitleAlreadyTrackedException());
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -102,6 +110,7 @@ class MatchControllerTest {
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -114,6 +123,7 @@ class MatchControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(post("/api/match/like")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{}"))
@@ -125,6 +135,7 @@ class MatchControllerTest {
 	@Test
 	void reject_deniesAccessWithoutAuthentication() throws Exception {
 		mockMvc.perform(post("/api/match/reject")
+				.with(csrf())
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
 			.andExpect(status().isUnauthorized());
@@ -138,6 +149,7 @@ class MatchControllerTest {
 		doNothing().when(matchService).reject(eq(coupleId), eq(userId), any(LikeRequest.class));
 
 		mockMvc.perform(post("/api/match/reject")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{\"tmdbId\":603,\"mediaType\":\"MOVIE\"}"))
@@ -149,6 +161,7 @@ class MatchControllerTest {
 		UUID userId = UUID.randomUUID();
 
 		mockMvc.perform(post("/api/match/reject")
+				.with(csrf())
 				.with(authentication(authenticatedUser(userId)))
 				.contentType("application/json")
 				.content("{}"))
@@ -169,7 +182,7 @@ class MatchControllerTest {
 		UUID coupleId = UUID.randomUUID();
 		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
 		when(matchService.getPending(coupleId, userId))
-			.thenReturn(List.of(new PendingMatchDto(603L, MediaType.MOVIE, "Matrix", "/poster.jpg")));
+			.thenReturn(List.of(new PendingMatchDto(603L, MediaType.MOVIE, "Matrix", "/poster.jpg", 1999)));
 
 		mockMvc.perform(get("/api/match/pending")
 				.with(authentication(authenticatedUser(userId))))

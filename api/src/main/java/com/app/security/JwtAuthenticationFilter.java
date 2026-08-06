@@ -9,29 +9,33 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.WebUtils;
 
 import io.jsonwebtoken.JwtException;
 
+import com.app.auth.AuthCookieService;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Le o header {@code Authorization: Bearer <token>}, valida o JWT via
- * {@link JwtService} e, se valido, popula o {@link SecurityContextHolder} com
- * o id do usuario (subject do token) como principal.
+ * Le o cookie {@code access_token}, valida o JWT via {@link JwtService} e, se
+ * valido, popula o {@link SecurityContextHolder} com o id do usuario (subject
+ * do token) como principal.
  *
- * <p>Token ausente ou invalido/expirado simplesmente segue a cadeia sem
- * autenticacao - a decisao de rejeitar com 401 fica a cargo do
+ * <p>Cookie ausente ou invalido/expirado/vazio simplesmente segue a cadeia
+ * sem autenticacao - a decisao de rejeitar com 401 fica a cargo do
  * {@code authorizeHttpRequests}/{@code authenticationEntryPoint} configurados
- * em {@link SecurityConfig}.
+ * em {@link SecurityConfig}. Sem fallback para o header {@code Authorization}
+ * (decisao D1 do Epico 4 - cutover direto, sem janela de transicao).
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
-	private static final String BEARER_PREFIX = "Bearer ";
 
 	private final JwtService jwtService;
 
@@ -44,12 +48,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			HttpServletRequest request,
 			HttpServletResponse response,
 			FilterChain filterChain) throws ServletException, IOException {
-		String header = request.getHeader("Authorization");
+		Cookie cookie = WebUtils.getCookie(request, AuthCookieService.ACCESS_TOKEN_COOKIE);
 
-		if (header != null && header.startsWith(BEARER_PREFIX)) {
-			String token = header.substring(BEARER_PREFIX.length());
+		if (cookie != null && StringUtils.hasText(cookie.getValue())) {
 			try {
-				UUID userId = jwtService.parseSubject(token);
+				UUID userId = jwtService.parseSubject(cookie.getValue());
 				Authentication authentication = new UsernamePasswordAuthenticationToken(userId, null, List.of());
 				SecurityContext context = SecurityContextHolder.createEmptyContext();
 				context.setAuthentication(authentication);

@@ -33,4 +33,5 @@ export interface PendingMatch {
   mediaType: MediaType
   title: string
   posterUrl: string | null
+  releaseYear: number | null
 }

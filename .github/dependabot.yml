@@ -1,0 +1,52 @@
+# Vigilancia de dependencia dos tres ecossistemas do repo (Epico 8, US-003).
+#
+# target-branch: dev em TODAS as entradas e obrigatorio. O deploy.yml dispara
+# no push da main; um PR do Dependabot mergeado direto na main viraria deploy
+# de producao automatico a partir de um bump que ninguem revisou.
+#
+# groups: patch e minor entram num unico PR por ecossistema (com um mantenedor
+# so, um PR por dependencia seria ruido puro — decisao E8.6 do PRD). Major fica
+# de fora do grupo e vem em PR proprio: um salto de major do Spring Boot ou do
+# React merece revisao isolada.
+version: 2
+updates:
+  # Backend Spring Boot. O pom fica em /api, nao na raiz.
+  - package-ecosystem: maven
+    directory: /api
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      maven-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Frontend Vite/React. O package.json fica em /client, nao na raiz.
+  # Ecossistema "npm" cobre tambem o lockfile do Bun (bun.lock).
+  - package-ecosystem: npm
+    directory: /client
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Os proprios workflows pinam acoes (actions/checkout@v4, actions/setup-java@v4,
+  # oven-sh/setup-bun@v2) que defasam do mesmo jeito que uma lib.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch

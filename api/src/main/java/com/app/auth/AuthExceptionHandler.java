@@ -1,16 +1,16 @@
 package com.app.auth;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(basePackages = "com.app.auth")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthExceptionHandler {
 
 	@ExceptionHandler(EmailAlreadyExistsException.class)
@@ -23,16 +23,13 @@ public class AuthExceptionHandler {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
 	}
 
-	@ExceptionHandler(MethodArgumentNotValidException.class)
-	public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
-		Map<String, String> fieldErrors = new LinkedHashMap<>();
-		for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-			fieldErrors.put(error.getField(), error.getDefaultMessage());
-		}
+	@ExceptionHandler(InvalidRefreshTokenException.class)
+	public ResponseEntity<Map<String, String>> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
+	}
 
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("message", "dados invalidos");
-		body.put("errors", fieldErrors);
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+	@ExceptionHandler(RefreshReuseDetectedException.class)
+	public ResponseEntity<Map<String, String>> handleRefreshReuseDetected(RefreshReuseDetectedException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
 	}
 }
