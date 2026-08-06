@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 
 import {
   ChevronDown,
@@ -56,25 +56,13 @@ import { useCompareSelection } from "@/lib/useCompareSelection"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { cn } from "@/lib/utils"
 import { useMatchStore } from "@/stores/useMatchStore"
-import type {
-  MediaGenre,
-  MediaPage,
-  MediaSearchResult,
-  PendingMatch,
-} from "@/types/media"
+import type { MediaSearchResult, PendingMatch } from "@/types/media"
 import type { MediaType, TrackKeyResponse } from "@/types/tracking"
+
+import { SORT_OPTIONS, TMDB_MAX_PAGE, useDiscoverSearch } from "./match/useDiscoverSearch"
 
 type LikeState = "idle" | "loading" | "liked" | "matched" | "error"
 type ActiveTab = "suggestions" | "search"
-
-const SORT_OPTIONS = [
-  { value: "popularity.desc", label: "Popularidade ↓" },
-  { value: "popularity.asc", label: "Popularidade ↑" },
-  { value: "vote_average.desc", label: "Avaliacao ↓" },
-  { value: "vote_average.asc", label: "Avaliacao ↑" },
-  { value: "release_date.desc", label: "Data de Lancamento ↓" },
-  { value: "release_date.asc", label: "Data de Lancamento ↑" },
-] as const
 
 const TYPE_LABEL: Record<MediaSearchResult["mediaType"], string> = {
   MOVIE: "Filme",
@@ -97,9 +85,6 @@ const CERTIFICATION_OPTIONS = [
   { value: "16", label: "16" },
   { value: "18", label: "18" },
 ] as const
-
-const DEFAULT_VOTE_RANGE: [number, number] = [0, 10]
-const DEFAULT_RUNTIME_RANGE: [number, number] = [0, 240]
 
 function formatVoteRangeLabel([min, max]: [number, number]): string {
   const minLabel = min.toFixed(1).replace(".", ",")
@@ -126,8 +111,6 @@ function trackKey(mediaType: string, tmdbId: number): string {
 function formatResultsCount(total: number): string {
   return `${total} ${total === 1 ? "titulo" : "titulos"}`
 }
-
-const TMDB_MAX_PAGE = 500
 
 function paginationRange(
   current: number,
@@ -550,113 +533,47 @@ function SuggestionsTab() {
 }
 
 function SearchTab() {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<MediaSearchResult[]>([])
-  const [searching, setSearching] = useState(false)
-  const [searched, setSearched] = useState(false)
+  const search = useDiscoverSearch()
+  const {
+    query,
+    setQuery,
+    results,
+    searching,
+    searched,
+    sortBy,
+    filtersOpen,
+    setFiltersOpen,
+    genres,
+    selectedDecades,
+    setSelectedDecades,
+    selectedCertifications,
+    setSelectedCertifications,
+    selectedGenres,
+    setSelectedGenres,
+    voteRange,
+    setVoteRange,
+    runtimeRange,
+    setRuntimeRange,
+    totalResults,
+    resultsContext,
+    fetchError,
+    page,
+    totalPages,
+    hasQuery,
+    activeFilterCount,
+    handleRetry,
+    handleSortChange,
+    handleApplyFilters,
+    handlePageChange,
+    handleClearFilters,
+  } = search
   const [trackedKeys, setTrackedKeys] = useState<Set<string>>(new Set())
   const [likeStates, setLikeStates] = useState<Record<string, LikeState>>({})
-  const [sortBy, setSortBy] = useState<string>(SORT_OPTIONS[0].value)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [genres, setGenres] = useState<MediaGenre[]>([])
-  const [selectedDecades, setSelectedDecades] = useState<string[]>([])
-  const [selectedCertifications, setSelectedCertifications] = useState<
-    string[]
-  >([])
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
-  const [voteRange, setVoteRange] = useState<[number, number]>(
-    DEFAULT_VOTE_RANGE
-  )
-  const [runtimeRange, setRuntimeRange] = useState<[number, number]>(
-    DEFAULT_RUNTIME_RANGE
-  )
-  const [totalResults, setTotalResults] = useState(0)
-  const [resultsContext, setResultsContext] = useState<
-    "trending" | "search" | "discover"
-  >("trending")
-  const [fetchError, setFetchError] = useState(false)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  type FetchAttempt = {
-    url: string
-    params: Record<string, string | number>
-    context: "trending" | "search" | "discover"
-  }
-  const lastFetchRef = useRef<FetchAttempt | null>(null)
-  const lastAttemptRef = useRef<FetchAttempt | null>(null)
   const showSearchSkeleton = useDelayedLoading(searching)
   const compare = useCompareSelection<MediaSearchResult>(
     buildComparisonItemFromSearchResult,
     keyOfCompareItem
   )
-  const activeFilterCount =
-    selectedDecades.length +
-    selectedCertifications.length +
-    selectedGenres.length +
-    (voteRange[0] !== DEFAULT_VOTE_RANGE[0] ||
-    voteRange[1] !== DEFAULT_VOTE_RANGE[1]
-      ? 1
-      : 0) +
-    (runtimeRange[0] !== DEFAULT_RUNTIME_RANGE[0] ||
-    runtimeRange[1] !== DEFAULT_RUNTIME_RANGE[1]
-      ? 1
-      : 0)
-  const hasQuery = query.trim().length > 0
-
-  const runFetch = useCallback(
-    (
-      url: string,
-      params: Record<string, string | number>,
-      context: "trending" | "search" | "discover",
-      isCancelled: () => boolean = () => false
-    ) => {
-      setSearching(true)
-      lastAttemptRef.current = { url, params, context }
-      return api
-        .get<MediaPage>(url, { params })
-        .then((response) => {
-          if (isCancelled()) return
-          setResults(response.data.results)
-          setTotalResults(response.data.totalResults)
-          setTotalPages(response.data.totalPages)
-          setPage(response.data.page)
-          setResultsContext(context)
-          setSearched(true)
-          setFetchError(false)
-          const paramsWithoutPage = { ...params }
-          delete paramsWithoutPage.page
-          lastFetchRef.current = { url, params: paramsWithoutPage, context }
-        })
-        .catch(() => {
-          if (isCancelled()) return
-          setResults([])
-          setTotalResults(0)
-          setTotalPages(1)
-          setResultsContext(context)
-          setSearched(true)
-          setFetchError(true)
-        })
-        .finally(() => {
-          if (!isCancelled()) setSearching(false)
-        })
-    },
-    []
-  )
-
-  const handleRetry = () => {
-    const attempt = lastAttemptRef.current
-    if (!attempt || searching) return
-    runFetch(attempt.url, attempt.params, attempt.context)
-  }
-
-  useEffect(() => {
-    api
-      .get<MediaGenre[]>("/api/media/genres")
-      .then((response) => setGenres(response.data))
-      .catch((err) => {
-        console.error("Failed to load media genres", { err })
-      })
-  }, [])
 
   useEffect(() => {
     api
@@ -670,84 +587,6 @@ function SearchTab() {
         console.error("Failed to load tracking keys", { err })
       })
   }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    const trimmed = query.trim()
-    const timer = setTimeout(
-      () => {
-        if (trimmed) {
-          runFetch(
-            "/api/media/search",
-            { q: trimmed, page: 1 },
-            "search",
-            () => cancelled
-          )
-        } else {
-          runFetch("/api/media/trending", { page: 1 }, "trending", () => cancelled)
-        }
-      },
-      trimmed ? 400 : 0
-    )
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [query, runFetch])
-
-  const handleSortChange = (nextSortBy: string | null) => {
-    if (!nextSortBy) return
-    setSortBy(nextSortBy)
-    if (hasQuery) return
-
-    runFetch("/api/media/discover", { sortBy: nextSortBy, page: 1 }, "discover")
-  }
-
-  const handleApplyFilters = () => {
-    if (hasQuery) return
-
-    const params: Record<string, string | number> = { sortBy }
-    if (selectedDecades.length) {
-      params.releaseDecades = selectedDecades.join(",")
-    }
-    if (selectedCertifications.length) {
-      params.certifications = selectedCertifications.join(",")
-    }
-    if (selectedGenres.length) {
-      params.genres = selectedGenres.join(",")
-    }
-    if (voteRange[0] !== DEFAULT_VOTE_RANGE[0]) {
-      params.voteAverageMin = voteRange[0]
-    }
-    if (voteRange[1] !== DEFAULT_VOTE_RANGE[1]) {
-      params.voteAverageMax = voteRange[1]
-    }
-    if (runtimeRange[0] !== DEFAULT_RUNTIME_RANGE[0]) {
-      params.runtimeMin = runtimeRange[0]
-    }
-    if (runtimeRange[1] !== DEFAULT_RUNTIME_RANGE[1]) {
-      params.runtimeMax = runtimeRange[1]
-    }
-
-    runFetch("/api/media/discover", { ...params, page: 1 }, "discover")
-  }
-
-  const handlePageChange = (nextPage: number) => {
-    const last = lastFetchRef.current
-    const clamped = Math.min(nextPage, totalPages, TMDB_MAX_PAGE)
-    if (!last || searching || clamped === page || clamped < 1) return
-
-    runFetch(last.url, { ...last.params, page: clamped }, last.context)
-  }
-
-  const handleClearFilters = () => {
-    setSelectedDecades([])
-    setSelectedCertifications([])
-    setSelectedGenres([])
-    setVoteRange(DEFAULT_VOTE_RANGE)
-    setRuntimeRange(DEFAULT_RUNTIME_RANGE)
-  }
 
   const handleLike = async (result: MediaSearchResult) => {
     const key = trackKey(result.mediaType, result.tmdbId)
@@ -789,14 +628,7 @@ function SearchTab() {
             <Search className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-[#a6a39a]" />
             <input
               value={query}
-              onChange={(event) => {
-                const value = event.target.value
-                setQuery(value)
-                if (!value.trim()) {
-                  setResults([])
-                  setSearched(false)
-                }
-              }}
+              onChange={(event) => setQuery(event.target.value)}
               placeholder="Ex.: Coracao de Vidro, Fronteira Norte..."
               className="w-full rounded-2xl border border-white/10 bg-[#161513] py-3.5 pr-4 pl-11 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
             />

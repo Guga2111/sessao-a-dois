@@ -79,7 +79,7 @@
         "bun run build passa"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Primeira metade da T7.2. A ordem (extrair estado ANTES de mover arquivos, US-005/US-006) e deliberada: fazer as duas coisas no mesmo commit torna o diff impossivel de revisar, e o diff e justamente o criterio de aceite deste epico. Nao criar o diretorio screens/match/ inteiro aqui - so o arquivo do hook."
     },
     {
