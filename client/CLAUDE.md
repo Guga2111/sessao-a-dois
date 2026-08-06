@@ -31,7 +31,14 @@ Por que o `bun update` **nao** corrigiu os que ja tem patch disponivel: `bun upd
 
 Os 9 **moderate** (`@hono/node-server`, `hono`, `postcss`, mais os outros de `ip-address`/`undici`) nao quebram o gate — `--audit-level=high` (decisao E8.2). O `postcss` e o unico que toca o build de verdade (`vite › postcss`), e o vetor exige `sourceMappingURL` controlado por atacante dentro do proprio CSS do repo.
 
-**Ao revisar esta tabela** (PR do Dependabot, advisory novo): a fonte da verdade e `cd client && bun audit`; a lista de `--ignore` do step `bun audit` em `.github/workflows/ci.yml` tem que ficar em sincronia com as linhas "Ignorar" acima — advisory removido daqui e `--ignore` que sobra la vira ponto cego.
+**Ao revisar esta tabela** (PR do Dependabot, advisory novo): a fonte da verdade e `cd client && bun audit`; a lista de `--ignore` do step **`Audit dependencies`** do job `frontend` em `.github/workflows/ci.yml` tem que ficar em sincronia com as linhas "Ignorar" acima — advisory removido daqui e `--ignore` que sobra la vira ponto cego.
+
+Desde a **US-005 (2026-08-06)** esse step existe e **e gate**: `bun audit --audit-level=high` com os 6 `--ignore` desta tabela, sem `continue-on-error` e sem `|| true`. Consequencia pratica: um advisory **high/critical novo** (ou um dos 6 acima que perca o `--ignore`) **quebra o job `frontend` e, por tabela, o deploy** — o `deploy.yml` reusa o `ci.yml` via `workflow_call`. Moderate e low nao quebram nada, so aparecem no log.
+
+Detalhes que economizam tempo em quem for mexer no step:
+- O `--ignore` do `bun audit` **aceita o id GHSA** (`GHSA-xxxx-xxxx-xxxx`), o mesmo que o comando imprime — verificado na pratica na US-005. Nao e preciso traduzir para CVE.
+- Os ignores estao num array bash (`IGNORES=(...)` / `IGNORES+=(...)`, uma linha por advisory, com o comentario acima) em vez de uma unica linha com `\` de continuacao: assim cada `--ignore` carrega o porque e o que faria revisitar a decisao, sem depender de truque de comentario dentro de continuacao de linha.
+- Para reproduzir o gate localmente, rode o comando com os mesmos ignores; para provar que ele ainda morde, tire um `--ignore` e confirme que sai com codigo 1.
 
 ## `typecheck` script must use `tsc -b`, not `tsc --noEmit`
 

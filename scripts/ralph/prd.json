@@ -79,7 +79,7 @@
         "O step nao usa continue-on-error nem '|| true' - se e gate, tem que falhar o job"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-004 - ligar o gate antes da triagem deixa o CI vermelho e, por tabela, bloqueia TODO deploy (o deploy.yml reusa o ci.yml via workflow_call). Este e o unico ponto do epico que pode travar producao se feito na ordem errada. O ci.yml hoje tem 2 jobs (test e frontend) e o trigger workflow_call ja existe - nao mexer neles alem de acrescentar o step. Os ids aceitos pelo --ignore sao os que o bun audit imprime (formato GHSA-xxxx-xxxx-xxxx); confirmar na pratica que o bun aceita GHSA e nao so CVE, e se so aceitar CVE, registrar isso no progress.txt e usar o id correspondente."
     },
     {

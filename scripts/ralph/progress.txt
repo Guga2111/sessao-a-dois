@@ -198,3 +198,46 @@ Started: Thu Aug  6 10:59:06 PDT 2026
     sao duas copias da mesma decisao. Mexer numa sem a outra cria ponto cego —
     a propria secao do CLAUDE.md avisa isso no final.
 ---
+
+## 2026-08-06 - US-005 (Ligar o gate do bun audit no CI)
+- `.github/workflows/ci.yml`, job `frontend`: novo step `Audit dependencies`
+  entre `Install dependencies` e `Typecheck` (portanto DEPOIS do `bun install` e
+  ANTES do `build`). Roda `bun audit --audit-level=high "${IGNORES[@]}"` com os 6
+  advisories triados na US-004. **Sem `continue-on-error`, sem `|| true`** — se e
+  gate, quebra o job; e como o `deploy.yml` reusa o `ci.yml` via `workflow_call`,
+  quebra o deploy junto.
+- Os `--ignore` estao num array bash (`IGNORES=(...)` / `IGNORES+=(...)`), uma
+  linha por advisory, cada uma precedida de comentario com: pacote, por que nao
+  alcanca o usuario, e o que faria revisitar a decisao. Sao exatamente os 6
+  `Ignorar` da tabela de `client/CLAUDE.md`: `GHSA-mh99-v99m-4gvg`,
+  `GHSA-rgw5-rvv9-x895` (brace-expansion), `GHSA-7p8r-x3mc-p8w7` (fast-uri),
+  `GHSA-mwp4-54f8-5fhr` (ip-address), `GHSA-4cwx-7wf7-3272` (undici),
+  `GHSA-qwww-vcr4-c8h2` (react-router).
+- Verificacao REAL (nao presumida), rodando o proprio texto do step extraido do
+  YAML e executado com `bash -e` em `client/`:
+  - com os 6 ignores: **exit 0** (os 9 moderate continuam no relatorio e nao
+    quebram nada — `--audit-level=high`);
+  - sem `--ignore=GHSA-qwww-vcr4-c8h2`: **exit 1**, `1 vulnerabilities (1 high)`,
+    react-router. Ou seja, o gate morde. Ignore restaurado em seguida.
+  - `bun audit --audit-level=high` sozinho (sem ignore nenhum): exit 1, 6 high.
+- `client/CLAUDE.md`: a secao de triagem da US-004 agora aponta o nome exato do
+  step, diz que ele e gate desde hoje e registra que `--ignore` aceita id GHSA.
+- Arquivos alterados: `.github/workflows/ci.yml`, `client/CLAUDE.md`,
+  `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`. Nenhum arquivo de
+  `client/src/`, nenhum pixel — a skill `frontend-design` nao se aplica.
+- **Learnings for future iterations:**
+  - **`bun audit --ignore` aceita GHSA** (`GHSA-xxxx-xxxx-xxxx`), o mesmo id que o
+    comando imprime — a duvida "sera que so aceita CVE?" registrada na story esta
+    respondida: aceita GHSA, nao precisa traduzir.
+  - `bun audit` (1.3.14) so tem 3 flags: `--json`, `--audit-level`, `--ignore`.
+    Nao existe `--prod`. Separar producao de build-time e trabalho de triagem
+    manual, nao de flag.
+  - Comentario por argumento dentro de um comando quebrado com `\` nao da: o
+    truque de `` `# ...` `` (backtick com comentario) funciona mas e fragil com
+    acento/parenteses/aspas. **Array bash (`IGNORES+=(...)`) e o jeito limpo** —
+    cada item vira uma linha propria e o `#` acima e comentario de shell normal.
+    O default shell do Actions em ubuntu e bash, entao array e seguro.
+  - Para testar um step de workflow sem Actions: extrair o bloco `run:` do YAML e
+    rodar com `bash -e`. Nao ha `pyyaml` neste sandbox (nem `pip`), entao a
+    extracao foi por fatiamento de linhas mesmo.
+---
