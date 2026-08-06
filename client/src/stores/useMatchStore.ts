@@ -33,6 +33,7 @@ interface MatchState {
   matchData: MatchEvent | null
   pendingQueue: PendingMatch[]
   pendingLoading: boolean
+  pendingError: boolean
   // Both the /match STOMP event and the MATCH notification can announce the
   // same match; this tracks which matches already opened the modal so a
   // client never sees the celebration twice for one match. Lives in state
@@ -56,6 +57,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   matchData: null,
   pendingQueue: [],
   pendingLoading: false,
+  pendingError: false,
   celebratedMatchKeys: new Set<string>(),
 
   connect: (coupleId) => {
@@ -155,12 +157,13 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   },
 
   fetchPending: async () => {
-    set({ pendingLoading: true })
+    set({ pendingLoading: true, pendingError: false })
     try {
       const response = await api.get<PendingMatch[]>("/api/match/pending")
-      set({ pendingQueue: response.data })
-    } catch {
-      set({ pendingQueue: [] })
+      set({ pendingQueue: response.data, pendingError: false })
+    } catch (error) {
+      console.error("Falha ao carregar a fila de sugestoes pendentes", error)
+      set({ pendingQueue: [], pendingError: true })
     } finally {
       set({ pendingLoading: false })
     }

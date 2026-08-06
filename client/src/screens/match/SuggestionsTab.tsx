@@ -18,7 +18,7 @@ import { CompareSelectionChip, CompareToggleButton } from "./compareUi"
 import { TYPE_LABEL, keyOfCompareItem } from "./helpers"
 
 export function SuggestionsTab() {
-  const { pendingQueue, pendingLoading, fetchPending, removePending } =
+  const { pendingQueue, pendingLoading, pendingError, fetchPending, removePending } =
     useMatchStore()
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -99,6 +99,24 @@ export function SuggestionsTab() {
             <Skeleton className="h-3.5 w-32" />
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (pendingError) {
+    return (
+      <div className="mx-auto flex max-w-[320px] flex-col items-center gap-2 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-3 text-center">
+        <p className="flex items-center gap-2 text-[13px] text-[#ffb3b3]">
+          <TriangleAlert className="size-4" />
+          Nao foi possivel carregar as sugestoes pendentes.
+        </p>
+        <Button
+          type="button"
+          onClick={() => fetchPending()}
+          className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+        >
+          <RefreshCw className="size-3.5" /> Tentar novamente
+        </Button>
       </div>
     )
   }

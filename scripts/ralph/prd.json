@@ -189,7 +189,7 @@
         "bun run build passa"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Depende da US-008 (mesmo arquivo de store) e da US-005 (o SuggestionsTab ja estara em screens/match/SuggestionsTab.tsx). Achado fora do POST-MVP-TASK.md: o Epico 6 zerou seis catch silenciosos em telas e modais, mas nao alcancou este, que estava na store. Incluido por decisao do usuario (E4 do PRD). SE ficar claro que o caso exige um visual que nao existe hoje, PARAR e chamar a skill frontend-design antes de inventar - a dispensa da skill neste epico vale porque nada visual e novo."
     }
   ]
