@@ -95,7 +95,7 @@
         "api/CLAUDE.md menciona a situacao resolvida, para a proxima pessoa nao repetir a investigacao"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Story de investigacao com dois caminhos possiveis - a decisao E8.3 do PRD manda executar o comando ANTES de escolher. Nao presumir que o BOM gerencia (o backlog levantou a duvida justamente porque ninguem verificou). jjwt e a biblioteca que assina os JWT de sessao (com.app.security.JwtService), entao um downgrade acidental de versao aqui e serio: conferir a versao efetiva depois da mudanca e nao so o fato de o build passar."
     },
     {

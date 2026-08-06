@@ -241,3 +241,46 @@ Started: Thu Aug  6 10:59:06 PDT 2026
     rodar com `bash -e`. Nao ha `pyyaml` neste sandbox (nem `pip`), entao a
     extracao foi por fatiamento de linhas mesmo.
 ---
+
+## 2026-08-06 - US-006 (Resolver o pin manual do jjwt)
+- **Investigacao (feita ANTES de escolher o caminho, decisao E8.3):**
+  - `./mvnw dependency:tree -Dincludes=io.jsonwebtoken` -> `jjwt-api:0.12.6:compile`,
+    `jjwt-impl:0.12.6:runtime`, `jjwt-jackson:0.12.6:runtime`.
+  - `./mvnw help:effective-pom -Doutput=/tmp/effective-pom.xml`: o bloco
+    `<dependencyManagement>` vai das linhas 244 a 9901; as 3 unicas ocorrencias de
+    `io.jsonwebtoken` no arquivo estao nas linhas 9970/9976/9982, ou seja **fora**
+    do dependencyManagement — sao as declaracoes do proprio pom, com a versao que
+    nos escrevemos.
+  - Confirmacao direta no BOM: `grep -c jsonwebtoken
+    ~/.m2/.../spring-boot-dependencies-4.1.0.pom` -> **0**.
+  - **Resposta: o BOM do Spring Boot NAO gerencia io.jsonwebtoken.** Logo, caminho
+    2 do criterio de aceite (property unica), nao remocao das versoes.
+- `api/pom.xml`: nova property `<jjwt.version>0.12.6</jjwt.version>` com comentario
+  explicando que o jjwt esta fora do BOM, que o bump e manual e que o Dependabot da
+  US-003 (ecossistema maven em `/api`) e quem passa a avisar. As 3 tags
+  `<version>0.12.6</version>` viraram `<version>${jjwt.version}</version>`.
+- **Sem regressao de versao:** `dependency:tree -Dincludes=io.jsonwebtoken` rodado
+  DEPOIS da mudanca devolve exatamente `0.12.6` nos tres artefatos — mesma versao de
+  antes, so que resolvida via property.
+- `./mvnw test` -> 424 testes, 0 falhas; JaCoCo `check` verde.
+- `api/CLAUDE.md`: sub-bullet novo em `com.app.security` (JWT) registrando a
+  investigacao fechada, para ninguem repeti-la.
+- Arquivos alterados: `api/pom.xml`, `api/CLAUDE.md`, `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`. Nenhum arquivo de `client/` — sem pixel, a skill
+  `frontend-design` nao se aplica.
+- **Learnings for future iterations:**
+  - Para responder "o BOM gerencia X?", o teste decisivo NAO e olhar o
+    `dependency:tree` (ele mostra a versao resolvida, seja de onde for). E ver se o
+    artefato aparece dentro do `<dependencyManagement>` do effective-pom, ou
+    simplesmente `grep` no proprio `spring-boot-dependencies-<versao>.pom` do `~/.m2`
+    — este ultimo e o mais rapido e o menos ambiguo.
+  - `help:effective-pom` com `-q` nao imprime nada no stdout quando se usa
+    `-Doutput=` — o arquivo e escrito, e so ler dele.
+  - Os 3 artefatos do jjwt (`api`/`impl`/`jackson`) precisam da MESMA versao: o
+    `impl` e o `jackson` sao `runtime`, entao uma divergencia entre eles nao aparece
+    na compilacao, so num `NoSuchMethodError` em producao. Property unica existe
+    exatamente para tornar isso impossivel de errar num bump.
+  - `jjwt-jackson` e quem traz o Jackson 2 (`com.fasterxml`) transitivamente no
+    runtime — ja registrado em `api/CLAUDE.md` na nota do `RateLimitFilter`. Um bump
+    de jjwt pode mexer nisso; nao e so "a lib que assina token".
+---
