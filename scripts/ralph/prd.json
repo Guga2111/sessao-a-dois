@@ -63,7 +63,7 @@
         "NENHUMA mudanca de codigo do client/ alem de package.json/bun.lock - esta story nao altera nenhum componente, nenhum pixel"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Estado medido em 2026-08-06 (rodar de novo, pode ter mudado): 15 advisories, 6 altos. Os altos vem de ip-address, brace-expansion (x2), undici e fast-uri - todos por shadcn e eslint, ou seja devDependencies que nao entram no bundle do usuario - mais react-router, que e o unico de producao. bun audit da versao 1.3.14 NAO tem flag --prod/--production (so --json, --audit-level e --ignore), por isso a separacao prod/dev e feita por lista explicita, nao por flag (decisao E8.9 do PRD). Se o bun update quebrar typecheck/lint/build, REVERTA o update e registre no progress.txt qual pacote quebrou - deixar o build quebrado e pior do que deixar um advisory de devDependency."
     },
     {

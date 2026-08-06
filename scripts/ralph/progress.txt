@@ -139,3 +139,62 @@ Started: Thu Aug  6 10:59:06 PDT 2026
     ficou como comentario dentro do proprio `dependabot.yml`, que e onde alguem
     editando o arquivo vai olhar.
 ---
+
+## 2026-08-06 - US-004 (Limpar o que der de vulnerabilidade e triar o resto)
+- `bun update` (SEM `--latest`) em `client/`: 15 dependencias diretas subiram de
+  patch/minor (`react`/`react-dom` 19.2.7 -> 19.2.8, `vite` 8.1.5 -> 8.2.1,
+  `eslint` 10.7.0 -> 10.8.0, `axios` 1.18.1 -> 1.19.0, `shadcn` 4.13.1 -> 4.16.2,
+  `react-router-dom` 7.18.1 -> 7.18.2, entre outras). `package.json` mudou so nos
+  ranges (o `bun update` reescreve o piso do `^`, ex.: `"vite": "^8"` ->
+  `"^8.2.1"`); NENHUM pacote novo, nenhuma remocao, nenhum arquivo de `src/`.
+- `bun run typecheck && bun run lint && bun run build` -> os tres verdes depois do
+  update (build em ~350ms, mesmo aviso pre-existente de chunk > 500kB).
+- **`bun audit` depois do update: 15 advisories, 6 high, 9 moderate, 0 critical**
+  — exatamente o mesmo numero de antes. O update de dependencia direta nao move
+  transitiva (ver learnings), e todos os 6 highs sao transitivos.
+- Triagem dos 6 highs escrita em `client/CLAUDE.md` (secao "Triagem de
+  vulnerabilidades (`bun audit`) — Epico 8, US-004"), com pacote, GHSA, caminho
+  de dependencia, tipo, se ha versao corrigida e a decisao:
+  - `brace-expansion` 5.0.7 x2 (`GHSA-mh99-v99m-4gvg`, `GHSA-rgw5-rvv9-x895`) —
+    via `eslint`/`typescript-eslint`/`shadcn`, build-time. Ignorar.
+  - `fast-uri` 3.1.4 (`GHSA-7p8r-x3mc-p8w7`) — via `ajv` do eslint/MCP. Ignorar.
+  - `ip-address` 10.2.0 (`GHSA-mwp4-54f8-5fhr`) — via `express-rate-limit` do
+    servidor MCP embutido na CLI do shadcn. Ignorar.
+  - `undici` 7.28.0 (`GHSA-4cwx-7wf7-3272`) — via `@dotenvx/dotenvx` do shadcn.
+    Ignorar.
+  - `react-router` 7.18.2 (`GHSA-qwww-vcr4-c8h2`) — UNICO de producao. RSC Mode
+    CSRF bypass; esta app e SPA em Vite sem React Server Components, o vetor nao
+    existe. Correcao so no major 8.3.0, fora do epico (vem por PR do Dependabot).
+    Ignorar com justificativa.
+  Esses 6 GHSA sao exatamente a lista de `--ignore` que a US-005 tem que colocar
+  no step do `ci.yml`.
+- Arquivos alterados: `client/package.json`, `client/bun.lock`,
+  `client/CLAUDE.md`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+  Nenhum componente, nenhum pixel — a skill `frontend-design` nao se aplica.
+- **Learnings for future iterations:**
+  - `bun update` sem argumento so atualiza dependencias **diretas**. Transitiva
+    fica congelada na resolucao do `bun.lock` mesmo quando o range do pai ja
+    aceitaria a versao corrigida (ex.: `minimatch` pede `brace-expansion ^5.0.5`
+    e o 5.0.9 existe, mas o lock continuou no 5.0.7).
+  - **ARMADILHA:** `bun update <pacote-transitivo>` NAO atualiza a transitiva —
+    ele ADICIONA o pacote como dependencia direta no `package.json`. Testado
+    aqui: `bun update brace-expansion fast-uri ip-address undici postcss hono
+    @hono/node-server` acrescentou os 7 ao bloco `dependencies` (e puxou majors:
+    `undici` 8, `fast-uri` 4). Revertido com `git checkout package.json bun.lock`
+    + `bun install --frozen-lockfile`. Para forcar transitiva o mecanismo e
+    `overrides`/`resolutions` no `package.json`, nao `bun update`.
+  - `bun audit --json` devolve um objeto `{"<pacote>": [advisory, ...]}` — NAO o
+    formato `{"advisories": {...}}` do `npm audit`. Um `jq '.advisories'` volta
+    vazio silenciosamente. Para listar os highs:
+    `bun audit --json | bunx --bun jq -r 'to_entries[] | .key as $m | .value[] |
+    select(.severity=="high") | "\($m) \(.url)"'`.
+  - `shadcn` esta em `dependencies` no `package.json`, mas e uma CLI: nenhum
+    arquivo de `src/` a importa e ela nao entra no bundle. 4 dos 6 highs vem
+    debaixo dela. Movida para `devDependencies` seria mais honesto (nada em
+    producao instala essas deps — o deploy manda o `dist/` pronto por `scp`),
+    mas isso ficou FORA desta story de proposito: e mudanca de topologia de
+    dependencia, decisao do mantenedor. Registrado em `client/CLAUDE.md`.
+  - A tabela de `client/CLAUDE.md` e a lista de `--ignore` do `ci.yml` (US-005)
+    sao duas copias da mesma decisao. Mexer numa sem a outra cria ponto cego —
+    a propria secao do CLAUDE.md avisa isso no final.
+---
