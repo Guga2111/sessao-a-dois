@@ -5,6 +5,11 @@ on:
     branches:
       - dev
       - main
+  # Permite que o workflow de CD (deploy.yml) reexecute esta suite no push da
+  # main, antes de subir para producao. Sem isto, um push direto na main (ou um
+  # merge cuja combinacao quebra algo que nenhum dos PRs sozinho quebrava) iria
+  # a producao sem nenhum teste.
+  workflow_call:
 
 jobs:
   test:

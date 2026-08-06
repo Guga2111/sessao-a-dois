@@ -5,8 +5,8 @@ Tutorial completo para colocar a aplicacao em producao na VPS Hostinger.
 ## Arquitetura de Producao
 
 ```
-Maquina local                              VPS Hostinger
-─────────────                              ──────────────
+Maquina local OU runner do GitHub          VPS Hostinger
+(mesmo scripts/deploy.sh)                  ──────────────
 bun run build (client/)
 docker build (api/)
 docker save | gzip
@@ -209,6 +209,10 @@ De volta a tua maquina local, na raiz do repo:
 ./scripts/deploy.sh
 ```
 
+> A partir da automacao de CD (ver "CI/CD - deploy automatico no merge para a
+> main"), este passo manual so e necessario no primeiro deploy ou em emergencia -
+> o merge de `dev` para `main` executa exatamente este mesmo script no runner.
+
 O script executa 5 etapas automaticamente:
 
 | Etapa | O que faz |
@@ -240,13 +244,109 @@ open https://sessaoadois.luisgosampaio.com
 
 ## Deploys seguintes
 
-Apos a configuracao inicial (passos 1-3), basta repetir:
-
-```bash
-./scripts/deploy.sh
-```
+Apos a configuracao inicial (passos 1-3), o deploy e **automatico**: todo merge de
+um PR de `dev` para `main` dispara o pipeline de CD (ver seccao abaixo). O
+`./scripts/deploy.sh` continua a funcionar a partir da maquina local e e o mesmo
+script que o CI executa - fica como via manual para emergencias e para quando a
+Action estiver indisponivel.
 
 O script cuida de tudo: build, envio e deploy. Imagens antigas sao limpas automaticamente (mantem as 3 ultimas versoes).
+
+### Variaveis de configuracao do script
+
+| Variavel | Default | Para que serve |
+|----------|---------|----------------|
+| `VPS_IP` | `31.97.169.38` | Host de destino |
+| `VPS_USER` | `root` | Utilizador SSH (decisao D10: mantem-se `root`) |
+| `ENV_FILE` | `<raiz>/.env` | Ficheiro de segredos enviado por scp para a VPS |
+
+Nenhum segredo passa por `/tmp`: o `ENV_FILE` e copiado diretamente para
+`~/projects/sessao-a-dois/.env` na VPS.
+
+---
+
+## CI/CD - deploy automatico no merge para a main
+
+`.github/workflows/deploy.yml` executa o `scripts/deploy.sh` num runner do GitHub
+sempre que ha um push na `main` (que e o que um merge de PR produz), e tambem
+manualmente por `workflow_dispatch` na aba **Actions**.
+
+```
+PR dev -> main mergeado
+        │
+        ▼
+job "tests"  ── reutiliza .github/workflows/ci.yml (workflow_call)
+        │       API: ./mvnw -B test  |  client: typecheck + lint + build
+        ▼ (so avanca se tudo passar)
+job "deploy" ── bun build + docker build + scp + docker compose up -d
+        │
+        ▼
+smoke test: curl https://sessaoadois.luisgosampaio.com/api/health (12 tentativas, 10s)
+```
+
+Pontos de desenho:
+
+- **A suite roda outra vez no codigo ja mergeado.** O CI do PR valida a branch
+  antes do merge; este job valida o resultado do merge, e cobre tambem push
+  direto na `main`.
+- **`concurrency: deploy-production` com `cancel-in-progress: false`.** Dois
+  deploys em paralelo na mesma VPS deixariam o `docker compose down`/`up` num
+  estado indefinido; cancelar um deploy a meio seria pior ainda, por isso o
+  segundo espera em vez de matar o primeiro.
+- **Rollback:** `git revert` do commit na `main` e merge - o pipeline redeploya
+  a versao anterior sozinho. Nao ha botao de rollback separado.
+
+### Secrets e variables a configurar no GitHub
+
+Em **Settings > Secrets and variables > Actions** (podem ficar no nivel do repo
+ou no environment `production`, que o workflow referencia):
+
+**Secrets** (obrigatorios - o deploy falha explicitamente se algum faltar):
+
+| Secret | Conteudo |
+|--------|----------|
+| `VPS_SSH_KEY` | Chave **privada** SSH (ed25519, sem passphrase) com acesso ao `root@31.97.169.38` |
+| `DB_URL` | Connection string do Supabase |
+| `DB_USER` | Utilizador do Supabase |
+| `DB_PASSWORD` | Password do Supabase |
+| `JWT_SECRET` | Segredo de assinatura (>= 32 bytes, `openssl rand -base64 48`) |
+| `TMDB_API_KEY` | API Read Access Token v4 do TMDB |
+
+**Secret opcional:**
+
+| Secret | Conteudo |
+|--------|----------|
+| `VPS_SSH_KNOWN_HOSTS` | Saida de `ssh-keyscan -H 31.97.169.38`. Se estiver definido, a host key fica fixada; se nao, o workflow faz `ssh-keyscan` a cada execucao (trust-on-first-use, aceitavel mas menos seguro). |
+
+**Variables** (nao sao segredos; todas tem default no workflow, so definir para
+mudar o alvo): `VPS_IP`, `VPS_USER`, `APP_URL`, `CORS_ALLOWED_ORIGIN`, `API_PORT`.
+
+### Gerar a chave de deploy
+
+Na tua maquina local:
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/sessao_deploy -N ""
+
+# Autorizar a chave publica na VPS
+ssh-copy-id -i ~/.ssh/sessao_deploy.pub root@31.97.169.38
+
+# Conteudo para o secret VPS_SSH_KEY (a chave PRIVADA, ficheiro inteiro)
+cat ~/.ssh/sessao_deploy
+
+# Conteudo para o secret opcional VPS_SSH_KNOWN_HOSTS
+ssh-keyscan -H 31.97.169.38
+```
+
+> A chave privada **nunca** entra no repo - so no secret do GitHub. O workflow
+> escreve-a em `~/.ssh/id_deploy` do runner (efemero) e apaga-a com `shred` num
+> passo `if: always()`, tal como faz ao `.env`.
+
+### Requisitos na VPS
+
+Nenhum. A imagem continua a viajar como `.tar.gz` por scp e a ser carregada com
+`docker load` - nao ha registry, nem `docker login`, nem nada novo para instalar.
+O que ja estava configurado nos passos 1-3 continua a ser suficiente.
 
 ---
 
