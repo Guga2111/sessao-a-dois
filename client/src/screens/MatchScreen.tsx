@@ -51,12 +51,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
+import { buildComparisonItem } from "@/lib/comparisonItem"
 import { useCompareSelection } from "@/lib/useCompareSelection"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { cn } from "@/lib/utils"
 import { useMatchStore } from "@/stores/useMatchStore"
 import type {
-  MediaDetails,
   MediaGenre,
   MediaPage,
   MediaSearchResult,
@@ -158,52 +158,16 @@ function keyOfCompareItem(item: { mediaType: MediaType; tmdbId: number }): strin
   return trackKey(item.mediaType, item.tmdbId)
 }
 
-function buildComparisonItemFromDetails(
-  mediaType: MediaType,
-  tmdbId: number
-): Promise<ComparisonItem> {
-  return api
-    .get<MediaDetails>(`/api/media/${mediaType.toLowerCase()}/${tmdbId}`)
-    .then((response) => {
-      const details = response.data
-      return {
-        tmdbId,
-        mediaType,
-        title: details.title,
-        year: details.year,
-        posterUrl: details.posterUrl,
-        overview: details.overview,
-        voteAverage: details.voteAverage,
-        coupleRating: null,
-        genres: details.genres,
-        watchProviders: details.watchProviders,
-      }
-    })
-}
-
-function buildComparisonItemFromPending(item: PendingMatch): Promise<ComparisonItem> {
-  return buildComparisonItemFromDetails(item.mediaType, item.tmdbId)
-}
-
 function buildComparisonItemFromSearchResult(
   result: MediaSearchResult
 ): Promise<ComparisonItem> {
-  return api
-    .get<MediaDetails>(
-      `/api/media/${result.mediaType.toLowerCase()}/${result.tmdbId}`
-    )
-    .then((response) => ({
-      tmdbId: result.tmdbId,
-      mediaType: result.mediaType,
-      title: result.title,
-      year: result.year,
-      posterUrl: result.posterUrl,
-      overview: result.overview,
-      voteAverage: result.voteAverage,
-      coupleRating: null,
-      genres: response.data.genres,
-      watchProviders: response.data.watchProviders,
-    }))
+  return buildComparisonItem(result.mediaType, result.tmdbId, {
+    title: result.title,
+    year: result.year,
+    posterUrl: result.posterUrl,
+    overview: result.overview,
+    voteAverage: result.voteAverage,
+  })
 }
 
 function CompareToggleButton({
@@ -296,7 +260,7 @@ function SuggestionsTab() {
   const [detailItem, setDetailItem] = useState<PendingMatch | null>(null)
   const showPendingSkeleton = useDelayedLoading(pendingLoading)
   const compare = useCompareSelection<PendingMatch>(
-    buildComparisonItemFromPending,
+    (item) => buildComparisonItem(item.mediaType, item.tmdbId),
     keyOfCompareItem
   )
 

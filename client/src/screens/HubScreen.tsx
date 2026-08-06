@@ -16,41 +16,25 @@ import { WatchModal } from "@/components/WatchModal"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/lib/api"
+import { buildComparisonItem as buildComparisonItemBase } from "@/lib/comparisonItem"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
 import { useIsMobile } from "@/lib/useIsMobile"
 import { useAuthStore } from "@/stores/useAuthStore"
-import type { MediaDetails } from "@/types/media"
 import type { MediaStatus, MediaTrackResponse, PagedMediaTrackResponse } from "@/types/tracking"
 
 const COMPARE_TOOLTIP =
   "Selecione 2 títulos para comparar informações como notas, gêneros e onde assistir."
 
 function buildComparisonItem(track: MediaTrackResponse): Promise<ComparisonItem> {
-  return api
-    .get<MediaDetails>(`/api/media/${track.mediaType.toLowerCase()}/${track.tmdbId}`)
-    .then((res) => {
-      const details = res.data
-      const ratedReviews = track.reviews.filter(
-        (review) => review.rating !== null && review.rating !== undefined
-      )
-      const coupleRating =
-        ratedReviews.length > 0
-          ? ratedReviews.reduce((sum, review) => sum + review.rating!, 0) /
-            ratedReviews.length
-          : null
-      return {
-        tmdbId: track.tmdbId,
-        mediaType: track.mediaType,
-        title: details.title,
-        year: details.year,
-        posterUrl: details.posterUrl,
-        overview: details.overview,
-        voteAverage: details.voteAverage,
-        coupleRating,
-        genres: details.genres,
-        watchProviders: details.watchProviders,
-      }
-    })
+  const ratedReviews = track.reviews.filter(
+    (review) => review.rating !== null && review.rating !== undefined
+  )
+  const coupleRating =
+    ratedReviews.length > 0
+      ? ratedReviews.reduce((sum, review) => sum + review.rating!, 0) /
+        ratedReviews.length
+      : null
+  return buildComparisonItemBase(track.mediaType, track.tmdbId, { coupleRating })
 }
 
 interface Section {

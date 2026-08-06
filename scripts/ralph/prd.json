@@ -38,7 +38,7 @@
         "bun run build passa"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Depende da US-001. Sao TRES copias, nao duas - o POST-MVP-TASK.md so contou as do MatchScreen, HubScreen.tsx:28 tem a terceira. As tres chamam o MESMO endpoint de detalhes; a unica diferenca real e que a versao do SearchTab prefere titulo/ano/poster que ja vieram no resultado da busca - e exatamente isso que o parametro overrides modela."
     },
     {

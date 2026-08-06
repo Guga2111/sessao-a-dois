@@ -16,3 +16,19 @@ Started: Wed Aug  5 17:17:20 PDT 2026
   - No browser available in this sandbox (no Chromium/Playwright, no sudo) — verification for pure-refactor stories is typecheck+lint+build+git diff review, not a rendered screenshot.
   - client/CLAUDE.md's "Selection mode on an existing list/card screen" section still describes useCompareSelection as living inline in MatchScreen.tsx with "only 2 call sites" — this is now inaccurate now that it's in lib/, and will be more inaccurate once HubScreen (US-003) becomes a 3rd consumer. Left as-is for US-003 to update, since that story is the one that actually adds the 3rd call site.
 ---
+
+## 2026-08-05 - US-002
+- Created `client/src/lib/comparisonItem.ts` exporting a single `buildComparisonItem(mediaType, tmdbId, overrides?: Partial<ComparisonItem>)` that fetches `/api/media/{type}/{id}` and spreads `overrides` last (so overrides win over the endpoint response, matching the old SearchTab preference behavior).
+- Replaced the three copies:
+  - `MatchScreen.tsx`'s `buildComparisonItemFromDetails` deleted outright; its only caller (`buildComparisonItemFromPending`) also deleted — the `SuggestionsTab` call site now passes an inline `(item) => buildComparisonItem(item.mediaType, item.tmdbId)` directly to `useCompareSelection`.
+  - `MatchScreen.tsx`'s `buildComparisonItemFromSearchResult` now delegates to `buildComparisonItem(result.mediaType, result.tmdbId, { title, year, posterUrl, overview, voteAverage })` — deliberately omits `genres`/`watchProviders` from overrides so the endpoint's values still win for those two fields, same as before.
+  - `HubScreen.tsx`'s `buildComparisonItem(track)` now computes `coupleRating` from `track.reviews` first, then calls the shared `buildComparisonItemBase(track.mediaType, track.tmdbId, { coupleRating })` (imported under an alias to avoid shadowing the local wrapper of the same name).
+- Files changed: `client/src/lib/comparisonItem.ts` (new), `client/src/screens/MatchScreen.tsx`, `client/src/screens/HubScreen.tsx`.
+- Removed now-unused imports: `MediaDetails` type from `MatchScreen.tsx` and from `HubScreen.tsx` (both screens' own `api.get(/api/media/{type}/{id})` call moved into the shared file). `HubScreen.tsx` still imports `api` because it separately calls `/api/tracking` for section pages — that import stayed.
+- Verified: `grep -rn "/api/media/" client/src` before/after has the identical set of endpoint call sites (same 5 distinct string literals: `/api/media/${...}/${...}` for details, `/api/media/genres`, `/api/media/search`, `/api/media/trending`, `/api/media/discover`) — the two duplicate detail-fetch literals in MatchScreen.tsx and the one in HubScreen.tsx collapsed into the single one now in `comparisonItem.ts`, nothing added or removed.
+- `git diff` of both screens has zero `className`/`style` value changes — pure refactor confirmed by grep.
+- bun run typecheck / lint / build all pass.
+- **Learnings for future iterations:**
+  - When a shared helper duplicates a local function name a screen already has (here: both `HubScreen.tsx` and the new `lib/comparisonItem.ts` want to export something named `buildComparisonItem`), import the shared one under an alias (`import { buildComparisonItem as buildComparisonItemBase } from "@/lib/comparisonItem"`) rather than renaming the screen's existing wrapper — keeps the screen's own call sites (`useCompareSelection<MediaTrackResponse>(buildComparisonItem, ...)` etc., touched in US-003) unchanged.
+  - `overrides` spread *after* the endpoint-derived object is the whole trick for "search result values win when present, endpoint wins when absent" — since `Object.assign`/spread semantics mean an `overrides` key of `undefined` would still overwrite a real value, callers must only include keys they actually want to win (e.g. `buildComparisonItemFromSearchResult` deliberately does NOT pass `genres`/`watchProviders` in its overrides object, rather than passing them as `undefined`).
+---
