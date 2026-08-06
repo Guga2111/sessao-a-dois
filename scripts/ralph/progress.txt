@@ -19,6 +19,11 @@ Started: Thu Aug  6 10:59:06 PDT 2026
 - NAO ha `docker` nem `psql` neste sandbox. Criterio de aceite que depende de
   `docker build`/`docker ps` fica pendente do lado humano — registrar aqui em
   vez de travar a story.
+- Mudanca de infraestrutura (variavel de ambiente, compose, workflow) NAO e coberta
+  por `./mvnw test` — o build fica verde com ou sem ela. Verificar de outro jeito:
+  parsear o YAML (`bunx --bun js-yaml <arquivo>`) e olhar o objeto resultante, rodar
+  o step de verdade quando for shell, e registrar explicitamente o que so pode ser
+  conferido do lado humano.
 - Imports do Spring Boot 4.1 mudaram de pacote: `@WebMvcTest` vem de
   `org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`, nao do
   pacote `org.springframework.boot.test.autoconfigure.web.servlet` do Boot 3.x.
@@ -283,4 +288,58 @@ Started: Thu Aug  6 10:59:06 PDT 2026
   - `jjwt-jackson` e quem traz o Jackson 2 (`com.fasterxml`) transitivamente no
     runtime — ja registrado em `api/CLAUDE.md` na nota do `RateLimitFilter`. Um bump
     de jjwt pode mexer nisso; nao e so "a lib que assina token".
+---
+
+## 2026-08-06 - US-007 (Remover SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose)
+- `docker-compose-prod.yml`: a linha `SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"`
+  saiu do bloco `environment` (confirmado parseando o YAML com `bunx --bun js-yaml`:
+  o mapa `environment` agora tem 6 chaves, sem a do Flyway). No lugar ficou um
+  comentario explicando a remocao e apontando para `docs/DEPLOY.md`/`docs/FLYWAY.md`
+  — a intencao aqui e fragil: alguem debugando um `FlywayException` num deploy
+  futuro tem uma tentacao obvia de religar a variavel, que e exatamente o
+  comportamento que a story quer impedir.
+- `docs/DEPLOY.md`: seccao nova "Flyway: ambiente novo com schema pre-existente"
+  (dentro de "Deploys seguintes"), com o comando pontual
+  `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d`
+  e o aviso de nao devolver a linha ao compose nem ao `.env`.
+- `docs/FLYWAY.md`: bloco novo no topo com a data da remocao (2026-08-06), o porque,
+  o comando pontual e — em destaque — o **GATE HUMANO**: a query
+  `SELECT installed_rank, version, description, type, success FROM flyway_schema_history
+  ORDER BY installed_rank;` tem de ser rodada em producao ANTES do merge para a `main`,
+  confirmando V1..V6 todas com `success = true` e nenhuma linha `type = 'BASELINE'`
+  alem da legitima da V1. Se falhar: **reverter esta mudanca antes do deploy**.
+- `api/src/main/resources/application.properties`: o comentario do "primeiro deploy"
+  tinha ficado contraditorio (mandava passar a variavel como se ainda faltasse o
+  primeiro deploy com Flyway). Reescrito para registrar que a flag nao esta nem aqui
+  nem no compose, e qual e o unico caso que a justifica.
+- `api/CLAUDE.md`: sub-bullet novo debaixo da nota Schema/Flyway com a regra
+  permanente ("se o startup falhar com FlywayException, a resposta NAO e religar a
+  flag — e conferir o flyway_schema_history").
+- Verificacao: `./mvnw test` -> 424 testes, 0 falhas, JaCoCo `check` verde
+  ("All coverage checks have been met"). Nenhum teste depende da variavel — ela so
+  existia no compose de producao, e o `FlywayMigrationTest` seta as suas proprias
+  propriedades de Flyway.
+- **PENDENTE DO LADO HUMANO** (US-007 do PRD, operacional, exige credencial do
+  Supabase): a query de verificacao acima, ANTES do merge para a `main`. E, depois do
+  deploy seguinte, confirmar no log `Successfully validated 6 migrations` (ou
+  `No migration necessary`) sem nenhuma linha de baseline nova.
+- Arquivos alterados: `docker-compose-prod.yml`, `docs/DEPLOY.md`, `docs/FLYWAY.md`,
+  `api/src/main/resources/application.properties`, `api/CLAUDE.md`,
+  `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`. Nenhum arquivo de
+  `client/`, nenhum pixel — a skill `frontend-design` nao se aplica.
+- **Learnings for future iterations:**
+  - Remover uma variavel de ambiente de producao nao e coberto por teste nenhum
+    neste repo: `./mvnw test` passa igual com ela ou sem ela. A verificacao real e
+    (a) parsear o YAML e olhar o mapa resultante e (b) o gate humano no banco. Nao
+    confundir "build verde" com "mudanca verificada".
+  - `docs/FLYWAY.md` foi escrito quando a ultima migration era a V5 e ainda descreve
+    o primeiro deploy no futuro do presente ("voce deve passar a variavel"). O bloco
+    novo ficou no TOPO de proposito, para nao deixar o leitor achar o texto antigo
+    primeiro. Se alguem for atualizar o corpo do documento depois, o resto do texto
+    ainda fala em V5.
+  - A mesma decisao aparece agora em 4 lugares (compose, `application.properties`,
+    `docs/DEPLOY.md`, `docs/FLYWAY.md`) + `api/CLAUDE.md`. E redundancia deliberada
+    (cada um e o lugar onde uma pessoa diferente vai olhar), mas mexer num sem os
+    outros cria contradicao — foi exatamente o que aconteceu com o comentario do
+    `application.properties`.
 ---

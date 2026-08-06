@@ -110,7 +110,7 @@
         "./mvnw test passa (a mudanca nao deve afetar teste nenhum; se afetar, entender por que antes de seguir)"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "ATENCAO - GATE HUMANO: esta story corresponde a US-008 do PRD e depende da US-007 do PRD, que e OPERACIONAL e nao esta neste prd.json (conferir no Supabase que flyway_schema_history tem V1 a V6 todas com success = true). A mudanca de codigo aqui e inerte ate o proximo deploy, entao pode ser implementada - MAS escreva em docs/FLYWAY.md e no progress.txt, de forma explicita, que o mantenedor precisa rodar a query de verificacao ANTES de mergear para a main. Se a verificacao falhar, esta mudanca tem que ser revertida antes do deploy. Migrations atuais: V1 a V6 (a ultima e V6__add_invite_code_expiry.sql). Este epico NAO cria migration nova."
     }
   ]

@@ -283,6 +283,35 @@ O script cuida de tudo: build, envio e deploy. Imagens antigas sao limpas automa
 Nenhum segredo passa por `/tmp`: o `ENV_FILE` e copiado diretamente para
 `~/projects/sessao-a-dois/.env` na VPS.
 
+### Flyway: ambiente novo com schema pre-existente
+
+O `docker-compose-prod.yml` **nao** define mais `SPRING_FLYWAY_BASELINE_ON_MIGRATE`
+(removido em 2026-08-06, Epico 8). Em producao isso e o comportamento desejado: o
+banco ja tem `flyway_schema_history` com V1 a V6, entao uma migration que nao
+aplique tem de **quebrar o deploy de forma visivel** em vez de ser silenciosamente
+marcada como baseline, mascarando um schema divergente.
+
+A variavel so faz sentido numa situacao: subir a aplicacao pela **primeira vez**
+contra um banco que ja tem tabelas mas **nao** tem `flyway_schema_history` (foi o
+caso do Supabase no primeiro deploy com Flyway). Nesse caso, passa-se pontualmente
+na propria execucao, sem editar o compose:
+
+```bash
+# Na VPS, apenas nessa execucao - a variavel nao fica gravada em lado nenhum
+cd ~/projects/sessao-a-dois
+SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d
+```
+
+Depois de a `flyway_schema_history` existir, o `up -d` seguinte volta a ser o
+normal (sem a variavel). Nao acrescentar a linha de volta ao
+`docker-compose-prod.yml` nem ao `.env`: ligada permanentemente, ela transforma um
+erro de migration num "baseline" silencioso.
+
+> Antes de qualquer deploy que traga migration nova, reler
+> `docs/FLYWAY.md` - em especial a nota sobre o **connection pooler em modo
+> Transaction** (porta 6543) do Supabase, que pode fazer o Flyway falhar ao obter
+> o advisory lock.
+
 ---
 
 ## CI/CD - deploy automatico no merge para a main
