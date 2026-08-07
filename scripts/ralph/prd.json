@@ -1,117 +1,290 @@
 {
   "project": "Sessao a Dois",
-  "branchName": "epico8/cicd-infraestrutura",
-  "description": "Epico 8 - CI/CD e Infraestrutura. Fecha a ultima lacuna de cobertura da T8.1 (HealthController), tira o processo Java de root DENTRO do container e da healthcheck ao Docker, cria vigilancia de dependencia nos dois ecossistemas (Dependabot + bun audit com triagem), resolve o pin manual do jjwt e remove o SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose de producao. NAO ha mudanca de UI neste epico - nenhum pixel do client/ e tocado, exceto bun.lock na US-004. NAO ha migration nova (a ultima e V6). PRD completo em tasks/prd-epico-8-cicd-e-infraestrutura.md - ler ANTES de comecar qualquer story, especialmente a tabela de decisoes E8.1 a E8.9. As stories US-007 (conferir flyway_schema_history no Supabase) e US-009 (cadastrar secrets no GitHub e validar o CD na VPS) do PRD sao OPERACIONAIS, exigem credencial de producao e NAO estao neste prd.json - sao executadas manualmente pelo mantenedor.",
+  "branchName": "epic9/couple-lifecycle",
+  "description": "Epico 9 - Ciclo de Vida de Conta e Casal. Entrega os quatro 'caminhos de volta' que o app nunca teve: dissolver o casal, editar perfil, trocar senha e excluir a conta - mais a primeira tela de configuracoes (/conta). Junto vem o fechamento do acoplamento de tracking/match a com.app.couple, substituido pela porta CoupleFacade que trafega SO UUID. PRD completo em tasks/prd-epico-9-ciclo-de-vida-de-conta-e-casal.md - LER ANTES de qualquer story, especialmente a tabela de decisoes E9.1 a E9.20 e a secao 'Consideracoes Tecnicas'. ORDEM OBRIGATORIA: US-001 -> US-002 -> US-003 -> US-004 (o backend do casal e sequencial); US-005/006/007 dependem da US-004; US-008 a US-013 (frontend) dependem dos endpoints; US-014 fecha. UMA UNICA migration no epico inteiro: a V7 da US-001. O ponto de risco esta nas US-002/003/004: findByUser1IdOrUser2Id e findByInviteCode sao os dois caminhos pelos quais o app descobre um casal, e os dois somem.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Teste do HealthController",
-      "description": "Como mantenedor, quero o endpoint de health coberto por teste, para que o probe usado pelo HEALTHCHECK do Docker e pelo smoke test do CD nao possa quebrar sem o CI perceber. (PRD US-001)",
+      "title": "Migration V7 e o conceito de casal dissolvido",
+      "description": "Como desenvolvedor, quero a coluna dissolved_at em couples e o comportamento de dissolucao na propria entidade, para que exista um lugar unico e testavel definindo o que 'casal dissolvido' significa. (PRD US-001)",
       "acceptanceCriteria": [
-        "Existe api/src/test/java/com/app/HealthControllerTest.java usando @WebMvcTest(HealthController.class)",
-        "Teste afirma GET /api/health -> status 200 e corpo JSON {\"status\":\"UP\"}",
-        "Teste afirma que o endpoint responde SEM autenticacao - a rota e consumida pelo Docker e pelo runner do CD, que nao tem cookie de sessao",
-        "./mvnw test passa e o gate do JaCoCo (minimo 90% de linha, execution 'check' em api/pom.xml) continua verde"
+        "Existe api/src/main/resources/db/migration/V7__add_couple_dissolved_at.sql com ALTER TABLE couples ADD COLUMN IF NOT EXISTS dissolved_at TIMESTAMP WITH TIME ZONE; - aditivo e idempotente, sem DROP/TRUNCATE, seguindo api/CLAUDE.md e docs/FLYWAY.md",
+        "Couple tem o campo dissolvedAt (Instant, nullable) e o metodo de dominio dissolve()",
+        "dissolve() num casal ja dissolvido LANCA EXCECAO (E9.7), com teste dos dois casos: primeira chamada grava o instante, segunda lanca",
+        "dissolve() tambem limpa o invite_code (E9.17) reusando o clearInviteCode() que ja existe na entidade - teste provando que o codigo sai NULL junto com o dissolved_at",
+        "CoupleRepository.findActiveByUserId(UUID) existe, filtrando dissolved_at IS NULL, com teste de repositorio provando que um casal dissolvido nao e retornado",
+        "CoupleRepository.findActiveByInviteCode(String) existe filtrando dissolved_at IS NULL, e findByInviteCode e REMOVIDO. Teste de repositorio: casal dissolvido com invite_code preenchido a mao (linha legada) nao e retornado",
+        "O FlywayMigrationTest sobe com V1-V7 em sequencia e ddl-auto=validate verde - a entidade bate com o schema",
+        "docs/FLYWAY.md ganha a linha da V7 na lista de migrations do corpo do documento, com a ressalva do pooler do Supabase no mesmo formato de V3-V5. A linha da V6 tambem esta faltando nessa lista - acrescentar as duas de uma vez",
+        "./mvnw test passa e o gate do JaCoCo (90% de linha) continua verde"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Story pequena e sem dependencia - serve de aquecimento. HealthController vive em com.app (raiz do pacote), NAO em com.app.common nem numa feature. Cuidado com @WebMvcTest e a SecurityConfig: se o slice nao carregar a config de seguranca, o teste de acesso anonimo prova pouco - conferir como SecurityConfigTest (api/src/test/java/com/app/security/) resolve isso e seguir o mesmo padrao em vez de inventar outro."
+      "notes": "Primeira story do epico e a UNICA que cria migration. findByInviteCode so pode ser removido se os callers forem migrados junto (CoupleService.joinCouple) - a remocao do metodo e proposital: erro de compilacao em vez de erro de producao (mesma logica da E9.20). NAO remover findByUser1IdOrUser2Id aqui - isso e US-002, que migra os quatro callers de uma vez. Nao ha psql/docker no sandbox: o FlywayMigrationTest cai para H2 silenciosamente sem DB_URL no ambiente; registrar isso no progress.txt em vez de presumir que o Postgres real foi exercido."
     },
     {
       "id": "US-002",
-      "title": "Container roda como nao-root e expoe healthcheck",
-      "description": "Como operador da VPS, quero o processo Java rodando sem privilegio e com sinal de saude no Docker, para que um escape de container nao entregue root no host e um docker ps mostre imediatamente se a API esta viva. (PRD US-002)",
+      "title": "Porta CoupleFacade - so UUID cruza a fronteira",
+      "description": "Como mantenedor, quero uma porta explicita em com.app.couple que trafega apenas identificadores, para que outras features resolvam o casal do usuario sem conhecer a entidade e o filtro de casal dissolvido exista num lugar so. (PRD US-002)",
       "acceptanceCriteria": [
-        "No estagio de runtime de api/Dockerfile: addgroup -g 10001 -S app && adduser -u 10001 -S app -G app, seguido de USER app - UID/GID FIXOS em 10001, nao os que o adduser escolheria sozinho",
-        "O jar e copiado com dono app: COPY --from=build --chown=app:app /app/target/*.jar app.jar",
-        "HEALTHCHECK --interval=30s --timeout=3s --start-period=40s CMD wget -qO- http://localhost:8080/api/health || exit 1 - porta INTERNA 8080, nunca a 8085 (que e so o mapeamento do host no docker-compose-prod.yml)",
-        "A ordem de cache das camadas do multi-stage foi preservada: COPY .mvn/, mvnw, pom.xml e dependency:go-offline continuam ANTES de COPY src/",
-        "docs/DEPLOY.md ganha o passo obrigatorio, ANTES do primeiro deploy com esta mudanca: ssh root@31.97.169.38 \"chown -R 10001:10001 /var/lib/sessao-a-dois/security-audit-logs\"",
-        "docs/DEPLOY.md explica POR QUE esse chown e obrigatorio: o bind mount pertence a root e o usuario app nao conseguiria escrever security-audit.log - a trilha de auditoria do Epico 5 morreria em silencio, sem derrubar o app",
-        "Nenhuma outra mudanca de comportamento no Dockerfile: mesma imagem base, mesmo ENTRYPOINT, mesmo EXPOSE"
+        "Existe com.app.couple.CoupleFacade expondo no minimo: Optional<UUID> findActiveCoupleId(UUID userId); UUID requireActiveCoupleId(UUID userId); List<UUID> memberIds(UUID coupleId); void dissolveIfActive(UUID userId)",
+        "requireActiveCoupleId lanca com.app.common.ResourceNotFoundException quando nao ha casal ativo (E9.16), preservando o 404 que tracking/match ja produzem hoje",
+        "memberIds pula um user2Id nulo (casal ainda sem parceiro), replicando a semantica atual de MediaTrackMapper.memberIds",
+        "dissolveIfActive e NO-OP quando nao ha casal ativo - a US-007 nao pode esbarrar na excecao da E9.7 ao excluir conta de quem ja esta sem casal",
+        "NENHUM metodo da porta retorna, aceita ou expoe a entidade Couple (E9.4)",
+        "A porta resolve o casal por findActiveByUserId - casal dissolvido nunca e retornado",
+        "CoupleService continua sendo o dono da regra; a porta e fachada sobre ele, nao uma segunda implementacao da mesma logica",
+        "findByUser1IdOrUser2Id e REMOVIDO do CoupleRepository (E9.20) e os quatro callers de CoupleService (createCouple, getCurrentCouple, joinCouple, regenerateInviteCode) passam a usar findActiveByUserId. Verificacao objetiva: grep -rn \"findByUser1IdOrUser2Id\" api/src retorna VAZIO",
+        "CoupleDestinationAuthorizationManager resolve o casal por getCurrentCouple e herda o filtro sem alteracao de codigo - com teste provando que um ex-membro NAO consegue assinar /topic/couple/{id}/** do casal dissolvido",
+        "Existe CoupleFacadeTest cobrindo: casal ativo, casal dissolvido, usuario sem casal, memberIds com e sem parceiro, e dissolveIfActive nos dois caminhos (o sem casal nao lanca)",
+        "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "ATENCAO: NAO HA DOCKER NESTE SANDBOX (docker: command not found). Os criterios de 'docker build', 'whoami' e 'docker ps (healthy)' do PRD sao para o mantenedor executar na maquina dele - NAO tente rodar docker aqui e NAO marque a story como incompleta por isso. A verificacao possivel aqui e leitura do Dockerfile + coerencia com docker-compose-prod.yml. Registre no progress.txt que a verificacao com docker ficou pendente do lado humano. A imagem base eclipse-temurin:21-jre-alpine ja traz wget (BusyBox) - NAO instale curl, isso aumentaria a imagem e quebraria o criterio de tamanho do PRD. O risco real desta story nao esta no Dockerfile, esta no chown: reler a secao 'Trilha de auditoria de seguranca' de docs/DEPLOY.md antes de escrever a documentacao."
+      "passes": false,
+      "notes": "DEPENDE DA US-001. A remocao do findByUser1IdOrUser2Id e o coracao da story, nao um detalhe: depois da US-004 um usuario pode ter DUAS linhas em couples (uma dissolvida, uma nova) e o metodo devolve Optional - o primeiro usuario que dissolver e formar casal novo derruba o app com IncorrectResultSizeDataAccessException (500). Apagar o metodo transforma 'esqueci de migrar um caller' em erro de compilacao. com.app.websocket fica FORA do desacoplamento por decisao explicita (E9.19) - ele continua importando Couple/CoupleService e herda o filtro de graca."
     },
     {
       "id": "US-003",
-      "title": "Dependabot para Maven, npm e GitHub Actions",
-      "description": "Como mantenedor, quero PRs automaticos de atualizacao de dependencia, para que uma CVE no backend ou no frontend nao fique meses sem ser notada. (PRD US-003)",
+      "title": "Trocar a associacao Couple por UUID em tracking e match",
+      "description": "Como mantenedor, quero as entidades de tracking e match guardando couple_id como UUID em vez de uma associacao para Couple, para que o import da entidade e do repositorio de outra feature desapareca de vez. (PRD US-003)",
       "acceptanceCriteria": [
-        "Existe .github/dependabot.yml com version: 2 e tres entradas em updates: maven em /api, npm em /client e github-actions em /",
-        "Cadencia semanal (schedule.interval: weekly) nas tres, com open-pull-requests-limit no maximo 5 por ecossistema",
-        "groups configurado para juntar patch e minor num unico PR por ecossistema, deixando major em PR separado",
-        "target-branch: dev nas tres entradas - PR do Dependabot NUNCA abre contra main, senao um bump automatico dispararia deploy de producao",
-        "O YAML e valido (parsear com um validador de YAML antes de commitar; nao existe schema check local)"
+        "MediaTrack, MatchLike e MatchReject trocam @ManyToOne(fetch=LAZY) @JoinColumn(name=\"couple_id\") Couple couple por @Column(name=\"couple_id\", nullable=false) UUID coupleId",
+        "NENHUMA migration e criada - e a mesma coluna e a FK continua declarada pela V1. O teste de migrations continua verde com ddl-auto=validate, provando que o mapeamento novo bate com o schema existente",
+        "As 6 queries JPQL de MediaTrackRepository passam de mt.couple.id para mt.coupleId, e UserReviewRepository de ur.mediaTrack.couple.id para ur.mediaTrack.coupleId. Os derived queries findByCoupleId*/existsByCoupleId*/countByCoupleId* continuam sem mudanca de assinatura",
+        "Os dois @EntityGraph de MediaTrackRepository (findByCoupleIdAndStatus e findByIdIn) perdem o path \"couple\", ficando {\"reviews\",\"reviews.user\"}",
+        "MediaTrackMapper.memberIds(Couple) some; o mapper passa a receber os nomes ja resolvidos, obtidos via CoupleFacade.memberIds(coupleId) - NO MAXIMO 1 query em users por request, verificavel por contador de queries no teste (padrao da T2.2)",
+        "TrackingFacade.createTrackFromMatch(Couple, ...) passa a receber UUID coupleId",
+        "NotificationService.notifyCouple(Couple, ...) e notifyRatingRequest(Couple, ...) passam a receber UUID coupleId (E9.19) - os ids dos membros vem do CoupleFacade.memberIds",
+        "RatingRequestService deixa de usar track.getCouple() para achar o parceiro (partnerOf) e resolve por CoupleFacade.memberIds(coupleId) - UMA chamada por operacao, nunca uma por track/notificacao",
+        "MediaTrackController e MatchController resolvem o casal por CoupleFacade, nao por CoupleService + entidade. MediaTrackService e MatchService param de injetar CoupleRepository",
+        "Verificacao objetiva: grep -rn \"com.app.couple.Couple\\b\\|com.app.couple.CoupleRepository\\|com.app.couple.CoupleService\" api/src/main/java/com/app/tracking api/src/main/java/com/app/match retorna VAZIO",
+        "Nenhum endpoint muda de contrato: o JSON de /api/tracking, /api/tracking/stats, /api/tracking/keys e /api/match e identico ao anterior",
+        "Todos os testes existentes de tracking e match passam, ajustados ao mapeamento novo",
+        "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Arquivo novo, sem dependencia de outras stories. O diretorio do maven e /api e o do npm e /client - o repo tem os dois projetos em subpastas, entao 'directory: /' estaria errado para ambos. A entrada github-actions existe porque .github/workflows/ci.yml e deploy.yml pinam actions (actions/checkout@v4, actions/setup-java@v4, oven-sh/setup-bun@v2) que tambem defasam. Nao ha como validar o arquivo de verdade sem o GitHub - a verificacao real (aba Insights > Dependency graph > Dependabot sem erro de parsing) fica do lado humano."
+      "passes": false,
+      "notes": "DEPENDE DA US-002. E a MAIOR story do epico e NAO muda comportamento nenhum - pura refatoracao de mapeamento sobre a mesma coluna. O sinal de que deu certo e duplo: teste de migrations com ddl-auto=validate verde E o JSON de resposta identico. Cuidado com regressao de N+1: perder a associacao nao pode virar uma consulta ao CoupleFacade por track; o ponto mais escorregadio e o RatingRequestService, que hoje acha o parceiro de graca via track.getCouple() e com UUID passa a poder disparar uma query por notificacao se a resolucao nao for icada para fora do laco."
     },
     {
       "id": "US-004",
-      "title": "Limpar o que der de vulnerabilidade e triar o resto",
-      "description": "Como mantenedor, quero a arvore de dependencias do frontend atualizada e cada advisory restante classificado, para que o gate da US-005 possa ser ligado sem deixar o CI vermelho no primeiro commit. (PRD US-004)",
+      "title": "DELETE /api/couple/me - dissolver o vinculo",
+      "description": "Como usuario que entrou no casal errado (ou cujo relacionamento acabou), quero desfazer o vinculo sozinho, para que eu possa formar um casal novo sem depender de intervencao manual no banco. (PRD US-004)",
       "acceptanceCriteria": [
-        "bun update executado em client/ (SEM --latest, para nao puxar breaking change), bun.lock commitado",
-        "bun run typecheck && bun run lint && bun run build passam depois do update",
-        "Nova execucao de bun audit registrada no progress.txt: quantos advisories restam, por severidade",
-        "Cada advisory ALTO ou CRITICO restante esta numa tabela em client/CLAUDE.md com: pacote, caminho de dependencia, se e dependencies ou devDependencies, e se ha versao corrigida disponivel",
-        "O caso do react-router esta registrado explicitamente: o advisory GHSA-qwww-vcr4-c8h2 e 'RSC Mode CSRF Bypass', e este app e uma SPA em Vite que NAO usa React Server Components - o vetor nao existe aqui; a correcao seria o major 7.x -> 8.x, que NAO entra neste epico",
-        "Nenhuma dependencia de PRODUCAO com advisory alto/critico fica sem decisao escrita (corrigir agora ou ignorar com justificativa)",
-        "NENHUMA mudanca de codigo do client/ alem de package.json/bun.lock - esta story nao altera nenhum componente, nenhum pixel"
+        "DELETE /api/couple/me dissolve o casal do usuario autenticado e responde 204, sem corpo",
+        "A acao e UNILATERAL: qualquer um dos dois membros dissolve, sem confirmacao do parceiro",
+        "Depois de dissolver, GET /api/couple/me responde 404 para AMBOS os ex-membros",
+        "Depois de dissolver, ambos conseguem POST /api/couple e POST /api/couple/join num casal novo, sem UserAlreadyInCoupleException",
+        "O invite_code e limpo na dissolucao (E9.17): POST /api/couple/join com o codigo de um casal dissolvido responde 404 de convite inexistente - teste do caso normal (codigo limpo pelo dissolve()) E da linha legada (codigo preenchido a mao + dissolved_at, barrado por findActiveByInviteCode)",
+        "Nenhum endpoint de tracking, match ou notification retorna dado do casal dissolvido para os ex-membros - teste de integracao que cria tracks, dissolve e reconsulta",
+        "notification (E9.18): GET /api/notifications e GET /api/notifications/unread-count passam a ser ESCOPADOS ao casal ativo. Depois de dissolver a lista vem vazia e o contador zera para ambos; formado um casal novo, so as notificacoes dele aparecem. Exige mudar findByRecipientUserIdOrderByCreatedAtDesc e countByRecipientUserIdAndReadFalse",
+        "As linhas de media_track, user_review e notification do casal dissolvido CONTINUAM no banco - verificado por contagem antes/depois no mesmo teste",
+        "DELETE /api/couple/me sem casal ativo responde 404, nao 500",
+        "Dissolver duas vezes: a segunda chamada responde 404 (o casal ja nao e ativo), sem que a excecao da E9.7 escape como 500",
+        "O evento e registrado pelo SecurityAuditLogger num metodo novo coupleDissolved(userId, coupleId), no mesmo formato dos eventos existentes",
+        "Rate limit POR USUARIO de 5/hora, com a propriedade app.rate-limit.couple-dissolve em RateLimitProperties (Limit PROPRIO, nao reaproveitado do coupleJoinByUser), consumida no CoupleService no padrao de enforceJoinRateLimit (chave couple-dissolve:user:<id>). Exceder retorna 429 com Retry-After",
+        "CoupleServiceTest e CoupleControllerTest cobrem: dissolver com sucesso, dissolver duas vezes, dissolver sem casal, recriar casal depois de dissolver, entrar com codigo de convite de casal dissolvido, e o bloqueio por rate limit",
+        "Teste explicito do cenario da E9.20: usuario com um casal dissolvido E um ativo responde 200 no GET /api/couple/me (nao 500), idem POST /api/couple/invite-code/regenerate",
+        "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Estado medido em 2026-08-06 (rodar de novo, pode ter mudado): 15 advisories, 6 altos. Os altos vem de ip-address, brace-expansion (x2), undici e fast-uri - todos por shadcn e eslint, ou seja devDependencies que nao entram no bundle do usuario - mais react-router, que e o unico de producao. bun audit da versao 1.3.14 NAO tem flag --prod/--production (so --json, --audit-level e --ignore), por isso a separacao prod/dev e feita por lista explicita, nao por flag (decisao E8.9 do PRD). Se o bun update quebrar typecheck/lint/build, REVERTA o update e registre no progress.txt qual pacote quebrou - deixar o build quebrado e pior do que deixar um advisory de devDependency."
+      "passes": false,
+      "notes": "DEPENDE DA US-003. E aqui que a semantica muda de verdade - as US-001 a US-003 so prepararam o terreno. A AC de notification (E9.18) e a unica que NAO sai de graca do filtro de casal ativo: tracking e match resolvem o casal no controller e ja devolvem 404 depois da dissolucao, mas notification filtra so por recipient_user_id, entao os MATCH/NO_MATCH do casal antigo continuariam listados e contados no sino. Filtrar, nao apagar (D13). Rate limit por usuario NAO passa pelo RateLimitFilter (que casa por metodo+path e chaveia por IP) - e consumido dentro do servico."
     },
     {
       "id": "US-005",
-      "title": "Ligar o gate do bun audit no CI",
-      "description": "Como mantenedor, quero o CI barrando dependencia do frontend com vulnerabilidade alta ou critica, para que ela nao chegue a producao pelo merge na main. (PRD US-005)",
+      "title": "PATCH /api/user/me - editar nome e e-mail",
+      "description": "Como usuario que errou o nome no cadastro ou trocou de e-mail, quero corrigir meus dados, para que a conta reflita quem eu sou hoje. (PRD US-005)",
       "acceptanceCriteria": [
-        "O job frontend de .github/workflows/ci.yml ganha um step 'bun audit --audit-level=high' DEPOIS do bun install e ANTES do build",
-        "Severidade moderada ou baixa NAO quebra o build; alta e critica quebram",
-        "Os advisories triados na US-004 como sem risco real entram como --ignore=<id> no proprio step, cada um com comentario dizendo o pacote, por que nao alcanca o usuario (ex.: 'so devDependency da CLI do shadcn') e o que faria revisitar a decisao",
-        "Com a lista de ignores em vigor, 'cd client && bun audit --audit-level=high <ignores>' sai com codigo 0 - verificar rodando de verdade, nao presumir",
-        "Verificado que o gate FUNCIONA: removendo temporariamente um dos --ignore, o comando falha; depois desfazer a remocao",
-        "O step nao usa continue-on-error nem '|| true' - se e gate, tem que falhar o job"
+        "Existem UserProfileController e UserProfileService em com.app.user - a feature dona do dado",
+        "PATCH /api/user/me aceita name, email, ou ambos, e responde 200 com um UserProfileResponse PROPRIO de com.app.user - com.app.auth.UserSummary nao e reusado nem importado (E9.15)",
+        "Campo ausente no corpo nao e alterado (semantica de PATCH, nao de PUT)",
+        "E-mail ja usado por outra conta responde 409, reusando o EmailAlreadyExistsException de com.app.auth (coerente com a D4)",
+        "E-mail malformado ou nome em branco respondem 400, no mesmo formato de erro de validacao dos demais endpoints (GlobalExceptionHandler)",
+        "GET /api/auth/me reflete os valores novos na requisicao seguinte",
+        "A sessao CONTINUA VALIDA depois da troca de e-mail - o token carrega userId, nao e-mail",
+        "O evento e registrado pelo SecurityAuditLogger (profileUpdated), SEM logar o valor novo do e-mail (so quais campos mudaram)",
+        "O controller NAO injeta UserRepository (anti-pattern #1 da docs/ARCHITECTURE.md)",
+        "Rate limit por usuario de 10/hora (app.rate-limit.profile-update), 429 com Retry-After ao exceder",
+        "UserProfileServiceTest e UserProfileControllerTest cobrem sucesso (cada campo e ambos), conflito de e-mail, payload invalido e rate limit",
+        "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "DEPENDE DA US-004 - ligar o gate antes da triagem deixa o CI vermelho e, por tabela, bloqueia TODO deploy (o deploy.yml reusa o ci.yml via workflow_call). Este e o unico ponto do epico que pode travar producao se feito na ordem errada. O ci.yml hoje tem 2 jobs (test e frontend) e o trigger workflow_call ja existe - nao mexer neles alem de acrescentar o step. Os ids aceitos pelo --ignore sao os que o bun audit imprime (formato GHSA-xxxx-xxxx-xxxx); confirmar na pratica que o bun aceita GHSA e nao so CVE, e se so aceitar CVE, registrar isso no progress.txt e usar o id correspondente."
+      "passes": false,
+      "notes": "DEPENDE DA US-004 so por ordem de entrega; nao ha dependencia tecnica. com.app.user hoje tem ZERO endpoints - so a entidade User e o UserRepository. Esta story cria a borda HTTP da feature. Nao ha verificacao do e-mail novo por link (E9.11) - isso e o Epico 10."
     },
     {
       "id": "US-006",
-      "title": "Resolver o pin manual do jjwt",
-      "description": "Como mantenedor, quero saber se o 0.12.6 do jjwt e um pin necessario ou apenas heranca, para que a biblioteca que assina os tokens de sessao nao defase em silencio. (PRD US-006)",
+      "title": "PUT /api/auth/password - trocar a senha estando autenticado",
+      "description": "Como usuario que suspeita que a senha vazou, quero troca-la e derrubar todas as sessoes ativas, para que um eventual atacante perca o acesso na hora. (PRD US-006)",
       "acceptanceCriteria": [
-        "Executado ./mvnw dependency:tree -Dincludes=io.jsonwebtoken (ou help:effective-pom) e o resultado registrado no progress.txt: o BOM do Spring Boot gerencia io.jsonwebtoken ou nao?",
-        "SE O BOM GERENCIA: as 3 tags <version>0.12.6</version> de jjwt-api, jjwt-impl e jjwt-jackson sao removidas de api/pom.xml",
-        "SE O BOM NAO GERENCIA: as 3 declaracoes passam a usar uma property unica <jjwt.version> em <properties>, com comentario explicando que o jjwt esta fora do BOM do Spring Boot e por isso precisa de bump manual, e que o Dependabot da US-003 e quem passa a avisar",
-        "Em qualquer dos dois caminhos: a versao efetiva do jjwt NAO regride em relacao a 0.12.6 - conferir com dependency:tree depois da mudanca",
-        "./mvnw test passa",
-        "api/CLAUDE.md menciona a situacao resolvida, para a proxima pessoa nao repetir a investigacao"
+        "PUT /api/auth/password aceita currentPassword + newPassword e responde 204 no sucesso",
+        "Senha atual errada responde 401 e NADA e alterado - nem a senha, nem as sessoes",
+        "newPassword e validado com @Size(min=8, max=72), a mesma politica da T5.3, e uma senha fora dela responde 400 com a mesma mensagem do cadastro (E9.9)",
+        "A senha nova e gravada com o mesmo PasswordEncoder usado no login",
+        "RefreshTokenService.revokeFamily(userId) e chamado: TODAS as sessoes caem, inclusive a que fez a troca (E9.8)",
+        "A resposta limpa os cookies access_token e refresh_token via AuthCookieService.expiredAccessTokenCookie()/expiredRefreshTokenCookie()",
+        "Depois da troca, POST /api/auth/refresh com o refresh anterior responde 401",
+        "Depois da troca, o login com a senha nova funciona e com a antiga responde 401",
+        "O evento e registrado pelo SecurityAuditLogger (passwordChanged), sem nenhuma das duas senhas",
+        "Rate limit por usuario de 5/hora (app.rate-limit.password-change), 429 com Retry-After",
+        "AuthServiceTest e AuthControllerTest cobrem os cinco cenarios acima mais o rate limit",
+        "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Story de investigacao com dois caminhos possiveis - a decisao E8.3 do PRD manda executar o comando ANTES de escolher. Nao presumir que o BOM gerencia (o backlog levantou a duvida justamente porque ninguem verificou). jjwt e a biblioteca que assina os JWT de sessao (com.app.security.JwtService), entao um downgrade acidental de versao aqui e serio: conferir a versao efetiva depois da mudanca e nao so o fato de o build passar."
+      "passes": false,
+      "notes": "DEPENDE DA US-004 so por ordem de entrega. revokeFamily foi construido no Epico 4 e hoje so e chamado no logout - esta story finalmente da a ele o uso que justificava a construcao. A politica de senha NAO tem classe validadora dedicada: a politica E a anotacao @Size(min=8,max=72) do RegisterRequest. Nao inventar um validador novo."
     },
     {
       "id": "US-007",
-      "title": "Remover SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose",
-      "description": "Como mantenedor, quero que uma migration que nao aplique quebre o deploy visivelmente, para que um schema divergente nunca seja mascarado como baseline. (PRD US-008)",
+      "title": "DELETE /api/user/me - excluir a conta",
+      "description": "Como usuario que quer sair do app, quero apagar minha conta e meus dados pessoais, para que eu exerca o direito de eliminacao da LGPD sem destruir o historico do meu ex-parceiro. (PRD US-007)",
       "acceptanceCriteria": [
-        "A linha SPRING_FLYWAY_BASELINE_ON_MIGRATE: \"true\" nao existe mais em docker-compose-prod.yml",
-        "docs/DEPLOY.md documenta como passa-la pontualmente, caso um ambiente novo precise: SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d",
-        "docs/FLYWAY.md registra que a variavel foi removida, em que data, e que a remocao depende da verificacao manual do flyway_schema_history em producao (US-007 do PRD, operacional)",
-        "O comentario de api/src/main/resources/application.properties sobre 'apenas no primeiro deploy' continua coerente com o estado novo - ajustar se ficou contraditorio",
-        "./mvnw test passa (a mudanca nao deve afetar teste nenhum; se afetar, entender por que antes de seguir)"
+        "DELETE /api/user/me exige password no corpo (E9.12) e responde 204 no sucesso",
+        "Senha errada responde 401 e NADA e apagado",
+        "Existe UserDeletionService em com.app.user que ORQUESTRA a exclusao chamando uma porta por feature (E9.14) - nunca um repositorio de outra feature. Verificacao objetiva: grep -rn \"import com.app.tracking\\.\\|import com.app.match\\.\\|import com.app.notification\\.\" api/src/main/java/com/app/user so pode casar as portas (*Facade), nunca *Repository nem entidade",
+        "Nascem duas portas novas, cada uma com um unico metodo: com.app.match.MatchFacade.deleteUserData(UUID) e com.app.notification.NotificationFacade.deleteUserData(UUID). TrackingFacade ganha deleteUserData(UUID); RefreshTokenService ganha deleteAllForUser(UUID)",
+        "A operacao roda em UMA transacao, nesta ordem: 1) coupleFacade.dissolveIfActive; 2) trackingFacade.deleteUserData (user_review); 3) refreshTokenService.deleteAllForUser (refresh_token); 4) matchFacade.deleteUserData (match_like e match_reject); 5) notificationFacade.deleteUserData (recipient_user_id OU actor_user_id, E9.2); 6) userRepository.delete(user)",
+        "refreshTokenService.deleteAllForUser e um @Modifying @Query de statement unico (delete from RefreshToken r where r.userId = :userId), NUNCA deleteAll(entidades) - a auto-FK fk_refresh_token_replaced_by estoura se as linhas sairem uma a uma. Teste obrigatorio: usuario com cadeia de rotacao de pelo menos 3 tokens encadeados por replaced_by_id, contra o Postgres real",
+        "NENHUMA linha de couples e apagada em momento algum - a dissolucao e UPDATE dissolved_at. notification.couple_id e NOT NULL com FK para couples, e media_track tambem referencia a tabela",
+        "Cada porta nova apaga APENAS o que pertence a sua feature e tem teste proprio provando o escopo - em especial, trackingFacade.deleteUserData NAO toca em media_track",
+        "Os media_track do casal PERMANECEM no banco - pertencem ao couple_id, nao ao usuario (D13). Verificado por contagem no teste",
+        "Depois da exclusao, o login com aquele e-mail responde 401 e o e-mail fica LIVRE para cadastro novo (POST /api/auth/register responde 201, nao 409), e a conta nova NAO herda nada (E9.13)",
+        "O ex-parceiro consegue formar um casal novo depois da exclusao",
+        "NENHUMA violacao de FK: teste de integracao rodando contra o Postgres real do CI (mesmo arranjo da T2.0, @AutoConfigureTestDatabase(replace=NONE)), nao so mock",
+        "A exclusao e ATOMICA: um teste que forca falha no meio confirma rollback completo (conta intacta, nada meio-apagado)",
+        "O evento e registrado pelo SecurityAuditLogger (accountDeleted), com o userId e sem o e-mail completo",
+        "Rate limit por usuario de 3/hora (app.rate-limit.account-delete)",
+        "Testes de service e controller cobrindo: sucesso com casal, sucesso sem casal, senha errada, atomicidade e integridade referencial",
+        "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "ATENCAO - GATE HUMANO: esta story corresponde a US-008 do PRD e depende da US-007 do PRD, que e OPERACIONAL e nao esta neste prd.json (conferir no Supabase que flyway_schema_history tem V1 a V6 todas com success = true). A mudanca de codigo aqui e inerte ate o proximo deploy, entao pode ser implementada - MAS escreva em docs/FLYWAY.md e no progress.txt, de forma explicita, que o mantenedor precisa rodar a query de verificacao ANTES de mergear para a main. Se a verificacao falhar, esta mudanca tem que ser revertida antes do deploy. Migrations atuais: V1 a V6 (a ultima e V6__add_invite_code_expiry.sql). Este epico NAO cria migration nova."
+      "passes": false,
+      "notes": "DEPENDE DA US-004 e US-006 (reusa a porta de dissolucao e a verificacao de senha). ATENCAO: sem DB_URL no ambiente, o arranjo @AutoConfigureTestDatabase(replace=NONE) cai para H2 SILENCIOSAMENTE - o teste passa localmente e so o CI exerce o caminho que importa. Registrar isso no progress.txt em vez de afirmar que a integridade referencial foi provada. H2 em modo PostgreSQL nao e prova suficiente para a auto-FK do refresh_token."
+    },
+    {
+      "id": "US-008",
+      "title": "Rota /conta - casca, layout e entrada no Header",
+      "description": "Como usuario, quero uma tela de Conta alcancavel pela navegacao, para que eu descubra que essas acoes existem sem precisar de uma URL decorada. (PRD US-008)",
+      "acceptanceCriteria": [
+        "Existe a rota PROTEGIDA /conta em client/src/App.tsx, dentro de ProtectedRoute e FORA do guard RequireCouple (que envolve /hub, /match e /dashboard) - quem nao tem casal, inclusive quem acabou de dissolver, precisa chegar na tela",
+        "A tela e alcancavel pelo Header, tanto no menu desktop quanto no mobile ja existentes (client/src/components/Header.tsx), sem quebrar o layout dos itens atuais",
+        "A tela renderiza os quatro blocos (Perfil, Senha, Casal, Excluir conta) como secoes distintas e rotuladas, ainda que o conteudo funcional venha nas US-009 a US-012",
+        "O visual e coerente com o design system em uso e com o prototipo em docs/design/claude-design-project/: fundo #09090a, cartoes #161513 com borda rgba(255,255,255,.07) e raio 18px, titulos em Bricolage Grotesque, corpo em DM Sans, acento ambar #ffcb2b, texto secundario #a6a39a",
+        "A skill frontend-design foi INVOCADA ANTES de escrever qualquer codigo desta story",
+        "bun run typecheck, bun run lint e bun run build passam"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "DEPENDE DAS US-004 a US-007. Primeira tela de configuracoes do app - nao tem correspondente no prototipo, o visual deve ser DERIVADO do que ja existe, nao inventado. A zona destrutiva precisa de tratamento visual proprio (vermelho, borda de alerta); esse token nao existe no design system e nasce aqui, aplicado de forma consistente nos dois blocos destrutivos (US-011 e US-012). Verificacao no browser: se nao houver ferramenta de browser disponivel, registrar no progress.txt que a conferencia visual ficou pendente do lado humano."
+    },
+    {
+      "id": "US-009",
+      "title": "Bloco Perfil - editar nome e e-mail",
+      "description": "Como usuario, quero editar meu nome e e-mail na tela de Conta, para que eu corrija meus dados sem sair do app. (PRD US-009)",
+      "acceptanceCriteria": [
+        "O bloco carrega os valores atuais do usuario a partir do useAuthStore e permite editar ambos os campos",
+        "Salvar chama PATCH /api/user/me e atualiza o user do useAuthStore com a resposta - o Header reflete o nome novo sem reload",
+        "409 (e-mail em uso) vira mensagem visivel e especifica junto ao campo de e-mail",
+        "400 (validacao) vira mensagem visivel, sem .catch(() => {}) em lugar nenhum (anti-pattern #4)",
+        "Botao de salvar fica desabilitado enquanto a requisicao esta em voo e mostra estado de carregamento",
+        "Sucesso mostra confirmacao visivel",
+        "Os tipos do request/response estao espelhados a mao em client/src/types/ - nao ha codegen (client/CLAUDE.md)",
+        "A skill frontend-design foi invocada antes de escrever o codigo",
+        "bun run typecheck e bun run lint passam"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "DEPENDE DA US-005 e US-008. Sincronizacao de tipos entre api/ e client/src/types/ e MANUAL - nao ha codegen."
+    },
+    {
+      "id": "US-010",
+      "title": "Bloco Senha - trocar a senha",
+      "description": "Como usuario, quero trocar minha senha na tela de Conta, para que eu reaja a uma suspeita de vazamento sem depender de suporte. (PRD US-010)",
+      "acceptanceCriteria": [
+        "O bloco tem os campos senha atual, senha nova e confirmacao da senha nova",
+        "Os requisitos da senha (8 a 72 caracteres) aparecem ANTES do submit, nao so como erro depois",
+        "Confirmacao divergente e barrada no cliente, sem chamar a API",
+        "Submeter chama PUT /api/auth/password",
+        "401 (senha atual errada) vira mensagem visivel junto ao campo de senha atual",
+        "No sucesso, a tela AVISA que todas as sessoes foram encerradas, limpa o estado do useAuthStore, desconecta o WebSocket da useMatchStore e redireciona para /login (E9.8)",
+        "A skill frontend-design foi invocada antes de escrever o codigo",
+        "bun run typecheck e bun run lint passam"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "DEPENDE DA US-006 e US-008. O redirect para /login nao e um efeito colateral incomodo - e o ponto da E9.8: se a senha estava comprometida, a sessao do atacante morre junto. A tela precisa EXPLICAR isso, senao parece bug."
+    },
+    {
+      "id": "US-011",
+      "title": "Bloco Casal - desfazer o vinculo",
+      "description": "Como usuario, quero desfazer o vinculo do casal pela tela de Conta, para que eu corrija um pareamento errado ou encerre o relacionamento no app. (PRD US-011)",
+      "acceptanceCriteria": [
+        "O bloco mostra o parceiro atual (nome/avatar, reusando o que o CoupleAvatars ja faz) e a data de inicio do vinculo, quando disponivel",
+        "Sem casal ativo, o bloco mostra estado vazio com caminho para /join, em vez de erro",
+        "A acao de desfazer exige CONFIRMACAO EXPLICITA num dialogo que diz exatamente o que acontece: o vinculo acaba, o historico do casal deixa de ser acessivel para os dois, e ambos ficam livres para formar um casal novo do zero",
+        "Confirmar chama DELETE /api/couple/me",
+        "No sucesso, o couple do useAuthStore e limpo E a conexao STOMP da useMatchStore e desconectada - senao a store fica assinando o topico de um casal que nao existe mais",
+        "Depois do sucesso, o app leva o usuario para o fluxo de convite (/join)",
+        "404 e 429 da API viram mensagem visivel, cada um com texto proprio (sem casal / muitas tentativas)",
+        "A skill frontend-design foi invocada antes de escrever o codigo",
+        "bun run typecheck e bun run lint passam"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "DEPENDE DA US-004 e US-008. DeleteTrackDialog e o precedente mais proximo de confirmacao destrutiva no codebase - reusar o padrao, nao inventar outro."
+    },
+    {
+      "id": "US-012",
+      "title": "Bloco Excluir conta - zona destrutiva",
+      "description": "Como usuario, quero apagar minha conta pela tela de Conta, para que eu saia do app definitivamente sem pedir nada a ninguem. (PRD US-012)",
+      "acceptanceCriteria": [
+        "O bloco e visualmente destacado como zona destrutiva, separado dos demais",
+        "A exclusao exige DUAS barreiras: a senha atual E confirmacao por digitacao (o usuario digita uma palavra de confirmacao exibida na tela)",
+        "O dialogo diz explicitamente o que sera apagado (conta, avaliacoes, notificacoes, sessoes) e o que PERMANECE (o historico de titulos do casal, que fica com o ex-parceiro)",
+        "Confirmar chama DELETE /api/user/me com a senha no corpo",
+        "401 (senha errada) vira mensagem visivel e NAO fecha o dialogo",
+        "No sucesso, todo o estado local e limpo - useAuthStore (que ja expoe a limpeza da chave unica SESSION_STORAGE_KEY do localStorage) e useMatchStore desconectado - e o usuario vai para a landing (/)",
+        "A skill frontend-design foi invocada antes de escrever o codigo",
+        "bun run typecheck, bun run lint e bun run build passam"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "DEPENDE DA US-007 e US-008. Usa o token visual de zona destrutiva criado na US-008 - o mesmo tratamento do bloco Casal, com peso maior."
+    },
+    {
+      "id": "US-013",
+      "title": "Aviso em /join para o ex-parceiro",
+      "description": "Como usuario cujo parceiro desfez o vinculo sem avisar, quero entender por que o casal sumiu, para que eu nao ache que o app perdeu meus dados. (PRD US-013)",
+      "acceptanceCriteria": [
+        "Quando GET /api/auth/me (ou GET /api/couple/me) volta sem casal E o cliente tinha um couple no cache de UI (SESSION_STORAGE_KEY do useAuthStore), /join exibe um aviso do tipo 'seu vinculo foi desfeito' com explicacao curta do que acontece com o historico",
+        "O gatilho e exatamente esse cache - NENHUMA flag paralela nova em localStorage",
+        "O aviso aparece UMA VEZ: depois de visto (ou depois de formar um casal novo), o cache que o dispara e limpo e ele nao volta",
+        "Um usuario que nunca teve casal ve o /join normal, sem nenhum aviso - verificado explicitamente",
+        "O usuario que FEZ a dissolucao nao ve o aviso (a US-011 ja limpou o couple do store no sucesso)",
+        "A skill frontend-design foi invocada antes de escrever o codigo",
+        "bun run typecheck e bun run lint passam"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "DEPENDE DA US-011. E o meio-termo da E9.10 - sem STOMP, sem notificacao, so um estado de tela. A elegancia da solucao esta em nao criar flag nova: o proprio cache de UI que ficou obsoleto e o sinal."
+    },
+    {
+      "id": "US-014",
+      "title": "Fechar a documentacao do epico",
+      "description": "Como proximo desenvolvedor (ou agente), quero a documentacao refletindo os endpoints, a porta e o mapeamento novos, para que eu nao descubra o CoupleFacade e o dissolved_at so lendo o codigo. (PRD US-014)",
+      "acceptanceCriteria": [
+        "docs/ARCHITECTURE.md secao 3 descreve com.app.user com os endpoints de perfil e exclusao (hoje diz 'apenas a entidade User e UserRepository') e registra o CoupleFacade como porta de com.app.couple, ao lado do TrackingFacade, deixando explicito que ela trafega SO UUID",
+        "docs/ARCHITECTURE.md secao 3 atualiza a descricao de com.app.match (hoje diz depender de tracking so pelo TrackingFacade - passa a valer o mesmo para couple via CoupleFacade) e registra MatchFacade e NotificationFacade como portas novas",
+        "docs/ARCHITECTURE.md secao 4 registra dissolved_at nos campos da entidade Couple, a regra de negocio da dissolucao (unilateral, preserva o historico, libera os dois para um casal novo) e o fato de MediaTrack guardar couple_id como UUID, sem associacao JPA",
+        "docs/FLYWAY.md lista a V6 e a V7 na lista de migrations do corpo (feito na US-001 - aqui so se confere que continua correto)",
+        "docs/ARCHITECTURE.md secao 3 registra que com.app.notification passou a receber UUID coupleId em vez da entidade Couple, e que com.app.websocket e a excecao deliberada a regra de dependencia (E9.19)",
+        "POST-MVP-TASK.md tem as T9.1-T9.5 marcadas como concluidas, no mesmo formato usado pelos epicos anteriores",
+        "api/CLAUDE.md e client/CLAUDE.md mencionam os endpoints novos onde ja listam os existentes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "DEPENDE DAS US-001 a US-013. Story de documentacao pura, sem codigo de producao. Vale registrar tambem o ponto de atencao do fim do PRD: o epico cria TRES portas novas (CoupleFacade, MatchFacade, NotificationFacade); se alguma se mostrar um unico metodo que nunca ganha um segundo, anotar que ela existe por causa da regra de dependencia, nao porque a feature precisava de uma fachada rica."
     }
   ]
 }

@@ -110,7 +110,7 @@ class CoupleServiceTest {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
 		Couple couple = new Couple(user1Id, "ABC234");
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.empty());
 		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -122,7 +122,7 @@ class CoupleServiceTest {
 	@Test
 	void rejectsJoinWithUnknownInviteCode() {
 		UUID userId = UUID.randomUUID();
-		when(coupleRepository.findByInviteCode("NOPE")).thenReturn(Optional.empty());
+		when(coupleRepository.findActiveByInviteCode("NOPE")).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> coupleService.joinCouple(userId, "NOPE"))
 			.isInstanceOf(InviteCodeNotFoundException.class);
@@ -132,7 +132,7 @@ class CoupleServiceTest {
 	void rejectsSelfJoin() {
 		UUID userId = UUID.randomUUID();
 		Couple couple = new Couple(userId, "ABC234");
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 
 		assertThatThrownBy(() -> coupleService.joinCouple(userId, "ABC234"))
 			.isInstanceOf(CannotJoinOwnCoupleException.class);
@@ -145,7 +145,7 @@ class CoupleServiceTest {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
 		Couple couple = new Couple(user1Id, "ABC234");
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id))
 			.thenReturn(Optional.of(new Couple(user2Id, "OTHER01")));
 
@@ -159,7 +159,7 @@ class CoupleServiceTest {
 	void blocksJoinAfterExceedingPerUserLimit() {
 		CoupleService limitedCoupleService = newCoupleServiceWithJoinByUserLimit(1, Duration.ofMinutes(1));
 		UUID userId = UUID.randomUUID();
-		when(coupleRepository.findByInviteCode("NOPE")).thenReturn(Optional.empty());
+		when(coupleRepository.findActiveByInviteCode("NOPE")).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
 			.isInstanceOf(InviteCodeNotFoundException.class);
@@ -174,7 +174,7 @@ class CoupleServiceTest {
 	void releasesJoinByUserRateLimitAfterWindow() throws InterruptedException {
 		CoupleService limitedCoupleService = newCoupleServiceWithJoinByUserLimit(1, Duration.ofMillis(150));
 		UUID userId = UUID.randomUUID();
-		when(coupleRepository.findByInviteCode("NOPE")).thenReturn(Optional.empty());
+		when(coupleRepository.findActiveByInviteCode("NOPE")).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> limitedCoupleService.joinCouple(userId, "NOPE"))
 			.isInstanceOf(InviteCodeNotFoundException.class);
@@ -192,7 +192,7 @@ class CoupleServiceTest {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
 		Couple couple = new Couple(user1Id, "ABC234", Instant.now().minus(Duration.ofMinutes(1)));
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 
 		assertThatThrownBy(() -> coupleService.joinCouple(user2Id, "ABC234"))
 			.isInstanceOf(InviteCodeExpiredException.class);
@@ -205,7 +205,7 @@ class CoupleServiceTest {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
 		Couple couple = new Couple(user1Id, "ABC234", Instant.now().plus(Duration.ofDays(1)));
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.empty());
 		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -219,7 +219,7 @@ class CoupleServiceTest {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
 		Couple couple = new Couple(user1Id, "ABC234");
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.empty());
 		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -233,7 +233,7 @@ class CoupleServiceTest {
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
 		Couple couple = new Couple(user1Id, "ABC234", Instant.now().plus(Duration.ofDays(1)));
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 		when(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).thenReturn(Optional.empty());
 		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -265,7 +265,7 @@ class CoupleServiceTest {
 		UUID user3Id = UUID.randomUUID();
 		Couple couple = new Couple(user1Id, "ABC234");
 		couple.setUser2Id(user2Id);
-		when(coupleRepository.findByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
 		when(coupleRepository.findByUser1IdOrUser2Id(user3Id, user3Id)).thenReturn(Optional.empty());
 
 		assertThatThrownBy(() -> coupleService.joinCouple(user3Id, "ABC234"))

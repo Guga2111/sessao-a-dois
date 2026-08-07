@@ -53,7 +53,7 @@ public class CoupleService {
 	public Couple joinCouple(UUID userId, String inviteCode) {
 		enforceJoinRateLimit(userId);
 
-		Couple couple = coupleRepository.findByInviteCode(inviteCode)
+		Couple couple = coupleRepository.findActiveByInviteCode(inviteCode)
 			.orElseThrow(InviteCodeNotFoundException::new);
 
 		Instant expiresAt = couple.getInviteCodeExpiresAt();
