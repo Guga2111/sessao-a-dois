@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header"
 import { AccountSection, ReachChip } from "@/screens/account/AccountSection"
 import type { SectionReach } from "@/screens/account/AccountSection"
+import { CoupleSection } from "@/screens/account/CoupleSection"
 import { PasswordSection } from "@/screens/account/PasswordSection"
 import { ProfileSection } from "@/screens/account/ProfileSection"
 
@@ -36,7 +37,6 @@ const SECTIONS: SectionDef[] = [
       "Desfazer o vínculo libera vocês dois para formar um casal novo. O histórico fica guardado, mas sai do alcance dos dois.",
     reach: "both",
     destructive: true,
-    placeholder: "A ação de desfazer o vínculo entra aqui.",
   },
   {
     id: "excluir",
@@ -119,6 +119,8 @@ export function AccountScreen() {
                   <ProfileSection />
                 ) : section.id === "senha" ? (
                   <PasswordSection />
+                ) : section.id === "casal" ? (
+                  <CoupleSection />
                 ) : (
                   <p className="m-0 rounded-[12px] border border-dashed border-white/10 px-4 py-3.5 text-[13px] text-[#a6a39a]">
                     {section.placeholder}

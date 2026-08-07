@@ -163,6 +163,22 @@ mensagem mora em `screens/account/helpers.ts`, nao no `.tsx` do bloco: um arquiv
 componente que exporta tambem um valor comum reprova em `react-refresh/only-export-components`
 (exportar dois componentes, ou um componente + `export type`, passa).
 
+### Desfazer o vinculo: `dissolveCouple` (e o WebSocket junto)
+
+`useAuthStore.dissolveCouple()` (US-011) manda o `DELETE /api/couple/me`, **desconecta a
+`useMatchStore`** e zera o `couple` (store + `localStorage`), mantendo a sessao. O
+disconnect nao e opcional: sem ele a store continua assinando `/topic/couple/{id}/**` de
+um casal que nao existe mais. Mesma regra da mutacao de perfil — a tela nunca chama a API
+e mexe no store por fora. Erros do endpoint: **404** = ja nao ha casal ativo, **429** =
+limite de 5/h por usuario; cada um com texto proprio.
+
+### Link com cara de botao: `render`, nao `asChild`
+
+O `Button` de `components/ui/button.tsx` embrulha `@base-ui/react/button`, que **nao tem**
+`asChild` (padrao do Radix): o equivalente e a prop `render`
+(`<Button render={<Link to="/join" />}>Formar um casal</Button>`), com o texto ainda como
+children. Mesma prop usada por `TooltipTrigger`/`PopoverTrigger` no resto do codebase.
+
 Mapeamento de erro do `PATCH /api/user/me` em `screens/account/ProfileSection.tsx`, para
 reusar nos outros blocos: **409** -> mensagem no campo de e-mail; **400** -> o corpo do
 `GlobalExceptionHandler` e `{ message, errors: { <campo>: <mensagem> } }`, entao da para

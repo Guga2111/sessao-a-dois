@@ -61,6 +61,7 @@ interface AuthState {
   regenerateInviteCode: () => Promise<Couple>
   updateProfile: (request: UpdateProfileRequest) => Promise<AuthUser>
   changePassword: (request: ChangePasswordRequest) => Promise<void>
+  dissolveCouple: () => Promise<void>
   clearSession: () => void
   loadCurrentUser: () => Promise<void>
 }
@@ -163,6 +164,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // chama precisa avisar o usuario primeiro e so entao chamar `clearSession`.
   changePassword: async (request) => {
     await api.put("/api/auth/password", request)
+  },
+
+  // O casal deixa de existir para os dois (E9.17) — a sessao continua valida. O WebSocket
+  // TEM que cair junto: a `useMatchStore` esta inscrita no topico de um casal que acabou.
+  dissolveCouple: async () => {
+    await api.delete("/api/couple/me")
+    useMatchStore.getState().disconnect()
+    persistSession(get().user, null)
+    set({ couple: null })
   },
 
   // Encerra a sessao do lado do cliente sem falar com a API: usado pelo `logout` (depois do

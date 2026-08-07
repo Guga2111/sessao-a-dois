@@ -231,7 +231,7 @@
         "bun run typecheck e bun run lint passam"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-004 e US-008. DeleteTrackDialog e o precedente mais proximo de confirmacao destrutiva no codebase - reusar o padrao, nao inventar outro."
     },
     {

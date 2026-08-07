@@ -581,3 +581,43 @@ Started: 2026-08-06
   - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
     sandbox e sem backend rodando — ver `client/CLAUDE.md`).
 ---
+
+## 2026-08-07 - US-011 (Bloco Casal - desfazer o vinculo)
+- `client/src/screens/account/CoupleSection.tsx` (novo): o bloco Casal da `/conta`. Estado
+  com casal: `CoupleAvatars` (iniciais de usuario/parceiro), "Você e {nome}", "Juntos no app
+  desde {data}" (`toLocaleDateString("pt-BR")` do `couple.createdAt`) e o elemento de
+  assinatura, a **linha do vínculo** (`BondLine`): uma linha ambar com o chip "{n} dias
+  juntos" no meio — no dialogo de confirmacao a MESMA linha reaparece coral e partida
+  (metade tracejada), entao o desenho muda exatamente o que a acao muda.
+- Estado vazio (`EmptyBond`): sem casal -> "Você não está em um casal" + botao "Formar um
+  casal"; casal sem parceiro (convite aberto) -> "Seu convite está aberto" + "Ver o convite".
+  Os dois levam para `/join`, nunca uma mensagem de erro.
+- `DissolveDialog`: mesmo padrao estrutural do `DeleteTrackDialog` (backdrop `fixed inset-0`
+  proprio, clique fora, Escape, `role="dialog"`/`aria-modal`), com as tres consequencias
+  enumeradas antes do botao (acaba para os dois / historico sai do alcance sem ser apagado /
+  os dois ficam livres). Botoes: "Manter o vínculo" (outline) e "Desfazer o vínculo" (coral).
+- `client/src/stores/useAuthStore.ts`: acao `dissolveCouple()` — `DELETE /api/couple/me`,
+  `useMatchStore.disconnect()`, `persistSession(user, null)` e `set({couple: null})`.
+- Erros: **404** "Você já não está em um casal…", **429** "Muitas tentativas seguidas…",
+  fallback com `console.error` (anti-pattern #4). Nenhum ramo engole excecao.
+- Sucesso: `navigate("/join", { replace: true })` (o store ja limpou o couple, entao o aviso
+  da US-013 nao dispara para quem dissolveu).
+- Alterados: `AccountScreen.tsx` (secao "casal" perde o placeholder), `client/CLAUDE.md`.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - O `Button` embrulha `@base-ui/react/button`, que **nao tem `asChild`** — link com cara de
+    botao e `render={<Link to="…" />}` com o texto como children (mesma prop de
+    `TooltipTrigger`/`PopoverTrigger`). `asChild` compila, mas e prop desconhecida.
+  - "Sem casal" tem DOIS casos no store: `couple === null` e `couple` com `partner === null`
+    (convite aberto, esperando alguem entrar). O `RequireCouple` trata os dois como "sem
+    casal"; qualquer tela de casal precisa distinguir os dois no texto, senao quem gerou
+    convite le "você não está em um casal" logo depois de criar um.
+  - `Date.now()` no corpo do render reprova em `react-hooks/purity` — a contagem de dias do
+    vinculo usa `const [now] = useState(() => Date.now())` (mesmo truque do
+    `InviteCodeTicket`).
+  - Toda mutacao do proprio usuario/casal continua nascendo como acao do `useAuthStore`
+    (`persistSession` e privada do modulo); no caso da dissolucao a acao TAMBEM derruba o
+    WebSocket, senao a `useMatchStore` fica assinando o topico de um casal extinto.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---
