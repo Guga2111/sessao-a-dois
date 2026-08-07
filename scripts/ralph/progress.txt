@@ -537,3 +537,47 @@ Started: 2026-08-06
   - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
     sandbox, e sem backend rodando — ver `client/CLAUDE.md`).
 ---
+
+## 2026-08-07 - US-010 (Bloco Senha - trocar a senha)
+- `client/src/screens/account/PasswordSection.tsx` (novo): senha atual (campo solo, ate 420px)
+  + senha nova / repita a senha nova (grid 2 colunas em `sm`). O elemento de assinatura e a
+  **regua 8-72** sob a senha nova: a politica do backend e uma JANELA, nao um limiar, entao ela
+  e desenhada como janela (trilho com marca fixa no minimo, preenchimento ambar so quando o
+  comprimento esta dentro, contador `n / 72`) — os requisitos aparecem antes do submit sem virar
+  lista de checkmarks. Acima do botao, a linha de consequencia em dois pontos coral: "esta aba
+  sai" / "os outros aparelhos tambem", reusando o vocabulario de alcance da tela.
+- Confirmacao divergente e barrada no cliente (`canSubmit` exige `confirmation === newPassword`),
+  com mensagem no campo; a API nao chega a ser chamada. Erros: **401** -> "Essa nao e a sua senha
+  atual." no campo de senha atual; **400** -> `errors.currentPassword`/`errors.newPassword` do
+  `GlobalExceptionHandler` (com fallback escrito no cliente); **429** -> mensagem geral; fallback
+  faz `console.error` com contexto.
+- Sucesso (E9.8): o form da lugar a um painel `role="status"` dizendo que TODAS as sessoes cairam
+  (inclusive esta aba) e por que isso e o ponto; 2,4s depois `clearSession()` + `navigate("/login",
+  { replace: true, state: { notice } })`. A `LoginPage` mostra o mesmo aviso numa faixa ambar lida
+  de `useLocation().state`, entao o motivo sobrevive ao redirect.
+- `client/src/stores/useAuthStore.ts`: acoes `changePassword(request)` (PUT `/api/auth/password`,
+  sem mexer no estado) e `clearSession()` (disconnect do WebSocket + limpa `localStorage` + zera
+  `user`/`couple`/`isAuthenticated`). `logout()` foi reescrito em cima de `clearSession` — a
+  teardown existe uma vez so.
+- `client/src/types/auth.ts` (novo): `ChangePasswordRequest`, `PASSWORD_MIN_LENGTH`/`MAX_LENGTH`.
+  `client/src/screens/account/helpers.ts` (novo): `PASSWORD_CHANGED_NOTICE`.
+- Alterados: `AccountScreen.tsx` (a secao "senha" renderiza o bloco no lugar do placeholder),
+  `routes/auth/LoginPage.tsx`, `client/CLAUDE.md`.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - `PUT /api/auth/password` devolve 204 com os cookies JA expirados. Chamar `logout()` depois
+    disso dispararia um `POST /api/auth/logout` que so pode tomar 401 — por isso nasceu
+    `clearSession()`, a metade local do logout. Toda tela que recebe do backend uma resposta que
+    ja invalidou a sessao deve usar ela, nunca `logout()`.
+  - Nao limpar o estado do store imediatamente no sucesso: `ProtectedRoute` reage na hora e
+    desmonta a tela, engolindo o aviso que a AC pede. A ordem que funciona e mostrar o painel,
+    e so depois (num `setTimeout` dentro do handler, que o `react-hooks/set-state-in-effect`
+    nao alcanca) derrubar o estado e navegar.
+  - Motivo de logout involuntario viaja em `navigate(path, { state })` + `useLocation().state`
+    no destino — nao ha store de "flash message" neste projeto e nao precisou nascer uma.
+  - Constante exportada junto com componente reprova em `react-refresh/only-export-components`
+    (ao contrario de dois componentes ou de `export type`, que passam) — por isso o texto do
+    aviso foi para `screens/account/helpers.ts`, seguindo o mesmo split de `screens/match/`.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---

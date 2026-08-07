@@ -3,6 +3,7 @@ import { create } from "zustand"
 
 import { api } from "@/lib/api"
 import { useMatchStore } from "@/stores/useMatchStore"
+import type { ChangePasswordRequest } from "@/types/auth"
 import type { UpdateProfileRequest, UserProfileResponse } from "@/types/user"
 
 const SESSION_STORAGE_KEY = "sessaoADois.session"
@@ -59,6 +60,8 @@ interface AuthState {
   createCouple: () => Promise<Couple>
   regenerateInviteCode: () => Promise<Couple>
   updateProfile: (request: UpdateProfileRequest) => Promise<AuthUser>
+  changePassword: (request: ChangePasswordRequest) => Promise<void>
+  clearSession: () => void
   loadCurrentUser: () => Promise<void>
 }
 
@@ -121,9 +124,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Network/server failure can't trap the user logged in in the UI —
       // local state is cleared below regardless of the outcome.
     }
-    useMatchStore.getState().disconnect()
-    clearPersistedSession()
-    set({ user: null, couple: null, isAuthenticated: false })
+    get().clearSession()
   },
 
   joinCouple: async (inviteCode) => {
@@ -155,6 +156,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     persistSession(user, get().couple)
     set({ user })
     return user
+  },
+
+  // O 204 do PUT ja vem com os dois cookies de sessao expirados: a sessao que trocou a
+  // senha cai junto com as outras (E9.8). Derrubar o estado local NAO acontece aqui — quem
+  // chama precisa avisar o usuario primeiro e so entao chamar `clearSession`.
+  changePassword: async (request) => {
+    await api.put("/api/auth/password", request)
+  },
+
+  // Encerra a sessao do lado do cliente sem falar com a API: usado pelo `logout` (depois do
+  // POST) e pela troca de senha (onde a API ja derrubou tudo e um POST a mais so tomaria 401).
+  clearSession: () => {
+    useMatchStore.getState().disconnect()
+    clearPersistedSession()
+    set({ user: null, couple: null, isAuthenticated: false })
   },
 
   loadCurrentUser: async () => {

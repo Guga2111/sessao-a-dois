@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header"
 import { AccountSection, ReachChip } from "@/screens/account/AccountSection"
 import type { SectionReach } from "@/screens/account/AccountSection"
+import { PasswordSection } from "@/screens/account/PasswordSection"
 import { ProfileSection } from "@/screens/account/ProfileSection"
 
 type SectionDef = {
@@ -27,7 +28,6 @@ const SECTIONS: SectionDef[] = [
     description:
       "Trocar a senha encerra todas as sessões abertas, inclusive esta — você entra de novo com a senha nova.",
     reach: "you",
-    placeholder: "Os campos de senha atual e senha nova entram aqui.",
   },
   {
     id: "casal",
@@ -117,6 +117,8 @@ export function AccountScreen() {
               >
                 {section.id === "perfil" ? (
                   <ProfileSection />
+                ) : section.id === "senha" ? (
+                  <PasswordSection />
                 ) : (
                   <p className="m-0 rounded-[12px] border border-dashed border-white/10 px-4 py-3.5 text-[13px] text-[#a6a39a]">
                     {section.placeholder}

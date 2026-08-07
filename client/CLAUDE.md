@@ -147,6 +147,22 @@ Uma tela **nunca** faz `api.patch("/api/user/me")` e depois um `set({user})` por
 isso que o `Header` reflete o nome novo sem reload. Toda mutacao futura do proprio usuario
 (senha, dissolucao, exclusao) deve nascer como acao do store pelo mesmo motivo.
 
+### Encerrar a sessao do lado do cliente: `clearSession`, nao `logout`
+
+`useAuthStore.clearSession()` (US-010) e o unico lugar que derruba o estado de sessao do
+cliente: desconecta o WebSocket da `useMatchStore`, limpa o `localStorage` e zera
+`user`/`couple`/`isAuthenticated`. `logout()` agora e so `POST /api/auth/logout` + essa
+acao. Uma tela que ja recebeu do backend uma resposta que **invalidou os cookies**
+(`PUT /api/auth/password` responde 204 com os dois cookies expirados — E9.8) deve chamar
+`clearSession()` direto: chamar `logout()` ali dispararia um POST que so pode tomar 401.
+
+Quando a sessao cai **de proposito**, o motivo tem que sobreviver ao redirect, senao a
+tela de login parece bug. O caminho e `navigate("/login", { replace: true, state: { notice } })`
+— a `LoginPage` le `useLocation().state?.notice` e mostra a faixa ambar. A constante da
+mensagem mora em `screens/account/helpers.ts`, nao no `.tsx` do bloco: um arquivo de
+componente que exporta tambem um valor comum reprova em `react-refresh/only-export-components`
+(exportar dois componentes, ou um componente + `export type`, passa).
+
 Mapeamento de erro do `PATCH /api/user/me` em `screens/account/ProfileSection.tsx`, para
 reusar nos outros blocos: **409** -> mensagem no campo de e-mail; **400** -> o corpo do
 `GlobalExceptionHandler` e `{ message, errors: { <campo>: <mensagem> } }`, entao da para

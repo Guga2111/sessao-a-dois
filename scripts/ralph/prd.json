@@ -212,7 +212,7 @@
         "bun run typecheck e bun run lint passam"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-006 e US-008. O redirect para /login nao e um efeito colateral incomodo - e o ponto da E9.8: se a senha estava comprometida, a sessao do atacante morre junto. A tela precisa EXPLICAR isso, senao parece bug."
     },
     {
