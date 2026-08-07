@@ -24,6 +24,7 @@ public class RateLimitProperties {
 	private Limit coupleJoinByUser = new Limit(20, Duration.ofHours(1));
 	private Limit coupleDissolve = new Limit(5, Duration.ofHours(1));
 	private Limit profileUpdate = new Limit(10, Duration.ofHours(1));
+	private Limit passwordChange = new Limit(5, Duration.ofHours(1));
 
 	public boolean isEnabled() {
 		return enabled;
@@ -95,6 +96,14 @@ public class RateLimitProperties {
 
 	public void setProfileUpdate(Limit profileUpdate) {
 		this.profileUpdate = profileUpdate;
+	}
+
+	public Limit getPasswordChange() {
+		return passwordChange;
+	}
+
+	public void setPasswordChange(Limit passwordChange) {
+		this.passwordChange = passwordChange;
 	}
 
 	public static class Limit {

@@ -75,6 +75,11 @@ Started: 2026-08-06
   injeta o principal direto e passaria mesmo se o token tivesse deixado de valer.
 - Metodo publico "de brinde" num servico novo (getter sem endpoint) e reprovado pelo
   gate do JaCoCo na hora — so escrever o que a story usa.
+- Endpoint autenticado e mutante em `@WebMvcTest` precisa de `.with(csrf())` alem do
+  `.with(authentication(...))` — sem ele o 403 do CSRF passa por "funcionou como esperado"
+  em qualquer assercao que nao seja de status.
+- Reusar uma excecao dentro da PROPRIA feature traz o mapeamento HTTP de graca; reusar de
+  outra feature nao (os `@RestControllerAdvice` sao escopados por `basePackages`).
 - Endpoint destrutivo de casal tem DOIS caminhos que nao se unificam: o do endpoint
   (404 quando nao ha casal) e o interno/no-op usado por porta e exclusao de conta. Se
   um servico ganhar um metodo `xIfActive`, conferir se o endpoint novo precisa do
@@ -379,3 +384,37 @@ Started: 2026-08-06
     string vazia) e a receita para "opcional, mas nao vazio se vier".
   - Nao adicionar metodo publico "de brinde" num servico novo (um `getProfile` sem endpoint):
     o gate do JaCoCo e por linha e cobra o codigo morto na hora.
+
+## 2026-08-07 - US-006
+- `PUT /api/auth/password`: troca de senha estando autenticado, 204 + os dois cookies de
+  sessao expirados. `AuthService.changePassword` confere a senha atual com o mesmo
+  `PasswordEncoder` do login (erro -> `InvalidCredentialsException`/401 sem alterar nada),
+  grava o hash novo e chama `RefreshTokenService.revokeFamily(userId)` (E9.8) — o metodo
+  construido no Epico 4 que so o logout usava. Auditoria: `SecurityAuditLogger.passwordChanged`
+  (so o userId). Rate limit proprio por usuario `app.rate-limit.password-change` (5/h).
+- Arquivos: `api/src/main/java/com/app/auth/ChangePasswordRequest.java` (novo),
+  `AuthService.java`, `AuthController.java`,
+  `api/src/main/java/com/app/security/SecurityAuditLogger.java`, `RateLimitProperties.java`,
+  `api/src/main/resources/application.properties`, `api/CLAUDE.md`,
+  testes: `AuthServiceTest` (+4), `AuthControllerTest` (+6),
+  `api/src/test/java/com/app/auth/PasswordChangeIntegrationTest.java` (novo).
+- Verificacao: `./mvnw test` verde, 493 testes (era 431 no inicio do epico), gate do JaCoCo
+  (90% de linha) verde. `AuthControllerTest` roda 28 testes — o `.txt` do surefire mostra
+  "Tests run: 0" por causa das classes `@Nested`; a contagem real esta no XML.
+- **Learnings for future iterations:**
+  - Um endpoint autenticado e mutante precisa de `.with(csrf())` no `@WebMvcTest`, senao
+    volta 403 e o teste "prova" a coisa errada. `/api/auth/password` NAO entrou na lista de
+    `ignoringRequestMatchers` do `SecurityConfig` (ao contrario de login/refresh/logout):
+    quem chama ja tem sessao e, portanto, ja tem o cookie `XSRF-TOKEN`.
+  - Reusar `InvalidCredentialsException` para "senha atual errada" sai de graca aqui porque
+    o `AuthExceptionHandler` e da PROPRIA feature (`basePackages = "com.app.auth"`). Foi o
+    oposto da US-005, que precisou de um handler novo por reusar `EmailAlreadyExistsException`
+    fora de `com.app.auth`.
+  - `AuthExceptionHandler` nao trata `RateLimitExceededException`: o 429 + `Retry-After`
+    continua vindo do `GlobalExceptionHandler` de `com.app.common` (confirmado no codigo,
+    contrariando o que o `api/CLAUDE.md` sugere no paragrafo de rate limit por conta).
+  - Teste de rate limit por usuario que roda a operacao com sucesso duas vezes precisa de
+    uma INSTANCIA de entidade por chamada quando a operacao muta a entidade em memoria: o
+    mesmo objeto `User` reusado ja tem o hash novo na segunda chamada e o teste falha em
+    "senha atual errada" sem nenhuma relacao com o que ele queria medir.
+---

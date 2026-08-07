@@ -69,6 +69,14 @@ public class SecurityAuditLogger {
 		log("profile_updated", fields("userId", userId, "fields", String.join(",", changedFields)));
 	}
 
+	/**
+	 * Troca de senha estando autenticado (epico 9, US-006). So o {@code userId}: nenhuma das
+	 * duas senhas (nem a atual, nem a nova, nem os hashes) pode encostar no log de auditoria.
+	 */
+	public void passwordChanged(UUID userId) {
+		log("password_changed", fields("userId", userId));
+	}
+
 	public void inviteCodeRegenerated(UUID userId, UUID coupleId) {
 		log("invite_code_regenerated", fields("userId", userId, "coupleId", coupleId));
 	}

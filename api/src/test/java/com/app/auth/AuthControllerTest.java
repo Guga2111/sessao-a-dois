@@ -5,6 +5,7 @@ import com.app.couple.CoupleResponseMapper;
 import com.app.couple.CoupleService;
 import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
+import com.app.security.RateLimitExceededException;
 import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitService;
 import com.app.security.SecurityAuditLogger;
@@ -32,12 +33,16 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -316,6 +321,126 @@ class AuthControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.user.email").value("ana@example.com"))
 			.andExpect(jsonPath("$.couple").value(org.hamcrest.Matchers.nullValue()));
+	}
+
+	@Test
+	void changePasswordReturnsNoContentAndExpiresBothCookies() throws Exception {
+		UUID userId = UUID.randomUUID();
+
+		MvcResult result = mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"senha-atual","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isNoContent())
+			.andReturn();
+
+		verify(authService).changePassword(eq(userId), any(ChangePasswordRequest.class));
+
+		List<String> setCookies = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+		assertThat(setCookies).hasSize(2);
+
+		String accessCookie = setCookies.stream().filter(c -> c.startsWith("access_token=")).findFirst().orElseThrow();
+		assertThat(accessCookie).contains("Max-Age=0").contains("Path=/").doesNotContain("Path=/api/auth/refresh");
+
+		String refreshCookie = setCookies.stream().filter(c -> c.startsWith("refresh_token=")).findFirst().orElseThrow();
+		assertThat(refreshCookie).contains("Max-Age=0").contains("Path=/api/auth/refresh");
+	}
+
+	@Test
+	void deniesChangePasswordWithoutSession() throws Exception {
+		mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"senha-atual","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isUnauthorized());
+
+		verify(authService, never()).changePassword(any(), any());
+	}
+
+	@Test
+	void changePasswordWithWrongCurrentPasswordIsUnauthorized() throws Exception {
+		UUID userId = UUID.randomUUID();
+		org.mockito.Mockito.doThrow(new InvalidCredentialsException())
+			.when(authService)
+			.changePassword(eq(userId), any(ChangePasswordRequest.class));
+
+		mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"errada","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.message").value("credenciais invalidas"));
+	}
+
+	@Test
+	void rejectsShortNewPasswordWithTheSameMessageAsRegister() throws Exception {
+		mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(UUID.randomUUID(), null, List.of())))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"senha-atual","newPassword":"1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.newPassword").value("senha deve ter entre 8 e 72 caracteres"));
+
+		verify(authService, never()).changePassword(any(), any());
+	}
+
+	@Test
+	void rejectsNewPasswordOverSeventyTwoChars() throws Exception {
+		mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(UUID.randomUUID(), null, List.of())))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"senha-atual","newPassword":"%s"}
+					""".formatted("a".repeat(73))))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.newPassword").exists());
+
+		verify(authService, never()).changePassword(any(), any());
+	}
+
+	@Test
+	void rejectsBlankCurrentPassword() throws Exception {
+		mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(UUID.randomUUID(), null, List.of())))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.currentPassword").exists());
+
+		verify(authService, never()).changePassword(any(), any());
+	}
+
+	@Test
+	void changePasswordOverTheRateLimitReturnsTooManyRequests() throws Exception {
+		UUID userId = UUID.randomUUID();
+		org.mockito.Mockito.doThrow(new RateLimitExceededException(120))
+			.when(authService)
+			.changePassword(eq(userId), any(ChangePasswordRequest.class));
+
+		mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"senha-atual","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().string("Retry-After", "120"));
 	}
 
 	@Nested

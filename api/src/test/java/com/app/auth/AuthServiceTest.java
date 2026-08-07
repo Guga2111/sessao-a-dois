@@ -222,6 +222,82 @@ class AuthServiceTest {
 	}
 
 	@Test
+	void changePasswordSavesTheNewHashAndDropsEverySession() {
+		UUID userId = UUID.randomUUID();
+		User user = new User("Ana", "ana@example.com", "hash-antigo");
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(passwordEncoder.matches("senha-atual", "hash-antigo")).thenReturn(true);
+		when(passwordEncoder.encode("senha-nova-1234")).thenReturn("hash-novo");
+
+		authService.changePassword(userId, new ChangePasswordRequest("senha-atual", "senha-nova-1234"));
+
+		ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+		verify(userRepository).save(captor.capture());
+		assertThat(captor.getValue().getPasswordHash()).isEqualTo("hash-novo");
+		verify(refreshTokenService).revokeFamily(userId);
+	}
+
+	@Test
+	void changePasswordWithWrongCurrentPasswordChangesNothing() {
+		UUID userId = UUID.randomUUID();
+		User user = new User("Ana", "ana@example.com", "hash-antigo");
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(passwordEncoder.matches("senha-errada", "hash-antigo")).thenReturn(false);
+
+		assertThatThrownBy(
+				() -> authService.changePassword(userId, new ChangePasswordRequest("senha-errada", "senha-nova-1234")))
+			.isInstanceOf(InvalidCredentialsException.class);
+
+		assertThat(user.getPasswordHash()).isEqualTo("hash-antigo");
+		verify(userRepository, never()).save(any(User.class));
+		verify(refreshTokenService, never()).revokeFamily(any());
+		verify(passwordEncoder, never()).encode(anyString());
+	}
+
+	@Test
+	void blocksPasswordChangeAfterExceedingThePerUserLimit() {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
+		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
+				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger());
+		UUID userId = UUID.randomUUID();
+		User user = new User("Ana", "ana@example.com", "hash-antigo");
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(passwordEncoder.matches("senha-atual", "hash-antigo")).thenReturn(true);
+		when(passwordEncoder.encode("senha-nova-1234")).thenReturn("hash-novo");
+
+		limitedAuthService.changePassword(userId, new ChangePasswordRequest("senha-atual", "senha-nova-1234"));
+
+		assertThatThrownBy(() -> limitedAuthService.changePassword(userId,
+				new ChangePasswordRequest("senha-atual", "senha-nova-1234")))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(userRepository, org.mockito.Mockito.times(1)).save(any(User.class));
+	}
+
+	@Test
+	void passwordChangeRateLimitIsScopedPerUser() {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
+		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
+				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger());
+		UUID first = UUID.randomUUID();
+		UUID second = UUID.randomUUID();
+		// Uma instancia por chamada: a primeira troca muda o hash da entidade em memoria, e
+		// reusar o mesmo objeto faria a segunda cair em "senha atual errada" por acidente.
+		when(userRepository.findById(any(UUID.class)))
+			.thenAnswer(invocation -> Optional.of(new User("Ana", "ana@example.com", "hash-antigo")));
+		when(passwordEncoder.matches("senha-atual", "hash-antigo")).thenReturn(true);
+		when(passwordEncoder.encode("senha-nova-1234")).thenReturn("hash-novo");
+
+		limitedAuthService.changePassword(first, new ChangePasswordRequest("senha-atual", "senha-nova-1234"));
+		limitedAuthService.changePassword(second, new ChangePasswordRequest("senha-atual", "senha-nova-1234"));
+
+		verify(refreshTokenService).revokeFamily(first);
+		verify(refreshTokenService).revokeFamily(second);
+	}
+
+	@Test
 	void refreshPropagatesRotationFailure() {
 		when(refreshTokenService.rotate(anyString(), any(), any())).thenThrow(new RefreshReuseDetectedException());
 

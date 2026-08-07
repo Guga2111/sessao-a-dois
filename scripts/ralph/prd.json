@@ -132,7 +132,7 @@
         "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-004 so por ordem de entrega. revokeFamily foi construido no Epico 4 e hoje so e chamado no logout - esta story finalmente da a ele o uso que justificava a construcao. A politica de senha NAO tem classe validadora dedicada: a politica E a anotacao @Size(min=8,max=72) do RegisterRequest. Nao inventar um validador novo."
     },
     {
