@@ -461,3 +461,43 @@ Started: 2026-08-06
     exclusao em massa numa tabela com auto-referencia deve anular a coluna de auto-FK antes.
   - `InOrder` do Mockito e a assercao certa quando a ORDEM entre dois statements e a regra (aqui,
     limpar antes de apagar); dois `verify` soltos passariam com a ordem invertida.
+
+## 2026-08-07 - US-008 (Rota /conta - casca, layout e entrada no Header)
+- `client/src/screens/account/AccountScreen.tsx` (novo): a tela, com o mesmo shell das
+  outras (`font-auth-body min-h-svh`, gradiente radial ambar + `#09090a`, `<Header />`,
+  `main` com `max-w-[1240px]`), eyebrow "Conta e Casal", h1 em `font-display` e as quatro
+  secoes (Perfil, Senha, Casal, Excluir conta). Cada uma renderiza, por enquanto, so um
+  placeholder tracejado dizendo o que entra ali — o conteudo funcional vem nas US-009 a
+  US-012. Em `lg` a tela ganha um rail lateral sticky (`grid-cols-[220px_minmax(0,1fr)]`)
+  com ancoras `#perfil/#senha/#casal/#excluir` e a legenda dos dois alcances.
+- `client/src/screens/account/AccountSection.tsx` (novo): `AccountSection` (cartao
+  `#161513`, borda `rgba(255,255,255,.07)`, raio 18px, prop `destructive`) e `ReachChip`.
+  **Aqui nasce o token destrutivo do design system**: `#ff5c47` + borda
+  `rgba(255,92,71,.28)` + tinta `rgba(255,92,71,.07)` + titulo `#ffb3a5`, aplicado
+  igual nos dois blocos destrutivos (Casal e Excluir conta), como a story pedia.
+- `client/src/App.tsx`: rota `/conta` dentro de `ProtectedRoute` e **fora** de
+  `RequireCouple`, declarada antes do catch-all `*`.
+- `client/src/components/Header.tsx`: `NavLink` de engrenagem (`Settings`) no cluster da
+  direita, visivel so em `md+` (`hidden md:grid`), e um item "Conta" no `MobileNav` depois
+  de um divisor. `NAV_ITEMS` ficou intacto — o layout dos itens atuais nao mudou.
+- `client/CLAUDE.md`: secao nova `screens/account/` documentando o token destrutivo, o
+  marcador de alcance e a regra do guard.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - A skill `frontend-design` foi invocada antes de escrever codigo (AC da story). O
+    brief ja fixa paleta e tipografia, entao a margem de decisao real e layout + o token
+    destrutivo novo; e ali que vale gastar o esforco de design, nao em inventar cor.
+  - `/conta` e a UNICA rota autenticada fora do `RequireCouple`. Ao adicionar rota nova,
+    conferir conscientemente em qual dos dois guards ela entra — o default do arquivo
+    (hub/match/dashboard) e o guard de casal.
+  - Nao meter `/conta` em `NAV_ITEMS`: aquele pill ambar agrupa exatamente as rotas que
+    exigem casal, e um usuario sem casal veria tres links que redirecionam para `/join`.
+    Entrada propria (engrenagem no desktop, item apos divisor no mobile) resolve os dois
+    ACs sem mexer no layout existente.
+  - `react-refresh/only-export-components` NAO reclamou de `AccountSection.tsx` exportar
+    dois componentes + um `export type` — o que a regra proibe e componente junto com
+    valor/funcao comum. Tipo puro passa.
+  - Verificacao no browser continua PENDENTE DO LADO HUMANO: nao ha Chromium/Playwright
+    nem skill `dev-browser` neste sandbox (ver `client/CLAUDE.md`). Conferido so por
+    typecheck/lint/build e leitura do JSX.
+---

@@ -175,7 +175,7 @@
         "bun run typecheck, bun run lint e bun run build passam"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DAS US-004 a US-007. Primeira tela de configuracoes do app - nao tem correspondente no prototipo, o visual deve ser DERIVADO do que ja existe, nao inventado. A zona destrutiva precisa de tratamento visual proprio (vermelho, borda de alerta); esse token nao existe no design system e nasce aqui, aplicado de forma consistente nos dois blocos destrutivos (US-011 e US-012). Verificacao no browser: se nao houver ferramenta de browser disponivel, registrar no progress.txt que a conferencia visual ficou pendente do lado humano."
     },
     {

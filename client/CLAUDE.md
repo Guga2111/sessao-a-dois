@@ -98,6 +98,26 @@ This sandbox has no route to `ui.shadcn.com` (`npx shadcn add <component>` fails
 
 The one intentional non-pure change from this story: `fetchSectionPage`'s catch (in `HubScreen.tsx`) now does `console.error` with the section status and page before clearing the loading flags, instead of swallowing the error silently — the visual failure behavior (stop the skeleton, keep whatever already loaded) is unchanged.
 
+## `screens/account/` — tela `/conta` e o token destrutivo
+
+`/conta` (Epico 9, US-008) e a primeira tela de configuracoes e a unica rota **autenticada
+fora do `RequireCouple`** — quem nao tem casal (inclusive quem acabou de dissolver) precisa
+chegar nela, entao envolva-a so em `ProtectedRoute`. Entrada no `Header`: **nao** entra em
+`NAV_ITEMS` (aquele pill agrupa as rotas que exigem casal); e um `NavLink` com icone de
+engrenagem no cluster da direita (`hidden md:grid`) + um item apos um divisor dentro do
+`MobileNav`.
+
+O **tratamento destrutivo** do design system nasceu em `screens/account/AccountSection.tsx`
+e nao existe em outro lugar — reuse de la em vez de escolher um vermelho novo:
+`#ff5c47` (coral quente, vizinho de matiz do `#ff9e2c` ja usado, para ler como "o mesmo
+mundo ficando hostil", nao como um vermelho de sistema), borda `rgba(255,92,71,.28)`,
+tinta de fundo `rgba(255,92,71,.07)` em gradiente vertical, titulo `#ffb3a5`, chip
+`#ff8f7c`. Passe `destructive` ao `AccountSection` em vez de aplicar as cores na mao.
+
+O marcador estrutural da tela e o **alcance** (`reach`), nao uma numeracao: `"you"`
+(ambar) para o que so mexe na sua conta, `"both"` (coral) para o que alcanca o parceiro
+— desfazer o vinculo e excluir a conta. Toda secao nova precisa declarar o seu.
+
 ## Loading-state pattern: Skeleton vs. button spinner
 
 Every read (GET/fetch) loading state uses `Skeleton`-based components (`src/components/ui/skeleton.tsx` + the layout-aware compositions in `src/components/skeletons/`) gated through `useDelayedLoading` (`src/lib/useDelayedLoading.ts`, `delayMs=150`/`minVisibleMs=400` defaults) — never a spinner (`Loader2`/`animate-spin`) for a read. Action buttons (POST/PUT/DELETE submits, e.g. "Curtir"/"Salvando…") keep their own `Loader2`/`animate-spin` button-feedback state as-is; that's a different UX concern (in-flight mutation, not "content not ready yet") and is intentionally left alone. When a screen/store needs a delayed-loading gate but has no data-correctness-only flag yet (e.g. `hasMore`, `isEmpty`), keep that flag on the raw (non-delayed) boolean — only the *visual* skeleton/content branch should read the delayed `showSkeleton` value.
