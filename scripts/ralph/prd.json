@@ -88,7 +88,7 @@
         "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-003. E aqui que a semantica muda de verdade - as US-001 a US-003 so prepararam o terreno. A AC de notification (E9.18) e a unica que NAO sai de graca do filtro de casal ativo: tracking e match resolvem o casal no controller e ja devolvem 404 depois da dissolucao, mas notification filtra so por recipient_user_id, entao os MATCH/NO_MATCH do casal antigo continuariam listados e contados no sino. Filtrar, nao apagar (D13). Rate limit por usuario NAO passa pelo RateLimitFilter (que casa por metodo+path e chaveia por IP) - e consumido dentro do servico."
     },
     {

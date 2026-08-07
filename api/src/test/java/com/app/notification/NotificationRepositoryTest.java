@@ -39,7 +39,7 @@ class NotificationRepositoryTest {
 	}
 
 	@Test
-	void findByRecipientUserIdOrderByCreatedAtDescReturnsOnlyRecipientNotificationsNewestFirst() {
+	void findByRecipientUserIdAndCoupleIdOrderByCreatedAtDescReturnsOnlyRecipientNotificationsNewestFirst() {
 		Couple couple = persistedCouple();
 		UUID recipientId = UUID.randomUUID();
 		UUID otherId = UUID.randomUUID();
@@ -48,7 +48,8 @@ class NotificationRepositoryTest {
 		Notification second = notificationRepository.save(newNotification(couple, recipientId));
 		notificationRepository.save(newNotification(couple, otherId));
 
-		var page = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, Pageable.unpaged());
+		var page = notificationRepository.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(recipientId,
+				couple.getId(), Pageable.unpaged());
 
 		assertThat(page.getContent()).hasSize(2);
 		assertThat(page.getContent()).extracting(Notification::getId).containsExactlyInAnyOrder(first.getId(),
@@ -56,7 +57,7 @@ class NotificationRepositoryTest {
 	}
 
 	@Test
-	void countByRecipientUserIdAndReadFalseCountsOnlyUnread() {
+	void countByRecipientUserIdAndCoupleIdAndReadFalseCountsOnlyUnread() {
 		Couple couple = persistedCouple();
 		UUID recipientId = UUID.randomUUID();
 
@@ -65,16 +66,39 @@ class NotificationRepositoryTest {
 		read.setRead(true);
 		notificationRepository.save(read);
 
-		assertThat(notificationRepository.countByRecipientUserIdAndReadFalse(recipientId)).isEqualTo(1);
+		assertThat(notificationRepository.countByRecipientUserIdAndCoupleIdAndReadFalse(recipientId, couple.getId()))
+			.isEqualTo(1);
 		assertThat(unread.isRead()).isFalse();
 	}
 
 	@Test
-	void findByRecipientUserIdOrderByCreatedAtDescIsEmptyForUnknownRecipient() {
-		var page = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(UUID.randomUUID(),
-				PageRequest.of(0, 10));
+	void findByRecipientUserIdAndCoupleIdOrderByCreatedAtDescIsEmptyForUnknownRecipient() {
+		var page = notificationRepository.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(UUID.randomUUID(),
+				UUID.randomUUID(), PageRequest.of(0, 10));
 
 		assertThat(page.getContent()).isEmpty();
+	}
+
+	/**
+	 * O escopo por casal (E9.18) e o que tira as notificacoes do casal antigo do alcance do ex-parceiro
+	 * sem apagar nenhuma linha: as duas consultas so enxergam o casal passado por parametro.
+	 */
+	@Test
+	void recipientQueriesAreScopedToTheGivenCouple() {
+		Couple oldCouple = persistedCouple();
+		Couple newCouple = persistedCouple();
+		UUID recipientId = UUID.randomUUID();
+
+		notificationRepository.save(newNotification(oldCouple, recipientId));
+		Notification current = notificationRepository.save(newNotification(newCouple, recipientId));
+
+		var page = notificationRepository.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(recipientId,
+				newCouple.getId(), Pageable.unpaged());
+
+		assertThat(page.getContent()).extracting(Notification::getId).containsExactly(current.getId());
+		assertThat(notificationRepository.countByRecipientUserIdAndCoupleIdAndReadFalse(recipientId,
+				newCouple.getId())).isEqualTo(1);
+		assertThat(notificationRepository.count()).isEqualTo(2);
 	}
 
 	@Test

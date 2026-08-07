@@ -85,16 +85,31 @@ public class NotificationService {
 		return Optional.of(dto);
 	}
 
+	/**
+	 * A lista do sino traz apenas as notificacoes do casal ATIVO do usuario (epico 9, E9.18). Sem casal
+	 * ativo - porque nunca houve um ou porque o vinculo foi dissolvido - a lista e vazia, sem consultar o
+	 * repositorio: as linhas do casal antigo continuam no banco, so deixam de estar ao alcance.
+	 */
 	public Page<NotificationDto> listNotifications(UUID recipientUserId, int page, int size) {
+		PageRequest pageRequest = PageRequest.of(page, size);
+		Optional<UUID> coupleId = coupleFacade.findActiveCoupleId(recipientUserId);
+		if (coupleId.isEmpty()) {
+			return Page.empty(pageRequest);
+		}
+
 		Page<Notification> notifications = notificationRepository
-			.findByRecipientUserIdOrderByCreatedAtDesc(recipientUserId, PageRequest.of(page, size));
+			.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(recipientUserId, coupleId.get(), pageRequest);
 
 		Map<UUID, String> actorNames = resolveActorNames(notifications.getContent());
 		return notifications.map(n -> toDto(n, actorNames.get(n.getActorUserId())));
 	}
 
+	/** Contador do sino, escopado ao casal ativo pelo mesmo motivo de {@link #listNotifications} (E9.18). */
 	public long unreadCount(UUID recipientUserId) {
-		return notificationRepository.countByRecipientUserIdAndReadFalse(recipientUserId);
+		return coupleFacade.findActiveCoupleId(recipientUserId)
+			.map(coupleId -> notificationRepository.countByRecipientUserIdAndCoupleIdAndReadFalse(recipientUserId,
+					coupleId))
+			.orElse(0L);
 	}
 
 	@Transactional

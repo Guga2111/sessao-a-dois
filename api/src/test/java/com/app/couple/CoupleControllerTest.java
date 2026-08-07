@@ -1,6 +1,7 @@
 package com.app.couple;
 
 import com.app.security.ClientIpResolver;
+import com.app.security.RateLimitExceededException;
 import com.app.security.JwtService;
 import com.app.security.RateLimitProperties;
 import com.app.security.RateLimitService;
@@ -25,8 +26,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -243,5 +247,63 @@ class CoupleControllerTest {
 				.with(csrf())
 				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
 			.andExpect(status().isNotFound());
+	}
+
+	// --- DELETE /api/couple/me (epico 9, US-004) ---
+
+	@Test
+	void dissolvesCoupleWithNoContent() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.dissolveCouple(userId)).thenReturn(UUID.randomUUID());
+
+		mockMvc.perform(delete("/api/couple/me")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isNoContent())
+			.andExpect(content().string(""));
+	}
+
+	@Test
+	void deniesDissolveWithoutAuthentication() throws Exception {
+		mockMvc.perform(delete("/api/couple/me").with(csrf()))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void returnsNotFoundWhenDissolvingWithoutACouple() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.dissolveCouple(userId)).thenThrow(new CoupleNotFoundException());
+
+		mockMvc.perform(delete("/api/couple/me")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isNotFound());
+	}
+
+	/** Segunda dissolucao: 404 (o casal ja nao e ativo), nunca 500 pela excecao da E9.7. */
+	@Test
+	void returnsNotFoundOnTheSecondDissolve() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.dissolveCouple(userId))
+			.thenReturn(UUID.randomUUID())
+			.thenThrow(new CoupleNotFoundException());
+		var auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
+
+		mockMvc.perform(delete("/api/couple/me").with(csrf()).with(authentication(auth)))
+			.andExpect(status().isNoContent());
+		mockMvc.perform(delete("/api/couple/me").with(csrf()).with(authentication(auth)))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void returnsTooManyRequestsWhenDissolveRateLimitIsExceeded() throws Exception {
+		UUID userId = UUID.randomUUID();
+		when(coupleService.dissolveCouple(userId)).thenThrow(new RateLimitExceededException(42));
+
+		mockMvc.perform(delete("/api/couple/me")
+				.with(csrf())
+				.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()))))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().string("Retry-After", "42"));
 	}
 }

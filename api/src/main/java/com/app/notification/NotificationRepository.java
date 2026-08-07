@@ -13,9 +13,16 @@ import java.util.UUID;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-	Page<Notification> findByRecipientUserIdOrderByCreatedAtDesc(UUID recipientUserId, Pageable pageable);
+	/**
+	 * A lista do sino e escopada ao casal ATIVO, nao so ao destinatario (epico 9, E9.18): as notificacoes
+	 * de um casal dissolvido continuam no banco (D13 - dissolver, nao apagar) e apenas saem do alcance.
+	 * As duas consultas por destinatario sem {@code couple_id} foram REMOVIDAS de proposito - reintroduzir
+	 * uma faz o MATCH/NO_MATCH do casal antigo voltar a aparecer para o ex-parceiro.
+	 */
+	Page<Notification> findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(UUID recipientUserId, UUID coupleId,
+			Pageable pageable);
 
-	long countByRecipientUserIdAndReadFalse(UUID recipientUserId);
+	long countByRecipientUserIdAndCoupleIdAndReadFalse(UUID recipientUserId, UUID coupleId);
 
 	@Modifying
 	@Query("DELETE FROM Notification n WHERE n.createdAt < :cutoff")

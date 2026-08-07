@@ -55,6 +55,10 @@ public class SecurityAuditLogger {
 		log("couple_joined", fields("userId", userId, "coupleId", coupleId));
 	}
 
+	public void coupleDissolved(UUID userId, UUID coupleId) {
+		log("couple_dissolved", fields("userId", userId, "coupleId", coupleId));
+	}
+
 	public void inviteCodeRegenerated(UUID userId, UUID coupleId) {
 		log("invite_code_regenerated", fields("userId", userId, "coupleId", coupleId));
 	}

@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -193,8 +194,9 @@ class NotificationServiceTest {
 		UUID actorId = UUID.randomUUID();
 		Notification notification = savedNotification(coupleId, recipientId, actorId);
 
-		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
-			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(coupleFacade.findActiveCoupleId(recipientId)).thenReturn(Optional.of(coupleId));
+		when(notificationRepository.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(recipientId, coupleId,
+				PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(notification)));
 		User actor = new User("Ana", "ana@x.com", "hash");
 		ReflectionTestUtils.setField(actor, "id", actorId);
 		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of(actor));
@@ -210,12 +212,14 @@ class NotificationServiceTest {
 		UUID recipientId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
 		UUID mediaTrackId = UUID.randomUUID();
-		Notification notification = new Notification(UUID.randomUUID(), recipientId, NotificationType.RATING_REQUEST, 603L,
+		UUID coupleId = UUID.randomUUID();
+		Notification notification = new Notification(coupleId, recipientId, NotificationType.RATING_REQUEST, 603L,
 				MediaType.MOVIE, "Matrix", actorId, mediaTrackId);
 		ReflectionTestUtils.setField(notification, "id", UUID.randomUUID());
 
-		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
-			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(coupleFacade.findActiveCoupleId(recipientId)).thenReturn(Optional.of(coupleId));
+		when(notificationRepository.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(recipientId, coupleId,
+				PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(notification)));
 		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of());
 
 		NotificationDto dto = notificationService.listNotifications(recipientId, 0, 20).getContent().get(0);
@@ -228,10 +232,12 @@ class NotificationServiceTest {
 	void listNotifications_mediaTrackIdIsNullForMatchNotifications() {
 		UUID recipientId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
-		Notification notification = savedNotification(UUID.randomUUID(), recipientId, actorId);
+		UUID coupleId = UUID.randomUUID();
+		Notification notification = savedNotification(coupleId, recipientId, actorId);
 
-		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
-			.thenReturn(new PageImpl<>(List.of(notification)));
+		when(coupleFacade.findActiveCoupleId(recipientId)).thenReturn(Optional.of(coupleId));
+		when(notificationRepository.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(recipientId, coupleId,
+				PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(notification)));
 		when(userRepository.findAllById(List.of(actorId))).thenReturn(List.of());
 
 		NotificationDto dto = notificationService.listNotifications(recipientId, 0, 20).getContent().get(0);
@@ -241,11 +247,39 @@ class NotificationServiceTest {
 	}
 
 	@Test
-	void unreadCount_delegatesToRepository() {
+	void unreadCount_delegatesToRepositoryScopedToTheActiveCouple() {
 		UUID recipientId = UUID.randomUUID();
-		when(notificationRepository.countByRecipientUserIdAndReadFalse(recipientId)).thenReturn(5L);
+		UUID coupleId = UUID.randomUUID();
+		when(coupleFacade.findActiveCoupleId(recipientId)).thenReturn(Optional.of(coupleId));
+		when(notificationRepository.countByRecipientUserIdAndCoupleIdAndReadFalse(recipientId, coupleId))
+			.thenReturn(5L);
 
 		assertThat(notificationService.unreadCount(recipientId)).isEqualTo(5L);
+	}
+
+	/**
+	 * E9.18: sem casal ativo (nunca teve, ou o vinculo foi dissolvido) o sino fica vazio e zerado, e o
+	 * repositorio nem chega a ser consultado - as linhas do casal antigo continuam no banco (D13).
+	 */
+	@Test
+	void listNotifications_isEmptyWithoutAnActiveCouple() {
+		UUID recipientId = UUID.randomUUID();
+		when(coupleFacade.findActiveCoupleId(recipientId)).thenReturn(Optional.empty());
+
+		Page<NotificationDto> page = notificationService.listNotifications(recipientId, 0, 20);
+
+		assertThat(page.getContent()).isEmpty();
+		assertThat(page.getTotalElements()).isZero();
+		verifyNoInteractions(notificationRepository);
+	}
+
+	@Test
+	void unreadCount_isZeroWithoutAnActiveCouple() {
+		UUID recipientId = UUID.randomUUID();
+		when(coupleFacade.findActiveCoupleId(recipientId)).thenReturn(Optional.empty());
+
+		assertThat(notificationService.unreadCount(recipientId)).isZero();
+		verifyNoInteractions(notificationRepository);
 	}
 
 	@Test

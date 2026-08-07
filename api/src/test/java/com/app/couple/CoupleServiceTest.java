@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -38,6 +39,13 @@ class CoupleServiceTest {
 	void setUp() {
 		coupleService = new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(),
 				new RateLimitProperties(), new CoupleProperties(), new SecurityAuditLogger());
+	}
+
+	private CoupleService newCoupleServiceWithDissolveLimit(int capacity, Duration window) {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setCoupleDissolve(new RateLimitProperties.Limit(capacity, window));
+		return new CoupleService(coupleRepository, inviteCodeGenerator, new RateLimitService(), properties,
+				new CoupleProperties(), new SecurityAuditLogger());
 	}
 
 	private CoupleService newCoupleServiceWithJoinByUserLimit(int capacity, Duration window) {
@@ -327,5 +335,126 @@ class CoupleServiceTest {
 			.isInstanceOf(CoupleAlreadyFullException.class);
 
 		verify(coupleRepository, never()).save(any());
+	}
+
+	// --- dissolucao do vinculo (epico 9, US-004) ---
+
+	@Test
+	void dissolvesTheActiveCoupleOfEitherMember() {
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234");
+		couple.setUser2Id(user2Id);
+		when(coupleRepository.findActiveByUserId(user2Id)).thenReturn(Optional.of(couple));
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		coupleService.dissolveCouple(user2Id);
+
+		assertThat(couple.getDissolvedAt()).isNotNull();
+		assertThat(couple.isActive()).isFalse();
+		assertThat(couple.getInviteCode()).isNull();
+	}
+
+	@Test
+	void rejectsDissolveWhenUserHasNoCouple() {
+		UUID userId = UUID.randomUUID();
+		when(coupleRepository.findActiveByUserId(userId)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> coupleService.dissolveCouple(userId))
+			.isInstanceOf(CoupleNotFoundException.class);
+
+		verify(coupleRepository, never()).save(any());
+	}
+
+	/**
+	 * A segunda dissolucao cai no mesmo 404 da ausencia de casal: o casal ja dissolvido nao e retornado
+	 * por findActiveByUserId, entao a CoupleAlreadyDissolvedException da E9.7 (um IllegalStateException
+	 * sem handler, ou seja, 500) nunca chega a ser lancada por este caminho.
+	 */
+	@Test
+	void dissolvingTwiceFallsBackToNotFoundInsteadOfTheDomainException() {
+		UUID userId = UUID.randomUUID();
+		Couple couple = new Couple(userId, "ABC234");
+		when(coupleRepository.findActiveByUserId(userId))
+			.thenReturn(Optional.of(couple))
+			.thenReturn(Optional.empty());
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		coupleService.dissolveCouple(userId);
+
+		assertThatThrownBy(() -> coupleService.dissolveCouple(userId))
+			.isInstanceOf(CoupleNotFoundException.class)
+			.isNotInstanceOf(CoupleAlreadyDissolvedException.class);
+	}
+
+	@Test
+	void allowsCreatingANewCoupleAfterDissolvingTheOldOne() {
+		UUID userId = UUID.randomUUID();
+		Couple dissolved = new Couple(userId, "OLD0001");
+		when(coupleRepository.findActiveByUserId(userId))
+			.thenReturn(Optional.of(dissolved))
+			.thenReturn(Optional.empty());
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(inviteCodeGenerator.generate()).thenReturn("NEW0001");
+		when(coupleRepository.existsByInviteCode("NEW0001")).thenReturn(false);
+
+		coupleService.dissolveCouple(userId);
+		Couple created = coupleService.createCouple(userId);
+
+		assertThat(created.getInviteCode()).isEqualTo("NEW0001");
+		assertThat(created.isActive()).isTrue();
+	}
+
+	/**
+	 * O convite de um casal dissolvido nao entra em ninguem: findActiveByInviteCode nao o retorna (o
+	 * codigo foi limpo pelo dissolve(), e mesmo uma linha legada com o codigo preenchido e barrada pelo
+	 * filtro), entao joinCouple responde "convite inexistente".
+	 */
+	@Test
+	void rejectsJoinWithTheInviteCodeOfADissolvedCouple() {
+		UUID userId = UUID.randomUUID();
+		when(coupleRepository.findActiveByInviteCode("OLD0001")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> coupleService.joinCouple(userId, "OLD0001"))
+			.isInstanceOf(InviteCodeNotFoundException.class);
+
+		verify(coupleRepository, never()).save(any());
+	}
+
+	@Test
+	void blocksDissolveAfterExceedingPerUserLimit() {
+		CoupleService limitedCoupleService = newCoupleServiceWithDissolveLimit(1, Duration.ofMinutes(1));
+		UUID userId = UUID.randomUUID();
+		Couple couple = new Couple(userId, "ABC234");
+		when(coupleRepository.findActiveByUserId(userId)).thenReturn(Optional.of(couple));
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		limitedCoupleService.dissolveCouple(userId);
+
+		assertThatThrownBy(() -> limitedCoupleService.dissolveCouple(userId))
+			.isInstanceOf(RateLimitExceededException.class);
+	}
+
+	/** O balde da dissolucao e proprio (E9 US-004): gastar o do join nao pode consumir o dela. */
+	@Test
+	void dissolveRateLimitIsIndependentFromTheJoinOne() {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setCoupleJoinByUser(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
+		properties.setCoupleDissolve(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
+		CoupleService limitedCoupleService = new CoupleService(coupleRepository, inviteCodeGenerator,
+				new RateLimitService(), properties, new CoupleProperties(), new SecurityAuditLogger());
+
+		UUID user1Id = UUID.randomUUID();
+		UUID user2Id = UUID.randomUUID();
+		UUID coupleId = UUID.randomUUID();
+		Couple couple = new Couple(user1Id, "ABC234");
+		ReflectionTestUtils.setField(couple, "id", coupleId);
+		when(coupleRepository.findActiveByInviteCode("ABC234")).thenReturn(Optional.of(couple));
+		when(coupleRepository.findActiveByUserId(user2Id)).thenReturn(Optional.empty(), Optional.of(couple));
+		when(coupleRepository.save(any(Couple.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		limitedCoupleService.joinCouple(user2Id, "ABC234");
+
+		assertThat(limitedCoupleService.dissolveCouple(user2Id)).isEqualTo(coupleId);
 	}
 }

@@ -92,6 +92,29 @@ public class CoupleService {
 		});
 	}
 
+	/**
+	 * Dissolve o casal ativo do usuario a pedido dele (epico 9, US-004). Diferente de
+	 * {@link #dissolveIfActive}, este e o caminho do endpoint: nao ha casal ativo -> {@code 404}, e nunca
+	 * um {@code 500} pela excecao da E9.7 (um casal ja dissolvido nao e "ativo", entao a segunda chamada
+	 * cai no mesmo 404 da primeira sem chegar em {@code dissolve()}).
+	 *
+	 * A acao e UNILATERAL por decisao de produto: qualquer um dos dois membros dissolve, sem confirmacao
+	 * do parceiro.
+	 *
+	 * @return o id do casal dissolvido.
+	 */
+	public UUID dissolveCouple(UUID userId) {
+		enforceDissolveRateLimit(userId);
+
+		Couple couple = coupleRepository.findActiveByUserId(userId)
+			.orElseThrow(CoupleNotFoundException::new);
+
+		couple.dissolve();
+		Couple saved = coupleRepository.save(couple);
+		securityAuditLogger.coupleDissolved(userId, saved.getId());
+		return saved.getId();
+	}
+
 	public Couple joinCouple(UUID userId, String inviteCode) {
 		enforceJoinRateLimit(userId);
 
@@ -162,6 +185,20 @@ public class CoupleService {
 		Limit limit = rateLimitProperties.getCoupleJoinByUser();
 		RateLimitResult result = rateLimitService.tryConsume("invite-code-regenerate:user:" + userId,
 				limit.getCapacity(), limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
+	}
+
+	/**
+	 * Limite POR USUARIO da dissolucao (US-004). Tem {@code Limit} proprio ({@code app.rate-limit.couple-dissolve},
+	 * 5/hora) em vez de reaproveitar o do join: dissolver e destrutivo para o vinculo e nao deve herdar a
+	 * capacidade de uma operacao de entrada. Nao passa pelo {@code RateLimitFilter}, que chaveia por IP.
+	 */
+	private void enforceDissolveRateLimit(UUID userId) {
+		Limit limit = rateLimitProperties.getCoupleDissolve();
+		RateLimitResult result = rateLimitService.tryConsume("couple-dissolve:user:" + userId, limit.getCapacity(),
+				limit.getWindow());
 		if (!result.allowed()) {
 			throw new RateLimitExceededException(result.retryAfterSeconds());
 		}

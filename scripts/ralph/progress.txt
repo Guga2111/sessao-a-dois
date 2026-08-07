@@ -52,6 +52,20 @@ Started: 2026-08-06
   filtros de dominio (ex.: "casal ativo") usar `@Query` JPQL com `@Param`, que tambem
   deixa o nome do metodo livre para dizer a intencao (`findActiveByUserId`) em vez da
   mecanica (`findByUser1IdOrUser2IdAndDissolvedAtIsNull`).
+- `RateLimitExceededException` NAO e tratada pelo `CoupleExceptionHandler` (nem pelo
+  `AuthExceptionHandler`): quem devolve o 429 + `Retry-After` e o
+  `GlobalExceptionHandler` de `com.app.common`, e um `@WebMvcTest` de controller o
+  enxerga porque a slice inclui todo `@RestControllerAdvice`. Limite novo por usuario =
+  `Limit` em `RateLimitProperties` + linha em `application.properties` + `tryConsume`
+  dentro do servico; nenhum handler novo.
+- Um limite por usuario dentro do servico NAO respeita `app.rate-limit.enabled=false`
+  (a flag so desliga o `RateLimitFilter`). Teste de integracao que repete a mesma
+  operacao limitada precisa de ids de usuario diferentes por teste, senao o balde
+  compartilhado vaza entre metodos da mesma classe.
+- Endpoint destrutivo de casal tem DOIS caminhos que nao se unificam: o do endpoint
+  (404 quando nao ha casal) e o interno/no-op usado por porta e exclusao de conta. Se
+  um servico ganhar um metodo `xIfActive`, conferir se o endpoint novo precisa do
+  irmao estrito antes de reusar o no-op.
 
 ---
 
@@ -232,4 +246,63 @@ Started: 2026-08-06
   - Um AC que promete "contrato identico" inclui a MENSAGEM de erro, nao so o status. A
     troca de `getCurrentCouple().orElseThrow(...)` por `requireActiveCoupleId` mudava o
     corpo do 404 em silencio; os testes de controller pegaram.
+---
+
+## 2026-08-06 - US-004 (DELETE /api/couple/me - dissolver o vinculo)
+- `CoupleController.dissolve` (`@DeleteMapping("/me")`) -> `204` sem corpo, delegando a
+  `CoupleService.dissolveCouple(userId)` (novo): rate limit por usuario, `findActiveByUserId`
+  -> `CoupleNotFoundException` (404) quando nao ha casal ativo, `Couple.dissolve()`, `save`,
+  `SecurityAuditLogger.coupleDissolved(userId, coupleId)` (metodo novo, mesmo formato dos
+  demais). Devolve o id do casal dissolvido.
+- `dissolveIfActive` (US-002) NAO foi tocado nem unificado com o novo metodo: um tem de dar
+  404 sem casal (endpoint), o outro nao pode (porta/US-007). Dissolver duas vezes cai no
+  mesmo 404 da primeira, porque o casal dissolvido nao volta em `findActiveByUserId` — a
+  `CoupleAlreadyDissolvedException` da E9.7 nunca e alcancada por HTTP (continua sem handler,
+  como decidido na US-001).
+- Rate limit PROPRIO: `app.rate-limit.couple-dissolve` (5/hora) em `RateLimitProperties` +
+  as duas linhas em `application.properties` (`RATE_LIMIT_COUPLE_DISSOLVE_*`), consumido em
+  `enforceDissolveRateLimit` com a chave `couple-dissolve:user:<id>`. O 429 + `Retry-After`
+  sai do `GlobalExceptionHandler` que ja existia — nenhum handler novo.
+- **E9.18 (a unica AC que nao saiu de graca):** `NotificationRepository` perdeu
+  `findByRecipientUserIdOrderByCreatedAtDesc` e `countByRecipientUserIdAndReadFalse`, que
+  viraram `findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc` e
+  `countByRecipientUserIdAndCoupleIdAndReadFalse`. `NotificationService.listNotifications`/
+  `unreadCount` resolvem o casal ativo pelo `CoupleFacade` que o servico JA injetava (US-003)
+  e devolvem pagina vazia/zero **sem tocar no repositorio** quando nao ha casal. `tracking` e
+  `match` nao precisaram de nada: resolvem o casal por `requireActiveCoupleId`.
+- `markAllAsRead` ficou por destinatario de proposito (fora da AC): marcar como lida uma
+  notificacao que ja nao e listada nem contada nao muda nada que o usuario ve.
+- Testes: `CoupleDissolutionIntegrationTest` (novo, 5 testes, `@SpringBootTest` +
+  `@AutoConfigureMockMvc` com repositorios reais) — dissolucao unilateral escondendo
+  couple/tracking/match/notification dos DOIS ex-membros com contagem de linhas antes/depois
+  (nada apagado, a linha em `couples` continua la), os dois recriando casal, convite do casal
+  dissolvido barrado nos dois casos (codigo limpo e linha legada via
+  `ReflectionTestUtils.setField(couple, "dissolvedAt", ...)`), e o cenario da E9.20 (uma linha
+  dissolvida + uma ativa -> `GET /api/couple/me` 200 e regenerate 200). `CoupleServiceTest`
+  +7 (dissolver por qualquer membro, sem casal, duas vezes, recriar depois, convite de casal
+  dissolvido, bloqueio por rate limit, balde independente do join). `CoupleControllerTest` +5
+  (204, sem auth, 404, segundo 404, 429 com `Retry-After`). `NotificationServiceTest` +2 (sem
+  casal ativo: lista vazia e contador zero, `verifyNoInteractions(notificationRepository)`) e
+  os 4 stubs migrados. `NotificationRepositoryTest` +1 (escopo por casal com as duas linhas no
+  banco) e os 3 existentes migrados.
+- `api/CLAUDE.md`: secao nova sobre o endpoint de dissolucao e o escopo do sino.
+- Arquivos alterados: `CoupleController.java`, `CoupleService.java`, `RateLimitProperties.java`,
+  `SecurityAuditLogger.java`, `NotificationRepository.java`, `NotificationService.java`,
+  `application.properties`, `CoupleDissolutionIntegrationTest.java` (novo),
+  `CoupleServiceTest.java`, `CoupleControllerTest.java`, `NotificationServiceTest.java`,
+  `NotificationRepositoryTest.java`, `api/CLAUDE.md`, `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> **461 testes, 0 falhas, 0 erros**; JaCoCo `check` verde
+  ("All coverage checks have been met").
+- **Learnings for future iterations:**
+  - A AC "nenhum endpoint retorna dado do casal dissolvido" so vira teste de verdade com
+    repositorio real: a metade "some da API" e a metade "continua no banco" tem de estar no
+    MESMO teste, senao um `DELETE` acidental passaria pela primeira. `@SpringBootTest` +
+    `MockMvc` + `repository.count()` antes/depois e o arranjo.
+  - Assercao ANTES da acao destrutiva (lista com 1 item, contador 1) e o que impede o teste
+    de ser vacuo — sem ela, "lista vazia depois de dissolver" passaria com um bug que deixa a
+    lista sempre vazia.
+  - `notification` foi a unica feature a precisar de codigo porque e a unica que filtra por
+    `recipient_user_id` e nao pelo casal. O criterio para a proxima feature: se a consulta
+    parte do USUARIO e nao do `couple_id`, ela NAO herda o filtro de dissolucao.
 ---
