@@ -1,13 +1,10 @@
 package com.app.match;
 
-import com.app.couple.Couple;
-import com.app.couple.CoupleRepository;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.notification.NotificationService;
 import com.app.notification.NotificationType;
 import com.app.tracking.TrackingFacade;
-import com.app.common.ResourceNotFoundException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,19 +25,16 @@ public class MatchService {
 	private final MatchLikeRepository matchLikeRepository;
 	private final MatchRejectRepository matchRejectRepository;
 	private final TrackingFacade trackingFacade;
-	private final CoupleRepository coupleRepository;
 	private final MediaDetailsService mediaDetailsService;
 	private final SimpMessagingTemplate messagingTemplate;
 	private final NotificationService notificationService;
 
 	public MatchService(MatchLikeRepository matchLikeRepository, MatchRejectRepository matchRejectRepository,
-			TrackingFacade trackingFacade, CoupleRepository coupleRepository,
-			MediaDetailsService mediaDetailsService, SimpMessagingTemplate messagingTemplate,
-			NotificationService notificationService) {
+			TrackingFacade trackingFacade, MediaDetailsService mediaDetailsService,
+			SimpMessagingTemplate messagingTemplate, NotificationService notificationService) {
 		this.matchLikeRepository = matchLikeRepository;
 		this.matchRejectRepository = matchRejectRepository;
 		this.trackingFacade = trackingFacade;
-		this.coupleRepository = coupleRepository;
 		this.mediaDetailsService = mediaDetailsService;
 		this.messagingTemplate = messagingTemplate;
 		this.notificationService = notificationService;
@@ -52,12 +46,8 @@ public class MatchService {
 			throw new TitleAlreadyTrackedException();
 		}
 
-		Couple couple = null;
 		if (matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, request.tmdbId()).isEmpty()) {
-			couple = coupleRepository.findById(coupleId)
-				.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
-
-			MatchLike like = new MatchLike(couple, userId, request.tmdbId(), request.mediaType());
+			MatchLike like = new MatchLike(coupleId, userId, request.tmdbId(), request.mediaType());
 			like.setTitle(request.title());
 			like.setPosterUrl(request.posterUrl());
 			like.setReleaseYear(request.releaseYear());
@@ -69,11 +59,7 @@ public class MatchService {
 			.isPresent();
 
 		if (matched && !trackingFacade.isTracked(coupleId, request.tmdbId())) {
-			if (couple == null) {
-				couple = coupleRepository.findById(coupleId)
-					.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
-			}
-			createMatch(couple, request, userId);
+			createMatch(coupleId, request, userId);
 		}
 
 		return new LikeResponse(matched);
@@ -84,17 +70,15 @@ public class MatchService {
 		if (matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(coupleId, userId, request.tmdbId()).isPresent()) {
 			return;
 		}
-		Couple couple = coupleRepository.findById(coupleId)
-			.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
-		matchRejectRepository.save(new MatchReject(couple, userId, request.tmdbId(), request.mediaType()));
+		matchRejectRepository.save(new MatchReject(coupleId, userId, request.tmdbId(), request.mediaType()));
 
 		boolean partnerLiked = matchLikeRepository
 			.findFirstByCoupleIdAndTmdbIdAndUserIdNot(coupleId, request.tmdbId(), userId)
 			.isPresent();
 		if (partnerLiked) {
 			MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
-			notificationService.notifyCouple(couple, NotificationType.NO_MATCH, request.tmdbId(), request.mediaType(),
-					details.title(), userId);
+			notificationService.notifyCouple(coupleId, NotificationType.NO_MATCH, request.tmdbId(),
+					request.mediaType(), details.title(), userId);
 		}
 	}
 
@@ -132,15 +116,15 @@ public class MatchService {
 		}
 	}
 
-	private void createMatch(Couple couple, LikeRequest request, UUID actorUserId) {
+	private void createMatch(UUID coupleId, LikeRequest request, UUID actorUserId) {
 		MediaDetails details = mediaDetailsService.getDetails(request.mediaType(), request.tmdbId());
 
-		trackingFacade.createTrackFromMatch(couple, request.tmdbId(), request.mediaType(), details);
+		trackingFacade.createTrackFromMatch(coupleId, request.tmdbId(), request.mediaType(), details);
 
 		MatchEvent event = new MatchEvent(request.tmdbId(), details.title(), request.mediaType());
-		messagingTemplate.convertAndSend("/topic/couple/" + couple.getId() + "/match", event);
+		messagingTemplate.convertAndSend("/topic/couple/" + coupleId + "/match", event);
 
-		notificationService.notifyCouple(couple, NotificationType.MATCH, request.tmdbId(), request.mediaType(),
+		notificationService.notifyCouple(coupleId, NotificationType.MATCH, request.tmdbId(), request.mediaType(),
 				details.title(), actorUserId);
 	}
 }

@@ -41,7 +41,7 @@ public class CoupleFacade {
 	 */
 	public UUID requireActiveCoupleId(UUID userId) {
 		return findActiveCoupleId(userId)
-			.orElseThrow(() -> new ResourceNotFoundException("Usuario nao possui um casal ativo"));
+			.orElseThrow(() -> new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
 	}
 
 	/**

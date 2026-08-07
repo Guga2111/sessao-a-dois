@@ -63,7 +63,7 @@
         "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-002. E a MAIOR story do epico e NAO muda comportamento nenhum - pura refatoracao de mapeamento sobre a mesma coluna. O sinal de que deu certo e duplo: teste de migrations com ddl-auto=validate verde E o JSON de resposta identico. Cuidado com regressao de N+1: perder a associacao nao pode virar uma consulta ao CoupleFacade por track; o ponto mais escorregadio e o RatingRequestService, que hoje acha o parceiro de graca via track.getCouple() e com UUID passa a poder disparar uma query por notificacao se a resolucao nao for icada para fora do laco."
     },
     {

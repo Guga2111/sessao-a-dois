@@ -1,6 +1,6 @@
 package com.app.tracking;
 
-import com.app.couple.Couple;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaDetailsService;
 import com.app.notification.Notification;
 import com.app.notification.NotificationRepository;
@@ -31,12 +31,15 @@ public class RatingRequestService {
 	private final NotificationService notificationService;
 	private final NotificationRepository notificationRepository;
 	private final MediaDetailsService mediaDetailsService;
+	private final CoupleFacade coupleFacade;
 
 	public RatingRequestService(NotificationService notificationService,
-			NotificationRepository notificationRepository, MediaDetailsService mediaDetailsService) {
+			NotificationRepository notificationRepository, MediaDetailsService mediaDetailsService,
+			CoupleFacade coupleFacade) {
 		this.notificationService = notificationService;
 		this.notificationRepository = notificationRepository;
 		this.mediaDetailsService = mediaDetailsService;
+		this.coupleFacade = coupleFacade;
 	}
 
 	/**
@@ -50,10 +53,12 @@ public class RatingRequestService {
 			return;
 		}
 
-		Couple couple = track.getCouple();
-		resolvePendingRequestsFor(couple, actorUserId, track.getTmdbId());
+		UUID coupleId = track.getCoupleId();
+		resolvePendingRequestsFor(coupleId, actorUserId, track.getTmdbId());
 
-		UUID partnerId = partnerOf(couple, actorUserId);
+		// Uma unica resolucao de membros por operacao: com couple_id sendo UUID, achar o parceiro
+		// dentro do laco de notificacoes custaria uma consulta por notificacao (regressao da T2.2).
+		UUID partnerId = partnerOf(coupleFacade.memberIds(coupleId), actorUserId);
 		if (partnerId == null) {
 			return;
 		}
@@ -63,13 +68,13 @@ public class RatingRequestService {
 		}
 
 		boolean alreadyPending = notificationRepository
-			.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(partnerId, couple.getId(),
+			.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(partnerId, coupleId,
 					track.getTmdbId(), NotificationType.RATING_REQUEST);
 		if (alreadyPending) {
 			return;
 		}
 
-		notificationService.notifyRatingRequest(couple, partnerId, actorUserId, track.getTmdbId(),
+		notificationService.notifyRatingRequest(coupleId, partnerId, actorUserId, track.getTmdbId(),
 				track.getMediaType(), resolveTitle(track), track.getId());
 	}
 
@@ -79,7 +84,7 @@ public class RatingRequestService {
 	 * Roda na transacao de {@code MediaTrackService.deleteTrack}, antes da remocao.
 	 */
 	public void onTrackDeleted(MediaTrack track) {
-		notificationRepository.deleteByCoupleIdAndTmdbIdAndType(track.getCouple().getId(), track.getTmdbId(),
+		notificationRepository.deleteByCoupleIdAndTmdbIdAndType(track.getCoupleId(), track.getTmdbId(),
 				NotificationType.RATING_REQUEST);
 	}
 
@@ -87,9 +92,9 @@ public class RatingRequestService {
 	 * Ao dar a propria nota, o ator resolve sozinho qualquer RATING_REQUEST que
 	 * tenha recebido para aquele titulo — sem acao manual no dropdown.
 	 */
-	private void resolvePendingRequestsFor(Couple couple, UUID actorUserId, Long tmdbId) {
+	private void resolvePendingRequestsFor(UUID coupleId, UUID actorUserId, Long tmdbId) {
 		List<Notification> pending = notificationRepository
-			.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(actorUserId, couple.getId(), tmdbId,
+			.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(actorUserId, coupleId, tmdbId,
 					NotificationType.RATING_REQUEST);
 		if (pending.isEmpty()) {
 			return;
@@ -98,14 +103,18 @@ public class RatingRequestService {
 		notificationRepository.saveAll(pending);
 	}
 
-	private UUID partnerOf(Couple couple, UUID actorUserId) {
-		if (actorUserId.equals(couple.getUser1Id())) {
-			return couple.getUser2Id();
+	/**
+	 * O outro membro do casal, ou {@code null} quando o casal ainda nao tem parceiro — ou quando o
+	 * ator nem pertence a ele, caso em que ninguem deve ser notificado.
+	 */
+	private UUID partnerOf(List<UUID> memberIds, UUID actorUserId) {
+		if (!memberIds.contains(actorUserId)) {
+			return null;
 		}
-		if (actorUserId.equals(couple.getUser2Id())) {
-			return couple.getUser1Id();
-		}
-		return null;
+		return memberIds.stream()
+			.filter(memberId -> !memberId.equals(actorUserId))
+			.findFirst()
+			.orElse(null);
 	}
 
 	private Integer ratingOf(MediaTrack track, UUID userId) {

@@ -41,6 +41,13 @@ Started: 2026-08-06
   `com.app.migration.FlywayMigrationTest`, e a lista de versoes dele e literal — toda
   migration nova precisa da string correspondente adicionada la, senao o teste passa
   sem provar nada sobre o arquivo novo.
+- Contagem de queries com `Page`: o Spring Data SO emite a query de `count` quando o
+  resultado enche a pagina. Comparar contagem de queries entre "poucos" e "muitos"
+  registros so mede N+1 se OS DOIS casos passarem do tamanho da pagina — senao a
+  diferenca de 1 query e a do `count`, nao um N+1.
+- Mock do Mockito com retorno `List` devolve LISTA VAZIA quando nao stubado (nao null).
+  Um teste que esperava membros do casal passa a produzir zero reviews em silencio —
+  stubar `coupleFacade.memberIds(...)` onde a assercao depende dos membros.
 - Consulta derivada nao expressa `IS NULL` combinado com `OR` de forma legivel; para
   filtros de dominio (ex.: "casal ativo") usar `@Query` JPQL com `@Param`, que tambem
   deixa o nome do metodo livre para dizer a intencao (`findActiveByUserId`) em vez da
@@ -170,4 +177,59 @@ Started: 2026-08-06
     o AC exige `void` na porta, mas a US-004 vai querer o id do casal para o
     `SecurityAuditLogger`. O log de auditoria de dissolucao foi deixado para a US-004,
     junto com o endpoint — nao esquecer la.
+---
+
+## 2026-08-06 - US-003 (Trocar a associacao Couple por UUID em tracking e match)
+- `MediaTrack`, `MatchLike`, `MatchReject` e **`Notification`** trocaram
+  `@ManyToOne(fetch=LAZY) @JoinColumn("couple_id") Couple` por
+  `@Column(name="couple_id", nullable=false) UUID coupleId`. Mesma coluna, **nenhuma
+  migration**. `Notification` nao estava na lista literal do AC, mas entrou por
+  necessidade: `notifyCouple(UUID coupleId, ...)` (E9.19) nao consegue construir a
+  entidade sem a instancia de `Couple` — a alternativa seria `NotificationService`
+  injetar `CoupleRepository` e fazer um `findById` por notificacao, que e exatamente o
+  acoplamento (e o N+1) que a story remove.
+- JPQL: as 6 queries de `MediaTrackRepository` (`mt.couple.id` -> `mt.coupleId`), a de
+  `UserReviewRepository` (`ur.mediaTrack.couple.id` -> `ur.mediaTrack.coupleId`) e as 4
+  ocorrencias dentro do `findPendingForUser` de `MatchLikeRepository` (que o AC nao
+  citava — `ml/m/r/mt.couple.id`). Os dois `@EntityGraph` perderam o path `"couple"`.
+- Portas: `TrackingFacade.createTrackFromMatch(UUID, ...)`,
+  `NotificationService.notifyCouple(UUID, ...)`/`notifyRatingRequest(UUID, ...)`.
+  `MediaTrackController`/`MatchController` resolvem o casal por
+  `CoupleFacade.requireActiveCoupleId`/`findActiveCoupleId` (stats); `MediaTrackService`
+  e `MatchService` nao injetam mais `CoupleRepository`.
+- `MediaTrackMapper.memberIds(Couple)` sumiu; `toResponse(track, memberIds, userNames)`
+  recebe a lista pronta. `RatingRequestService.partnerOf` passou a operar sobre
+  `coupleFacade.memberIds(coupleId)`, resolvido UMA vez por operacao (e com guarda: ator
+  que nao e membro nao notifica ninguem).
+- `CoupleFacade.requireActiveCoupleId` teve a mensagem trocada para
+  `"usuario nao pertence a nenhum casal"` — e a mensagem que `tracking`/`match` ja
+  devolviam no 404, e o AC exige contrato identico. Sem isso o corpo do erro mudaria.
+- Testes: 2 novos (`RatingRequestServiceTest`: resolucao unica de membros por operacao,
+  e ator fora do casal nao notifica) + 1 novo em `MediaTrackQueryCountTest`
+  (contagem constante de queries no endpoint paginado, 21 vs 40 tracks). Ajustados:
+  `MediaTrackServiceTest`, `MediaTrackMapperTest`, `MediaTrackControllerTest`,
+  `UserReviewServiceTest`, `TrackCreationParityTest`, `MediaTrackRepositoryTest`,
+  `MatchServiceTest`, `MatchControllerTest`, `MatchLike/MatchRejectRepositoryTest`,
+  `NotificationServiceTest`, `NotificationRepositoryTest`. Tres testes foram REMOVIDOS
+  por perderem o sujeito (`addTrackThrowsWhenCoupleNotFound`, `like_throwsWhenCoupleNotFound`
+  — o servico nao busca mais o casal, quem valida e o controller pela porta — e os dois
+  `memberIds*` do `MediaTrackMapperTest`, cuja regra desceu para `Couple.memberIds`).
+- `api/CLAUDE.md`: secao nova sobre `couple_id` como UUID nas tres features.
+- Verificacao: `./mvnw test` -> **441 testes, 0 falhas, 0 erros**; JaCoCo verde. O grep
+  objetivo do AC (`com.app.couple.Couple\b|CoupleRepository|CoupleService` em
+  `tracking`/`match`) retorna VAZIO. `FlywayMigrationTest` com `ddl-auto=validate` verde —
+  **mas contra H2 em MODE=PostgreSQL**, nao Postgres real (sem `DB_URL` no sandbox); quem
+  exerce o schema de verdade e o CI.
+- **Learnings for future iterations:**
+  - Trocar associacao por UUID esconde uma armadilha de contagem de queries: o casal, que
+    vinha de graca no `@EntityGraph`, passa a custar 1 query por request. Constante, tudo
+    bem — o perigo e resolver DENTRO do laco de tracks/notificacoes. O sinal de alerta e
+    qualquer `coupleFacade.memberIds(...)` dentro de um `stream().map(...)`.
+  - A entidade `Notification` teve de mudar junto mesmo sem estar no AC. Quando um AC diz
+    "metodo X passa a receber UUID", conferir se a entidade que o metodo CONSTROI tambem
+    depende da entidade antiga — senao a assinatura nova so empurra o `findById` para
+    dentro do servico.
+  - Um AC que promete "contrato identico" inclui a MENSAGEM de erro, nao so o status. A
+    troca de `getCurrentCouple().orElseThrow(...)` por `requireActiveCoupleId` mudava o
+    corpo do 404 em silencio; os testes de controller pegaram.
 ---

@@ -1,6 +1,6 @@
 package com.app.notification;
 
-import com.app.couple.Couple;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaType;
 import com.app.user.User;
 import com.app.user.UserRepository;
@@ -48,22 +48,24 @@ class NotificationServiceTest {
 	@Mock
 	private SimpMessagingTemplate messagingTemplate;
 
+	@Mock
+	private CoupleFacade coupleFacade;
+
 	private NotificationService notificationService;
 
 	@BeforeEach
 	void setUp() {
-		notificationService = new NotificationService(notificationRepository, userRepository, messagingTemplate);
+		notificationService = new NotificationService(notificationRepository, userRepository, messagingTemplate,
+				coupleFacade);
 	}
 
-	private Couple couple(UUID coupleId, UUID user1Id, UUID user2Id) {
-		Couple couple = new Couple(user1Id, "ABC234");
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		couple.setUser2Id(user2Id);
-		return couple;
+	/** Os destinatarios de {@code notifyCouple} vem da porta, nao mais da entidade Couple. */
+	private void stubMembers(UUID coupleId, UUID... memberIds) {
+		when(coupleFacade.memberIds(coupleId)).thenReturn(List.of(memberIds));
 	}
 
-	private Notification savedNotification(Couple couple, UUID recipientId, UUID actorId) {
-		Notification n = new Notification(couple, recipientId, NotificationType.MATCH, 603L, MediaType.MOVIE,
+	private Notification savedNotification(UUID coupleId, UUID recipientId, UUID actorId) {
+		Notification n = new Notification(coupleId, recipientId, NotificationType.MATCH, 603L, MediaType.MOVIE,
 				"Matrix", actorId);
 		ReflectionTestUtils.setField(n, "id", UUID.randomUUID());
 		return n;
@@ -74,14 +76,14 @@ class NotificationServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
-		Couple couple = couple(coupleId, user1Id, user2Id);
+		stubMembers(coupleId, user1Id, user2Id);
 
 		when(notificationRepository.save(any(Notification.class)))
-			.thenAnswer(inv -> savedNotification(couple, ((Notification) inv.getArgument(0)).getRecipientUserId(),
+			.thenAnswer(inv -> savedNotification(coupleId, ((Notification) inv.getArgument(0)).getRecipientUserId(),
 					user1Id));
 		when(userRepository.findById(user1Id)).thenReturn(Optional.of(new User("Ana", "ana@x.com", "hash")));
 
-		List<NotificationDto> dtos = notificationService.notifyCouple(couple, NotificationType.MATCH, 603L,
+		List<NotificationDto> dtos = notificationService.notifyCouple(coupleId, NotificationType.MATCH, 603L,
 				MediaType.MOVIE, "Matrix", user1Id);
 
 		assertThat(dtos).hasSize(2);
@@ -100,14 +102,14 @@ class NotificationServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
 		UUID user2Id = UUID.randomUUID();
-		Couple couple = couple(coupleId, user1Id, user2Id);
+		stubMembers(coupleId, user1Id, user2Id);
 
 		when(notificationRepository.save(any(Notification.class)))
-			.thenAnswer(inv -> savedNotification(couple, ((Notification) inv.getArgument(0)).getRecipientUserId(),
+			.thenAnswer(inv -> savedNotification(coupleId, ((Notification) inv.getArgument(0)).getRecipientUserId(),
 					user1Id));
 		when(userRepository.findById(user1Id)).thenReturn(Optional.empty());
 
-		List<NotificationDto> dtos = notificationService.notifyCouple(couple, NotificationType.NO_MATCH, 603L,
+		List<NotificationDto> dtos = notificationService.notifyCouple(coupleId, NotificationType.NO_MATCH, 603L,
 				MediaType.MOVIE, "Matrix", user1Id);
 
 		assertThat(dtos).allMatch(dto -> dto.actorName() == null);
@@ -119,7 +121,6 @@ class NotificationServiceTest {
 		UUID actorId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
 		UUID mediaTrackId = UUID.randomUUID();
-		Couple couple = couple(coupleId, actorId, partnerId);
 
 		when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> {
 			Notification n = inv.getArgument(0);
@@ -128,7 +129,7 @@ class NotificationServiceTest {
 		});
 		when(userRepository.findById(actorId)).thenReturn(Optional.of(new User("Ana", "ana@x.com", "hash")));
 
-		Optional<NotificationDto> dto = notificationService.notifyRatingRequest(couple, partnerId, actorId, 603L,
+		Optional<NotificationDto> dto = notificationService.notifyRatingRequest(coupleId, partnerId, actorId, 603L,
 				MediaType.MOVIE, "Matrix", mediaTrackId);
 
 		assertThat(dto).isPresent();
@@ -149,7 +150,6 @@ class NotificationServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
-		Couple couple = couple(coupleId, actorId, partnerId);
 
 		when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> {
 			Notification n = inv.getArgument(0);
@@ -160,7 +160,7 @@ class NotificationServiceTest {
 
 		TransactionSynchronizationManager.initSynchronization();
 		try {
-			notificationService.notifyRatingRequest(couple, partnerId, actorId, 603L, MediaType.MOVIE, "Matrix",
+			notificationService.notifyRatingRequest(coupleId, partnerId, actorId, 603L, MediaType.MOVIE, "Matrix",
 					UUID.randomUUID());
 
 			verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
@@ -178,10 +178,8 @@ class NotificationServiceTest {
 
 	@Test
 	void notifyRatingRequest_doesNothingWhenCoupleHasNoPartner() {
-		Couple couple = couple(UUID.randomUUID(), UUID.randomUUID(), null);
-
-		Optional<NotificationDto> dto = notificationService.notifyRatingRequest(couple, null, couple.getUser1Id(), 603L,
-				MediaType.MOVIE, "Matrix", UUID.randomUUID());
+		Optional<NotificationDto> dto = notificationService.notifyRatingRequest(UUID.randomUUID(), null,
+				UUID.randomUUID(), 603L, MediaType.MOVIE, "Matrix", UUID.randomUUID());
 
 		assertThat(dto).isEmpty();
 		verify(notificationRepository, never()).save(any(Notification.class));
@@ -193,8 +191,7 @@ class NotificationServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID recipientId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
-		Couple couple = couple(coupleId, recipientId, actorId);
-		Notification notification = savedNotification(couple, recipientId, actorId);
+		Notification notification = savedNotification(coupleId, recipientId, actorId);
 
 		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
 			.thenReturn(new PageImpl<>(List.of(notification)));
@@ -213,8 +210,7 @@ class NotificationServiceTest {
 		UUID recipientId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
 		UUID mediaTrackId = UUID.randomUUID();
-		Couple couple = couple(UUID.randomUUID(), recipientId, actorId);
-		Notification notification = new Notification(couple, recipientId, NotificationType.RATING_REQUEST, 603L,
+		Notification notification = new Notification(UUID.randomUUID(), recipientId, NotificationType.RATING_REQUEST, 603L,
 				MediaType.MOVIE, "Matrix", actorId, mediaTrackId);
 		ReflectionTestUtils.setField(notification, "id", UUID.randomUUID());
 
@@ -232,8 +228,7 @@ class NotificationServiceTest {
 	void listNotifications_mediaTrackIdIsNullForMatchNotifications() {
 		UUID recipientId = UUID.randomUUID();
 		UUID actorId = UUID.randomUUID();
-		Couple couple = couple(UUID.randomUUID(), recipientId, actorId);
-		Notification notification = savedNotification(couple, recipientId, actorId);
+		Notification notification = savedNotification(UUID.randomUUID(), recipientId, actorId);
 
 		when(notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(recipientId, PageRequest.of(0, 20)))
 			.thenReturn(new PageImpl<>(List.of(notification)));
@@ -256,8 +251,7 @@ class NotificationServiceTest {
 	@Test
 	void markAsRead_marksOwnedNotificationAsRead() {
 		UUID recipientId = UUID.randomUUID();
-		Notification notification = savedNotification(couple(UUID.randomUUID(), recipientId, UUID.randomUUID()),
-				recipientId, UUID.randomUUID());
+		Notification notification = savedNotification(UUID.randomUUID(), recipientId, UUID.randomUUID());
 		when(notificationRepository.findById(notification.getId())).thenReturn(Optional.of(notification));
 
 		notificationService.markAsRead(notification.getId(), recipientId);
@@ -279,8 +273,7 @@ class NotificationServiceTest {
 	void markAsRead_throwsAccessDeniedWhenNotOwnedByUser() {
 		UUID recipientId = UUID.randomUUID();
 		UUID otherUserId = UUID.randomUUID();
-		Notification notification = savedNotification(couple(UUID.randomUUID(), recipientId, UUID.randomUUID()),
-				recipientId, UUID.randomUUID());
+		Notification notification = savedNotification(UUID.randomUUID(), recipientId, UUID.randomUUID());
 		when(notificationRepository.findById(notification.getId())).thenReturn(Optional.of(notification));
 
 		assertThatThrownBy(() -> notificationService.markAsRead(notification.getId(), otherUserId))

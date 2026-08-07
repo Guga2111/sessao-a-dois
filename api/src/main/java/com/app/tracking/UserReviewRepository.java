@@ -12,7 +12,7 @@ public interface UserReviewRepository extends JpaRepository<UserReview, UUID> {
 	Optional<UserReview> findByMediaTrackIdAndUserId(UUID trackId, UUID userId);
 
 	@Query("SELECT AVG(ur.rating) FROM UserReview ur "
-		+ "WHERE ur.mediaTrack.couple.id = :coupleId AND ur.mediaTrack.status = :status")
+		+ "WHERE ur.mediaTrack.coupleId = :coupleId AND ur.mediaTrack.status = :status")
 	Double findAverageRatingByCoupleIdAndMediaTrackStatus(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status);
 }

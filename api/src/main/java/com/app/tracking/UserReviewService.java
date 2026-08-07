@@ -2,6 +2,7 @@ package com.app.tracking;
 
 import com.app.common.ResourceNotFoundException;
 
+import com.app.couple.CoupleFacade;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,15 +21,17 @@ public class UserReviewService {
 	private final UserReviewRepository userReviewRepository;
 	private final MediaTrackRepository mediaTrackRepository;
 	private final UserRepository userRepository;
+	private final CoupleFacade coupleFacade;
 	private final MediaTrackMapper mediaTrackMapper;
 	private final RatingRequestService ratingRequestService;
 
 	public UserReviewService(UserReviewRepository userReviewRepository, MediaTrackRepository mediaTrackRepository,
-			UserRepository userRepository, MediaTrackMapper mediaTrackMapper,
+			UserRepository userRepository, CoupleFacade coupleFacade, MediaTrackMapper mediaTrackMapper,
 			RatingRequestService ratingRequestService) {
 		this.userReviewRepository = userReviewRepository;
 		this.mediaTrackRepository = mediaTrackRepository;
 		this.userRepository = userRepository;
+		this.coupleFacade = coupleFacade;
 		this.mediaTrackMapper = mediaTrackMapper;
 		this.ratingRequestService = ratingRequestService;
 	}
@@ -37,7 +41,7 @@ public class UserReviewService {
 		MediaTrack track = mediaTrackRepository.findById(trackId)
 			.orElseThrow(() -> new ResourceNotFoundException("titulo nao encontrado"));
 
-		if (!track.getCouple().getId().equals(coupleId)) {
+		if (!track.getCoupleId().equals(coupleId)) {
 			throw new AccessDeniedException("titulo nao pertence ao casal do usuario");
 		}
 
@@ -58,12 +62,13 @@ public class UserReviewService {
 
 		ratingRequestService.onRatingRegistered(track, userId);
 
-		return mediaTrackMapper.toResponse(track, resolveMemberNames(track));
+		List<UUID> memberIds = coupleFacade.memberIds(track.getCoupleId());
+		return mediaTrackMapper.toResponse(track, memberIds, resolveMemberNames(memberIds));
 	}
 
-	private Map<UUID, String> resolveMemberNames(MediaTrack track) {
+	private Map<UUID, String> resolveMemberNames(List<UUID> memberIds) {
 		Map<UUID, String> names = new HashMap<>();
-		for (User user : userRepository.findAllById(MediaTrackMapper.memberIds(track.getCouple()))) {
+		for (User user : userRepository.findAllById(memberIds)) {
 			names.put(user.getId(), user.getName());
 		}
 		return names;
