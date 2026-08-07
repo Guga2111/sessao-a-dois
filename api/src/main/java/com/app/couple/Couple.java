@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -98,6 +99,18 @@ public class Couple {
 	/** Um casal so e "ativo" enquanto nao foi dissolvido - e o unico predicado que define isso. */
 	public boolean isActive() {
 		return dissolvedAt == null;
+	}
+
+	/**
+	 * Os ids dos membros do casal, na ordem user1/user2, pulando um {@code user2Id} nulo (casal criado e
+	 * ainda nao pareado). E a definicao unica de "quem sao os dois", consumida pela porta
+	 * {@link CoupleFacade#memberIds(UUID)}.
+	 */
+	public List<UUID> memberIds() {
+		if (user2Id == null) {
+			return List.of(user1Id);
+		}
+		return List.of(user1Id, user2Id);
 	}
 
 	/**

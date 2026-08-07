@@ -120,3 +120,54 @@ Started: 2026-08-06
     convite de casal dissolvido no nivel de servico/controller e AC da US-004, junto com
     o endpoint que dissolve.
 ---
+
+## 2026-08-06 - US-002 (Porta CoupleFacade - so UUID cruza a fronteira)
+- `CoupleFacade` (novo, `com.app.couple`): `findActiveCoupleId`, `requireActiveCoupleId`
+  (404 via `com.app.common.ResourceNotFoundException`, E9.16), `memberIds(coupleId)` e
+  `dissolveIfActive(userId)`. Fachada FINA sobre o `CoupleService` — todo metodo delega,
+  nenhum reimplementa consulta. Nenhuma assinatura aceita/devolve `Couple` (E9.4).
+- `Couple.memberIds()` (novo metodo de dominio): user1 + user2, pulando o `user2Id` nulo.
+  A semantica que hoje vive em `MediaTrackMapper.memberIds(Couple)` desceu para a
+  entidade, que e quem sabe "quem sao os dois" — a US-003 apaga a estatica do mapper.
+- `CoupleService`: `memberIds(UUID coupleId)` (por `findById`, SEM filtro de dissolucao —
+  ver learning abaixo) e `dissolveIfActive(UUID) -> Optional<UUID>` (id do casal
+  dissolvido, vazio se nao havia; o `Optional` e para a US-004/US-007 auditarem).
+  Os 4 callers de `findByUser1IdOrUser2Id` (`createCouple`, `getCurrentCouple`,
+  `joinCouple`, `regenerateInviteCode`) migrados para `findActiveByUserId`.
+- `CoupleRepository`: **`findByUser1IdOrUser2Id` removido**. `grep -rn
+  "findByUser1IdOrUser2Id" api/src` -> VAZIO (inclusive nos comentarios: o javadoc do
+  `getCurrentCouple` cita "a derivada sem filtro" em vez do nome, senao o grep de aceite
+  nao fecha).
+- Testes: `CoupleFacadeTest` (novo, 10 testes — casal ativo, sem casal, dissolvido,
+  require nos dois caminhos, memberIds com/sem parceiro, memberIds de coupleId
+  inexistente, dissolveIfActive dissolvendo e o no-op). Monta o `CoupleService` REAL
+  sobre `CoupleRepository` mockado, nao um mock de servico: o que precisa ser provado e
+  que a porta HERDA o filtro, e mock de servico provaria so o proprio stub.
+  `CoupleDestinationAuthorizationManagerTest` ganhou
+  `deniesExMemberSubscribingToTheTopicOfADissolvedCouple` com o mesmo arranjo (servico
+  real + repositorio mockado) — o componente nao mudou uma linha (E9.19).
+  `CoupleServiceTest` (16 stubs) e `CoupleRepositoryTest` (1 teste) migrados de consulta.
+- `api/CLAUDE.md`: secao nova sobre a porta `CoupleFacade`.
+- Arquivos alterados: `CoupleFacade.java` (novo), `CoupleFacadeTest.java` (novo),
+  `Couple.java`, `CoupleService.java`, `CoupleRepository.java`, `CoupleServiceTest.java`,
+  `CoupleRepositoryTest.java`, `CoupleDestinationAuthorizationManagerTest.java`,
+  `api/CLAUDE.md`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> **442 testes, 0 falhas, 0 erros**; JaCoCo `check` verde
+  ("All coverage checks have been met"). Os dois greps objetivos do AC fecham.
+- **Learnings for future iterations:**
+  - `memberIds(coupleId)` NAO filtra casal dissolvido, e isso e a decisao, nao um
+    esquecimento: ele parte do `couple_id` de um track/notificacao, que sobrevive a
+    dissolucao (D13), e o historico precisa continuar mostrando os nomes dos dois. O
+    filtro mora no caminho que parte do USUARIO (`findActiveCoupleId`), que e quem
+    autoriza a operacao. Se a US-003 filtrasse aqui, o historico ficaria sem nomes.
+  - Quando um AC pede `grep X` VAZIO, o comentario/javadoc conta. Reescrever a mencao em
+    vez de deixar o nome literal — ou o criterio de aceite falha por documentacao.
+  - Para provar que um componente "herda" um filtro sem ganhar codigo, mock de servico
+    nao serve (o stub prova a si mesmo). O arranjo que prova e servico REAL + repositorio
+    mockado: a cadeia `getCurrentCouple -> findActiveByUserId` fica exercitada de
+    verdade, e o `CoupleRepositoryTest` (@DataJpaTest) e quem prova o filtro no SQL.
+  - `dissolveIfActive` devolve `Optional<UUID>` no servico e `void` na porta de proposito:
+    o AC exige `void` na porta, mas a US-004 vai querer o id do casal para o
+    `SecurityAuditLogger`. O log de auditoria de dissolucao foi deixado para a US-004,
+    junto com o endpoint — nao esquecer la.
+---

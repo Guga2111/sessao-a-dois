@@ -7,14 +7,19 @@ import com.app.security.RateLimitService;
 import com.app.security.RateLimitService.RateLimitResult;
 import com.app.security.SecurityAuditLogger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class CoupleService {
+
+	private static final Logger log = LoggerFactory.getLogger(CoupleService.class);
 
 	private final CoupleRepository coupleRepository;
 	private final InviteCodeGenerator inviteCodeGenerator;
@@ -35,7 +40,7 @@ public class CoupleService {
 	}
 
 	public Couple createCouple(UUID userId) {
-		if (coupleRepository.findByUser1IdOrUser2Id(userId, userId).isPresent()) {
+		if (coupleRepository.findActiveByUserId(userId).isPresent()) {
 			throw new UserAlreadyInCoupleException();
 		}
 
@@ -46,8 +51,45 @@ public class CoupleService {
 		return saved;
 	}
 
+	/**
+	 * O casal ATIVO do usuario (epico 9): um casal dissolvido nunca e retornado, e a partir da US-001
+	 * essa e a unica consulta de casal por usuario que existe - a derivada sem filtro que existia antes
+	 * foi removida na US-002 justamente para que nao haja um segundo caminho sem o filtro.
+	 */
 	public Optional<Couple> getCurrentCouple(UUID userId) {
-		return coupleRepository.findByUser1IdOrUser2Id(userId, userId);
+		return coupleRepository.findActiveByUserId(userId);
+	}
+
+	/**
+	 * Os ids dos membros de um casal pelo id DELE, sem filtro de dissolucao: a busca ja parte de um
+	 * casal identificado (o {@code couple_id} de um track/notificacao, que sobrevive a dissolucao pela
+	 * D13) e o historico precisa continuar exibindo os nomes dos dois. Quem decide se o casal ainda vale
+	 * para uma operacao e {@code getCurrentCouple}, antes de chegar aqui.
+	 *
+	 * Um {@code coupleId} inexistente devolve lista vazia com um {@code warn}: e estado impossivel pela
+	 * FK, mas degradar a exibicao de nomes e melhor do que derrubar uma leitura de historico.
+	 */
+	public List<UUID> memberIds(UUID coupleId) {
+		return coupleRepository.findById(coupleId)
+			.map(Couple::memberIds)
+			.orElseGet(() -> {
+				log.warn("memberIds chamado para coupleId inexistente coupleId={}", coupleId);
+				return List.of();
+			});
+	}
+
+	/**
+	 * Dissolve o casal ativo do usuario, se houver, e nao faz nada quando nao ha (epico 9, US-002).
+	 * O no-op e deliberado: a exclusao de conta (US-007) passa por aqui e nao pode esbarrar na excecao
+	 * da E9.7 so porque o usuario ja estava sem casal.
+	 *
+	 * @return o id do casal dissolvido, ou vazio quando nao havia casal ativo.
+	 */
+	public Optional<UUID> dissolveIfActive(UUID userId) {
+		return coupleRepository.findActiveByUserId(userId).map(couple -> {
+			couple.dissolve();
+			return coupleRepository.save(couple).getId();
+		});
 	}
 
 	public Couple joinCouple(UUID userId, String inviteCode) {
@@ -65,7 +107,7 @@ public class CoupleService {
 			throw new CannotJoinOwnCoupleException();
 		}
 
-		if (coupleRepository.findByUser1IdOrUser2Id(userId, userId).isPresent()) {
+		if (coupleRepository.findActiveByUserId(userId).isPresent()) {
 			throw new UserAlreadyInCoupleException();
 		}
 
@@ -87,7 +129,7 @@ public class CoupleService {
 	public Couple regenerateInviteCode(UUID userId) {
 		enforceRegenerateInviteCodeRateLimit(userId);
 
-		Couple couple = coupleRepository.findByUser1IdOrUser2Id(userId, userId)
+		Couple couple = coupleRepository.findActiveByUserId(userId)
 			.orElseThrow(CoupleNotFoundException::new);
 
 		if (!couple.getUser1Id().equals(userId)) {

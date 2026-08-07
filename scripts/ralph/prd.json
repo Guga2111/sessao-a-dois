@@ -40,7 +40,7 @@
         "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-001. A remocao do findByUser1IdOrUser2Id e o coracao da story, nao um detalhe: depois da US-004 um usuario pode ter DUAS linhas em couples (uma dissolvida, uma nova) e o metodo devolve Optional - o primeiro usuario que dissolver e formar casal novo derruba o app com IncorrectResultSizeDataAccessException (500). Apagar o metodo transforma 'esqueci de migrar um caller' em erro de compilacao. com.app.websocket fica FORA do desacoplamento por decisao explicita (E9.19) - ele continua importando Couple/CoupleService e herda o filtro de graca."
     },
     {

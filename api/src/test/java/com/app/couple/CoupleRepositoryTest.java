@@ -82,9 +82,9 @@ class CoupleRepositoryTest {
 		couple.setUser2Id(user2Id);
 		coupleRepository.save(couple);
 
-		assertThat(coupleRepository.findByUser1IdOrUser2Id(user1Id, user1Id)).isPresent();
-		assertThat(coupleRepository.findByUser1IdOrUser2Id(user2Id, user2Id)).isPresent();
-		assertThat(coupleRepository.findByUser1IdOrUser2Id(UUID.randomUUID(), UUID.randomUUID())).isEmpty();
+		assertThat(coupleRepository.findActiveByUserId(user1Id)).isPresent();
+		assertThat(coupleRepository.findActiveByUserId(user2Id)).isPresent();
+		assertThat(coupleRepository.findActiveByUserId(UUID.randomUUID())).isEmpty();
 	}
 
 	@Test

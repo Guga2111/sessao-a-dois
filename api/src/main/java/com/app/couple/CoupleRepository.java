@@ -31,7 +31,5 @@ public interface CoupleRepository extends JpaRepository<Couple, UUID> {
 	@Query("select c from Couple c where (c.user1Id = :userId or c.user2Id = :userId) and c.dissolvedAt is null")
 	Optional<Couple> findActiveByUserId(@Param("userId") UUID userId);
 
-	Optional<Couple> findByUser1IdOrUser2Id(UUID user1Id, UUID user2Id);
-
 	boolean existsByInviteCode(String inviteCode);
 }
