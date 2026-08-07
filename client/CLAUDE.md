@@ -137,3 +137,19 @@ For a "fetch 2 things then show a dialog" flow (2nd selection triggers `Promise.
 ## Sandbox gotcha: Vite dev server / build can't start
 
 `npm run dev` (and `vite build`) intermittently fails in this sandbox with `Cannot find module './<name>.linux-arm64-gnu.node'` — a plain `npm install` doesn't always pull the optional arm64 native bindings for every native-dependent package. As of 2026-07-25, the fix that worked was installing the three missing optional packages directly: `npm install @rolldown/binding-linux-arm64-gnu lightningcss-linux-arm64-gnu @tailwindcss/oxide-linux-arm64-gnu` (rolldown → lightningcss → tailwind oxide failed in that order, one at a time, each surfaced by re-running `npm run dev` after the previous fix). After all three are present, `npm run dev` starts cleanly (`VITE ready`). No browser (Chromium/Playwright) is installed in this sandbox and there's no sudo to install its system deps (`libnspr4`, `libnss3`, etc.), so even with the dev server running, only static code review / `tsc` / `eslint` are available — no real screenshots or rendered-page checks. Note the API (Spring Boot) still has no JDK/Maven in this sandbox, so full end-to-end (frontend hitting a live backend) can't be verified here either.
+
+### Mutacao de perfil: quem escreve no `useAuthStore`
+
+Uma tela **nunca** faz `api.patch("/api/user/me")` e depois um `set({user})` por fora: o
+`localStorage` (`sessaoADois.session`) e o `user` do store tem que mudar juntos, e a funcao
+`persistSession` e privada do modulo. O caminho e a acao `updateProfile(request)` do
+`useAuthStore` (US-009), que manda o PATCH, persiste e devolve o `AuthUser` novo — e por
+isso que o `Header` reflete o nome novo sem reload. Toda mutacao futura do proprio usuario
+(senha, dissolucao, exclusao) deve nascer como acao do store pelo mesmo motivo.
+
+Mapeamento de erro do `PATCH /api/user/me` em `screens/account/ProfileSection.tsx`, para
+reusar nos outros blocos: **409** -> mensagem no campo de e-mail; **400** -> o corpo do
+`GlobalExceptionHandler` e `{ message, errors: { <campo>: <mensagem> } }`, entao da para
+jogar cada mensagem no seu campo (`types/user.ts` espelha esse shape); **429** -> o limite
+e por usuario (`app.rate-limit.profile-update`, 10/h), mensagem geral. Nenhum ramo engole a
+excecao — o fallback faz `console.error` com contexto (anti-pattern #4).

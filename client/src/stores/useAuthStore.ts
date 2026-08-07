@@ -3,6 +3,7 @@ import { create } from "zustand"
 
 import { api } from "@/lib/api"
 import { useMatchStore } from "@/stores/useMatchStore"
+import type { UpdateProfileRequest, UserProfileResponse } from "@/types/user"
 
 const SESSION_STORAGE_KEY = "sessaoADois.session"
 
@@ -57,6 +58,7 @@ interface AuthState {
   joinCouple: (inviteCode: string) => Promise<Couple>
   createCouple: () => Promise<Couple>
   regenerateInviteCode: () => Promise<Couple>
+  updateProfile: (request: UpdateProfileRequest) => Promise<AuthUser>
   loadCurrentUser: () => Promise<void>
 }
 
@@ -143,6 +145,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     persistSession(get().user, data)
     set({ couple: data })
     return data
+  },
+
+  // A resposta do PATCH e a fonte da verdade do perfil: o Header e qualquer outra tela
+  // que leia `user` refletem o nome novo sem reload, e o cache de UI fica em sincronia.
+  updateProfile: async (request) => {
+    const { data } = await api.patch<UserProfileResponse>("/api/user/me", request)
+    const user: AuthUser = { id: data.id, name: data.name, email: data.email }
+    persistSession(user, get().couple)
+    set({ user })
+    return user
   },
 
   loadCurrentUser: async () => {

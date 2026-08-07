@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header"
 import { AccountSection, ReachChip } from "@/screens/account/AccountSection"
 import type { SectionReach } from "@/screens/account/AccountSection"
+import { ProfileSection } from "@/screens/account/ProfileSection"
 
 type SectionDef = {
   id: string
@@ -8,7 +9,8 @@ type SectionDef = {
   description: string
   reach: SectionReach
   destructive?: boolean
-  placeholder: string
+  /** Ausente quando a secao ja tem conteudo funcional (Perfil, US-009). */
+  placeholder?: string
 }
 
 const SECTIONS: SectionDef[] = [
@@ -18,7 +20,6 @@ const SECTIONS: SectionDef[] = [
     description:
       "Seu nome e e-mail. O nome é como você aparece para quem divide o app com você.",
     reach: "you",
-    placeholder: "Os campos de nome e e-mail entram aqui.",
   },
   {
     id: "senha",
@@ -114,9 +115,13 @@ export function AccountScreen() {
                 reach={section.reach}
                 destructive={section.destructive}
               >
-                <p className="m-0 rounded-[12px] border border-dashed border-white/10 px-4 py-3.5 text-[13px] text-[#a6a39a]">
-                  {section.placeholder}
-                </p>
+                {section.id === "perfil" ? (
+                  <ProfileSection />
+                ) : (
+                  <p className="m-0 rounded-[12px] border border-dashed border-white/10 px-4 py-3.5 text-[13px] text-[#a6a39a]">
+                    {section.placeholder}
+                  </p>
+                )}
               </AccountSection>
             ))}
           </div>
