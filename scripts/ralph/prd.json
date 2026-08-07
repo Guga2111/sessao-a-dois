@@ -110,7 +110,7 @@
         "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-004 so por ordem de entrega; nao ha dependencia tecnica. com.app.user hoje tem ZERO endpoints - so a entidade User e o UserRepository. Esta story cria a borda HTTP da feature. Nao ha verificacao do e-mail novo por link (E9.11) - isso e o Epico 10."
     },
     {

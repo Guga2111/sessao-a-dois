@@ -1,6 +1,7 @@
 package com.app.security;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -57,6 +58,15 @@ public class SecurityAuditLogger {
 
 	public void coupleDissolved(UUID userId, UUID coupleId) {
 		log("couple_dissolved", fields("userId", userId, "coupleId", coupleId));
+	}
+
+	/**
+	 * Edicao de perfil (epico 9, US-005). Recebe apenas os NOMES dos campos alterados
+	 * ({@code name}/{@code email}) - nunca o valor novo do e-mail, que e o dado pessoal que
+	 * esta linha de auditoria nao pode espalhar pelos arquivos de log.
+	 */
+	public void profileUpdated(UUID userId, List<String> changedFields) {
+		log("profile_updated", fields("userId", userId, "fields", String.join(",", changedFields)));
 	}
 
 	public void inviteCodeRegenerated(UUID userId, UUID coupleId) {

@@ -62,6 +62,19 @@ Started: 2026-08-06
   (a flag so desliga o `RateLimitFilter`). Teste de integracao que repete a mesma
   operacao limitada precisa de ids de usuario diferentes por teste, senao o balde
   compartilhado vaza entre metodos da mesma classe.
+- Os `@RestControllerAdvice` de feature deste projeto sao TODOS escopados por
+  `basePackages`. Reusar a excecao de outra feature (padrao aceito aqui) NAO traz o
+  mapeamento HTTP junto: sem um advice na feature que lanca, a excecao cai no
+  `handleGeneric` do `GlobalExceptionHandler` e vira 500 em vez do status certo.
+- Em DTO de PATCH nenhum campo pode ser `@NotBlank`/`@NotNull` (reprovaria o caso
+  normal de "so mandei o outro campo"). O par que valida sem quebrar a semantica e
+  `@Pattern(regexp = ".*\\S.*")` (ignora null por especificacao) e, para e-mail,
+  `@Size(min = 1)` ao lado de `@Email` — o validador de `@Email` aceita string vazia.
+- Prova de "a sessao continua valida" exige cookie `access_token` real (emitido pelo
+  `JwtService` autowired) num `@SpringBootTest`; o post-processor `authentication(...)`
+  injeta o principal direto e passaria mesmo se o token tivesse deixado de valer.
+- Metodo publico "de brinde" num servico novo (getter sem endpoint) e reprovado pelo
+  gate do JaCoCo na hora — so escrever o que a story usa.
 - Endpoint destrutivo de casal tem DOIS caminhos que nao se unificam: o do endpoint
   (404 quando nao ha casal) e o interno/no-op usado por porta e exclusao de conta. Se
   um servico ganhar um metodo `xIfActive`, conferir se o endpoint novo precisa do
@@ -306,3 +319,63 @@ Started: 2026-08-06
     `recipient_user_id` e nao pelo casal. O criterio para a proxima feature: se a consulta
     parte do USUARIO e nao do `couple_id`, ela NAO herda o filtro de dissolucao.
 ---
+
+## 2026-08-07 - US-005 (PATCH /api/user/me - editar nome e e-mail)
+- `com.app.user` ganhou a primeira borda HTTP do projeto: `UserProfileController`
+  (`@PatchMapping("/me")`, injeta SO o servico - anti-pattern #1) ->
+  `UserProfileService.updateProfile(userId, request)` -> `UserProfileResponse` (record proprio,
+  E9.15: `com.app.auth.UserSummary` nao e importado em lugar nenhum desta feature).
+- Semantica de PATCH no DTO (`UpdateProfileRequest`): campo `null` nao e alterado, e por isso
+  **nenhum campo pode ser `@NotBlank`** - a anotacao reprovaria o caso normal de "so mandei o
+  outro campo". O que valida sem quebrar isso sao as anotacoes que ignoram `null` por
+  especificacao: `@Pattern(regexp = ".*\\S.*")` no `name` (pega `"   "`) e
+  `@Size(min = 1, max = 255)` + `@Email` no `email` - o `@Size` esta ali porque o validador de
+  `@Email` considera string VAZIA valida. Os 400 saem do `GlobalExceptionHandler` com o formato
+  `{message: "dados invalidos", errors: {...}}` ja usado pelos demais endpoints.
+- **`UserExceptionHandler` (novo) e a parte que nao era obvia:** `AuthExceptionHandler` e
+  `@RestControllerAdvice(basePackages = "com.app.auth")`, entao ele NAO aconselha o controller
+  de `com.app.user`. Reusar `EmailAlreadyExistsException` (D4) sem um advice proprio nesta
+  feature faria o 409 cair no `handleGeneric` do `GlobalExceptionHandler` e virar **500**. O
+  tipo da excecao continua sendo o de `com.app.auth` - so o mapeamento e local.
+- Rate limit por usuario proprio (E9.3): `app.rate-limit.profile-update` (10/h) em
+  `RateLimitProperties` + as duas linhas em `application.properties`
+  (`RATE_LIMIT_PROFILE_UPDATE_*`), consumido em `enforceProfileUpdateRateLimit` com a chave
+  `profile-update:user:<id>`. 429 + `Retry-After` pelo `GlobalExceptionHandler` - nenhum handler
+  novo (mesmo caminho da US-004).
+- `SecurityAuditLogger.profileUpdated(userId, changedFields)`: so os NOMES dos campos
+  (`fields="name,email"`), nunca o valor novo do e-mail. Nao e chamado quando nada muda - campo
+  ausente OU igual ao atual nao conta como alteracao, e nesse caso nem `save` acontece.
+- Testes: `UserProfileServiceTest` (9: so nome, so e-mail, ambos, payload vazio, reenviar o
+  proprio e-mail nao e conflito consigo mesmo, e-mail de outra conta -> 409 sem `save`, usuario
+  inexistente -> `ResourceNotFoundException`, limite estourado, balde por usuario);
+  `UserProfileControllerTest` (7, `@WebMvcTest` com o conjunto padrao de `@Import` + o
+  `UserExceptionHandler`: sem auth, sucesso com dois campos, so um campo, 409, e-mail
+  malformado, nome em branco, 429 com `Retry-After`); `UserProfileIntegrationTest` (2,
+  `@SpringBootTest` + repositorios reais); `SecurityAuditLoggerTest` +1 e os dois eventos novos
+  do epico (`coupleDissolved`, `profileUpdated`) entraram no teste que varre todos os eventos
+  atras de dado sensivel.
+- O `UserProfileIntegrationTest` autentica com um cookie `access_token` **de verdade** (emitido
+  pelo `JwtService`), e nao com o post-processor `authentication(...)`: a AC "a sessao continua
+  valida depois da troca de e-mail" so e provada se o mesmo token emitido ANTES da troca ainda
+  resolver o usuario DEPOIS - o post-processor injeta o principal direto e curto-circuitaria
+  exatamente isso. O teste tambem cobre "GET /api/auth/me reflete os valores novos".
+- `api/CLAUDE.md`: secao nova sobre a borda HTTP de `com.app.user`.
+- Arquivos alterados: `UserProfileController.java` (novo), `UserProfileService.java` (novo),
+  `UserProfileResponse.java` (novo), `UpdateProfileRequest.java` (novo),
+  `UserExceptionHandler.java` (novo), `RateLimitProperties.java`, `SecurityAuditLogger.java`,
+  `application.properties`, `UserProfileServiceTest.java` (novo),
+  `UserProfileControllerTest.java` (novo), `UserProfileIntegrationTest.java` (novo),
+  `SecurityAuditLoggerTest.java`, `api/CLAUDE.md`, `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> **480 testes, 0 falhas, 0 erros**; JaCoCo `check` verde
+  ("All coverage checks have been met").
+- **Learnings for future iterations:**
+  - Reusar a excecao de OUTRA feature exige conferir o `basePackages` do advice dela. Os
+    `@RestControllerAdvice` de feature deste projeto sao todos escopados, entao o mapeamento
+    NAO viaja junto com o tipo - a US-006/US-007 vao reusar `InvalidCredentialsException` e
+    caem na mesma armadilha (o `UserExceptionHandler` ja existe, e o lugar de acrescentar).
+  - Em DTO de PATCH, `@NotBlank`/`@NotNull` estao proibidos por construcao. O par
+    `@Pattern(".*\\S.*")` (ignora null) + `@Size(min = 1)` ao lado de `@Email` (que aceita
+    string vazia) e a receita para "opcional, mas nao vazio se vier".
+  - Nao adicionar metodo publico "de brinde" num servico novo (um `getProfile` sem endpoint):
+    o gate do JaCoCo e por linha e cobra o codigo morto na hora.
