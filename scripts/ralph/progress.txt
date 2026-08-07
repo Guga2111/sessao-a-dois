@@ -78,6 +78,13 @@ Started: 2026-08-06
 - Endpoint autenticado e mutante em `@WebMvcTest` precisa de `.with(csrf())` alem do
   `.with(authentication(...))` — sem ele o 403 do CSRF passa por "funcionou como esperado"
   em qualquer assercao que nao seja de status.
+- "O Postgres so checa a FK no fim do statement" NAO e portavel: vale para uma constraint
+  imediata no Postgres, mas o H2 `MODE=PostgreSQL` do ambiente de teste checa linha a
+  linha. Exclusao em massa numa tabela com AUTO-REFERENCIA (ex.: `refresh_token.replaced_by_id`)
+  precisa de `UPDATE ... SET <coluna_fk> = null` antes do `DELETE`. Os dois continuam
+  baseados em conjunto — `deleteAll(entidades)` (um `DELETE` por linha) segue proibido.
+- Quando a regra e a ORDEM entre duas chamadas, a assercao e `InOrder` do Mockito; dois
+  `verify` soltos passam com a ordem invertida.
 - Reusar uma excecao dentro da PROPRIA feature traz o mapeamento HTTP de graca; reusar de
   outra feature nao (os `@RestControllerAdvice` sao escopados por `basePackages`).
 - Endpoint destrutivo de casal tem DOIS caminhos que nao se unificam: o do endpoint
@@ -418,3 +425,39 @@ Started: 2026-08-06
     mesmo objeto `User` reusado ja tem o hash novo na segunda chamada e o teste falha em
     "senha atual errada" sem nenhuma relacao com o que ele queria medir.
 ---
+
+## 2026-08-07 - US-007 (DELETE /api/user/me - excluir a conta)
+- `UserDeletionService` (`com.app.user`) ORQUESTRA a exclusao (E9.14) — cada feature apaga o que e
+  dela atras da sua porta. Nasceram `MatchFacade.deleteUserData(UUID)` (likes + rejects) e
+  `NotificationFacade.deleteUserData(UUID)`; `TrackingFacade` ganhou `deleteUserData(UUID)` (SO
+  `user_review`) e `RefreshTokenService`, `deleteAllForUser(UUID)`. Uma unica `@Transactional`, na
+  ordem `dissolveIfActive` -> tracking -> refresh token -> match -> notification -> `delete(user)`.
+- Nada de `couples` e nada de `media_track` sai do banco (D13) — a dissolucao continua sendo
+  `UPDATE dissolved_at`. `notification` apaga por destinatario OU ator (E9.2).
+- `DeleteAccountRequest` exige a senha (E9.12, `@NotBlank` — aqui pode, nao e PATCH); senha errada
+  -> `InvalidCredentialsException` ANTES de qualquer escrita. O 401 exigiu um `@ExceptionHandler`
+  novo no `UserExceptionHandler` (o advice de `com.app.auth` e escopado por `basePackages`).
+- Rate limit `app.rate-limit.account-delete` (3/h, chave `account-delete:user:<id>`);
+  `SecurityAuditLogger.accountDeleted(userId)` sem e-mail.
+- Arquivos novos: `MatchFacade.java`, `NotificationFacade.java`, `DeleteAccountRequest.java`,
+  `UserDeletionService.java`, `MatchFacadeTest`, `NotificationFacadeTest`, `TrackingFacadeTest`,
+  `UserDeletionServiceTest`, `UserDeletionIntegrationTest`, `UserDeletionAtomicityTest`,
+  `UserDeletionIntegrityTest`. Alterados: `RefreshTokenRepository`, `RefreshTokenService`,
+  `MatchLikeRepository`, `MatchRejectRepository`, `NotificationRepository`, `UserReviewRepository`,
+  `TrackingFacade`, `RateLimitProperties`, `SecurityAuditLogger`, `UserExceptionHandler`,
+  `UserProfileController`, `application.properties`, `RefreshTokenServiceTest`,
+  `SecurityAuditLoggerTest`, `TrackCreationParityTest`, `UserProfileControllerTest`, `api/CLAUDE.md`.
+- Verificacao: `./mvnw test` -> **516 testes, 0 falhas, 0 erros**; JaCoCo `check` verde.
+- **PENDENTE DO LADO HUMANO:** `UserDeletionIntegrityTest` so vale como prova de integridade
+  referencial quando `DB_URL` aponta para o Postgres de verdade (CI). No sandbox ele cai em H2
+  `MODE=PostgreSQL` em silencio — a integridade referencial NAO foi provada localmente.
+- **Learnings for future iterations:**
+  - A auto-FK `fk_refresh_token_replaced_by` nao e `DEFERRABLE`. Um `DELETE` unico por `user_id`
+    funciona no Postgres (constraint imediata e checada no FIM do statement) e **falha no H2** do
+    ambiente de teste, que checa linha a linha. O que vale nos dois e quebrar a cadeia primeiro:
+    `UPDATE ... SET replaced_by_id = null` e so entao o `DELETE`. Os dois continuam baseados em
+    conjunto — `deleteAll(entidades)` segue proibido, e e o que a AC realmente queria dizer.
+  - Corolario geral: "o Postgres checa a FK no fim do statement" NAO e uma garantia portavel. Toda
+    exclusao em massa numa tabela com auto-referencia deve anular a coluna de auto-FK antes.
+  - `InOrder` do Mockito e a assercao certa quando a ORDEM entre dois statements e a regra (aqui,
+    limpar antes de apagar); dois `verify` soltos passariam com a ordem invertida.

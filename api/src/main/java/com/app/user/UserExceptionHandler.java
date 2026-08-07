@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.app.auth.EmailAlreadyExistsException;
+import com.app.auth.InvalidCredentialsException;
 
 /**
  * Handler da feature {@code com.app.user}. Existe por um motivo so: o
@@ -27,5 +28,15 @@ public class UserExceptionHandler {
 	@ExceptionHandler(EmailAlreadyExistsException.class)
 	public ResponseEntity<Map<String, String>> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+	}
+
+	/**
+	 * Senha errada na exclusao de conta (US-007). Mesmo motivo do handler acima: o tipo vem de
+	 * {@code com.app.auth} para que o contrato seja identico ao do login, mas o mapeamento HTTP
+	 * precisa existir aqui, senao vira 500.
+	 */
+	@ExceptionHandler(InvalidCredentialsException.class)
+	public ResponseEntity<Map<String, String>> handleInvalidCredentials(InvalidCredentialsException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
 	}
 }

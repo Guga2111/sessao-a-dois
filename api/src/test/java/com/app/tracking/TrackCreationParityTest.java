@@ -33,6 +33,9 @@ class TrackCreationParityTest {
 	private MediaTrackRepository mediaTrackRepository;
 
 	@Mock
+	private UserReviewRepository userReviewRepository;
+
+	@Mock
 	private CoupleFacade coupleFacade;
 
 	@Mock
@@ -54,7 +57,7 @@ class TrackCreationParityTest {
 		MediaDetails details = new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, "/poster.jpg", null, null,
 				List.of(28, 12), null, null, null);
 
-		TrackingFacade trackingFacade = new TrackingFacade(mediaTrackRepository);
+		TrackingFacade trackingFacade = new TrackingFacade(mediaTrackRepository, userReviewRepository);
 		ArgumentCaptor<MediaTrack> matchTrackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
 		when(mediaTrackRepository.save(matchTrackCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 

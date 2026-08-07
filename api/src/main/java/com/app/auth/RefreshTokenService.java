@@ -65,6 +65,20 @@ public class RefreshTokenService {
 	}
 
 	/**
+	 * Apaga TODOS os refresh tokens do usuario (epico 9, US-007) - diferente de
+	 * {@link #revokeFamily}, que so marca os ativos como revogados e deixa as linhas no banco.
+	 * A exclusao de conta precisa das linhas fora, porque {@code fk_refresh_token_user} referencia
+	 * {@code users}. Sao dois statements baseados em conjunto (nunca {@code deleteAll(entidades)},
+	 * que emitiria um {@code DELETE} por linha): primeiro anula {@code replaced_by_id} para quebrar
+	 * a cadeia de rotacao, depois apaga tudo de uma vez.
+	 */
+	@Transactional
+	public void deleteAllForUser(UUID userId) {
+		refreshTokenRepository.clearReplacedByForUser(userId);
+		refreshTokenRepository.deleteAllByUserId(userId);
+	}
+
+	/**
 	 * Revoga o refresh token apresentado no logout, se ele existir e ainda nao
 	 * estiver revogado. Idempotente: token desconhecido ou ja revogado nao
 	 * lanca excecao - o efeito desejado (o token nao vale mais) ja e verdade.

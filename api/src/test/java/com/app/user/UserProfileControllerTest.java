@@ -1,6 +1,7 @@
 package com.app.user;
 
 import com.app.auth.EmailAlreadyExistsException;
+import com.app.auth.InvalidCredentialsException;
 import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
 import com.app.security.RateLimitExceededException;
@@ -23,10 +24,13 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,6 +46,9 @@ class UserProfileControllerTest {
 
 	@MockitoBean
 	private UserProfileService userProfileService;
+
+	@MockitoBean
+	private UserDeletionService userDeletionService;
 
 	@MockitoBean
 	private JwtService jwtService;
@@ -151,6 +158,79 @@ class UserProfileControllerTest {
 				.with(as(userId))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"name\":\"Ana Paula\"}"))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().string("Retry-After", "42"));
+	}
+
+	// --- DELETE /api/user/me (epico 9, US-007) ---
+
+	@Test
+	void deniesAccountDeletionWithoutAuthentication() throws Exception {
+		mockMvc.perform(delete("/api/user/me")
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"password\":\"senha-atual-123\"}"))
+			.andExpect(status().isUnauthorized());
+
+		verifyNoInteractions(userDeletionService);
+	}
+
+	@Test
+	void deletesTheAccountOfTheAuthenticatedUser() throws Exception {
+		UUID userId = UUID.randomUUID();
+
+		mockMvc.perform(delete("/api/user/me")
+				.with(csrf())
+				.with(as(userId))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"password\":\"senha-atual-123\"}"))
+			.andExpect(status().isNoContent());
+
+		verify(userDeletionService).deleteAccount(eq(userId), eq(new DeleteAccountRequest("senha-atual-123")));
+	}
+
+	/** E9.12: sem senha no corpo nem chega ao servico. */
+	@Test
+	void rejectsAccountDeletionWithoutAPassword() throws Exception {
+		UUID userId = UUID.randomUUID();
+
+		mockMvc.perform(delete("/api/user/me")
+				.with(csrf())
+				.with(as(userId))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.password").value("senha nao pode ser vazia"));
+
+		verifyNoInteractions(userDeletionService);
+	}
+
+	@Test
+	void returnsUnauthorizedWhenThePasswordIsWrong() throws Exception {
+		UUID userId = UUID.randomUUID();
+		doThrow(new InvalidCredentialsException()).when(userDeletionService)
+			.deleteAccount(eq(userId), eq(new DeleteAccountRequest("errada")));
+
+		mockMvc.perform(delete("/api/user/me")
+				.with(csrf())
+				.with(as(userId))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"password\":\"errada\"}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.message").exists());
+	}
+
+	@Test
+	void returnsTooManyRequestsWithRetryAfterWhenAccountDeletionIsRateLimited() throws Exception {
+		UUID userId = UUID.randomUUID();
+		doThrow(new RateLimitExceededException(42)).when(userDeletionService)
+			.deleteAccount(eq(userId), eq(new DeleteAccountRequest("senha-atual-123")));
+
+		mockMvc.perform(delete("/api/user/me")
+				.with(csrf())
+				.with(as(userId))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"password\":\"senha-atual-123\"}"))
 			.andExpect(status().isTooManyRequests())
 			.andExpect(header().string("Retry-After", "42"));
 	}

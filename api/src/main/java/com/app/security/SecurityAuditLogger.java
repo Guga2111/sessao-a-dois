@@ -77,6 +77,14 @@ public class SecurityAuditLogger {
 		log("password_changed", fields("userId", userId));
 	}
 
+	/**
+	 * Exclusao da propria conta (epico 9, US-007). So o {@code userId} - o e-mail e justamente o
+	 * dado pessoal que o titular pediu para eliminar, e nao pode sobreviver no log de auditoria.
+	 */
+	public void accountDeleted(UUID userId) {
+		log("account_deleted", fields("userId", userId));
+	}
+
 	public void inviteCodeRegenerated(UUID userId, UUID coupleId) {
 		log("invite_code_regenerated", fields("userId", userId, "coupleId", coupleId));
 	}

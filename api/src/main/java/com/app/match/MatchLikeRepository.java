@@ -3,6 +3,7 @@ package com.app.match;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,4 +25,12 @@ public interface MatchLikeRepository extends JpaRepository<MatchLike, UUID> {
 		+ "AND NOT EXISTS (SELECT 1 FROM MediaTrack mt WHERE mt.coupleId = ml.coupleId AND mt.tmdbId = ml.tmdbId)")
 	Page<MatchLike> findPendingForUser(@Param("coupleId") UUID coupleId, @Param("currentUserId") UUID currentUserId,
 			Pageable pageable);
+
+	/**
+	 * Exclusao de conta (epico 9, US-007): apaga os likes DO USUARIO num unico statement. Os likes
+	 * do ex-parceiro no mesmo casal continuam intactos.
+	 */
+	@Modifying
+	@Query("DELETE FROM MatchLike ml WHERE ml.userId = :userId")
+	int deleteByUserId(@Param("userId") UUID userId);
 }

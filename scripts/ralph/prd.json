@@ -159,7 +159,7 @@
         "./mvnw test passa e o gate do JaCoCo continua verde"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-004 e US-006 (reusa a porta de dissolucao e a verificacao de senha). ATENCAO: sem DB_URL no ambiente, o arranjo @AutoConfigureTestDatabase(replace=NONE) cai para H2 SILENCIOSAMENTE - o teste passa localmente e so o CI exerce o caminho que importa. Registrar isso no progress.txt em vez de afirmar que a integridade referencial foi provada. H2 em modo PostgreSQL nao e prova suficiente para a auto-FK do refresh_token."
     },
     {
