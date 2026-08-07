@@ -501,3 +501,39 @@ Started: 2026-08-06
     nem skill `dev-browser` neste sandbox (ver `client/CLAUDE.md`). Conferido so por
     typecheck/lint/build e leitura do JSX.
 ---
+
+## 2026-08-07 - US-009 (Bloco Perfil - editar nome e e-mail)
+- `client/src/screens/account/ProfileSection.tsx` (novo): formulario de nome e e-mail dentro
+  do `AccountSection` "Perfil". Campos inicializados do `useAuthStore` (lazy `useState`, sem
+  `useEffect` — dentro de `ProtectedRoute` o `user` ja existe, `isAuthenticated` e `user` sao
+  setados juntos). O elemento de assinatura da secao e a **faixa de estado** abaixo do form,
+  que mostra em chips ambar exatamente quais campos vao no corpo do PATCH ("Vai ser enviado:
+  Nome / E-mail") — encodifica a semantica de PATCH em vez de um "voce tem alteracoes nao
+  salvas" generico; vira "Salvando…" (spinner) e depois "Nome e e-mail salvos." (check ambar,
+  `role="status" aria-live="polite"`).
+- `client/src/types/user.ts` (novo): `UpdateProfileRequest`, `UserProfileResponse` e
+  `ValidationErrorResponse` espelhados a mao de `com.app.user` + do corpo de 400 do
+  `GlobalExceptionHandler`.
+- `client/src/stores/useAuthStore.ts`: acao `updateProfile(request)` — PATCH, `persistSession`
+  e `set({user})` num lugar so; devolve o `AuthUser` novo. O Header reflete o nome sem reload.
+- `client/src/screens/account/AccountScreen.tsx`: a secao "perfil" renderiza o form no lugar
+  do placeholder (o campo `placeholder` do `SectionDef` virou opcional).
+- `client/CLAUDE.md`: secao nova com a regra "mutacao do usuario nasce como acao do store" e
+  o mapeamento de erro 409/400/429 para reuso nas US-010 a US-012.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - `persistSession` e privada do modulo do store — qualquer mutacao do proprio usuario
+    (US-010 senha, US-011 casal, US-012 exclusao) TEM que virar acao do `useAuthStore`, senao
+    o cache de UI em `localStorage` e o `user` do store saem de sincronia.
+  - Formulario que le do store nao precisa de `useEffect` de sincronizacao (que cairia no
+    `react-hooks/set-state-in-effect`): `useState(user?.campo ?? "")` no mount + `setState`
+    com os valores da RESPOSTA depois do sucesso ja mantem "limpo == igual ao servidor".
+  - Derivar `changedFields` no corpo do render (comparando com o `user` do store) da de graca
+    o "botao desabilitado quando nada mudou", o corpo minimo do PATCH e o texto da faixa de
+    estado — nao guardar isso em `useState`.
+  - O 400 do backend traz `errors` por campo; o 409 nao traz campo nenhum (so `message`), por
+    isso a mensagem de e-mail em uso e escrita no cliente e ancorada no campo via
+    `aria-describedby`/`aria-invalid` (o `Input` ja tem estilo de `aria-invalid`).
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox, e sem backend rodando — ver `client/CLAUDE.md`).
+---

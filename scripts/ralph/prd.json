@@ -194,7 +194,7 @@
         "bun run typecheck e bun run lint passam"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-005 e US-008. Sincronizacao de tipos entre api/ e client/src/types/ e MANUAL - nao ha codegen."
     },
     {
