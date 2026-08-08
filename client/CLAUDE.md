@@ -40,6 +40,35 @@ Detalhes que economizam tempo em quem for mexer no step:
 - Os ignores estao num array bash (`IGNORES=(...)` / `IGNORES+=(...)`, uma linha por advisory, com o comentario acima) em vez de uma unica linha com `\` de continuacao: assim cada `--ignore` carrega o porque e o que faria revisitar a decisao, sem depender de truque de comentario dentro de continuacao de linha.
 - Para reproduzir o gate localmente, rode o comando com os mesmos ignores; para provar que ele ainda morde, tire um `--ignore` e confirme que sai com codigo 1.
 
+### 2026-08-08 — `overrides` no `package.json` para `nanoid` e `js-yaml`
+
+Dois advisories **high** novos quebraram o step `Audit dependencies` (e so ele — `typecheck`, `lint` e `build` continuavam verdes):
+
+| Pacote (versao resolvida) | Advisory | Caminho de dependencia | Versao corrigida |
+|---|---|---|---|
+| `nanoid` 3.3.16 | `GHSA-2v37-7h3g-55p8` (gerador custom entra em loop infinito quando `size` e zero) | `shadcn › postcss › nanoid` | `3.3.17` |
+| `js-yaml` 4.3.0 | `GHSA-5p4m-2wfm-xmqj` (consumo quadratico de CPU em `!!omap`, CVE-2026-59870) | `shadcn › cosmiconfig › js-yaml` | `4.3.1` |
+
+Ao contrario dos 6 da tabela acima, estes dois **tem patch dentro do range que o
+pai ja declara** (`postcss` pede `nanoid@^3.3.16`, `cosmiconfig` pede
+`js-yaml@^4.1.0`) — so nao eram usados porque o `bun.lock` congela a resolucao
+antiga. Entao aqui a decisao nao foi ignorar, foi **corrigir**: um bloco
+`overrides` no `package.json` forcando `nanoid: ^3.3.17` e `js-yaml: ^4.3.1`.
+Nenhum `--ignore` novo entrou no `ci.yml`, e o `bun audit` do gate passou a sair
+**sem nenhum advisory**.
+
+Este e o primeiro uso de `overrides` no projeto — a nota do paragrafo "Por que o
+`bun update` **nao** corrigiu..." acima continua correta sobre `bun update
+<pacote-transitivo>` (confirmado de novo: tentar isso aqui acrescentou
+`js-yaml@^5.2.3` e `nanoid@^6.0.1` ao bloco `dependencies`, dois **majors**
+errados, e foi revertido). A ressalva de la ("`override` de major pode quebrar a
+ferramenta que o consome") tambem continua valendo e e justamente o que separa
+estes dois casos dos outros seis: aqui o override e **dentro do mesmo major** que
+o consumidor ja pediu, entao nao ha risco de quebrar a CLI do `shadcn`.
+
+Se um `overrides` futuro precisar cruzar major, prefira o `--ignore` com
+justificativa (padrao da tabela acima) a arriscar a ferramenta.
+
 ## `typecheck` script must use `tsc -b`, not `tsc --noEmit`
 
 The root `tsconfig.json` has `"files": []` and only `references` to `tsconfig.app.json`/`tsconfig.node.json` (standard Vite project-references setup). Running plain `tsc --noEmit` against it checks **zero files** and always exits 0 — it never actually type-checks `src/`, silently. `package.json`'s `typecheck` script must use `tsc -b` (build mode, which follows `references`), same as the first half of the `build` script (`tsc -b && vite build`). If you ever touch `tsconfig*.json` or the `typecheck`/`build` scripts, verify with a deliberate type error (add one, confirm the script exits non-zero, revert) rather than trusting a clean run — a no-op script produces a clean run too.
