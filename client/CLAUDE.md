@@ -207,6 +207,19 @@ desmontaria a tela pelo `ProtectedRoute` e engoliria a mensagem. Erros do endpoi
 **401** senha errada (fica no dialogo), **400** validacao, **429** limite de 3/h por usuario
 (`app.rate-limit.account-delete`).
 
+### O aviso de vinculo desfeito nasce do cache, nao de uma flag
+
+O ex-parceiro descobre a dissolucao em `/join` (US-013) por um sinal que ja existia: o
+`couple` do cache de UI dizia que havia um casal **com parceiro** e o `GET /api/auth/me`
+voltou sem casal. Esse `if` mora dentro do `loadCurrentUser` do `useAuthStore` (o unico
+ponto onde o "antes" e o "depois" coexistem, porque o `persistSession` sobrescreve o cache
+na linha seguinte) e acende `bondDissolved`, um booleano **so em memoria** —
+**nao criar flag paralela em `localStorage`**, a AC proibe e ela seria redundante. Tres
+consequencias que saem de graca: quem nunca teve casal nao tem cache e nao ve nada; quem
+**fez** a dissolucao ja zerou o `couple` no `dissolveCouple`; e o aviso nao sobrevive ao
+reload, porque o cache que o dispara ja foi sobrescrito. `joinCouple`/`createCouple`
+tambem apagam o booleano — formar casal novo encerra o assunto.
+
 A landing (`/`) e `PublicOnlyRoute`, entao ela so aceita o usuario **depois** do
 `clearSession()` — as duas chamadas no mesmo handler sao batidas num render so e o destino
 ja resolve com `isAuthenticated: false`.

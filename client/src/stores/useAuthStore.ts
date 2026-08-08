@@ -57,6 +57,8 @@ interface AuthState {
   couple: Couple | null
   isAuthenticated: boolean
   loading: boolean
+  /** O parceiro desfez o vinculo enquanto este cliente estava fora (US-013). */
+  bondDissolved: boolean
   login: (credentials: LoginCredentials) => Promise<void>
   register: (data: RegisterData) => Promise<void>
   logout: () => Promise<void>
@@ -67,6 +69,7 @@ interface AuthState {
   changePassword: (request: ChangePasswordRequest) => Promise<void>
   dissolveCouple: () => Promise<void>
   deleteAccount: (request: DeleteAccountRequest) => Promise<void>
+  dismissBondDissolvedNotice: () => void
   clearSession: () => void
   loadCurrentUser: () => Promise<void>
 }
@@ -98,6 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   couple: initialSession.couple,
   isAuthenticated: false,
   loading: true,
+  bondDissolved: false,
 
   login: async ({ email, password }) => {
     const { data } = await api.post<LoginResponse>("/api/auth/login", {
@@ -136,14 +140,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   joinCouple: async (inviteCode) => {
     const { data } = await api.post<Couple>("/api/couple/join", { inviteCode })
     persistSession(get().user, data)
-    set({ couple: data })
+    set({ couple: data, bondDissolved: false })
     return data
   },
 
   createCouple: async () => {
     const { data } = await api.post<Couple>("/api/couple")
     persistSession(get().user, data)
-    set({ couple: data })
+    set({ couple: data, bondDissolved: false })
     return data
   },
 
@@ -190,21 +194,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // Encerra a sessao do lado do cliente sem falar com a API: usado pelo `logout` (depois do
   // POST) e pela troca de senha (onde a API ja derrubou tudo e um POST a mais so tomaria 401).
+  dismissBondDissolvedNotice: () => set({ bondDissolved: false }),
+
   clearSession: () => {
     useMatchStore.getState().disconnect()
     clearPersistedSession()
-    set({ user: null, couple: null, isAuthenticated: false })
+    set({ user: null, couple: null, isAuthenticated: false, bondDissolved: false })
   },
 
   loadCurrentUser: async () => {
+    // O cache de UI de antes da resposta E o gatilho do aviso da US-013 — nao ha (nem pode
+    // haver) flag paralela em `localStorage`. `persistSession` logo abaixo sobrescreve o
+    // cache, entao o aviso vale para esta carga da aplicacao e nao volta no reload seguinte.
+    const cachedCouple = get().couple
     try {
       const { data } = await api.get<LoginResponse>("/api/auth/me")
       persistSession(data.user, data.couple)
-      set({ user: data.user, couple: data.couple, isAuthenticated: true })
+      set({
+        user: data.user,
+        couple: data.couple,
+        isAuthenticated: true,
+        // So dispara quem TINHA parceiro e chegou sem casal: quem nunca teve casal nao tem
+        // cache, e quem desfez o vinculo ja zerou o `couple` do store na US-011.
+        bondDissolved: data.couple
+          ? false
+          : get().bondDissolved || cachedCouple?.partner != null,
+      })
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 401) {
         clearPersistedSession()
-        set({ user: null, couple: null, isAuthenticated: false })
+        set({ user: null, couple: null, isAuthenticated: false, bondDissolved: false })
         return
       }
       throw error

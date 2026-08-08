@@ -266,7 +266,7 @@
         "bun run typecheck e bun run lint passam"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-011. E o meio-termo da E9.10 - sem STOMP, sem notificacao, so um estado de tela. A elegancia da solucao esta em nao criar flag nova: o proprio cache de UI que ficou obsoleto e o sinal."
     },
     {

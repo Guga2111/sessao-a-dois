@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/useAuthStore"
 
 import { AuthLayout } from "./AuthLayout"
+import { BondDissolvedNotice } from "./BondDissolvedNotice"
 import { InviteCodeTicket } from "./InviteCodeTicket"
 
 type Mode = "join" | "create"
@@ -17,6 +18,10 @@ export function JoinPage() {
   const joinCouple = useAuthStore((state) => state.joinCouple)
   const createCouple = useAuthStore((state) => state.createCouple)
   const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser)
+  const bondDissolved = useAuthStore((state) => state.bondDissolved)
+  const dismissBondDissolvedNotice = useAuthStore(
+    (state) => state.dismissBondDissolvedNotice,
+  )
   const navigate = useNavigate()
 
   const [mode, setMode] = useState<Mode>("join")
@@ -130,6 +135,10 @@ export function JoinPage() {
       title="Vincule seu par"
       subtitle="Entre com o código que sua pessoa te mandou, ou gere o seu para compartilhar."
     >
+      {bondDissolved ? (
+        <BondDissolvedNotice onDismiss={dismissBondDissolvedNotice} />
+      ) : null}
+
       <div className="mb-6 flex gap-1 rounded-2xl border border-white/[0.06] bg-white/[0.05] p-1">
         <Button
           type="button"

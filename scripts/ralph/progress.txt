@@ -673,3 +673,45 @@ Started: 2026-08-06
   - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
     sandbox e sem backend rodando — ver `client/CLAUDE.md`).
 ---
+
+## 2026-08-07 - US-013 (Aviso em /join para o ex-parceiro)
+- `client/src/stores/useAuthStore.ts`: nasce `bondDissolved` (booleano **so em memoria**) +
+  a acao `dismissBondDissolvedNotice()`. O gatilho vive dentro do `loadCurrentUser`, que e o
+  unico ponto onde o "antes" e o "depois" coexistem: le `get().couple` (o cache de UI de
+  `localStorage`, `SESSION_STORAGE_KEY`) ANTES da resposta e, se aquele casal tinha
+  `partner` e o `GET /api/auth/me` voltou sem casal, acende o aviso. O `persistSession` da
+  linha seguinte ja sobrescreve o cache — nenhuma flag paralela em `localStorage` (AC).
+  `joinCouple`/`createCouple`/`clearSession` e o ramo 401 apagam o booleano.
+- `client/src/routes/auth/BondDissolvedNotice.tsx` (novo): cartao coral discreto acima das
+  abas do `/join` — titulo "O vínculo foi desfeito", uma frase dizendo que o historico nao
+  foi apagado (continua sendo daquele casal e sai do alcance) e o botao "Entendi".
+  Elemento de assinatura: a **mesma linha do vinculo** do bloco Casal da `/conta`
+  (`screens/account/CoupleSection.tsx`), agora vista depois do corte — lado esquerdo coral
+  cheio, direito tracejado, e no meio, no lugar do chip que contava os dias juntos, o chip
+  "histórico guardado". Quem recebe o aviso ja conhecia a linha inteira, entao o desenho
+  fecha o loop em vez de introduzir metafora nova.
+- `client/src/routes/auth/JoinPage.tsx`: renderiza o aviso no ramo "sem casal" (o ramo do
+  ingresso de convite e inalcancavel com o aviso ligado — `createCouple` apaga o booleano).
+- `client/CLAUDE.md`: secao nova sobre o gatilho ser o cache, nao uma flag.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- Cobertura dos casos das ACs (nao ha framework de teste no `client/` — verificado por
+  leitura do caminho de codigo, nao por teste automatizado):
+  - **nunca teve casal** -> nao ha cache, `cachedCouple?.partner != null` e `false`,
+    `/join` normal;
+  - **quem dissolveu** -> a US-011 ja zerou o `couple` do store, entao o "antes" tambem e
+    nulo e o aviso nao acende;
+  - **aparece uma vez** -> o booleano some no "Entendi", ao formar casal novo e no reload
+    (o cache que o dispara ja foi sobrescrito pelo proprio `loadCurrentUser`).
+- **Learnings for future iterations:**
+  - Quando a AC pede "detectar que o servidor discorda do cache", o lugar e a acao do store
+    que faz a atualizacao, nao a tela: e o unico ponto onde os dois valores existem ao mesmo
+    tempo. Ler o cache na tela depois do bootstrap ja pega o valor novo.
+  - Sinal derivado (o cache obsoleto) em vez de flag persistida nova nao e so elegancia:
+    tres ACs ("nunca teve casal nao ve", "quem dissolveu nao ve", "aparece uma vez") saem de
+    graca do proprio mecanismo, sem nenhum `if` extra.
+  - `bondDissolved` mora no estado do store mas NAO no `PersistedSession` — `persistSession`
+    grava so `{user, couple}` e nao foi tocado; qualquer campo novo de UI que nao deva
+    sobreviver ao reload segue esse mesmo caminho.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---
