@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -33,6 +34,9 @@ public class Couple {
 
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
+
+	@Column(name = "dissolved_at")
+	private Instant dissolvedAt;
 
 	protected Couple() {
 	}
@@ -86,5 +90,44 @@ public class Couple {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public Instant getDissolvedAt() {
+		return dissolvedAt;
+	}
+
+	/** Um casal so e "ativo" enquanto nao foi dissolvido - e o unico predicado que define isso. */
+	public boolean isActive() {
+		return dissolvedAt == null;
+	}
+
+	/**
+	 * Os ids dos membros do casal, na ordem user1/user2, pulando um {@code user2Id} nulo (casal criado e
+	 * ainda nao pareado). E a definicao unica de "quem sao os dois", consumida pela porta
+	 * {@link CoupleFacade#memberIds(UUID)}.
+	 */
+	public List<UUID> memberIds() {
+		if (user2Id == null) {
+			return List.of(user1Id);
+		}
+		return List.of(user1Id, user2Id);
+	}
+
+	/**
+	 * Desfaz o vinculo do casal (epico 9, US-001), preservando a linha e todo o historico ligado a ela
+	 * (D13: dissolver, nao apagar). Alem de marcar o instante, limpa o codigo de convite (E9.17) - senao
+	 * um casal criado e nunca pareado continuaria com codigo valido depois de morto, e um parceiro novo
+	 * entraria num casal dissolvido pelo caminho do convite, que nao parte do usuario.
+	 *
+	 * Chamar num casal ja dissolvido lanca (E9.7): o metodo protege o proprio invariante. Na pratica o
+	 * endpoint nunca chega aqui (casal dissolvido ja nao e "ativo" e vira 404 antes), entao a excecao e
+	 * rede contra bug interno.
+	 */
+	public void dissolve() {
+		if (dissolvedAt != null) {
+			throw new CoupleAlreadyDissolvedException(id);
+		}
+		this.dissolvedAt = Instant.now();
+		clearInviteCode();
 	}
 }

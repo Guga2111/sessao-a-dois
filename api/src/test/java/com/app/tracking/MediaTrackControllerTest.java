@@ -2,8 +2,7 @@ package com.app.tracking;
 
 import com.app.common.ResourceNotFoundException;
 
-import com.app.couple.Couple;
-import com.app.couple.CoupleService;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaType;
 import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
@@ -57,7 +56,7 @@ class MediaTrackControllerTest {
 	private UserReviewService userReviewService;
 
 	@MockitoBean
-	private CoupleService coupleService;
+	private CoupleFacade coupleFacade;
 
 	@MockitoBean
 	private StatsService statsService;
@@ -69,17 +68,11 @@ class MediaTrackControllerTest {
 		return new UsernamePasswordAuthenticationToken(userId, null, List.of());
 	}
 
-	private Couple couple(UUID coupleId, UUID userId) {
-		Couple couple = new Couple(userId, "ABC234");
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		return couple;
-	}
-
 	@Test
 	void listKeys_returnsCoupleTrackKeys() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(mediaTrackService.listKeys(coupleId))
 			.thenReturn(List.of(new TrackKeyResponse(MediaType.MOVIE, 603L)));
 
@@ -93,7 +86,8 @@ class MediaTrackControllerTest {
 	@Test
 	void listKeys_returnsNotFoundWhenUserHasNoCouple() throws Exception {
 		UUID userId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+		when(coupleFacade.requireActiveCoupleId(userId))
+			.thenThrow(new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
 
 		mockMvc.perform(get("/api/tracking/keys")
 				.with(authentication(authenticatedUser(userId))))
@@ -111,7 +105,7 @@ class MediaTrackControllerTest {
 	void listByStatus_returnsPagedResultWithDefaultPageAndSize() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		MediaTrackResponse track = new MediaTrackResponse(
 			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		Page<MediaTrackResponse> page = new PageImpl<>(List.of(track), PageRequest.of(0, 20), 1);
@@ -128,7 +122,7 @@ class MediaTrackControllerTest {
 	void listByStatus_forwardsCustomPageAndSize() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		Page<MediaTrackResponse> page = new PageImpl<>(List.of(), PageRequest.of(2, 10), 25);
 		when(mediaTrackService.listByStatusPaged(coupleId, MediaStatus.WATCHED, 2, 10)).thenReturn(page);
 
@@ -159,7 +153,7 @@ class MediaTrackControllerTest {
 	void create_createsTrackAndReturnsCreated() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		MediaTrackResponse response = new MediaTrackResponse(
 			UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.addTrack(eq(coupleId), eq(userId), any(CreateMediaTrackRequest.class)))
@@ -179,7 +173,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 
 		mockMvc.perform(delete("/api/tracking/" + trackId)
 				.with(csrf())
@@ -194,7 +188,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		doThrow(new ResourceNotFoundException("titulo nao encontrado"))
 			.when(mediaTrackService).deleteTrack(trackId, coupleId);
 
@@ -216,7 +210,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		MediaTrackResponse response = new MediaTrackResponse(
 			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING)).thenReturn(response);
@@ -235,7 +229,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
 			.thenThrow(new ResourceNotFoundException("titulo nao encontrado"));
 
@@ -253,7 +247,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(mediaTrackService.startWatching(trackId, coupleId, MediaStatus.WATCHING))
 			.thenThrow(new IllegalArgumentException("transicao de status invalida"));
 
@@ -298,7 +292,7 @@ class MediaTrackControllerTest {
 	void stats_returnsStatsForAuthenticatedUserCouple() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.findActiveCoupleId(userId)).thenReturn(Optional.of(coupleId));
 		StatsResponse response = new StatsResponse(
 			10, 30, 2, 5, 3, 62.5, 37.5, 8, 4.5, "Acao",
 			List.of(new GenreStat("Acao", 5, 100.0)),
@@ -315,7 +309,7 @@ class MediaTrackControllerTest {
 	@Test
 	void stats_returnsEmptyStateWhenUserHasNoCouple() throws Exception {
 		UUID userId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+		when(coupleFacade.findActiveCoupleId(userId)).thenReturn(Optional.empty());
 		StatsResponse empty = new StatsResponse(0, 0, 0, 0, 0, 0.0, 0.0, 0, 0.0, null, List.of(), List.of());
 		when(statsService.emptyStats()).thenReturn(empty);
 
@@ -344,7 +338,7 @@ class MediaTrackControllerTest {
 	void create_rejectsRatingWithoutWatchedStatusWithBadRequest() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(mediaTrackService.addTrack(eq(coupleId), eq(userId), any(CreateMediaTrackRequest.class)))
 			.thenThrow(new IllegalArgumentException("rating e opinion so podem ser enviados com status WATCHED"));
 
@@ -362,7 +356,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		MediaTrackResponse response = new MediaTrackResponse(
 			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(mediaTrackService.markAsWatched(eq(trackId), eq(coupleId), eq(userId), any(WatchRequest.class)))
@@ -391,7 +385,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(mediaTrackService.markAsWatched(eq(trackId), eq(coupleId), eq(userId), any(WatchRequest.class)))
 			.thenThrow(new ResourceNotFoundException("titulo nao encontrado"));
 
@@ -422,7 +416,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		MediaTrackResponse response = new MediaTrackResponse(
 			trackId, 603L, MediaType.MOVIE, MediaStatus.WATCHED, null, 136, null, List.of(), "Matrix", "/poster.jpg", 1999);
 		when(userReviewService.upsertReview(eq(trackId), eq(userId), eq(coupleId), any(UpsertReviewRequest.class)))
@@ -451,7 +445,7 @@ class MediaTrackControllerTest {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(userReviewService.upsertReview(eq(trackId), eq(userId), eq(coupleId), any(UpsertReviewRequest.class)))
 			.thenThrow(new AccessDeniedException("titulo nao pertence ao casal do usuario"));
 

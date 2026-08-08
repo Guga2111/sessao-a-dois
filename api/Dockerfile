@@ -24,6 +24,14 @@ WORKDIR /app
 # make the mount permission depend on the base image. See docs/DEPLOY.md 3.4.
 RUN addgroup -g 10001 -S app && adduser -u 10001 -S app -G app
 
+# O RollingFileAppender de security.audit (logback-spring.xml) escreve aqui por
+# default. Ele NAO cria o diretorio pai: o Logback falha, e o Spring Boot trata
+# erro de configuracao de logging como fatal - o processo morre antes de qualquer
+# bean subir, e com restart:unless-stopped o container entra em loop. Em producao
+# o caminho e um bind mount (docs/DEPLOY.md 3.4); criar o diretorio aqui e o que
+# faz a imagem subir tambem sem mount nenhum (docker-compose-dev.yml, docker run).
+RUN mkdir -p /var/log/sessao-a-dois && chown app:app /var/log/sessao-a-dois
+
 # Copy only the produced Spring Boot jar from the build stage, owned by app.
 COPY --from=build --chown=app:app /app/target/*.jar app.jar
 

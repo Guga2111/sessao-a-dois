@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -95,6 +96,25 @@ public class AuthController {
 		if (cookie != null && StringUtils.hasText(cookie.getValue())) {
 			authService.logout(cookie.getValue());
 		}
+
+		ResponseCookie expiredAccessCookie = authCookieService.expiredAccessTokenCookie();
+		ResponseCookie expiredRefreshCookie = authCookieService.expiredRefreshTokenCookie();
+
+		return ResponseEntity.noContent()
+			.header(HttpHeaders.SET_COOKIE, expiredAccessCookie.toString())
+			.header(HttpHeaders.SET_COOKIE, expiredRefreshCookie.toString())
+			.build();
+	}
+
+	/**
+	 * Troca de senha estando autenticado (epico 9, US-006). Responde 204 limpando os dois
+	 * cookies de sessao: {@code AuthService.changePassword} revogou a familia inteira de refresh
+	 * tokens, entao manter os cookies no browser so adiaria a descoberta de que a sessao caiu.
+	 */
+	@PutMapping("/password")
+	public ResponseEntity<Void> changePassword(@AuthenticationPrincipal UUID userId,
+			@Valid @RequestBody ChangePasswordRequest request) {
+		authService.changePassword(userId, request);
 
 		ResponseCookie expiredAccessCookie = authCookieService.expiredAccessTokenCookie();
 		ResponseCookie expiredRefreshCookie = authCookieService.expiredRefreshTokenCookie();

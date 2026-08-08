@@ -1,4 +1,4 @@
-import { Heart, Menu, X } from "lucide-react"
+import { Heart, Menu, Settings, X } from "lucide-react"
 import { useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 
@@ -74,6 +74,22 @@ export function Header() {
           </>
         )}
 
+        <NavLink
+          to="/conta"
+          title="Conta"
+          aria-label="Conta"
+          className={({ isActive }) =>
+            cn(
+              "hidden size-9.5 flex-none place-items-center rounded-[10px] border transition-colors md:grid",
+              isActive
+                ? "border-transparent bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                : "border-white/[0.06] bg-white/[0.05] text-[#a6a39a] hover:bg-white/[0.09] hover:text-[#f6f4ec]"
+            )
+          }
+        >
+          <Settings size={17} />
+        </NavLink>
+
         <MobileNav key={location.pathname} />
       </div>
     </header>
@@ -116,6 +132,24 @@ function MobileNav() {
               {"icon" in item && item.icon && <item.icon className="size-3.5 fill-current" />}
             </NavLink>
           ))}
+
+          <div className="my-1 h-px bg-white/[0.08]" />
+
+          <NavLink
+            to="/conta"
+            onClick={() => setMenuOpen(false)}
+            className={({ isActive }) =>
+              cn(
+                "inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
+                isActive
+                  ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                  : "text-[#a6a39a] hover:text-[#f6f4ec]"
+              )
+            }
+          >
+            <Settings className="size-3.5" />
+            Conta
+          </NavLink>
         </nav>
       )}
     </div>

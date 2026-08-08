@@ -2,8 +2,7 @@ package com.app.tracking;
 
 import com.app.common.ResourceNotFoundException;
 
-import com.app.couple.Couple;
-import com.app.couple.CoupleRepository;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
@@ -36,17 +35,17 @@ public class MediaTrackService {
 	static final int MAX_PAGE_SIZE = 50;
 
 	private final MediaTrackRepository mediaTrackRepository;
-	private final CoupleRepository coupleRepository;
+	private final CoupleFacade coupleFacade;
 	private final UserRepository userRepository;
 	private final MediaDetailsService mediaDetailsService;
 	private final RatingRequestService ratingRequestService;
 	private final MediaTrackMapper mediaTrackMapper;
 
-	public MediaTrackService(MediaTrackRepository mediaTrackRepository, CoupleRepository coupleRepository,
+	public MediaTrackService(MediaTrackRepository mediaTrackRepository, CoupleFacade coupleFacade,
 			UserRepository userRepository, MediaDetailsService mediaDetailsService,
 			RatingRequestService ratingRequestService, MediaTrackMapper mediaTrackMapper) {
 		this.mediaTrackRepository = mediaTrackRepository;
-		this.coupleRepository = coupleRepository;
+		this.coupleFacade = coupleFacade;
 		this.userRepository = userRepository;
 		this.mediaDetailsService = mediaDetailsService;
 		this.ratingRequestService = ratingRequestService;
@@ -61,12 +60,10 @@ public class MediaTrackService {
 			throw new IllegalArgumentException("rating e opinion so podem ser enviados com status WATCHED");
 		}
 
-		Couple couple = coupleRepository.findById(coupleId)
-			.orElseThrow(() -> new ResourceNotFoundException("casal nao encontrado"));
 		User user = userRepository.findById(userId)
 			.orElseThrow(() -> new ResourceNotFoundException("usuario nao encontrado"));
 
-		MediaTrack track = new MediaTrack(couple, request.tmdbId(), request.mediaType(), request.status());
+		MediaTrack track = new MediaTrack(coupleId, request.tmdbId(), request.mediaType(), request.status());
 		track.setWatchedDate(request.watchedDate());
 		track.setRuntime(request.runtime());
 		applyTmdbMetadata(track, request.mediaType(), request.tmdbId());
@@ -78,7 +75,7 @@ public class MediaTrackService {
 		if (saved.getStatus() == MediaStatus.WATCHED) {
 			ratingRequestService.onRatingRegistered(saved, userId);
 		}
-		return mediaTrackMapper.toResponse(saved, resolveMemberNames(couple));
+		return toResponse(saved);
 	}
 
 	/** Two-column projection (no metadata, no reviews) used by MatchScreen to know which titles are already tracked. */
@@ -100,7 +97,7 @@ public class MediaTrackService {
 		Pageable pageable = PageRequest.of(safePage, safeSize);
 
 		// Paginate over ids only (no collection fetch), then fetch that page's rows with
-		// reviews/couple eagerly loaded by id - combining a collection fetch join with
+		// reviews eagerly loaded by id - combining a collection fetch join with
 		// Pageable would make Hibernate paginate in memory instead of at the DB (HHH000104).
 		Page<UUID> idPage = mediaTrackRepository.findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(coupleId, status,
 				pageable);
@@ -110,9 +107,12 @@ public class MediaTrackService {
 
 		orderedTracks.forEach(this::healMetadata);
 
-		Map<UUID, String> userNames = resolveMemberNames(orderedTracks);
+		// Uma resolucao de membros/nomes por request (nao por track): todos os tracks da pagina
+		// pertencem ao mesmo casal, entao a lista de membros e os nomes saem de uma consulta so.
+		List<UUID> memberIds = coupleFacade.memberIds(coupleId);
+		Map<UUID, String> userNames = resolveMemberNames(memberIds);
 		List<MediaTrackResponse> content = orderedTracks.stream()
-			.map(track -> mediaTrackMapper.toResponse(track, userNames))
+			.map(track -> mediaTrackMapper.toResponse(track, memberIds, userNames))
 			.toList();
 		return new PageImpl<>(content, pageable, idPage.getTotalElements());
 	}
@@ -161,7 +161,7 @@ public class MediaTrackService {
 
 		MediaTrack saved = mediaTrackRepository.save(track);
 		ratingRequestService.onRatingRegistered(saved, userId);
-		return mediaTrackMapper.toResponse(saved, resolveMemberNames(saved.getCouple()));
+		return toResponse(saved);
 	}
 
 	/**
@@ -181,7 +181,7 @@ public class MediaTrackService {
 
 		track.setStatus(MediaStatus.WATCHING);
 		MediaTrack saved = mediaTrackRepository.save(track);
-		return mediaTrackMapper.toResponse(saved, resolveMemberNames(saved.getCouple()));
+		return toResponse(saved);
 	}
 
 	@Transactional
@@ -213,24 +213,17 @@ public class MediaTrackService {
 		MediaTrack track = mediaTrackRepository.findById(trackId)
 			.orElseThrow(() -> new ResourceNotFoundException("titulo nao encontrado"));
 
-		if (!track.getCouple().getId().equals(coupleId)) {
+		if (!track.getCoupleId().equals(coupleId)) {
 			throw new ResourceNotFoundException("titulo nao encontrado");
 		}
 
 		return track;
 	}
 
-	/** Resolves every distinct couple member name in {@code tracks} with a single query. */
-	private Map<UUID, String> resolveMemberNames(List<MediaTrack> tracks) {
-		List<UUID> memberIds = tracks.stream()
-			.flatMap(track -> MediaTrackMapper.memberIds(track.getCouple()).stream())
-			.distinct()
-			.toList();
-		return resolveMemberNames(memberIds);
-	}
-
-	private Map<UUID, String> resolveMemberNames(Couple couple) {
-		return resolveMemberNames(MediaTrackMapper.memberIds(couple));
+	/** Resposta de um track unico: uma resolucao de membros e uma de nomes, nunca uma por review. */
+	private MediaTrackResponse toResponse(MediaTrack track) {
+		List<UUID> memberIds = coupleFacade.memberIds(track.getCoupleId());
+		return mediaTrackMapper.toResponse(track, memberIds, resolveMemberNames(memberIds));
 	}
 
 	private Map<UUID, String> resolveMemberNames(Collection<UUID> memberIds) {

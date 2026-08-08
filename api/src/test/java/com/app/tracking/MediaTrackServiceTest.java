@@ -2,8 +2,7 @@ package com.app.tracking;
 
 import com.app.common.ResourceNotFoundException;
 
-import com.app.couple.Couple;
-import com.app.couple.CoupleRepository;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
@@ -45,7 +44,7 @@ class MediaTrackServiceTest {
 	private MediaTrackRepository mediaTrackRepository;
 
 	@Mock
-	private CoupleRepository coupleRepository;
+	private CoupleFacade coupleFacade;
 
 	@Mock
 	private UserRepository userRepository;
@@ -60,27 +59,21 @@ class MediaTrackServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleRepository, userRepository,
+		mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleFacade, userRepository,
 				mediaDetailsService, ratingRequestService, new MediaTrackMapper());
-	}
-
-	private Couple coupleWithMembers(UUID user1Id, UUID user2Id) {
-		Couple couple = new Couple(user1Id, "ABC234");
-		couple.setUser2Id(user2Id);
-		return couple;
 	}
 
 	@Test
 	void addTrackCreatesTrackAndInitialReview() {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
+		UUID partnerId = UUID.randomUUID();
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
 		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
 			603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, null);
 
-		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
+		when(coupleFacade.memberIds(coupleId)).thenReturn(List.of(userId, partnerId));
 		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
 			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null,
@@ -111,13 +104,11 @@ class MediaTrackServiceTest {
 	void addTrackSavesEmptyGenresWhenTmdbFails() {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
 		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
 			603L, MediaType.MOVIE, MediaStatus.WATCHING, null, 136, null, null);
 
-		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
 		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
 			.thenThrow(new RuntimeException("TMDB indisponivel"));
@@ -131,19 +122,6 @@ class MediaTrackServiceTest {
 		assertThat(trackCaptor.getValue().getTitle()).isNull();
 		assertThat(trackCaptor.getValue().getPosterUrl()).isNull();
 		assertThat(trackCaptor.getValue().getReleaseYear()).isNull();
-	}
-
-	@Test
-	void addTrackThrowsWhenCoupleNotFound() {
-		UUID userId = UUID.randomUUID();
-		UUID coupleId = UUID.randomUUID();
-		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
-			603L, MediaType.MOVIE, MediaStatus.WATCHING, null, null, null, null);
-
-		when(coupleRepository.findById(coupleId)).thenReturn(Optional.empty());
-
-		assertThatThrownBy(() -> mediaTrackService.addTrack(coupleId, userId, request))
-			.isInstanceOf(ResourceNotFoundException.class);
 	}
 
 	@Test
@@ -166,11 +144,9 @@ class MediaTrackServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(user1Id, null);
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user1 = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user1, "id", user1Id);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
 		track.setTitle("Matrix");
 		track.setPosterUrl("/poster.jpg");
 		track.setReleaseYear(1999);
@@ -196,11 +172,9 @@ class MediaTrackServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(user1Id, null);
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user1 = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user1, "id", user1Id);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
 		ReflectionTestUtils.setField(track, "id", trackId);
 
 		Page<UUID> idPage = new PageImpl<>(List.of(trackId), PageRequest.of(0, 20), 1);
@@ -227,11 +201,9 @@ class MediaTrackServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(user1Id, null);
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user1 = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user1, "id", user1Id);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
 		ReflectionTestUtils.setField(track, "id", trackId);
 
 		Page<UUID> idPage = new PageImpl<>(List.of(trackId), PageRequest.of(0, 20), 1);
@@ -258,11 +230,9 @@ class MediaTrackServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID user1Id = UUID.randomUUID();
 		UUID trackId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(user1Id, null);
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user1 = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user1, "id", user1Id);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 		track.setTitle("Matrix");
 		ReflectionTestUtils.setField(track, "id", trackId);
 
@@ -315,11 +285,9 @@ class MediaTrackServiceTest {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 		track.getReviews().add(new UserReview(track, user, 2, "Regular"));
 		WatchRequest request = new WatchRequest(5, "Melhorou muito");
 
@@ -342,11 +310,9 @@ class MediaTrackServiceTest {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
 		WatchRequest request = new WatchRequest(4, "Curti");
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
@@ -367,11 +333,9 @@ class MediaTrackServiceTest {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
 		WatchRequest request = new WatchRequest(4, "Curti");
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
@@ -387,13 +351,11 @@ class MediaTrackServiceTest {
 	void addTrackTriggersRatingRequestOrchestratorWhenWatched() {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
 		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
 			603L, MediaType.MOVIE, MediaStatus.WATCHED, LocalDate.now(), 136, 5, "Otimo");
 
-		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
 		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
 			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null,
@@ -410,13 +372,11 @@ class MediaTrackServiceTest {
 	void addTrackDoesNotTriggerRatingRequestWhenNotWatched() {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(userId, UUID.randomUUID());
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
 		CreateMediaTrackRequest request = new CreateMediaTrackRequest(
 			603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE, null, null, null, null);
 
-		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
 		when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(user));
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L))
 			.thenReturn(new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, null, null, null,
@@ -447,9 +407,7 @@ class MediaTrackServiceTest {
 		UUID coupleId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
 		UUID otherCoupleUser = UUID.randomUUID();
-		Couple otherCouple = coupleWithMembers(otherCoupleUser, UUID.randomUUID());
-		ReflectionTestUtils.setField(otherCouple, "id", UUID.randomUUID());
-		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 		WatchRequest request = new WatchRequest(5, "Otimo");
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
@@ -475,9 +433,7 @@ class MediaTrackServiceTest {
 	void deleteTrackRemovesOwnedTrack() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 
@@ -502,9 +458,7 @@ class MediaTrackServiceTest {
 	void deleteTrackThrowsResourceNotFoundWhenTrackBelongsToAnotherCouple() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple otherCouple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
-		ReflectionTestUtils.setField(otherCouple, "id", UUID.randomUUID());
-		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 
@@ -518,9 +472,7 @@ class MediaTrackServiceTest {
 	void startWatchingMovesTrackFromWantToSeeToWatching() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(mediaTrackRepository.save(any(MediaTrack.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -537,9 +489,7 @@ class MediaTrackServiceTest {
 	void startWatchingThrowsWhenTrackIsNotWantToSee() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 
@@ -562,9 +512,7 @@ class MediaTrackServiceTest {
 	void startWatchingThrowsResourceNotFoundWhenTrackBelongsToAnotherCouple() {
 		UUID trackId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple otherCouple = coupleWithMembers(UUID.randomUUID(), UUID.randomUUID());
-		ReflectionTestUtils.setField(otherCouple, "id", UUID.randomUUID());
-		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
+		MediaTrack track = new MediaTrack(UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE);
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 

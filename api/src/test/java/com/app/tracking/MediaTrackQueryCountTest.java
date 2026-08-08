@@ -95,7 +95,7 @@ class MediaTrackQueryCountTest {
 		int totalTracks = 25;
 		int pageSize = 20;
 		for (int i = 0; i < totalTracks; i++) {
-			MediaTrack track = new MediaTrack(couple, 1000L + i, MediaType.MOVIE, MediaStatus.WATCHED);
+			MediaTrack track = new MediaTrack(couple.getId(), 1000L + i, MediaType.MOVIE, MediaStatus.WATCHED);
 			track.getReviews().add(new UserReview(track, user1, 5, "Otimo"));
 			track.getReviews().add(new UserReview(track, user2, 4, "Bom"));
 			mediaTrackRepository.save(track);
@@ -118,13 +118,53 @@ class MediaTrackQueryCountTest {
 		assertThat(hasInMemoryPaginationWarning).isFalse();
 	}
 
+	/**
+	 * Depois da US-003 o couple_id e um UUID solto: os membros do casal e os nomes deles passaram a
+	 * ser resolvidos por chamada explicita, e o risco e resolve-los por track. A contagem constante
+	 * de queries e o que prova que a resolucao continua sendo uma por request.
+	 */
+	@Test
+	void pagedListEndpointExecutesConstantQueryCountRegardlessOfTrackCount() throws Exception {
+		// Os dois passam de uma pagina (21 e 40 com size=20) de proposito: abaixo do tamanho da
+		// pagina o Spring Data pula a query de count e a comparacao mediria isso, nao o N+1.
+		long queriesForFewTracks = queryCountForPagedListing(21);
+		long queriesForManyTracks = queryCountForPagedListing(40);
+
+		assertThat(queriesForManyTracks).isEqualTo(queriesForFewTracks);
+	}
+
+	private long queryCountForPagedListing(int trackCount) throws Exception {
+		User user1 = persistUser();
+		User user2 = persistUser();
+		Couple couple = persistCouple(user1, user2);
+
+		for (int i = 0; i < trackCount; i++) {
+			MediaTrack track = new MediaTrack(couple.getId(), 3000L + i, MediaType.MOVIE, MediaStatus.WATCHED);
+			track.getReviews().add(new UserReview(track, user1, 5, "Otimo"));
+			track.getReviews().add(new UserReview(track, user2, 4, "Bom"));
+			mediaTrackRepository.save(track);
+		}
+
+		statistics.clear();
+
+		mockMvc.perform(get("/api/tracking")
+				.param("status", "WATCHED")
+				.param("page", "0")
+				.param("size", "20")
+				.with(authentication(new UsernamePasswordAuthenticationToken(user1.getId(), null, List.of()))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.content.length()").value(20));
+
+		return statistics.getPrepareStatementCount();
+	}
+
 	private long queryCountForKeysListing(int trackCount) throws Exception {
 		User user1 = persistUser();
 		User user2 = persistUser();
 		Couple couple = persistCouple(user1, user2);
 
 		for (int i = 0; i < trackCount; i++) {
-			MediaTrack track = new MediaTrack(couple, 2000L + i, MediaType.MOVIE, MediaStatus.WATCHED);
+			MediaTrack track = new MediaTrack(couple.getId(), 2000L + i, MediaType.MOVIE, MediaStatus.WATCHED);
 			track.getReviews().add(new UserReview(track, user1, 5, "Otimo"));
 			track.getReviews().add(new UserReview(track, user2, 4, "Bom"));
 			mediaTrackRepository.save(track);

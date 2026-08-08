@@ -40,6 +40,35 @@ Detalhes que economizam tempo em quem for mexer no step:
 - Os ignores estao num array bash (`IGNORES=(...)` / `IGNORES+=(...)`, uma linha por advisory, com o comentario acima) em vez de uma unica linha com `\` de continuacao: assim cada `--ignore` carrega o porque e o que faria revisitar a decisao, sem depender de truque de comentario dentro de continuacao de linha.
 - Para reproduzir o gate localmente, rode o comando com os mesmos ignores; para provar que ele ainda morde, tire um `--ignore` e confirme que sai com codigo 1.
 
+### 2026-08-08 — `overrides` no `package.json` para `nanoid` e `js-yaml`
+
+Dois advisories **high** novos quebraram o step `Audit dependencies` (e so ele — `typecheck`, `lint` e `build` continuavam verdes):
+
+| Pacote (versao resolvida) | Advisory | Caminho de dependencia | Versao corrigida |
+|---|---|---|---|
+| `nanoid` 3.3.16 | `GHSA-2v37-7h3g-55p8` (gerador custom entra em loop infinito quando `size` e zero) | `shadcn › postcss › nanoid` | `3.3.17` |
+| `js-yaml` 4.3.0 | `GHSA-5p4m-2wfm-xmqj` (consumo quadratico de CPU em `!!omap`, CVE-2026-59870) | `shadcn › cosmiconfig › js-yaml` | `4.3.1` |
+
+Ao contrario dos 6 da tabela acima, estes dois **tem patch dentro do range que o
+pai ja declara** (`postcss` pede `nanoid@^3.3.16`, `cosmiconfig` pede
+`js-yaml@^4.1.0`) — so nao eram usados porque o `bun.lock` congela a resolucao
+antiga. Entao aqui a decisao nao foi ignorar, foi **corrigir**: um bloco
+`overrides` no `package.json` forcando `nanoid: ^3.3.17` e `js-yaml: ^4.3.1`.
+Nenhum `--ignore` novo entrou no `ci.yml`, e o `bun audit` do gate passou a sair
+**sem nenhum advisory**.
+
+Este e o primeiro uso de `overrides` no projeto — a nota do paragrafo "Por que o
+`bun update` **nao** corrigiu..." acima continua correta sobre `bun update
+<pacote-transitivo>` (confirmado de novo: tentar isso aqui acrescentou
+`js-yaml@^5.2.3` e `nanoid@^6.0.1` ao bloco `dependencies`, dois **majors**
+errados, e foi revertido). A ressalva de la ("`override` de major pode quebrar a
+ferramenta que o consome") tambem continua valendo e e justamente o que separa
+estes dois casos dos outros seis: aqui o override e **dentro do mesmo major** que
+o consumidor ja pediu, entao nao ha risco de quebrar a CLI do `shadcn`.
+
+Se um `overrides` futuro precisar cruzar major, prefira o `--ignore` com
+justificativa (padrao da tabela acima) a arriscar a ferramenta.
+
 ## `typecheck` script must use `tsc -b`, not `tsc --noEmit`
 
 The root `tsconfig.json` has `"files": []` and only `references` to `tsconfig.app.json`/`tsconfig.node.json` (standard Vite project-references setup). Running plain `tsc --noEmit` against it checks **zero files** and always exits 0 — it never actually type-checks `src/`, silently. `package.json`'s `typecheck` script must use `tsc -b` (build mode, which follows `references`), same as the first half of the `build` script (`tsc -b && vite build`). If you ever touch `tsconfig*.json` or the `typecheck`/`build` scripts, verify with a deliberate type error (add one, confirm the script exits non-zero, revert) rather than trusting a clean run — a no-op script produces a clean run too.
@@ -98,6 +127,35 @@ This sandbox has no route to `ui.shadcn.com` (`npx shadcn add <component>` fails
 
 The one intentional non-pure change from this story: `fetchSectionPage`'s catch (in `HubScreen.tsx`) now does `console.error` with the section status and page before clearing the loading flags, instead of swallowing the error silently — the visual failure behavior (stop the skeleton, keep whatever already loaded) is unchanged.
 
+## `screens/account/` — tela `/conta` e o token destrutivo
+
+Endpoints que esta tela consome, todos nascidos no Epico 9 (o resto do app usa
+`/api/auth/*`, `/api/couple/*`, `/api/tracking/*`, `/api/media/*`, `/api/match/*`,
+`/api/notifications`): **`PATCH /api/user/me`** (perfil), **`PUT /api/auth/password`**
+(senha — responde 204 **com os cookies expirados**), **`DELETE /api/couple/me`**
+(desfazer o vinculo) e **`DELETE /api/user/me`** (excluir a conta, senha no corpo via
+`{ data }`). Os dois que recebem senha no corpo estao na lista `isPasswordChallenge`
+de `lib/api.ts` — ver a secao sobre o 401 mais abaixo. Nenhum deles e chamado direto
+por uma tela: cada um tem uma acao correspondente no `useAuthStore`.
+
+`/conta` (Epico 9, US-008) e a primeira tela de configuracoes e a unica rota **autenticada
+fora do `RequireCouple`** — quem nao tem casal (inclusive quem acabou de dissolver) precisa
+chegar nela, entao envolva-a so em `ProtectedRoute`. Entrada no `Header`: **nao** entra em
+`NAV_ITEMS` (aquele pill agrupa as rotas que exigem casal); e um `NavLink` com icone de
+engrenagem no cluster da direita (`hidden md:grid`) + um item apos um divisor dentro do
+`MobileNav`.
+
+O **tratamento destrutivo** do design system nasceu em `screens/account/AccountSection.tsx`
+e nao existe em outro lugar — reuse de la em vez de escolher um vermelho novo:
+`#ff5c47` (coral quente, vizinho de matiz do `#ff9e2c` ja usado, para ler como "o mesmo
+mundo ficando hostil", nao como um vermelho de sistema), borda `rgba(255,92,71,.28)`,
+tinta de fundo `rgba(255,92,71,.07)` em gradiente vertical, titulo `#ffb3a5`, chip
+`#ff8f7c`. Passe `destructive` ao `AccountSection` em vez de aplicar as cores na mao.
+
+O marcador estrutural da tela e o **alcance** (`reach`), nao uma numeracao: `"you"`
+(ambar) para o que so mexe na sua conta, `"both"` (coral) para o que alcanca o parceiro
+— desfazer o vinculo e excluir a conta. Toda secao nova precisa declarar o seu.
+
 ## Loading-state pattern: Skeleton vs. button spinner
 
 Every read (GET/fetch) loading state uses `Skeleton`-based components (`src/components/ui/skeleton.tsx` + the layout-aware compositions in `src/components/skeletons/`) gated through `useDelayedLoading` (`src/lib/useDelayedLoading.ts`, `delayMs=150`/`minVisibleMs=400` defaults) — never a spinner (`Loader2`/`animate-spin`) for a read. Action buttons (POST/PUT/DELETE submits, e.g. "Curtir"/"Salvando…") keep their own `Loader2`/`animate-spin` button-feedback state as-is; that's a different UX concern (in-flight mutation, not "content not ready yet") and is intentionally left alone. When a screen/store needs a delayed-loading gate but has no data-correctness-only flag yet (e.g. `hasMore`, `isEmpty`), keep that flag on the raw (non-delayed) boolean — only the *visual* skeleton/content branch should read the delayed `showSkeleton` value.
@@ -117,3 +175,147 @@ For a "fetch 2 things then show a dialog" flow (2nd selection triggers `Promise.
 ## Sandbox gotcha: Vite dev server / build can't start
 
 `npm run dev` (and `vite build`) intermittently fails in this sandbox with `Cannot find module './<name>.linux-arm64-gnu.node'` — a plain `npm install` doesn't always pull the optional arm64 native bindings for every native-dependent package. As of 2026-07-25, the fix that worked was installing the three missing optional packages directly: `npm install @rolldown/binding-linux-arm64-gnu lightningcss-linux-arm64-gnu @tailwindcss/oxide-linux-arm64-gnu` (rolldown → lightningcss → tailwind oxide failed in that order, one at a time, each surfaced by re-running `npm run dev` after the previous fix). After all three are present, `npm run dev` starts cleanly (`VITE ready`). No browser (Chromium/Playwright) is installed in this sandbox and there's no sudo to install its system deps (`libnspr4`, `libnss3`, etc.), so even with the dev server running, only static code review / `tsc` / `eslint` are available — no real screenshots or rendered-page checks. Note the API (Spring Boot) still has no JDK/Maven in this sandbox, so full end-to-end (frontend hitting a live backend) can't be verified here either.
+
+### Mutacao de perfil: quem escreve no `useAuthStore`
+
+Uma tela **nunca** faz `api.patch("/api/user/me")` e depois um `set({user})` por fora: o
+`localStorage` (`sessaoADois.session`) e o `user` do store tem que mudar juntos, e a funcao
+`persistSession` e privada do modulo. O caminho e a acao `updateProfile(request)` do
+`useAuthStore` (US-009), que manda o PATCH, persiste e devolve o `AuthUser` novo — e por
+isso que o `Header` reflete o nome novo sem reload. Toda mutacao futura do proprio usuario
+(senha, dissolucao, exclusao) deve nascer como acao do store pelo mesmo motivo.
+
+### Encerrar a sessao do lado do cliente: `clearSession`, nao `logout`
+
+`useAuthStore.clearSession()` (US-010) e o unico lugar que derruba o estado de sessao do
+cliente: desconecta o WebSocket da `useMatchStore`, limpa o `localStorage` e zera
+`user`/`couple`/`isAuthenticated`. `logout()` agora e so `POST /api/auth/logout` + essa
+acao. Uma tela que ja recebeu do backend uma resposta que **invalidou os cookies**
+(`PUT /api/auth/password` responde 204 com os dois cookies expirados — E9.8) deve chamar
+`clearSession()` direto: chamar `logout()` ali dispararia um POST que so pode tomar 401.
+
+Quando a sessao cai **de proposito**, o motivo tem que sobreviver ao redirect, senao a
+tela de login parece bug. O caminho e `navigate("/login", { replace: true, state: { notice } })`
+— a `LoginPage` le `useLocation().state?.notice` e mostra a faixa ambar. A constante da
+mensagem mora em `screens/account/helpers.ts`, nao no `.tsx` do bloco: um arquivo de
+componente que exporta tambem um valor comum reprova em `react-refresh/only-export-components`
+(exportar dois componentes, ou um componente + `export type`, passa).
+
+### Desfazer o vinculo: `dissolveCouple` (e o WebSocket junto)
+
+`useAuthStore.dissolveCouple()` (US-011) manda o `DELETE /api/couple/me`, **desconecta a
+`useMatchStore`** e zera o `couple` (store + `localStorage`), mantendo a sessao. O
+disconnect nao e opcional: sem ele a store continua assinando `/topic/couple/{id}/**` de
+um casal que nao existe mais. Mesma regra da mutacao de perfil — a tela nunca chama a API
+e mexe no store por fora. Erros do endpoint: **404** = ja nao ha casal ativo, **429** =
+limite de 5/h por usuario; cada um com texto proprio.
+
+### Link com cara de botao: `render`, nao `asChild`
+
+O `Button` de `components/ui/button.tsx` embrulha `@base-ui/react/button`, que **nao tem**
+`asChild` (padrao do Radix): o equivalente e a prop `render`
+(`<Button render={<Link to="/join" />}>Formar um casal</Button>`), com o texto ainda como
+children. Mesma prop usada por `TooltipTrigger`/`PopoverTrigger` no resto do codebase.
+
+Mapeamento de erro do `PATCH /api/user/me` em `screens/account/ProfileSection.tsx`, para
+reusar nos outros blocos: **409** -> mensagem no campo de e-mail; **400** -> o corpo do
+`GlobalExceptionHandler` e `{ message, errors: { <campo>: <mensagem> } }`, entao da para
+jogar cada mensagem no seu campo (`types/user.ts` espelha esse shape); **429** -> o limite
+e por usuario (`app.rate-limit.profile-update`, 10/h), mensagem geral. Nenhum ramo engole a
+excecao — o fallback faz `console.error` com contexto (anti-pattern #4).
+
+### 401 de "senha errada" nao pode passar pelo interceptor de refresh
+
+O interceptor de `lib/api.ts` trata **todo** 401 como sessao expirada: renova e repete a
+chamada; se o segundo 401 vier, manda o usuario para `/login`. Isso e correto para leitura,
+e **errado** para endpoint que recebe senha no corpo — ali o 401 significa "essa nao e a sua
+senha", e o comportamento padrao expulsaria a pessoa do formulario em vez de mostrar o erro.
+Por isso existe `isPasswordChallenge(config)`: uma lista curta de `metodo + url`
+(`PUT /api/auth/password`, `DELETE /api/user/me`) cujo 401 e rejeitado **cru**, sem refresh e
+sem redirect. **Todo endpoint novo que valide senha no corpo precisa entrar nessa lista** —
+senao a AC de "erro visivel que nao fecha o dialogo" e impossivel de cumprir na tela.
+
+### `withXSRFToken: true` e obrigatorio — sem ele, todo POST/PUT/DELETE quebra em dev
+
+`lib/api.ts` declara `xsrfCookieName`/`xsrfHeaderName` **e** `withXSRFToken: true`. O
+terceiro nao e redundante: desde a **1.6.2** o axios so anexa o header de XSRF sozinho
+quando a chamada e **same-origin**. Em producao a SPA e a API vivem no mesmo dominio
+(`VITE_API_URL=https://sessaoadois...`), entao isso acontecia de graca; em desenvolvimento
+a pagina esta em `localhost:5173` e a API em `localhost:8080` — origens diferentes, header
+omitido, e **toda requisicao mutante** era barrada pelo `CsrfFilter`. Por isso o bug so
+existia localmente e sobreviveu a varios epicos: login e `GET` funcionam (o `CsrfFilter`
+nao valida metodos seguros), e a primeira acao que escreve algo morre.
+
+O sintoma e enganoso e vale reconhecer de longe: **a recusa de CSRF chega como 401, nao
+403**. `SecurityConfig` registra o `JwtAuthenticationFilter` antes do
+`UsernamePasswordAuthenticationFilter`, que na cadeia do Spring Security vem *depois* do
+`CsrfFilter` — quando o CSRF reprova, o `SecurityContext` ainda esta vazio, o
+`ExceptionTranslationFilter` trata como "nao autenticado" e o `authenticationEntryPoint`
+responde 401. O interceptor le isso como sessao expirada, tenta renovar (o
+`/api/auth/refresh` e `permitAll` e esta nos `ignoringRequestMatchers`, entao a renovacao
+ate funciona), repete a chamada, toma 401 de novo e **redireciona para `/login`**. Ou
+seja: "a pagina volta para o login ao salvar qualquer coisa" pode ser CSRF, nao sessao.
+
+### Depurar um redirect forcado para `/login`
+
+`redirectToLogin` faz navegacao dura (`window.location.href`), que limpa Console e Network
+antes de dar tempo de ler o erro. Alem do `console.error` com metodo/URL/motivo, ele grava
+um breadcrumb que **sobrevive a navegacao**:
+
+```js
+JSON.parse(sessionStorage.getItem("sessaoADois.lastAuthRedirect"))
+// { method, url, reason, at }
+```
+
+`reason` distingue os dois caminhos: `POST /api/auth/refresh falhou (...)` (a renovacao
+morreu) vs `401 tambem apos renovar a sessao` (renovou e a chamada original continuou
+sendo recusada — tipicamente CSRF, ver acima). Ligar "Preserve log" no DevTools continua
+valendo para qualquer investigacao neste app.
+
+### 401 do bootstrap tambem nao pode redirecionar (loop de reload)
+
+Simetrico ao caso da senha, e mais grave: `GET /api/auth/me` e a **sondagem de sessao** do
+bootstrap (`App.tsx` chama `loadCurrentUser` no mount de qualquer rota). Sem sessao ele
+responde 401 — `/api/auth/me` cai no `anyRequest().authenticated()` do `SecurityConfig` —,
+o interceptor tenta `POST /api/auth/refresh`, que sem cookie responde 401 tambem
+(`InvalidRefreshTokenException`), e o `redirectToLogin()` fazia `window.location.href`,
+ou seja, **reload completo**. A /login remonta o `App`, que chama `loadCurrentUser` de
+novo: loop infinito de reload, com o `AppShellSkeleton` congelado na tela em todas as
+rotas (a navegacao interrompe o bootstrap, entao `loading` nunca vira `false`). Sintoma
+enganoso: parece bug de skeleton/loading, e o bug esta no interceptor.
+
+Duas guardas, ambas necessarias: `isSessionProbe(config)` (GET `/api/auth/me`) **tenta o
+refresh mas nao redireciona** quando ele falha — quem tem access token expirado e refresh
+valido continua recuperando a sessao, e quem nao tem sessao nenhuma so recebe o 401 cru,
+que o `loadCurrentUser` ja sabe tratar; e `redirectToLogin()` vira no-op se ja estivermos
+em `/login`, porque atribuir `href` para a URL atual recarrega a pagina do mesmo jeito.
+**Toda chamada que roda automaticamente no bootstrap, sem gesto do usuario, precisa dessa
+mesma isencao** — redirecionar por causa dela torna as rotas publicas (landing, login,
+registro) inalcancaveis para quem esta deslogado.
+
+### Excluir a conta: `deleteAccount` + `clearSession`, nessa ordem
+
+`useAuthStore.deleteAccount({ password })` (US-012) manda `DELETE /api/user/me` com o corpo
+em `{ data }` (axios nao aceita body posicional no `delete`) e **nao** mexe no estado local —
+mesma divisao do `changePassword`: a tela mostra o desfecho, espera, e so entao chama
+`clearSession()` + `navigate("/", { replace: true })` no mesmo handler. Limpar antes
+desmontaria a tela pelo `ProtectedRoute` e engoliria a mensagem. Erros do endpoint:
+**401** senha errada (fica no dialogo), **400** validacao, **429** limite de 3/h por usuario
+(`app.rate-limit.account-delete`).
+
+### O aviso de vinculo desfeito nasce do cache, nao de uma flag
+
+O ex-parceiro descobre a dissolucao em `/join` (US-013) por um sinal que ja existia: o
+`couple` do cache de UI dizia que havia um casal **com parceiro** e o `GET /api/auth/me`
+voltou sem casal. Esse `if` mora dentro do `loadCurrentUser` do `useAuthStore` (o unico
+ponto onde o "antes" e o "depois" coexistem, porque o `persistSession` sobrescreve o cache
+na linha seguinte) e acende `bondDissolved`, um booleano **so em memoria** —
+**nao criar flag paralela em `localStorage`**, a AC proibe e ela seria redundante. Tres
+consequencias que saem de graca: quem nunca teve casal nao tem cache e nao ve nada; quem
+**fez** a dissolucao ja zerou o `couple` no `dissolveCouple`; e o aviso nao sobrevive ao
+reload, porque o cache que o dispara ja foi sobrescrito. `joinCouple`/`createCouple`
+tambem apagam o booleano — formar casal novo encerra o assunto.
+
+A landing (`/`) e `PublicOnlyRoute`, entao ela so aceita o usuario **depois** do
+`clearSession()` — as duas chamadas no mesmo handler sao batidas num render so e o destino
+ja resolve com `isAuthenticated: false`.

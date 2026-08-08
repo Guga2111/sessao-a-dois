@@ -76,6 +76,13 @@ meia hora e pode entrar em qualquer momento.
 | [13](#épico-13--governança-do-design-system) | Governança do Design System | T13.1 – T13.5 | Médio |
 | [14](#épico-14--documentação-de-entrada) | Documentação de Entrada | T14.1 | Baixo |
 
+> **Como uma task concluída é marcada:** linha `**Status:** ✅ **Concluída em <data>** —
+> <épico>, <stories> (<branch>)` logo abaixo do título, e os critérios de aceite viram
+> `- [x]`. Um critério que **não** pôde ser verificado (ex.: precisa de navegador ou de
+> credencial de produção) fica `- [ ]` com o motivo escrito ao lado, em vez de marcado
+> por otimismo. Os épicos 1–8 foram entregues antes desta convenção existir e por isso
+> não estão marcados; a partir do Épico 9 ela vale.
+
 ---
 
 # Épico 1 — Contenção de Segurança
@@ -1445,6 +1452,7 @@ casal dissolvido). A T9.5 depende das quatro.
 
 ## T9.1 — Dissolver o vínculo do casal
 
+**Status:** ✅ **Concluída em 2026-08-07** — Épico 9, US-001 a US-004 (`epic9/couple-lifecycle`).
 **Criticidade:** Alto
 **Arquivos:** `api/src/main/java/com/app/couple/{CoupleController,CoupleService,Couple,CoupleRepository}.java`, `api/src/main/resources/db/migration/V7__add_couple_dissolved_at.sql`, `api/src/main/java/com/app/tracking/MediaTrackService.java`, `api/src/main/java/com/app/match/MatchService.java`
 
@@ -1484,14 +1492,14 @@ Conforme a **decisão D13** (dissolver, não apagar):
    mesmo espírito do `TrackingFacade`) e fazer `tracking`/`match` dependerem só dela.
 
 ### Critérios de aceite
-- [ ] `POST /api/couple/leave` dissolve o casal e responde `204`.
-- [ ] Depois de dissolver, `GET /api/couple/me` responde `404` para **ambos** os usuários.
-- [ ] Depois de dissolver, ambos conseguem criar um casal novo e entrar num casal novo.
-- [ ] Nenhum endpoint de `tracking`, `match` ou `notification` retorna dado do casal dissolvido para os ex-membros.
-- [ ] As linhas de `media_track`, `user_review` e `notification` do casal dissolvido **continuam no banco** (verificar por contagem antes/depois).
-- [ ] Dissolver um casal inexistente responde `404`, não `500`.
-- [ ] `tracking` e `match` não importam mais `CoupleRepository`; a dependência passa por uma porta explícita.
-- [ ] Testes: `CoupleServiceTest` e `CoupleControllerTest` cobrem dissolver, dissolver duas vezes, dissolver sem casal, e recriar depois de dissolver.
+- [x] `DELETE /api/couple/me` dissolve o casal e responde `204`. *(o backlog propunha `POST /api/couple/leave` "ou `DELETE /api/couple/me`" — ficou o segundo)*
+- [x] Depois de dissolver, `GET /api/couple/me` responde `404` para **ambos** os usuários.
+- [x] Depois de dissolver, ambos conseguem criar um casal novo e entrar num casal novo.
+- [x] Nenhum endpoint de `tracking`, `match` ou `notification` retorna dado do casal dissolvido para os ex-membros.
+- [x] As linhas de `media_track`, `user_review` e `notification` do casal dissolvido **continuam no banco** (verificar por contagem antes/depois).
+- [x] Dissolver um casal inexistente responde `404`, não `500`.
+- [x] `tracking` e `match` não importam mais `CoupleRepository`; a dependência passa por uma porta explícita (`CoupleFacade`).
+- [x] Testes: `CoupleServiceTest` e `CoupleControllerTest` cobrem dissolver, dissolver duas vezes, dissolver sem casal, e recriar depois de dissolver.
 
 ### Fora do escopo
 Notificar o parceiro em tempo real; exigir confirmação dos dois lados; qualquer UI de
@@ -1501,6 +1509,7 @@ Notificar o parceiro em tempo real; exigir confirmação dos dois lados; qualque
 
 ## T9.2 — Editar perfil (nome e e-mail)
 
+**Status:** ✅ **Concluída em 2026-08-07** — Épico 9, US-005 (`epic9/couple-lifecycle`).
 **Criticidade:** Médio
 **Arquivos:** novos em `api/src/main/java/com/app/user/`, `api/src/main/java/com/app/auth/UserSummary.java`
 
@@ -1521,12 +1530,12 @@ do dado), com `PATCH /api/user/me` aceitando `name` e/ou `email`.
 - Respeitar o anti-pattern #1: o controller não injeta `UserRepository`.
 
 ### Critérios de aceite
-- [ ] `PATCH /api/user/me` altera nome, e-mail, ou ambos, e responde com o perfil atualizado.
-- [ ] E-mail já usado por outra conta responde `409`.
-- [ ] E-mail malformado responde `400` pelo `GlobalExceptionHandler`.
-- [ ] `GET /api/auth/me` reflete o valor novo na requisição seguinte.
-- [ ] A sessão continua válida depois da troca de e-mail.
-- [ ] Testes de service e controller cobrindo sucesso, conflito e payload inválido.
+- [x] `PATCH /api/user/me` altera nome, e-mail, ou ambos, e responde com o perfil atualizado (`UserProfileResponse`, E9.15).
+- [x] E-mail já usado por outra conta responde `409` (`EmailAlreadyExistsException` reusada de `com.app.auth`, com `UserExceptionHandler` próprio — o advice de `auth` é escopado por `basePackages`).
+- [x] E-mail malformado responde `400` pelo `GlobalExceptionHandler`.
+- [x] `GET /api/auth/me` reflete o valor novo na requisição seguinte.
+- [x] A sessão continua válida depois da troca de e-mail (provado com cookie `access_token` real em `UserProfileIntegrationTest`).
+- [x] Testes de service e controller cobrindo sucesso, conflito e payload inválido.
 
 ### Fora do escopo
 Verificação do e-mail novo por link de confirmação (depende do Épico 10); upload de foto
@@ -1536,6 +1545,7 @@ de perfil; alterar o nome exibido ao parceiro de forma diferente do nome da cont
 
 ## T9.3 — Trocar a senha estando autenticado
 
+**Status:** ✅ **Concluída em 2026-08-07** — Épico 9, US-006 (`epic9/couple-lifecycle`).
 **Criticidade:** Alto
 **Arquivos:** `api/src/main/java/com/app/auth/{AuthController,AuthService}.java`, `api/src/main/java/com/app/auth/RefreshTokenService.java`
 
@@ -1555,13 +1565,13 @@ logout.
 5. Rate limit por usuário e log de auditoria (`passwordChanged`).
 
 ### Critérios de aceite
-- [ ] `PUT /api/auth/password` com senha atual correta troca a senha e responde `204`.
-- [ ] Senha atual errada responde `401` e **não** troca nada.
-- [ ] Senha nova fora da política responde `400` com a mesma mensagem da T5.3.
-- [ ] Depois da troca, o refresh token antigo não funciona mais (`POST /api/auth/refresh` → `401`).
-- [ ] Depois da troca, o login com a senha nova funciona e com a antiga falha.
-- [ ] Os cookies de sessão vêm limpos na resposta.
-- [ ] `AuthServiceTest`/`AuthControllerTest` cobrem os cinco cenários acima.
+- [x] `PUT /api/auth/password` com senha atual correta troca a senha e responde `204`.
+- [x] Senha atual errada responde `401` e **não** troca nada.
+- [x] Senha nova fora da política responde `400` com a mesma mensagem da T5.3 (`@Size(min = 8, max = 72)` replicada no `ChangePasswordRequest`, E9.9).
+- [x] Depois da troca, o refresh token antigo não funciona mais (`POST /api/auth/refresh` → `401`).
+- [x] Depois da troca, o login com a senha nova funciona e com a antiga falha.
+- [x] Os cookies de sessão vêm limpos na resposta (E9.8 — **todas** as sessões caem, inclusive a que trocou).
+- [x] `AuthServiceTest`/`AuthControllerTest` cobrem os cinco cenários acima, mais `PasswordChangeIntegrationTest` com os cookies reais do login.
 
 ### Fora do escopo
 Troca de senha sem estar autenticado (é o Épico 10); manter viva a sessão que fez a
@@ -1571,6 +1581,7 @@ troca; notificar por e-mail que a senha mudou (depende do Épico 10).
 
 ## T9.4 — Excluir a conta
 
+**Status:** ✅ **Concluída em 2026-08-07** — Épico 9, US-007 (`epic9/couple-lifecycle`).
 **Criticidade:** Alto
 **Arquivos:** novos em `api/src/main/java/com/app/user/`, porta de `com.app.couple`, `api/src/main/java/com/app/tracking/`
 
@@ -1599,13 +1610,13 @@ Definir a ordem respeitando as FKs declaradas em `V1__baseline.sql` (`fk_user_re
 `fk_refresh_token_user`) — a exclusão precisa passar sem violar constraint.
 
 ### Critérios de aceite
-- [ ] `DELETE /api/user/me` com a senha correta apaga a conta e responde `204`.
-- [ ] Senha errada responde `401` e **nada** é apagado.
-- [ ] Depois da exclusão, o login com aquele e-mail responde `401` e o e-mail fica livre para um cadastro novo.
-- [ ] O casal foi dissolvido e o ex-parceiro consegue formar um casal novo.
-- [ ] Os `media_track` do casal continuam no banco; os `user_review` do usuário excluído, não.
-- [ ] Nenhuma violação de FK — teste de integração real contra o Postgres do CI, não só mock.
-- [ ] A exclusão é atômica: falha no meio não deixa conta meio-apagada (teste com rollback forçado).
+- [x] `DELETE /api/user/me` com a senha correta apaga a conta e responde `204`.
+- [x] Senha errada responde `401` e **nada** é apagado.
+- [x] Depois da exclusão, o login com aquele e-mail responde `401` e o e-mail fica livre para um cadastro novo (E9.13).
+- [x] O casal foi dissolvido e o ex-parceiro consegue formar um casal novo.
+- [x] Os `media_track` do casal continuam no banco; os `user_review` do usuário excluído, não. **Além do previsto na task:** as `notification` em que o usuário é destinatário **ou** ator também são apagadas (E9.2 — o nome do ator aparece na UI do outro membro).
+- [x] Nenhuma violação de FK — `UserDeletionIntegrityTest` roda contra o schema das migrations (`replace = NONE`, `${DB_URL}`); **sem `DB_URL` ele cai em H2 silenciosamente**, então a prova contra Postgres de verdade só acontece no CI.
+- [x] A exclusão é atômica: falha no meio não deixa conta meio-apagada (`UserDeletionAtomicityTest`, rollback forçado).
 
 ### Fora do escopo
 Período de carência / "desfazer exclusão" em N dias; exportação dos dados antes de
@@ -1615,6 +1626,7 @@ apagar (portabilidade); anonimização em vez de exclusão.
 
 ## T9.5 — Tela de Conta no frontend
 
+**Status:** ✅ **Concluída em 2026-08-07** — Épico 9, US-008 a US-013 (`epic9/couple-lifecycle`).
 **Criticidade:** Médio
 **Arquivos:** `client/src/screens/` (nova tela), `client/src/App.tsx`, `client/src/stores/useAuthStore.ts`, `client/src/lib/api.ts`
 
@@ -1640,13 +1652,16 @@ Cuidados de coerência com o que já existe: erros vindos da API precisam aparec
 um casal que não existe mais.
 
 ### Critérios de aceite
-- [ ] `/conta` é protegida e acessível pelo `Header`.
-- [ ] Os quatro blocos funcionam ponta a ponta contra a API.
-- [ ] Ações destrutivas (dissolver, excluir) exigem confirmação explícita e dizem exatamente o que será perdido.
-- [ ] Todo erro da API vira mensagem visível, nunca falha silenciosa.
-- [ ] Depois de dissolver, a store e a conexão STOMP são limpas e o app vai para o fluxo de convite.
-- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
-- [ ] A skill `frontend-design` foi invocada antes da implementação.
+- [x] `/conta` é protegida e acessível pelo `Header` — é a única rota autenticada **fora** do `RequireCouple`, porque quem acabou de dissolver o vínculo precisa chegar nela.
+- [ ] Os quatro blocos funcionam ponta a ponta contra a API. **Pendente do lado humano:** o sandbox do agente não tem Chromium/Playwright nem backend rodando, então a verificação foi por leitura do caminho de código, não em navegador. Os quatro estão implementados (`screens/account/{ProfileSection,PasswordSection,CoupleSection,DeleteAccountSection}.tsx`) contra os endpoints das T9.1–T9.4.
+- [x] Ações destrutivas (dissolver, excluir) exigem confirmação explícita e dizem exatamente o que será perdido (excluir exige a senha atual **e** confirmação por digitação).
+- [x] Todo erro da API vira mensagem visível, nunca falha silenciosa — inclusive o `401` de senha errada, que precisou entrar na lista `isPasswordChallenge` de `lib/api.ts` para não ser transformado em logout pelo interceptor de refresh.
+- [x] Depois de dissolver, a store e a conexão STOMP são limpas e o app vai para o fluxo de convite (`useAuthStore.dissolveCouple`).
+- [x] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- [x] A skill `frontend-design` foi invocada antes da implementação.
+
+**Extra entregue além da task (E9.10):** o ex-parceiro, que descobriria o vínculo
+desfeito sem nenhuma explicação, ganha um aviso estático em `/join` (US-013).
 
 ### Fora do escopo
 Preferências (tema, idioma, notificações); avatar; qualquer redesenho de tela existente.

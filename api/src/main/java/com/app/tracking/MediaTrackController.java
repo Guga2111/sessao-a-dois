@@ -1,10 +1,7 @@
 package com.app.tracking;
 
-import com.app.common.ResourceNotFoundException;
-
 import com.app.common.PageResponse;
-import com.app.couple.Couple;
-import com.app.couple.CoupleService;
+import com.app.couple.CoupleFacade;
 
 import jakarta.validation.Valid;
 
@@ -32,23 +29,23 @@ public class MediaTrackController {
 
 	private final MediaTrackService mediaTrackService;
 	private final UserReviewService userReviewService;
-	private final CoupleService coupleService;
+	private final CoupleFacade coupleFacade;
 	private final StatsService statsService;
 
 	public MediaTrackController(MediaTrackService mediaTrackService, UserReviewService userReviewService,
-			CoupleService coupleService, StatsService statsService) {
+			CoupleFacade coupleFacade, StatsService statsService) {
 		this.mediaTrackService = mediaTrackService;
 		this.userReviewService = userReviewService;
-		this.coupleService = coupleService;
+		this.coupleFacade = coupleFacade;
 		this.statsService = statsService;
 	}
 
 	@GetMapping("/stats")
 	public ResponseEntity<StatsResponse> stats(@AuthenticationPrincipal UUID userId) {
-		Optional<Couple> couple = coupleService.getCurrentCouple(userId);
-		StatsResponse response = couple.isPresent()
-			? statsService.getStats(couple.get().getId())
-			: statsService.emptyStats();
+		Optional<UUID> coupleId = coupleFacade.findActiveCoupleId(userId);
+		StatsResponse response = coupleId
+			.map(statsService::getStats)
+			.orElseGet(statsService::emptyStats);
 		return ResponseEntity.ok(response);
 	}
 
@@ -107,8 +104,6 @@ public class MediaTrackController {
 	}
 
 	private UUID currentCoupleId(UUID userId) {
-		Couple couple = coupleService.getCurrentCouple(userId)
-			.orElseThrow(() -> new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
-		return couple.getId();
+		return coupleFacade.requireActiveCoupleId(userId);
 	}
 }

@@ -2,7 +2,7 @@ package com.app.tracking;
 
 import com.app.common.ResourceNotFoundException;
 
-import com.app.couple.Couple;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaType;
 import com.app.user.User;
 import com.app.user.UserRepository;
@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -40,6 +39,9 @@ class UserReviewServiceTest {
 	private UserRepository userRepository;
 
 	@Mock
+	private CoupleFacade coupleFacade;
+
+	@Mock
 	private MediaTrackMapper mediaTrackMapper;
 
 	@Mock
@@ -50,13 +52,7 @@ class UserReviewServiceTest {
 	@BeforeEach
 	void setUp() {
 		userReviewService = new UserReviewService(userReviewRepository, mediaTrackRepository, userRepository,
-			mediaTrackMapper, ratingRequestService);
-	}
-
-	private Couple coupleOwnedBy(UUID coupleId) {
-		Couple couple = new Couple(UUID.randomUUID(), "ABC234");
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		return couple;
+			coupleFacade, mediaTrackMapper, ratingRequestService);
 	}
 
 	@Test
@@ -64,8 +60,7 @@ class UserReviewServiceTest {
 		UUID trackId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleOwnedBy(coupleId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 		User user = new User("Ana", "ana@example.com", "hash");
 		UpsertReviewRequest request = new UpsertReviewRequest(4, "Gostei bastante");
 		MediaTrackResponse expectedResponse = new MediaTrackResponse(
@@ -74,7 +69,7 @@ class UserReviewServiceTest {
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.empty());
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-		when(mediaTrackMapper.toResponse(eq(track), any())).thenReturn(expectedResponse);
+		when(mediaTrackMapper.toResponse(eq(track), any(), any())).thenReturn(expectedResponse);
 
 		MediaTrackResponse response = userReviewService.upsertReview(trackId, userId, coupleId, request);
 
@@ -90,8 +85,7 @@ class UserReviewServiceTest {
 		UUID trackId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleOwnedBy(coupleId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 		User user = new User("Ana", "ana@example.com", "hash");
 		UserReview existingReview = new UserReview(track, user, 2, "Regular");
 		UpsertReviewRequest request = new UpsertReviewRequest(5, "Mudei de ideia, adorei");
@@ -100,7 +94,7 @@ class UserReviewServiceTest {
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));
 		when(userReviewRepository.findByMediaTrackIdAndUserId(trackId, userId)).thenReturn(Optional.of(existingReview));
-		when(mediaTrackMapper.toResponse(eq(track), any())).thenReturn(expectedResponse);
+		when(mediaTrackMapper.toResponse(eq(track), any(), any())).thenReturn(expectedResponse);
 
 		MediaTrackResponse response = userReviewService.upsertReview(trackId, userId, coupleId, request);
 
@@ -117,8 +111,7 @@ class UserReviewServiceTest {
 		UUID trackId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple couple = coupleOwnedBy(coupleId);
-		MediaTrack track = new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
+		MediaTrack track = new MediaTrack(coupleId, 603L, MediaType.MOVIE, MediaStatus.WATCHED);
 		User user = new User("Ana", "ana@example.com", "hash");
 		UserReview existingReview = new UserReview(track, user, 2, "Regular");
 		UpsertReviewRequest request = new UpsertReviewRequest(5, "Adorei");
@@ -136,8 +129,7 @@ class UserReviewServiceTest {
 		UUID trackId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		Couple otherCouple = coupleOwnedBy(UUID.randomUUID());
-		MediaTrack track = new MediaTrack(otherCouple, 603L, MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack track = new MediaTrack(UUID.randomUUID(), 603L, MediaType.MOVIE, MediaStatus.WATCHING);
 		UpsertReviewRequest request = new UpsertReviewRequest(3, "Ok");
 
 		when(mediaTrackRepository.findById(trackId)).thenReturn(Optional.of(track));

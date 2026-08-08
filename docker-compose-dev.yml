@@ -51,6 +51,14 @@ services:
       DB_PASSWORD: sessao
       JWT_SECRET: local-dev-compose-secret-not-for-prod-32bytes+
       CORS_ALLOWED_ORIGIN: http://localhost:5173
+      # app.auth.cookie.secure default e "true" (producao e HTTPS). Em dev a app
+      # roda em http://localhost puro, e a flag Secure faz o navegador RECUSAR os
+      # cookies de sessao. Chrome/Firefox abrem excecao para localhost e por isso
+      # "funciona"; Safari (e Chromium com perfis mais restritos) nao abre - ali o
+      # login parece dar certo (o store marca isAuthenticated com o corpo da
+      # resposta), mas access_token/refresh_token nunca foram guardados, e a
+      # primeira chamada autenticada toma 401 e expulsa para /login. So dev.
+      AUTH_COOKIE_SECURE: "false"
       # TMDB_API_KEY: obrigatoria (com.app.media.TmdbConfig falha ao subir sem
       # ela). Lida do .env na raiz do repo (docker compose carrega .env
       # automaticamente) ou de uma env var exportada no shell. Veja .env.example.

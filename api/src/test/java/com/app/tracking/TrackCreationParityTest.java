@@ -1,7 +1,6 @@
 package com.app.tracking;
 
-import com.app.couple.Couple;
-import com.app.couple.CoupleRepository;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
@@ -34,7 +33,10 @@ class TrackCreationParityTest {
 	private MediaTrackRepository mediaTrackRepository;
 
 	@Mock
-	private CoupleRepository coupleRepository;
+	private UserReviewRepository userReviewRepository;
+
+	@Mock
+	private CoupleFacade coupleFacade;
 
 	@Mock
 	private UserRepository userRepository;
@@ -49,27 +51,24 @@ class TrackCreationParityTest {
 	void matchPathAndManualPathCreateEquivalentTracks() {
 		UUID coupleId = UUID.randomUUID();
 		UUID userId = UUID.randomUUID();
-		Couple couple = new Couple(userId, "ABC234");
-		ReflectionTestUtils.setField(couple, "id", coupleId);
 		User user = new User("Ana", "ana@example.com", "hash");
 		ReflectionTestUtils.setField(user, "id", userId);
 
 		MediaDetails details = new MediaDetails(603L, MediaType.MOVIE, "Matrix", 1999, "/poster.jpg", null, null,
 				List.of(28, 12), null, null, null);
 
-		TrackingFacade trackingFacade = new TrackingFacade(mediaTrackRepository);
+		TrackingFacade trackingFacade = new TrackingFacade(mediaTrackRepository, userReviewRepository);
 		ArgumentCaptor<MediaTrack> matchTrackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
 		when(mediaTrackRepository.save(matchTrackCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
 
-		trackingFacade.createTrackFromMatch(couple, 603L, MediaType.MOVIE, details);
+		trackingFacade.createTrackFromMatch(coupleId, 603L, MediaType.MOVIE, details);
 		MediaTrack matchTrack = matchTrackCaptor.getValue();
 
-		MediaTrackService mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleRepository,
+		MediaTrackService mediaTrackService = new MediaTrackService(mediaTrackRepository, coupleFacade,
 				userRepository, mediaDetailsService, ratingRequestService, new MediaTrackMapper());
 		CreateMediaTrackRequest request = new CreateMediaTrackRequest(603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE,
 				null, null, null, null);
 
-		when(coupleRepository.findById(coupleId)).thenReturn(Optional.of(couple));
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, 603L)).thenReturn(details);
 		ArgumentCaptor<MediaTrack> manualTrackCaptor = ArgumentCaptor.forClass(MediaTrack.class);
@@ -78,7 +77,7 @@ class TrackCreationParityTest {
 		mediaTrackService.addTrack(coupleId, userId, request);
 		MediaTrack manualTrack = manualTrackCaptor.getValue();
 
-		assertThat(matchTrack.getCouple()).isEqualTo(manualTrack.getCouple());
+		assertThat(matchTrack.getCoupleId()).isEqualTo(manualTrack.getCoupleId());
 		assertThat(matchTrack.getTmdbId()).isEqualTo(manualTrack.getTmdbId());
 		assertThat(matchTrack.getMediaType()).isEqualTo(manualTrack.getMediaType());
 		assertThat(matchTrack.getStatus()).isEqualTo(manualTrack.getStatus());

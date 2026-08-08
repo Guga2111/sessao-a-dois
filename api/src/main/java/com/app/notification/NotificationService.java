@@ -1,6 +1,6 @@
 package com.app.notification;
 
-import com.app.couple.Couple;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaType;
 import com.app.common.ResourceNotFoundException;
 import com.app.user.User;
@@ -36,31 +36,27 @@ public class NotificationService {
 	private final NotificationRepository notificationRepository;
 	private final UserRepository userRepository;
 	private final SimpMessagingTemplate messagingTemplate;
+	private final CoupleFacade coupleFacade;
 
 	public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository,
-			SimpMessagingTemplate messagingTemplate) {
+			SimpMessagingTemplate messagingTemplate, CoupleFacade coupleFacade) {
 		this.notificationRepository = notificationRepository;
 		this.userRepository = userRepository;
 		this.messagingTemplate = messagingTemplate;
+		this.coupleFacade = coupleFacade;
 	}
 
-	public List<NotificationDto> notifyCouple(Couple couple, NotificationType type, Long tmdbId,
+	public List<NotificationDto> notifyCouple(UUID coupleId, NotificationType type, Long tmdbId,
 			MediaType mediaType, String title, UUID actorUserId) {
-		List<UUID> recipients = new ArrayList<>();
-		if (couple.getUser1Id() != null) {
-			recipients.add(couple.getUser1Id());
-		}
-		if (couple.getUser2Id() != null) {
-			recipients.add(couple.getUser2Id());
-		}
+		List<UUID> recipients = coupleFacade.memberIds(coupleId);
 
 		String actorName = userRepository.findById(actorUserId).map(User::getName).orElse(null);
-		String destination = String.format(DESTINATION_TEMPLATE, couple.getId());
+		String destination = String.format(DESTINATION_TEMPLATE, coupleId);
 
 		List<NotificationDto> dtos = new ArrayList<>();
 		for (UUID recipientId : recipients) {
 			Notification saved = notificationRepository
-				.save(new Notification(couple, recipientId, type, tmdbId, mediaType, title, actorUserId));
+				.save(new Notification(coupleId, recipientId, type, tmdbId, mediaType, title, actorUserId));
 			dtos.add(toDto(saved, actorName));
 		}
 
@@ -74,31 +70,46 @@ public class NotificationService {
 	 * quem acabou de avaliar nao precisa ser lembrado. Se o casal ainda nao tem
 	 * parceiro ({@code recipientUserId} nulo), nada e persistido nem publicado.
 	 */
-	public Optional<NotificationDto> notifyRatingRequest(Couple couple, UUID recipientUserId, UUID actorUserId,
+	public Optional<NotificationDto> notifyRatingRequest(UUID coupleId, UUID recipientUserId, UUID actorUserId,
 			Long tmdbId, MediaType mediaType, String title, UUID mediaTrackId) {
 		if (recipientUserId == null) {
 			return Optional.empty();
 		}
 
 		String actorName = userRepository.findById(actorUserId).map(User::getName).orElse(null);
-		Notification saved = notificationRepository.save(new Notification(couple, recipientUserId,
+		Notification saved = notificationRepository.save(new Notification(coupleId, recipientUserId,
 				NotificationType.RATING_REQUEST, tmdbId, mediaType, title, actorUserId, mediaTrackId));
 		NotificationDto dto = toDto(saved, actorName);
 
-		scheduleBroadcast(String.format(DESTINATION_TEMPLATE, couple.getId()), List.of(dto));
+		scheduleBroadcast(String.format(DESTINATION_TEMPLATE, coupleId), List.of(dto));
 		return Optional.of(dto);
 	}
 
+	/**
+	 * A lista do sino traz apenas as notificacoes do casal ATIVO do usuario (epico 9, E9.18). Sem casal
+	 * ativo - porque nunca houve um ou porque o vinculo foi dissolvido - a lista e vazia, sem consultar o
+	 * repositorio: as linhas do casal antigo continuam no banco, so deixam de estar ao alcance.
+	 */
 	public Page<NotificationDto> listNotifications(UUID recipientUserId, int page, int size) {
+		PageRequest pageRequest = PageRequest.of(page, size);
+		Optional<UUID> coupleId = coupleFacade.findActiveCoupleId(recipientUserId);
+		if (coupleId.isEmpty()) {
+			return Page.empty(pageRequest);
+		}
+
 		Page<Notification> notifications = notificationRepository
-			.findByRecipientUserIdOrderByCreatedAtDesc(recipientUserId, PageRequest.of(page, size));
+			.findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(recipientUserId, coupleId.get(), pageRequest);
 
 		Map<UUID, String> actorNames = resolveActorNames(notifications.getContent());
 		return notifications.map(n -> toDto(n, actorNames.get(n.getActorUserId())));
 	}
 
+	/** Contador do sino, escopado ao casal ativo pelo mesmo motivo de {@link #listNotifications} (E9.18). */
 	public long unreadCount(UUID recipientUserId) {
-		return notificationRepository.countByRecipientUserIdAndReadFalse(recipientUserId);
+		return coupleFacade.findActiveCoupleId(recipientUserId)
+			.map(coupleId -> notificationRepository.countByRecipientUserIdAndCoupleIdAndReadFalse(recipientUserId,
+					coupleId))
+			.orElse(0L);
 	}
 
 	@Transactional

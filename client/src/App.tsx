@@ -13,6 +13,7 @@ import {
   RedirectIfCoupled,
   RequireCouple,
 } from "@/routes/guards"
+import { AccountScreen } from "@/screens/account/AccountScreen"
 import { DashboardScreen } from "@/screens/DashboardScreen"
 import { HubScreen } from "@/screens/hub/HubScreen"
 import { LandingScreen } from "@/screens/LandingScreen"
@@ -127,6 +128,14 @@ export function App() {
               <RequireCouple>
                 <DashboardScreen />
               </RequireCouple>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/conta"
+          element={
+            <ProtectedRoute>
+              <AccountScreen />
             </ProtectedRoute>
           }
         />

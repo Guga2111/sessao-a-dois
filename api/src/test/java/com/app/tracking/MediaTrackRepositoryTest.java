@@ -45,7 +45,7 @@ class MediaTrackRepositoryTest {
 
 	private MediaTrack trackWithStatus(Couple couple, MediaStatus status, MediaType mediaType, Integer runtime,
 			LocalDate watchedDate, List<Integer> genreIds) {
-		MediaTrack track = new MediaTrack(couple, System.nanoTime(), mediaType, status);
+		MediaTrack track = new MediaTrack(couple.getId(), System.nanoTime(), mediaType, status);
 		track.setRuntime(runtime);
 		track.setWatchedDate(watchedDate);
 		track.setGenreIds(genreIds);
@@ -61,7 +61,7 @@ class MediaTrackRepositoryTest {
 		watchedTrack(couple, MediaType.TV, 45, LocalDate.now(), List.of());
 		watchedTrack(otherCouple, MediaType.MOVIE, 200, LocalDate.now(), List.of());
 
-		MediaTrack watching = new MediaTrack(couple, System.nanoTime(), MediaType.MOVIE, MediaStatus.WATCHING);
+		MediaTrack watching = new MediaTrack(couple.getId(), System.nanoTime(), MediaType.MOVIE, MediaStatus.WATCHING);
 		watching.setRuntime(999);
 		mediaTrackRepository.save(watching);
 
@@ -287,7 +287,7 @@ class MediaTrackRepositoryTest {
 	}
 
 	@Test
-	void findByIdInFetchesReviewsAndCoupleWithoutLazyInitializationIssues() {
+	void findByIdInFetchesReviewsWithoutLazyInitializationIssues() {
 		Couple couple = persistedCouple();
 		User user = userRepository.save(new User("Ana", "ana-" + UUID.randomUUID() + "@example.com", "hash"));
 		MediaTrack track = trackWithStatus(couple, MediaStatus.WATCHED, MediaType.MOVIE, 100, LocalDate.now(),
@@ -300,7 +300,7 @@ class MediaTrackRepositoryTest {
 		assertThat(found).singleElement().satisfies(t -> {
 			assertThat(t.getReviews()).hasSize(1);
 			assertThat(t.getReviews().get(0).getUser().getId()).isEqualTo(user.getId());
-			assertThat(t.getCouple().getId()).isEqualTo(couple.getId());
+			assertThat(t.getCoupleId()).isEqualTo(couple.getId());
 		});
 	}
 

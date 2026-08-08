@@ -1,26 +1,21 @@
 package com.app.tracking;
 
-import com.app.couple.Couple;
-
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Translates {@link MediaTrack} to {@link MediaTrackResponse}. Receives member names already
- * resolved (one {@code userRepository.findAllById} call per request, done by the caller) instead
- * of injecting {@code UserRepository} itself, so mapping N tracks never costs N user lookups.
+ * Translates {@link MediaTrack} to {@link MediaTrackResponse}. Receives both the couple's member
+ * ids ({@code CoupleFacade.memberIds}) and their names already resolved by the caller - one
+ * resolution per request, not one per track - so mapping N tracks never costs N lookups.
  */
 @Component
 public class MediaTrackMapper {
 
-	public MediaTrackResponse toResponse(MediaTrack track, Map<UUID, String> userNames) {
-		List<UUID> memberIds = memberIds(track.getCouple());
-
+	public MediaTrackResponse toResponse(MediaTrack track, List<UUID> memberIds, Map<UUID, String> userNames) {
 		List<ReviewDto> reviews = memberIds.stream()
 			.map(memberId -> toReviewDto(memberId, track, userNames))
 			.toList();
@@ -38,16 +33,6 @@ public class MediaTrackMapper {
 			track.getPosterUrl(),
 			track.getReleaseYear()
 		);
-	}
-
-	/** The couple's member ids (skipping a null {@code user2Id} for a couple with no partner yet). */
-	public static List<UUID> memberIds(Couple couple) {
-		List<UUID> memberIds = new ArrayList<>();
-		memberIds.add(couple.getUser1Id());
-		if (couple.getUser2Id() != null) {
-			memberIds.add(couple.getUser2Id());
-		}
-		return memberIds;
 	}
 
 	private ReviewDto toReviewDto(UUID memberId, MediaTrack track, Map<UUID, String> userNames) {

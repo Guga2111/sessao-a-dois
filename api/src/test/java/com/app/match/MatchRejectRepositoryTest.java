@@ -31,7 +31,7 @@ class MatchRejectRepositoryTest {
 	void findByCoupleIdAndUserIdAndTmdbIdFindsOwnReject() {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
-		matchRejectRepository.save(new MatchReject(couple, userId, 603L, MediaType.MOVIE));
+		matchRejectRepository.save(new MatchReject(couple.getId(), userId, 603L, MediaType.MOVIE));
 
 		assertThat(matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(couple.getId(), userId, 603L)).isPresent();
 		assertThat(matchRejectRepository.findByCoupleIdAndUserIdAndTmdbId(couple.getId(), UUID.randomUUID(), 603L))
@@ -43,10 +43,10 @@ class MatchRejectRepositoryTest {
 	void duplicateRejectFromSameUserForSameTitleViolatesUniqueConstraint() {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
-		matchRejectRepository.saveAndFlush(new MatchReject(couple, userId, 603L, MediaType.MOVIE));
+		matchRejectRepository.saveAndFlush(new MatchReject(couple.getId(), userId, 603L, MediaType.MOVIE));
 
 		assertThatThrownBy(() ->
-			matchRejectRepository.saveAndFlush(new MatchReject(couple, userId, 603L, MediaType.MOVIE))
+			matchRejectRepository.saveAndFlush(new MatchReject(couple.getId(), userId, 603L, MediaType.MOVIE))
 		).isInstanceOf(DataIntegrityViolationException.class);
 	}
 }
