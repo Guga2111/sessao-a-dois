@@ -206,6 +206,64 @@ Por isso existe `isPasswordChallenge(config)`: uma lista curta de `metodo + url`
 sem redirect. **Todo endpoint novo que valide senha no corpo precisa entrar nessa lista** —
 senao a AC de "erro visivel que nao fecha o dialogo" e impossivel de cumprir na tela.
 
+### `withXSRFToken: true` e obrigatorio — sem ele, todo POST/PUT/DELETE quebra em dev
+
+`lib/api.ts` declara `xsrfCookieName`/`xsrfHeaderName` **e** `withXSRFToken: true`. O
+terceiro nao e redundante: desde a **1.6.2** o axios so anexa o header de XSRF sozinho
+quando a chamada e **same-origin**. Em producao a SPA e a API vivem no mesmo dominio
+(`VITE_API_URL=https://sessaoadois...`), entao isso acontecia de graca; em desenvolvimento
+a pagina esta em `localhost:5173` e a API em `localhost:8080` — origens diferentes, header
+omitido, e **toda requisicao mutante** era barrada pelo `CsrfFilter`. Por isso o bug so
+existia localmente e sobreviveu a varios epicos: login e `GET` funcionam (o `CsrfFilter`
+nao valida metodos seguros), e a primeira acao que escreve algo morre.
+
+O sintoma e enganoso e vale reconhecer de longe: **a recusa de CSRF chega como 401, nao
+403**. `SecurityConfig` registra o `JwtAuthenticationFilter` antes do
+`UsernamePasswordAuthenticationFilter`, que na cadeia do Spring Security vem *depois* do
+`CsrfFilter` — quando o CSRF reprova, o `SecurityContext` ainda esta vazio, o
+`ExceptionTranslationFilter` trata como "nao autenticado" e o `authenticationEntryPoint`
+responde 401. O interceptor le isso como sessao expirada, tenta renovar (o
+`/api/auth/refresh` e `permitAll` e esta nos `ignoringRequestMatchers`, entao a renovacao
+ate funciona), repete a chamada, toma 401 de novo e **redireciona para `/login`**. Ou
+seja: "a pagina volta para o login ao salvar qualquer coisa" pode ser CSRF, nao sessao.
+
+### Depurar um redirect forcado para `/login`
+
+`redirectToLogin` faz navegacao dura (`window.location.href`), que limpa Console e Network
+antes de dar tempo de ler o erro. Alem do `console.error` com metodo/URL/motivo, ele grava
+um breadcrumb que **sobrevive a navegacao**:
+
+```js
+JSON.parse(sessionStorage.getItem("sessaoADois.lastAuthRedirect"))
+// { method, url, reason, at }
+```
+
+`reason` distingue os dois caminhos: `POST /api/auth/refresh falhou (...)` (a renovacao
+morreu) vs `401 tambem apos renovar a sessao` (renovou e a chamada original continuou
+sendo recusada — tipicamente CSRF, ver acima). Ligar "Preserve log" no DevTools continua
+valendo para qualquer investigacao neste app.
+
+### 401 do bootstrap tambem nao pode redirecionar (loop de reload)
+
+Simetrico ao caso da senha, e mais grave: `GET /api/auth/me` e a **sondagem de sessao** do
+bootstrap (`App.tsx` chama `loadCurrentUser` no mount de qualquer rota). Sem sessao ele
+responde 401 — `/api/auth/me` cai no `anyRequest().authenticated()` do `SecurityConfig` —,
+o interceptor tenta `POST /api/auth/refresh`, que sem cookie responde 401 tambem
+(`InvalidRefreshTokenException`), e o `redirectToLogin()` fazia `window.location.href`,
+ou seja, **reload completo**. A /login remonta o `App`, que chama `loadCurrentUser` de
+novo: loop infinito de reload, com o `AppShellSkeleton` congelado na tela em todas as
+rotas (a navegacao interrompe o bootstrap, entao `loading` nunca vira `false`). Sintoma
+enganoso: parece bug de skeleton/loading, e o bug esta no interceptor.
+
+Duas guardas, ambas necessarias: `isSessionProbe(config)` (GET `/api/auth/me`) **tenta o
+refresh mas nao redireciona** quando ele falha — quem tem access token expirado e refresh
+valido continua recuperando a sessao, e quem nao tem sessao nenhuma so recebe o 401 cru,
+que o `loadCurrentUser` ja sabe tratar; e `redirectToLogin()` vira no-op se ja estivermos
+em `/login`, porque atribuir `href` para a URL atual recarrega a pagina do mesmo jeito.
+**Toda chamada que roda automaticamente no bootstrap, sem gesto do usuario, precisa dessa
+mesma isencao** — redirecionar por causa dela torna as rotas publicas (landing, login,
+registro) inalcancaveis para quem esta deslogado.
+
 ### Excluir a conta: `deleteAccount` + `clearSession`, nessa ordem
 
 `useAuthStore.deleteAccount({ password })` (US-012) manda `DELETE /api/user/me` com o corpo
