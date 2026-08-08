@@ -100,6 +100,15 @@ The one intentional non-pure change from this story: `fetchSectionPage`'s catch 
 
 ## `screens/account/` — tela `/conta` e o token destrutivo
 
+Endpoints que esta tela consome, todos nascidos no Epico 9 (o resto do app usa
+`/api/auth/*`, `/api/couple/*`, `/api/tracking/*`, `/api/media/*`, `/api/match/*`,
+`/api/notifications`): **`PATCH /api/user/me`** (perfil), **`PUT /api/auth/password`**
+(senha — responde 204 **com os cookies expirados**), **`DELETE /api/couple/me`**
+(desfazer o vinculo) e **`DELETE /api/user/me`** (excluir a conta, senha no corpo via
+`{ data }`). Os dois que recebem senha no corpo estao na lista `isPasswordChallenge`
+de `lib/api.ts` — ver a secao sobre o 401 mais abaixo. Nenhum deles e chamado direto
+por uma tela: cada um tem uma acao correspondente no `useAuthStore`.
+
 `/conta` (Epico 9, US-008) e a primeira tela de configuracoes e a unica rota **autenticada
 fora do `RequireCouple`** — quem nao tem casal (inclusive quem acabou de dissolver) precisa
 chegar nela, entao envolva-a so em `ProtectedRoute`. Entrada no `Header`: **nao** entra em

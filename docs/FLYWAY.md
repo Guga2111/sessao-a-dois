@@ -43,8 +43,10 @@ ORDER BY installed_rank;
 
 E confirmar:
 
-- [ ] Existem linhas para **V1 ate V6** (`V6__add_invite_code_expiry.sql` e a
-      ultima migration do repo).
+- [ ] Existem linhas para **V1 ate V6** (as migrations que existiam quando este gate
+      foi escrito; a `V7__add_couple_dissolved_at.sql` veio depois, no Epico 9, e
+      ainda nao foi aplicada em producao — se ela ja aparecer no historico, ela
+      tambem tem de estar com `success = true`).
 - [ ] **Todas** tem `success = true`.
 - [ ] A unica linha com `type = 'BASELINE'` e a legitima da V1 (o baseline do
       primeiro deploy). Nenhuma migration que deveria ter sido executada de fato
