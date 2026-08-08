@@ -715,3 +715,63 @@ Started: 2026-08-06
   - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
     sandbox e sem backend rodando — ver `client/CLAUDE.md`).
 ---
+
+## 2026-08-07 - US-014 (Fechar a documentacao do epico)
+- Story de documentacao pura — nenhum arquivo de producao tocado (`git status` so acusa
+  os 5 `.md`).
+- `docs/ARCHITECTURE.md` secao 3: `com.app.user` deixa de ser "apenas a entidade e o
+  repositorio" e passa a descrever `UserProfileController` (`PATCH`/`DELETE /api/user/me`)
+  + o papel de orquestrador do `UserDeletionService`; `com.app.couple` registra o
+  `CoupleFacade` ao lado do `TrackingFacade`, com os 4 metodos e a regra de que **so UUID
+  cruza a fronteira**; `com.app.match` e `com.app.notification` registram `MatchFacade` e
+  `NotificationFacade` e a troca de `Couple` por `UUID coupleId` em `notifyCouple`/
+  `notifyRatingRequest`; `com.app.websocket` vira a excecao deliberada (E9.19), escrita
+  na propria entrada do pacote **e** na regra de dependencia. A regra de dependencia
+  passou a listar as 4 portas e ganhou a nota do PRD sobre superficie arquitetural:
+  `MatchFacade`/`NotificationFacade` tem um metodo so (`deleteUserData`) e existem por
+  causa da regra, nao por precisarem de fachada rica.
+- `docs/ARCHITECTURE.md` secao 4: `Couple` ganha `dissolved_at` (e o
+  `invite_code_expires_at` que faltava desde o Epico 5) nos campos, mais a regra de
+  negocio da dissolucao — unilateral, `UPDATE` e nunca `DELETE`, historico preservado no
+  banco e inacessivel pela API, os dois liberados para um casal novo, e a consequencia de
+  um usuario poder ter N linhas em `couples`. `MediaTrack` registra `couple_id` como
+  `UUID` sem associacao JPA (idem `MatchLike`/`MatchReject`/`Notification`).
+- `docs/FLYWAY.md`: a lista do corpo ja tinha V6 e V7 corretas (US-001) — **mas** o gate
+  humano do topo dizia "V6 e a ultima migration do repo", o que virou mentira quando a V7
+  entrou. Corrigido para dizer que a V7 e posterior ao gate e ainda nao aplicada em
+  producao. Conferir "continua correto" tambem quer dizer olhar o resto do arquivo.
+- `POST-MVP-TASK.md`: T9.1-T9.5 com `**Status:** ✅ Concluida em 2026-08-07 — <stories>`
+  e os criterios de aceite em `- [x]`. **Nao existia formato anterior** (nenhum `[x]` no
+  arquivo inteiro, epicos 1-8 nunca foram marcados), entao a convencao foi criada e
+  documentada numa nota abaixo do indice. Divergencias registradas ao lado do criterio em
+  vez de escondidas: `POST /api/couple/leave` virou `DELETE /api/couple/me`; a exclusao
+  de conta tambem apaga `notification` (E9.2, fora do texto original da T9.4); a
+  integridade de FK so e provada de verdade no CI (`DB_URL`).
+- **Um criterio ficou `- [ ]` de proposito:** "os quatro blocos funcionam ponta a ponta
+  contra a API" (T9.5). Sem navegador e sem backend no sandbox, marcar seria otimismo.
+- `api/CLAUDE.md`: a linha do package-by-feature lista as 4 portas + a excecao do
+  websocket, e nasceu um bullet com os 4 endpoints novos do epico ao lado dos que ja
+  existiam, cada um com o seu rate limit por usuario.
+- `client/CLAUDE.md`: a secao `screens/account/` abre com os 4 endpoints que a tela
+  consome e o lembrete de que nenhum e chamado direto por tela (passam pelo `useAuthStore`).
+- Checks: nao rodei `./mvnw test` nem os scripts do `client/` — o diff nao toca em codigo
+  nem em config. Os nomes de arquivo/metodo citados foram conferidos contra o codigo
+  (`CoupleRepository.findActiveByUserId`/`findActiveByInviteCode`, os 4 facades,
+  `screens/account/DeleteAccountSection.tsx` — que **nao** se chama `DangerZoneSection`).
+- **Learnings for future iterations:**
+  - "Conferir que a documentacao continua correta" != "conferir a lista que a AC cita".
+    A lista de migrations do `FLYWAY.md` estava certa; o que envelheceu foi uma frase a
+    30 linhas dali afirmando qual era a ultima migration. Ler o arquivo inteiro atras de
+    afirmacoes que a story nova invalidou, nao so o paragrafo apontado.
+  - AC que diz "no mesmo formato usado pelos epicos anteriores" pode nao ter formato
+    anterior nenhum — `grep -c "^- \[x\]"` deu 0 no arquivo todo. Nesse caso a saida e
+    criar a convencao **e** escreve-la no proprio documento, senao o proximo epico
+    inventa uma terceira.
+  - Story de documentacao sem codigo nao precisa de `./mvnw test`, mas precisa de
+    verificacao propria: todo nome de classe/metodo/arquivo citado tem de ser conferido
+    por `grep`/`ls` contra o codigo. Escrever de memoria produziu `DangerZoneSection`,
+    que nao existe.
+  - Marcar um criterio de aceite como cumprido quando o ambiente nao permite verificar
+    apaga a informacao de que ele ficou pendente. `- [ ]` com o motivo escrito ao lado
+    preserva o gate para o lado humano.
+---

@@ -283,7 +283,7 @@
         "api/CLAUDE.md e client/CLAUDE.md mencionam os endpoints novos onde ja listam os existentes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DAS US-001 a US-013. Story de documentacao pura, sem codigo de producao. Vale registrar tambem o ponto de atencao do fim do PRD: o epico cria TRES portas novas (CoupleFacade, MatchFacade, NotificationFacade); se alguma se mostrar um unico metodo que nunca ganha um segundo, anotar que ela existe por causa da regra de dependencia, nao porque a feature precisava de uma fachada rica."
     }
   ]
