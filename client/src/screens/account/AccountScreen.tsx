@@ -2,6 +2,7 @@ import { Header } from "@/components/Header"
 import { AccountSection, ReachChip } from "@/screens/account/AccountSection"
 import type { SectionReach } from "@/screens/account/AccountSection"
 import { CoupleSection } from "@/screens/account/CoupleSection"
+import { DeleteAccountSection } from "@/screens/account/DeleteAccountSection"
 import { PasswordSection } from "@/screens/account/PasswordSection"
 import { ProfileSection } from "@/screens/account/ProfileSection"
 
@@ -11,8 +12,6 @@ type SectionDef = {
   description: string
   reach: SectionReach
   destructive?: boolean
-  /** Ausente quando a secao ja tem conteudo funcional (Perfil, US-009). */
-  placeholder?: string
 }
 
 const SECTIONS: SectionDef[] = [
@@ -45,7 +44,6 @@ const SECTIONS: SectionDef[] = [
       "Apaga sua conta, suas avaliações e suas notificações. Não dá para voltar atrás.",
     reach: "both",
     destructive: true,
-    placeholder: "A ação de excluir a conta entra aqui.",
   },
 ]
 
@@ -122,9 +120,7 @@ export function AccountScreen() {
                 ) : section.id === "casal" ? (
                   <CoupleSection />
                 ) : (
-                  <p className="m-0 rounded-[12px] border border-dashed border-white/10 px-4 py-3.5 text-[13px] text-[#a6a39a]">
-                    {section.placeholder}
-                  </p>
+                  <DeleteAccountSection />
                 )}
               </AccountSection>
             ))}

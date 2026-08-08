@@ -249,7 +249,7 @@
         "bun run typecheck, bun run lint e bun run build passam"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "DEPENDE DA US-007 e US-008. Usa o token visual de zona destrutiva criado na US-008 - o mesmo tratamento do bloco Casal, com peso maior."
     },
     {

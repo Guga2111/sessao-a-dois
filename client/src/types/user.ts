@@ -14,6 +14,14 @@ export interface UserProfileResponse {
 }
 
 /**
+ * Corpo de `DELETE /api/user/me` (record `DeleteAccountRequest`). A senha e obrigatoria
+ * (E9.12) — a exclusao e irreversivel e o cookie de sessao sozinho nao basta.
+ */
+export interface DeleteAccountRequest {
+  password: string
+}
+
+/**
  * Corpo de 400 do `GlobalExceptionHandler`: `{ message, errors: { campo: mensagem } }`.
  * As chaves de `errors` sao os nomes dos campos do request.
  */

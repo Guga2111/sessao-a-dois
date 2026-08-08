@@ -4,7 +4,11 @@ import { create } from "zustand"
 import { api } from "@/lib/api"
 import { useMatchStore } from "@/stores/useMatchStore"
 import type { ChangePasswordRequest } from "@/types/auth"
-import type { UpdateProfileRequest, UserProfileResponse } from "@/types/user"
+import type {
+  DeleteAccountRequest,
+  UpdateProfileRequest,
+  UserProfileResponse,
+} from "@/types/user"
 
 const SESSION_STORAGE_KEY = "sessaoADois.session"
 
@@ -62,6 +66,7 @@ interface AuthState {
   updateProfile: (request: UpdateProfileRequest) => Promise<AuthUser>
   changePassword: (request: ChangePasswordRequest) => Promise<void>
   dissolveCouple: () => Promise<void>
+  deleteAccount: (request: DeleteAccountRequest) => Promise<void>
   clearSession: () => void
   loadCurrentUser: () => Promise<void>
 }
@@ -173,6 +178,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useMatchStore.getState().disconnect()
     persistSession(get().user, null)
     set({ couple: null })
+  },
+
+  // A conta some do banco junto com avaliacoes, notificacoes e sessoes (US-007). O estado
+  // local NAO cai aqui, pelo mesmo motivo do `changePassword`: quem chama precisa mostrar o
+  // desfecho ao usuario antes de a tela se desmontar, e so entao chamar `clearSession`.
+  // O corpo vai em `data` porque axios nao aceita body posicional no `delete`.
+  deleteAccount: async (request) => {
+    await api.delete("/api/user/me", { data: request })
   },
 
   // Encerra a sessao do lado do cliente sem falar com a API: usado pelo `logout` (depois do

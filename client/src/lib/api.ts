@@ -36,11 +36,27 @@ function redirectToLogin(): void {
   window.location.href = "/login"
 }
 
+// Endpoints em que 401 significa "a senha digitada esta errada", nao "a sessao expirou".
+// Renovar e repetir a chamada gastaria um refresh e, no segundo 401, expulsaria o usuario
+// para /login no meio de um formulario — o erro precisa chegar cru em quem chamou.
+function isPasswordChallenge(config: RetryableRequestConfig): boolean {
+  const method = config.method?.toUpperCase()
+  const url = config.url ?? ""
+  return (
+    (method === "PUT" && url === "/api/auth/password") ||
+    (method === "DELETE" && url === "/api/user/me")
+  )
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config as RetryableRequestConfig | undefined
     if (error.response?.status !== 401 || !config) {
+      return Promise.reject(error)
+    }
+
+    if (isPasswordChallenge(config)) {
       return Promise.reject(error)
     }
 

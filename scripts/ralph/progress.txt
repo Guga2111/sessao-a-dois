@@ -78,6 +78,10 @@ Started: 2026-08-06
 - Endpoint autenticado e mutante em `@WebMvcTest` precisa de `.with(csrf())` alem do
   `.with(authentication(...))` — sem ele o 403 do CSRF passa por "funcionou como esperado"
   em qualquer assercao que nao seja de status.
+- No frontend, o interceptor de `lib/api.ts` trata TODO 401 como sessao expirada (refresh,
+  repete, e no segundo 401 manda para `/login`). Endpoint que valida senha no CORPO tem um
+  401 de dominio, nao de sessao, e precisa entrar em `isPasswordChallenge` — senao a tela
+  nao consegue mostrar "senha errada", o usuario e expulso do formulario.
 - "O Postgres so checa a FK no fim do statement" NAO e portavel: vale para uma constraint
   imediata no Postgres, mas o H2 `MODE=PostgreSQL` do ambiente de teste checa linha a
   linha. Exclusao em massa numa tabela com AUTO-REFERENCIA (ex.: `refresh_token.replaced_by_id`)
@@ -618,6 +622,54 @@ Started: 2026-08-06
   - Toda mutacao do proprio usuario/casal continua nascendo como acao do `useAuthStore`
     (`persistSession` e privada do modulo); no caso da dissolucao a acao TAMBEM derruba o
     WebSocket, senao a `useMatchStore` fica assinando o topico de um casal extinto.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---
+
+## 2026-08-07 - US-012 (Bloco Excluir conta - zona destrutiva)
+- `client/src/screens/account/DeleteAccountSection.tsx` (novo): o bloco Excluir conta da
+  `/conta`. Fora do dialogo o bloco fica quieto (uma linha de consequencia + botao coral);
+  todo o peso mora na confirmacao, que e onde a decisao acontece.
+- Elemento de assinatura: o **inventario de duas colunas** dentro do dialogo. A exclusao e
+  assimetrica, entao o desenho e essa assimetria — "Sai com voce" (coral: conta, avaliacoes,
+  notificacoes, TODAS as sessoes) e "Fica onde esta" (ambar: o historico de titulos do casal,
+  que continua com o parceiro nomeado quando ha um; o e-mail, livre para cadastro novo, E9.13),
+  separadas por uma regua vertical em gradiente coral -> ambar. A AC "diga o que apaga e o que
+  permanece" virou estrutura em vez de dois paragrafos.
+- **Duas barreiras** (AC + E9.12): senha atual + digitar a palavra `EXCLUIR`
+  (`ACCOUNT_DELETE_CONFIRMATION_WORD` em `screens/account/helpers.ts`, comparada com
+  `trim().toUpperCase()`). Desenhadas como duas **travas** com estado real (`Lock` cinza
+  enquanto seguram, `LockOpen` ambar quando satisfeitas) — sem numeracao 01/02, que nao diria
+  nada aqui porque a ordem entre elas nao importa. O botao so habilita com as duas abertas.
+- Erros: **401** -> mensagem no campo de senha, dialogo **continua aberto**; **400** ->
+  `errors.password` do `GlobalExceptionHandler` com fallback; **429** -> mensagem geral
+  (limite 3/h por usuario); fallback com `console.error` (anti-pattern #4).
+- Sucesso: painel `role="status"` de despedida dentro do proprio dialogo, 2,2s depois
+  `clearSession()` (limpa `SESSION_STORAGE_KEY` + desconecta a `useMatchStore`) e
+  `navigate("/", { replace: true })`.
+- `client/src/lib/api.ts`: **correcao real de comportamento** — `isPasswordChallenge(config)`
+  faz o 401 de `PUT /api/auth/password` e `DELETE /api/user/me` ser rejeitado cru, sem passar
+  pelo refresh-e-repete do interceptor.
+- `client/src/stores/useAuthStore.ts`: acao `deleteAccount(request)` (DELETE com corpo em
+  `{ data }`, sem mexer no estado local). `client/src/types/user.ts`: `DeleteAccountRequest`.
+- Alterados: `AccountScreen.tsx` (some o ultimo placeholder e o campo `placeholder` do
+  `SectionDef`), `client/CLAUDE.md`.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - O interceptor de `lib/api.ts` transformava um 401 de **senha errada** em logout: refresh
+    (que funciona, a sessao e valida) -> repete -> 401 de novo -> `_retry` ja marcado ->
+    `redirectToLogin()`. A AC "401 nao fecha o dialogo" era **impossivel** de cumprir do lado
+    da tela. Endpoint novo que valide senha no corpo precisa entrar em `isPasswordChallenge`.
+    Isso tambem consertou o mesmo buraco na `PasswordSection` (US-010), que nao tinha sido
+    percebido la.
+  - `api.delete(url, { data })` — axios nao aceita corpo posicional no `delete`, ao contrario
+    de `post`/`put`/`patch`. Erro silencioso: o backend recebe corpo vazio e responde 400.
+  - A landing e `PublicOnlyRoute`: `clearSession()` + `navigate("/")` no MESMO handler sao
+    batidos num render so, entao o destino ja resolve com `isAuthenticated: false`. Inverter
+    a ordem (navegar antes de limpar) devolveria o usuario para `/hub`.
+  - `border-image` com gradiente + `border-l` sozinho e fragil no Tailwind arbitrario; um
+    `<span absolute w-px>` com `bg-[linear-gradient(...)]` dentro de um pai `relative` da o
+    mesmo resultado e nao depende de como o motor resolve borda parcial.
   - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
     sandbox e sem backend rodando — ver `client/CLAUDE.md`).
 ---

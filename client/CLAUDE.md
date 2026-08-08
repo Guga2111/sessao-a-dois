@@ -185,3 +185,28 @@ reusar nos outros blocos: **409** -> mensagem no campo de e-mail; **400** -> o c
 jogar cada mensagem no seu campo (`types/user.ts` espelha esse shape); **429** -> o limite
 e por usuario (`app.rate-limit.profile-update`, 10/h), mensagem geral. Nenhum ramo engole a
 excecao — o fallback faz `console.error` com contexto (anti-pattern #4).
+
+### 401 de "senha errada" nao pode passar pelo interceptor de refresh
+
+O interceptor de `lib/api.ts` trata **todo** 401 como sessao expirada: renova e repete a
+chamada; se o segundo 401 vier, manda o usuario para `/login`. Isso e correto para leitura,
+e **errado** para endpoint que recebe senha no corpo — ali o 401 significa "essa nao e a sua
+senha", e o comportamento padrao expulsaria a pessoa do formulario em vez de mostrar o erro.
+Por isso existe `isPasswordChallenge(config)`: uma lista curta de `metodo + url`
+(`PUT /api/auth/password`, `DELETE /api/user/me`) cujo 401 e rejeitado **cru**, sem refresh e
+sem redirect. **Todo endpoint novo que valide senha no corpo precisa entrar nessa lista** —
+senao a AC de "erro visivel que nao fecha o dialogo" e impossivel de cumprir na tela.
+
+### Excluir a conta: `deleteAccount` + `clearSession`, nessa ordem
+
+`useAuthStore.deleteAccount({ password })` (US-012) manda `DELETE /api/user/me` com o corpo
+em `{ data }` (axios nao aceita body posicional no `delete`) e **nao** mexe no estado local —
+mesma divisao do `changePassword`: a tela mostra o desfecho, espera, e so entao chama
+`clearSession()` + `navigate("/", { replace: true })` no mesmo handler. Limpar antes
+desmontaria a tela pelo `ProtectedRoute` e engoliria a mensagem. Erros do endpoint:
+**401** senha errada (fica no dialogo), **400** validacao, **429** limite de 3/h por usuario
+(`app.rate-limit.account-delete`).
+
+A landing (`/`) e `PublicOnlyRoute`, entao ela so aceita o usuario **depois** do
+`clearSession()` — as duas chamadas no mesmo handler sao batidas num render so e o destino
+ja resolve com `isAuthenticated: false`.
