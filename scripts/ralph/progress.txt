@@ -176,3 +176,45 @@ Started: 2026-08-10
 - **Learnings:** ver a entrada nova em Codebase Patterns sobre indirecao de env
   var quando o nome nao bate com o relaxed binding.
 ---
+
+## 2026-08-10 - US-003
+- Implementado `ResendEmailSender` (`com.app.email`), ativo so com
+  `app.email.provider=resend` (`@ConditionalOnProperty` sem `matchIfMissing`,
+  espelhando o `havingValue="log"` do `LoggingEmailSender`). Faz POST
+  `https://api.resend.com/emails` com corpo texto simples + HTML minimo (sem
+  template engine, HTML escapado via `HtmlUtils.htmlEscape` no nome e no link) e
+  payload restrito a `from/to/subject/text/html` (record package-private
+  `ResendEmailRequest`).
+- `ResendClientConfig` (`@Configuration`, mesmo gate `provider=resend`) monta o
+  `RestClient` DEDICADO do Resend via `SimpleClientHttpRequestFactory` com os
+  timeouts de `EmailProperties` (nao reaproveita o bean `tmdbRestClient`), mesmo
+  molde de `com.app.media.TmdbConfig`, com o header `Authorization: Bearer
+  <apiKey>` fixado no builder (o `ResendEmailSender` nao monta o header sozinho -
+  ele confia que o `RestClient` injetado ja vem com o header).
+- Erro do provedor vira `EmailDeliveryException` (nova, propria do pacote),
+  capturando `RestClientResponseException | ResourceAccessException` no mesmo
+  padrao de `MediaSearchService`/`TmdbUnavailableException` - nenhum tipo do
+  `RestClient` escapa de `com.app.email`.
+- `ResendEmailSenderTest` usa `MockRestServiceServer.bindTo(RestClient.Builder)`
+  (nao mock do Mockito) para sucesso, 400, 500 e timeout
+  (`SocketTimeoutException` lancada dentro do `ResponseCreator` lambda, que
+  declara `throws IOException`); o `RestClient.Builder` de teste precisa do
+  MESMO `defaultHeader(AUTHORIZATION, "Bearer ...")` que `ResendClientConfig`
+  monta em producao, senao a asserção do header falha com header nulo (o sender
+  em si nunca adiciona esse header).
+- Arquivos: `api/src/main/java/com/app/email/ResendEmailSender.java`,
+  `ResendClientConfig.java`, `ResendEmailRequest.java`,
+  `EmailDeliveryException.java`,
+  `api/src/test/java/com/app/email/ResendEmailSenderTest.java`.
+- `./mvnw test`: 528 testes, 0 falhas, gate do JaCoCo verde. Sem rede real - so
+  `MockRestServiceServer`.
+- **Learnings:**
+  - Quando um teste constroi um `RestClient` "de producao" na mao (em vez de
+    injetar o bean do `@Configuration`), ele precisa replicar TODO `defaultHeader`
+    que o `@Configuration` real aplicaria - a classe sob teste pode depender
+    silenciosamente de um header que ela mesma nunca seta.
+  - `MockRestServiceServer.bindTo(RestClient.Builder)` retorna o server e
+    modifica o builder; o `RestClient` real so nasce depois, chamando
+    `.build()` no MESMO builder - inverter a ordem (`.build()` antes do
+    `bindTo`) nao amarra o mock a nada.
+---
