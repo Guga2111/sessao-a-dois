@@ -253,3 +253,35 @@ Started: 2026-08-10
     `invalidateAllActiveByUserId` precisou dela porque
     `PasswordResetTokenRepositoryTest` faz exatamente essa leitura de volta.
 ---
+
+## 2026-08-10 - US-005
+- Implementado `PasswordResetService` (`com.app.auth`), mesma receita
+  criptografica do `RefreshTokenService`: 32 bytes de `SecureRandom` em Base64
+  URL-safe sem padding, so o SHA-256 em hex persistido (`invalidateAllActiveByUserId`
+  chamado ANTES de gerar o token novo, reusando o `@Modifying` da US-004 -
+  invalida todos os anteriores ainda ativos do usuario). TTL vem de
+  `@Value("${app.auth.password-reset-ttl:30m}")` (Duration, mesmo padrao de
+  `RefreshTokenService`); o link devolvido e `${app.public-url}/redefinir-senha?token=<valor em claro>`.
+- `app.auth.password-reset-ttl=${PASSWORD_RESET_TTL:30m}` adicionado a
+  `application.properties`, logo apos `app.auth.cookie.secure` (mesmo bloco de
+  propriedades de `com.app.auth`).
+- `PasswordResetServiceTest` usa `@ExtendWith(MockitoExtension.class)` com
+  `PasswordResetTokenRepository` mockado (nao precisa de `@DataJpaTest` - a
+  logica criptografica/TTL/invalidacao e testavel so com mock do repositorio,
+  no mesmo espirito de `RefreshTokenServiceTest`). Cobre: hash != valor em
+  claro persistido, link com public-url e token extraivel, TTL aplicado
+  (janela de tolerancia de 2s pro relogio do teste) e
+  `invalidateAllActiveByUserId` chamado antes do `save`.
+- Arquivos: `api/src/main/java/com/app/auth/PasswordResetService.java`,
+  `api/src/test/java/com/app/auth/PasswordResetServiceTest.java`,
+  `api/src/main/resources/application.properties`.
+- `./mvnw test`: 539 testes, 0 falhas, gate do JaCoCo verde.
+- **Learnings:**
+  - `PasswordResetTokenRepository.invalidateAllActiveByUserId` (US-004) ja
+    resolvia exatamente a invalidacao dos tokens anteriores exigida por esta
+    story - nenhum metodo de repositorio novo foi preciso, so orquestrar a
+    chamada dentro do servico ANTES de persistir o token novo.
+  - A US-006 (forgot-password) e quem vai injetar `PasswordResetService` +
+    `EmailSender` e disparar o envio via `@Async`; este servico so devolve o
+    link, nao manda e-mail nenhum.
+---
