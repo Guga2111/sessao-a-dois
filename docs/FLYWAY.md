@@ -44,9 +44,9 @@ ORDER BY installed_rank;
 E confirmar:
 
 - [ ] Existem linhas para **V1 ate V6** (as migrations que existiam quando este gate
-      foi escrito; a `V7__add_couple_dissolved_at.sql` veio depois, no Epico 9, e
-      ainda nao foi aplicada em producao — se ela ja aparecer no historico, ela
-      tambem tem de estar com `success = true`).
+      foi escrito; a `V7__add_couple_dissolved_at.sql` veio depois, no Epico 9 —
+      **atualizacao de 2026-08-10: V5, V6 e V7 ja estao aplicadas em producao**, ver
+      a seccao de atualizacao abaixo).
 - [ ] **Todas** tem `success = true`.
 - [ ] A unica linha com `type = 'BASELINE'` e a legitima da V1 (o baseline do
       primeiro deploy). Nenhuma migration que deveria ter sido executada de fato
@@ -58,6 +58,10 @@ a variavel, o proximo deploy falha no startup e a API nao sobe. Corrigir o
 historico primeiro, depois reaplicar a remocao.
 
 ### ✅ Resultado da verificacao — 2026-08-10
+
+> ⚠️ **Esta seccao e um retrato de ANTES do deploy dos Epicos 4→9, executado no mesmo
+> dia.** O estado atual de producao esta na seccao "Atualizacao — 2026-08-10, mesmo
+> dia, apos o deploy", logo abaixo: o historico vai ate a **V7**, nao ate a V4.
 
 Executado pelo mantenedor no Supabase de producao:
 
@@ -117,7 +121,33 @@ dos Epicos 4→9 de uma vez:
    nao aplicarem, o container falha alto e o smoke test do CD reprova, em vez de subir
    com schema errado.
 
-Contexto: ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi criado inteiramente por `spring.jpa.hibernate.ddl-auto=update`. Nao existe `flyway_schema_history` em producao. As migrations atuais sao:
+### ✅ Atualizacao — 2026-08-10, mesmo dia, apos o deploy dos Epicos 4→9
+
+**O deploy descrito acima foi executado no mesmo dia, e as quatro consequencias
+previstas se resolveram.** Confirmado pelo mantenedor: **V5, V6 e V7 estao aplicadas
+em producao**, e o codigo dos **Epicos 4 a 9 esta no ar** (cookies HttpOnly
+`access_token`/`refresh_token`, dissolucao de casal, tela `/conta`).
+
+O historico do Flyway em producao vai portanto ate a **V7**, nao ate a V4 — a
+consulta registrada na seccao anterior e um retrato de **antes** desse deploy e fica
+aqui pelo valor historico, nao como estado atual. Quem for consultar o estado de
+producao, este e o paragrafo valido.
+
+Consequencias para quem le este documento a partir daqui:
+
+- A proxima migration pendente e a **V8** (`V8__create_password_reset_token.sql`,
+  Epico 10). Um deploy futuro leva **uma** migration, nao quatro.
+- O **cutover de autenticacao do Epico 4 ja aconteceu** — o item 2 acima esta
+  cumprido e nao se repete. Nenhum deploy futuro desloga todos os usuarios por causa
+  dele.
+- O item 3 (tarefas operacionais de nginx da US-010) **tambem foi executado** na mesma
+  data: conf reinstalado, headers de seguranca no bloco 443, `access.log*` historicos
+  purgados e `JWT_SECRET` rotacionado. Ver `docs/DEPLOY.md`, "Estado em 2026-08-10 —
+  tarefas operacionais (a)-(d) executadas". Fica so a ressalva permanente registrada
+  la: a rotacao do `JWT_SECRET` precisa ser refletida no secret do GitHub, senao o
+  proximo deploy a reverte.
+
+Contexto historico (anterior ao deploy acima): ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi criado inteiramente por `spring.jpa.hibernate.ddl-auto=update`. Nao existe `flyway_schema_history` em producao. As migrations atuais sao:
 
 - `api/src/main/resources/db/migration/V1__baseline.sql` — reproduz o schema ja existente em producao (`users`, `couples`, `media_track`, `media_track_genre`, `user_review`, `match_like`, `match_reject`), ver `docs/SCHEMA_BASELINE.md`.
 - `api/src/main/resources/db/migration/V2__create_notification.sql` — cria a tabela `notification`, que ainda nao existe em producao.

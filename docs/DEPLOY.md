@@ -113,6 +113,43 @@ API_PORT=8085
 
 > O `.env` esta no `.gitignore` e nunca e commitado. E usado tanto pelo `docker-compose-dev.yml` (dev local) quanto pelo `scripts/deploy.sh` (producao).
 
+### ⚠️ O `.env` da VPS e SOBRESCRITO a cada deploy
+
+`scripts/deploy.sh` faz `scp "${ENV_FILE}" ...:~/projects/sessao-a-dois/.env` — o
+ficheiro inteiro, sem merge. E no CD (`.github/workflows/deploy.yml`) o `ENV_FILE` e
+gerado do zero, no runner, **so** com o que o passo "Escrever .env a partir dos
+secrets" escreve.
+
+Consequencia pratica, que ja mordeu uma vez:
+
+**Qualquer variavel que precise existir em producao tem de estar nos Secrets ou
+Variables do GitHub.** Editar o `.env` a mao na VPS funciona ate o proximo merge para
+a `main` — dai o ficheiro e substituido e a edicao desaparece em silencio, sem erro
+nenhum. O container reinicia com o valor antigo e o sintoma so aparece depois, longe
+da causa.
+
+Isso vale inclusive para **rotacao de segredo**: rotacionar o `JWT_SECRET` no `.env`
+da VPS sem atualizar o secret `JWT_SECRET` no GitHub faz o proximo deploy **reverter
+a rotacao**, revalidando exatamente os tokens que ela invalidou. A regra e sempre a
+mesma ordem: **primeiro o GitHub, depois a VPS** (ou so o GitHub, e um
+`workflow_dispatch` para propagar).
+
+Regra de bolso para decidir onde cada uma vive:
+
+| Tipo | Onde | Exemplos |
+|---|---|---|
+| Segredo (vaza = problema) | **Secret** | `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `TMDB_API_KEY`, `VPS_SSH_KEY` |
+| Configuracao nao-sensivel | **Variable** (com default no workflow) | `CORS_ALLOWED_ORIGIN`, `API_PORT`, `APP_URL`, `VPS_IP`, `VPS_USER` |
+
+Adicionar uma variavel nova de producao e sempre uma mudanca em **tres** lugares, e
+faltar um deles e a forma mais comum de o deploy "funcionar" e a feature nao:
+
+1. o secret/variable no GitHub;
+2. a linha correspondente no passo que escreve o `.env` em `.github/workflows/deploy.yml`;
+3. a entrada em `environment:` do `docker-compose-prod.yml`, para o valor atravessar do `.env` para dentro do container.
+
+(E o `.env.example`, para quem roda local nao descobrir por tentativa e erro.)
+
 > **Variaveis novas do Epico 4 (migracao de autenticacao):** `JWT_ACCESS_TOKEN_TTL`
 > (default `15m`, substitui a antiga `JWT_EXPIRATION_DAYS` de 7 dias, que foi
 > REMOVIDA de `application.properties` e nao tem mais efeito nenhum se definida),
@@ -123,7 +160,12 @@ API_PORT=8085
 > janela de graca da deteccao de reuso). Todas tem default de producao seguro -
 > so precisam ir no `.env` se voce quiser um valor diferente do default.
 >
-> **Aviso de deploy:** a primeira execucao com este epico troca o modelo de
+> **Aviso de deploy — JA EXECUTADO em 2026-08-10.** O cutover descrito abaixo
+> aconteceu no deploy dos Epicos 4→9 (ver `docs/FLYWAY.md`, seccao de atualizacao
+> de 2026-08-10). O texto fica como registro do que foi feito; **nenhum deploy
+> futuro repete esse logout em massa** por causa do Epico 4.
+>
+> A primeira execucao com este epico troca o modelo de
 > sessao inteiro (de JWT em `localStorage` para cookies HttpOnly + refresh
 > token). Isso desloga TODOS os usuarios uma unica vez nesse deploy - a sessao
 > antiga simplesmente para de ser reconhecida, nao ha migracao de sessao
@@ -309,7 +351,8 @@ Nenhum segredo passa por `/tmp`: o `ENV_FILE` e copiado diretamente para
 
 O `docker-compose-prod.yml` **nao** define mais `SPRING_FLYWAY_BASELINE_ON_MIGRATE`
 (removido em 2026-08-06, Epico 8). Em producao isso e o comportamento desejado: o
-banco ja tem `flyway_schema_history` com V1 a V6, entao uma migration que nao
+banco ja tem `flyway_schema_history` com V1 a V7 (confirmado em 2026-08-10, ver
+`docs/FLYWAY.md`), entao uma migration que nao
 aplique tem de **quebrar o deploy de forma visivel** em vez de ser silenciosamente
 marcada como baseline, mascarando um schema divergente.
 
@@ -477,7 +520,34 @@ no bloco `/ws/` deve permanecer no conf: e defesa em profundidade barata (uma
 linha de nginx) contra qualquer regressao futura que volte a colocar algo
 sensivel na URL do handshake, e nao ha custo em manter.
 
-Para que a correcao valha em producao:
+### ✅ Estado em 2026-08-10 — tarefas operacionais (a)-(d) executadas
+
+Confirmado pelo mantenedor: **as acoes manuais abaixo ja foram aplicadas na VPS**,
+depois do deploy dos Epicos 4→9 (ver `docs/FLYWAY.md`). Em particular, os
+`access.log*` historicos — que continham JWTs validos gravados pelo handshake do
+`/ws` no modelo antigo — foram **purgados**, e o `JWT_SECRET` foi **rotacionado**,
+o que invalida definitivamente qualquer token que tenha vazado para eles.
+
+Os procedimentos continuam documentados abaixo porque sao o roteiro de repeticao:
+valem de novo a cada reemissao de certificado (o Certbot apaga os headers do bloco
+443) e a cada nova suspeita de vazamento.
+
+> **Ao rotacionar o `JWT_SECRET`, atualizar o secret `JWT_SECRET` no GitHub tambem.**
+> O `.env` da VPS e sobrescrito a cada deploy (ver "O `.env` da VPS e SOBRESCRITO a
+> cada deploy", no Passo 2) — uma rotacao feita so na VPS e revertida pelo proximo
+> merge para a `main`, revalidando os tokens que ela tinha invalidado.
+
+Verificacao rapida de que o estado se manteve:
+
+```bash
+# Os 4 headers de seguranca continuam no bloco 443?
+curl -sI https://sessaoadois.luisgosampaio.com | grep -iE 'strict-transport|content-security|x-content-type|referrer-policy'
+
+# Nenhuma linha de /ws com token no log atual?
+ssh root@31.97.169.38 "grep -c 'token=' /var/log/nginx/access.log || echo 0"
+```
+
+Para reaplicar (ou aplicar num ambiente novo):
 
 **(a) Reinstalar o conf na VPS e recarregar o Nginx**
 
