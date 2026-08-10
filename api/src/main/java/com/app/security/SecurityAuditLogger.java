@@ -101,6 +101,14 @@ public class SecurityAuditLogger {
 		log("password_reset_requested", fields("email", maskEmail(email)));
 	}
 
+	/**
+	 * Reset de senha concluido com sucesso (epico 10, US-007). So o {@code userId} -
+	 * nem token, nem senha, no mesmo espirito de {@link #passwordChanged(UUID)}.
+	 */
+	public void passwordResetCompleted(UUID userId) {
+		log("password_reset_completed", fields("userId", userId));
+	}
+
 	/** Mantem so o primeiro caractere do usuario e o dominio inteiro: "a***@example.com". */
 	private static String maskEmail(String email) {
 		if (email == null || email.isBlank()) {

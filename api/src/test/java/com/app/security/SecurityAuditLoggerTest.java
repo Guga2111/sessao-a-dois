@@ -117,6 +117,18 @@ class SecurityAuditLoggerTest {
 			.doesNotContain("ana@example.com");
 	}
 
+	/** Epico 10, US-007: nem token, nem senha - so o userId, no mesmo espirito de passwordChanged. */
+	@Test
+	void logsPasswordResetCompletedWithOnlyTheUserId() {
+		UUID userId = UUID.randomUUID();
+
+		securityAuditLogger.passwordResetCompleted(userId);
+
+		String message = onlyMessage();
+		assertThat(message).contains("event=password_reset_completed")
+			.contains("userId=\"" + userId + "\"");
+	}
+
 	@Test
 	void noAuditEntryEverContainsPasswordTokenHashOrInviteCodeValues() {
 		UUID userId = UUID.randomUUID();
@@ -136,6 +148,7 @@ class SecurityAuditLoggerTest {
 		securityAuditLogger.accountDeleted(userId);
 		securityAuditLogger.rateLimitExceeded("/api/auth/login", "203.0.113.5");
 		securityAuditLogger.passwordResetRequested("ana@example.com");
+		securityAuditLogger.passwordResetCompleted(userId);
 
 		List<String> messages = logAppender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
 		assertThat(messages).isNotEmpty();

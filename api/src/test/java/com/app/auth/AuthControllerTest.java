@@ -190,6 +190,74 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void resetPasswordReturnsNoContentAndSetsNoCookie() throws Exception {
+		MvcResult result = mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"raw-token","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isNoContent())
+			.andReturn();
+
+		verify(authService).resetPassword("raw-token", "senha-nova-1234");
+		List<String> setCookies = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+		assertThat(setCookies).noneMatch(c -> c.startsWith("access_token=") || c.startsWith("refresh_token="));
+	}
+
+	@Test
+	void resetPasswordWithInvalidTokenIsBadRequestWithAGenericMessage() throws Exception {
+		org.mockito.Mockito.doThrow(new InvalidPasswordResetTokenException())
+			.when(authService)
+			.resetPassword("token-invalido", "senha-nova-1234");
+
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"token-invalido","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("token invalido ou expirado"));
+	}
+
+	@Test
+	void resetPasswordRejectsShortNewPasswordWithTheSameMessageAsRegister() throws Exception {
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"raw-token","newPassword":"1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.newPassword").value("senha deve ter entre 8 e 72 caracteres"));
+
+		verify(authService, never()).resetPassword(any(), any());
+	}
+
+	@Test
+	void resetPasswordRejectsBlankToken() throws Exception {
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.token").exists());
+
+		verify(authService, never()).resetPassword(any(), any());
+	}
+
+	@Test
+	void resetPasswordIsPublicAndNeverConsultsTheAccessToken() throws Exception {
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"raw-token","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isNoContent());
+
+		verifyNoInteractions(jwtService);
+	}
+
+	@Test
 	void logsInSuccessfullyAndSetsSessionCookies() throws Exception {
 		User user = new User("Ana", "ana@example.com", "hashed-password");
 		when(authService.login(any(LoginRequest.class), any(), any()))

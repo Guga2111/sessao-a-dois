@@ -35,11 +35,12 @@ public class AuthService {
 	private final RateLimitProperties rateLimitProperties;
 	private final SecurityAuditLogger securityAuditLogger;
 	private final PasswordResetDispatcher passwordResetDispatcher;
+	private final PasswordResetService passwordResetService;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
 			RefreshTokenService refreshTokenService, RateLimitService rateLimitService,
 			RateLimitProperties rateLimitProperties, SecurityAuditLogger securityAuditLogger,
-			PasswordResetDispatcher passwordResetDispatcher) {
+			PasswordResetDispatcher passwordResetDispatcher, PasswordResetService passwordResetService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
@@ -48,6 +49,7 @@ public class AuthService {
 		this.rateLimitProperties = rateLimitProperties;
 		this.securityAuditLogger = securityAuditLogger;
 		this.passwordResetDispatcher = passwordResetDispatcher;
+		this.passwordResetService = passwordResetService;
 	}
 
 	public User register(RegisterRequest request) {
@@ -161,6 +163,22 @@ public class AuthService {
 		securityAuditLogger.passwordResetRequested(email);
 
 		userRepository.findByEmail(email).ifPresent(passwordResetDispatcher::dispatch);
+	}
+
+	/**
+	 * POST /api/auth/reset-password (US-007). Consome o token (uso unico, mesmo erro
+	 * generico para inexistente/expirado/ja usado), grava a senha nova com o mesmo
+	 * PasswordEncoder do login e derruba TODAS as sessoes do usuario (E9.8) - a
+	 * resposta nao emite nenhum cookie, o reset nao autentica quem o fez.
+	 */
+	public void resetPassword(String rawToken, String newPassword) {
+		UUID userId = passwordResetService.consumeToken(rawToken);
+		User user = findAuthenticatedUser(userId);
+
+		user.setPasswordHash(passwordEncoder.encode(newPassword));
+		userRepository.save(user);
+		refreshTokenService.revokeFamily(userId);
+		securityAuditLogger.passwordResetCompleted(userId);
 	}
 
 	public record LoginResult(String accessToken, String refreshToken, User user) {

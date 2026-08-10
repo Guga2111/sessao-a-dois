@@ -136,6 +136,16 @@ public class AuthController {
 		return ResponseEntity.status(HttpStatus.ACCEPTED).build();
 	}
 
+	/**
+	 * US-007: 204 no sucesso, sem cookie de sessao nenhum - o reset nao autentica quem
+	 * o fez. Token invalido/expirado/ja usado vira 400 generico (AuthExceptionHandler).
+	 */
+	@PostMapping("/reset-password")
+	public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+		authService.resetPassword(request.token(), request.newPassword());
+		return ResponseEntity.noContent().build();
+	}
+
 	@GetMapping("/me")
 	public ResponseEntity<LoginResponse> me(@AuthenticationPrincipal UUID userId) {
 		User user = authService.findAuthenticatedUser(userId);

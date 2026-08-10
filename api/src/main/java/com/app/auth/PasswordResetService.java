@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.UUID;
 
 /**
  * Emissao do token de esqueci-minha-senha (US-005). Mesma receita criptografica
@@ -57,6 +58,24 @@ public class PasswordResetService {
 		passwordResetTokenRepository.save(token);
 
 		return publicUrl + "/redefinir-senha?token=" + rawToken;
+	}
+
+	/**
+	 * Uso unico do token de reset (US-007): token inexistente, expirado ou ja usado
+	 * cai no MESMO {@link InvalidPasswordResetTokenException}, sem distinguir os casos.
+	 * Marca {@code used_at} antes de devolver o id do usuario - reapresentar o mesmo
+	 * token depois disso cai no mesmo caminho de erro.
+	 */
+	@Transactional
+	public UUID consumeToken(String rawToken) {
+		Instant now = Instant.now();
+		PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(hash(rawToken))
+			.filter(t -> !t.isUsed())
+			.filter(t -> !t.isExpired(now))
+			.orElseThrow(InvalidPasswordResetTokenException::new);
+
+		token.markUsed(now);
+		return token.getUserId();
 	}
 
 	private static String hash(String rawToken) {

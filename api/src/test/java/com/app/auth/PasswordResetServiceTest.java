@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PasswordResetServiceTest {
@@ -91,6 +92,48 @@ class PasswordResetServiceTest {
 		passwordResetService.issueResetLink(user);
 
 		verify(passwordResetTokenRepository).invalidateAllActiveByUserId(eq(user.getId()), any(Instant.class));
+	}
+
+	@Test
+	void consumeTokenReturnsTheUserIdAndMarksTheTokenUsed() {
+		UUID userId = UUID.randomUUID();
+		PasswordResetToken token = new PasswordResetToken(userId, sha256Hex("raw-token"),
+			Instant.now().plus(Duration.ofMinutes(30)));
+		when(passwordResetTokenRepository.findByTokenHash(sha256Hex("raw-token"))).thenReturn(java.util.Optional.of(token));
+
+		UUID result = passwordResetService.consumeToken("raw-token");
+
+		assertThat(result).isEqualTo(userId);
+		assertThat(token.isUsed()).isTrue();
+	}
+
+	@Test
+	void consumeTokenRejectsUnknownToken() {
+		when(passwordResetTokenRepository.findByTokenHash(any())).thenReturn(java.util.Optional.empty());
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> passwordResetService.consumeToken("nao-existe"))
+			.isInstanceOf(InvalidPasswordResetTokenException.class);
+	}
+
+	@Test
+	void consumeTokenRejectsExpiredToken() {
+		PasswordResetToken token = new PasswordResetToken(UUID.randomUUID(), sha256Hex("raw-token"),
+			Instant.now().minus(Duration.ofMinutes(1)));
+		when(passwordResetTokenRepository.findByTokenHash(sha256Hex("raw-token"))).thenReturn(java.util.Optional.of(token));
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> passwordResetService.consumeToken("raw-token"))
+			.isInstanceOf(InvalidPasswordResetTokenException.class);
+	}
+
+	@Test
+	void consumeTokenRejectsAlreadyUsedToken() {
+		PasswordResetToken token = new PasswordResetToken(UUID.randomUUID(), sha256Hex("raw-token"),
+			Instant.now().plus(Duration.ofMinutes(30)));
+		token.markUsed(Instant.now());
+		when(passwordResetTokenRepository.findByTokenHash(sha256Hex("raw-token"))).thenReturn(java.util.Optional.of(token));
+
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> passwordResetService.consumeToken("raw-token"))
+			.isInstanceOf(InvalidPasswordResetTokenException.class);
 	}
 
 	private static String extractToken(String link) {

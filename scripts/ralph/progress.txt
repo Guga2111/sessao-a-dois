@@ -327,3 +327,56 @@ Started: 2026-08-10
     que depende de mocks tem que ser montado num `@BeforeEach`, nunca no
     construtor da classe de teste.
 ---
+
+## 2026-08-10 - US-007
+- `POST /api/auth/reset-password` (`AuthController.resetPassword`, `permitAll` +
+  fora do CSRF, mesmo padrao de `forgot-password`) aceita `{ token, newPassword }`
+  (`ResetPasswordRequest`, `newPassword` com o MESMO `@Size(min = 8, max = 72)` e a
+  MESMA mensagem de `RegisterRequest`/`ChangePasswordRequest`) e responde `204` sem
+  nenhum cookie de sessao - o reset nao autentica quem o fez.
+- `PasswordResetService.consumeToken(rawToken)` (novo, `@Transactional`) e o unico
+  lugar que resolve o token: busca por hash, filtra `!isUsed()` e `!isExpired(now)`,
+  e caem TODOS no mesmo `InvalidPasswordResetTokenException` (400 generico, sem
+  distinguir inexistente/expirado/ja usado) - `markUsed(now)` roda antes de devolver
+  o `userId`, e como o token e uma entidade gerenciada dentro da transacao, o
+  dirty-checking do Hibernate persiste isso sem precisar de `save()` explicito
+  (mesmo raciocinio que ja valia para `RefreshToken.setRevokedAt` em
+  `RefreshTokenService.revoke`).
+- `AuthService.resetPassword(rawToken, newPassword)` orquestra: consome o token,
+  troca o hash com o MESMO `PasswordEncoder` do login, chama
+  `refreshTokenService.revokeFamily(userId)` (todas as sessoes caem, igual
+  `changePassword`) e loga `SecurityAuditLogger.passwordResetCompleted(userId)` (so
+  o `userId`, nunca o token). `AuthService` ganhou um 9o argumento no construtor
+  (`PasswordResetService`) - todo `new AuthService(...)` direto em teste precisou
+  do argumento extra.
+- `AuthExceptionHandler` ganhou o handler de `InvalidPasswordResetTokenException` →
+  400; `SecurityConfig` ganhou `/api/auth/reset-password` no `permitAll` (POST) e no
+  `ignoringRequestMatchers` do CSRF.
+- Teste de integracao novo (`PasswordResetIntegrationTest`, `@SpringBootTest` real,
+  nao mock) prova as duas coisas que unidade nao alcanca: o refresh emitido ANTES
+  do reset vira 401 depois, e reapresentar o MESMO token uma segunda vez e rejeitado
+  (uso unico). Como o token em claro nunca sai do backend (so viaja no e-mail em
+  producao), o teste chama `PasswordResetService.issueResetLink(user)` diretamente
+  para obter o link e extrair o token - e o unico jeito de um teste conhecer o
+  valor sem ler e-mail nenhum.
+- Arquivos: `api/src/main/java/com/app/auth/ResetPasswordRequest.java`,
+  `InvalidPasswordResetTokenException.java`, `PasswordResetService.java`,
+  `AuthService.java`, `AuthController.java`, `AuthExceptionHandler.java`,
+  `api/src/main/java/com/app/security/SecurityConfig.java`,
+  `SecurityAuditLogger.java`, e os testes correspondentes (`AuthServiceTest`,
+  `AuthControllerTest`, `PasswordResetServiceTest`, `SecurityAuditLoggerTest`,
+  `PasswordResetIntegrationTest` novo).
+- `./mvnw test`: 563 testes, 0 falhas, gate do JaCoCo verde.
+- **Learnings:**
+  - `PasswordResetTokenRepository.invalidateAllActiveByUserId`/`markUsed` sao dois
+    caminhos DIFERENTES para "este token nao vale mais" - o primeiro e um UPDATE em
+    massa fora do persistence context (US-004/US-005), o segundo e uma mutacao de
+    entidade gerenciada que o Hibernate persiste sozinho no commit. Nao confundir os
+    dois nem tentar unificar: `consumeToken` precisa da entidade carregada (para ler
+    `userId`/`isExpired`/`isUsed` antes de decidir), o que so o segundo caminho da.
+  - Uma asserçao de "nenhum cookie de sessao" no `AuthControllerTest` nao pode ser
+    "a lista de `Set-Cookie` esta vazia" pura e simples - a rota ainda passa pelo
+    `CsrfCookieFilter`, que grava o `XSRF-TOKEN` em toda resposta que le o
+    `CsrfToken`. A asserção certa e "nenhum cookie `access_token` nem
+    `refresh_token`", nao "nenhum `Set-Cookie` nenhum".
+---

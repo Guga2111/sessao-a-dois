@@ -48,6 +48,9 @@ class AuthServiceTest {
 	@Mock
 	private PasswordResetDispatcher passwordResetDispatcher;
 
+	@Mock
+	private PasswordResetService passwordResetService;
+
 	private RateLimitProperties rateLimitProperties;
 
 	private AuthService authService;
@@ -56,7 +59,8 @@ class AuthServiceTest {
 	void setUp() {
 		rateLimitProperties = new RateLimitProperties();
 		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
-				new RateLimitService(), rateLimitProperties, new SecurityAuditLogger(), passwordResetDispatcher);
+				new RateLimitService(), rateLimitProperties, new SecurityAuditLogger(), passwordResetDispatcher,
+				passwordResetService);
 	}
 
 	private static AuthService newAuthServiceWithLoginByEmailLimit(UserRepository userRepository,
@@ -65,7 +69,8 @@ class AuthServiceTest {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setLoginByEmail(new RateLimitProperties.Limit(capacity, window));
 		return new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
-				new RateLimitService(), properties, new SecurityAuditLogger(), Mockito.mock(PasswordResetDispatcher.class));
+				new RateLimitService(), properties, new SecurityAuditLogger(), Mockito.mock(PasswordResetDispatcher.class),
+				Mockito.mock(PasswordResetService.class));
 	}
 
 	@Test
@@ -263,7 +268,8 @@ class AuthServiceTest {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
 		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
-				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher);
+				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher,
+				passwordResetService);
 		UUID userId = UUID.randomUUID();
 		User user = new User("Ana", "ana@example.com", "hash-antigo");
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -284,7 +290,8 @@ class AuthServiceTest {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
 		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
-				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher);
+				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher,
+				passwordResetService);
 		UUID first = UUID.randomUUID();
 		UUID second = UUID.randomUUID();
 		// Uma instancia por chamada: a primeira troca muda o hash da entidade em memoria, e
@@ -328,5 +335,33 @@ class AuthServiceTest {
 		authService.forgotPassword("ghost@example.com");
 
 		verify(passwordResetDispatcher, never()).dispatch(any());
+	}
+
+	@Test
+	void resetPasswordSavesTheNewHashAndDropsEverySession() {
+		UUID userId = UUID.randomUUID();
+		User user = new User("Ana", "ana@example.com", "hash-antigo");
+		when(passwordResetService.consumeToken("raw-token")).thenReturn(userId);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(passwordEncoder.encode("senha-nova-1234")).thenReturn("hash-novo");
+
+		authService.resetPassword("raw-token", "senha-nova-1234");
+
+		ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+		verify(userRepository).save(captor.capture());
+		assertThat(captor.getValue().getPasswordHash()).isEqualTo("hash-novo");
+		verify(refreshTokenService).revokeFamily(userId);
+	}
+
+	@Test
+	void resetPasswordPropagatesAnInvalidTokenWithoutTouchingTheUser() {
+		when(passwordResetService.consumeToken("token-invalido"))
+			.thenThrow(new InvalidPasswordResetTokenException());
+
+		assertThatThrownBy(() -> authService.resetPassword("token-invalido", "senha-nova-1234"))
+			.isInstanceOf(InvalidPasswordResetTokenException.class);
+
+		verify(userRepository, never()).save(any(User.class));
+		verify(refreshTokenService, never()).revokeFamily(any());
 	}
 }
