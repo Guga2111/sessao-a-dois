@@ -1,7 +1,7 @@
 import { isAxiosError } from "axios"
 import { useState } from "react"
 import type { FormEvent } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,9 +9,14 @@ import { useAuthStore } from "@/stores/useAuthStore"
 
 import { AuthLayout } from "./AuthLayout"
 
+/** Estado que outra tela pode mandar junto no `navigate("/login", { state })`. */
+type LoginNavigationState = { notice?: string } | null
+
 export function LoginPage() {
   const login = useAuthStore((state) => state.login)
   const navigate = useNavigate()
+  // Quem derruba a sessao de proposito (troca de senha, US-010) explica aqui por que.
+  const notice = (useLocation().state as LoginNavigationState)?.notice ?? null
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -51,6 +56,15 @@ export function LoginPage() {
         </>
       }
     >
+      {notice ? (
+        <p
+          role="status"
+          className="mb-4 rounded-xl border border-[#ffcb2b]/25 bg-[#ffcb2b]/[0.08] px-3.5 py-2.5 text-sm text-[#f6f4ec]"
+        >
+          {notice}
+        </p>
+      ) : null}
+
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-[#a6a39a]">E-mail</span>

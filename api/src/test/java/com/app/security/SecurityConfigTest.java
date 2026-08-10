@@ -11,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -25,9 +26,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Fixa contrato de quais rotas sao publicas e quais exigem autenticacao
  * (SecurityConfig#securityFilterChain), para que um permitAll() acidental
  * numa rota privada quebre o CI em vez de ser descoberto em producao.
+ *
+ * <p><b>O {@code @DirtiesContext(BEFORE_CLASS)} nao e cosmetico e nao pode ser
+ * removido.</b> Esta classe e a unica que exercita o {@code CookieCsrfTokenRepository}
+ * de verdade (o cookie {@code XSRF-TOKEN} escrito na resposta), e o helper
+ * {@code SecurityMockMvcRequestPostProcessors.csrf()} do spring-security-test
+ * TROCA PERMANENTEMENTE o {@code tokenRepository} do {@code CsrfFilter} da
+ * aplicacao por um {@code TestCsrfTokenRepository} (que guarda o token num
+ * request attribute e NUNCA escreve cookie) — e nao restaura o original no fim
+ * do teste. Como quatro classes {@code @SpringBootTest @AutoConfigureMockMvc}
+ * usam {@code csrf()} e compartilham exatamente este mesmo contexto em cache
+ * ({@code UserProfileIntegrationTest}, {@code PasswordChangeIntegrationTest},
+ * {@code UserDeletionIntegrationTest}, {@code CoupleDissolutionIntegrationTest}),
+ * rodar depois de qualquer uma delas fazia
+ * {@code healthResponseSetsTheCsrfCookieForTheSpaToRead} e
+ * {@code authenticatedMutatingRequestWithValidCsrfTokenSucceeds} falharem — sem
+ * nenhuma mudanca de codigo de producao, so por causa da ordem das classes, que
+ * o Surefire deriva do filesystem e portanto muda entre a maquina local e o
+ * runner do CI. Forcar um contexto limpo antes desta classe e o que torna o
+ * resultado independente da ordem.</p>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 class SecurityConfigTest {
 
 	@Autowired

@@ -9,7 +9,13 @@ import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.app.couple.Couple;
+import com.app.couple.CoupleProperties;
+import com.app.couple.CoupleRepository;
 import com.app.couple.CoupleService;
+import com.app.couple.InviteCodeGenerator;
+import com.app.security.RateLimitProperties;
+import com.app.security.RateLimitService;
+import com.app.security.SecurityAuditLogger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -82,6 +88,31 @@ class CoupleDestinationAuthorizationManagerTest {
 
 		boolean authorized = manager.isAuthorized(
 			"/topic/couple/" + UUID.randomUUID() + "/match",
+			sessionAttributes(userId));
+
+		assertThat(authorized).isFalse();
+	}
+
+	/**
+	 * E9.19 (epico 9, US-002): este componente nao ganhou nenhuma linha de codigo para tratar de casal
+	 * dissolvido - ele herda o filtro porque {@code getCurrentCouple} resolve por
+	 * {@code findActiveByUserId}. Por isso o teste monta um {@link CoupleService} REAL sobre um
+	 * repositorio mockado: com a consulta que o servico usa de verdade nao devolvendo nada para o casal
+	 * dissolvido (comportamento provado em {@code CoupleRepositoryTest}), o ex-membro nao consegue
+	 * assinar o topico do casal que ele acabou de deixar - nem o dele, nem o do ex-parceiro.
+	 */
+	@Test
+	void deniesExMemberSubscribingToTheTopicOfADissolvedCouple() {
+		UUID userId = UUID.randomUUID();
+		UUID dissolvedCoupleId = UUID.randomUUID();
+		CoupleRepository coupleRepository = Mockito.mock(CoupleRepository.class);
+		Mockito.when(coupleRepository.findActiveByUserId(userId)).thenReturn(Optional.empty());
+		CoupleDestinationAuthorizationManager realManager = new CoupleDestinationAuthorizationManager(
+			new CoupleService(coupleRepository, new InviteCodeGenerator(), new RateLimitService(),
+					new RateLimitProperties(), new CoupleProperties(), new SecurityAuditLogger()));
+
+		boolean authorized = realManager.isAuthorized(
+			"/topic/couple/" + dissolvedCoupleId + "/notifications",
 			sessionAttributes(userId));
 
 		assertThat(authorized).isFalse();

@@ -1,8 +1,6 @@
 package com.app.match;
 
-import com.app.couple.Couple;
-import com.app.couple.CoupleService;
-import com.app.common.ResourceNotFoundException;
+import com.app.couple.CoupleFacade;
 
 import jakarta.validation.Valid;
 
@@ -22,37 +20,34 @@ import java.util.UUID;
 public class MatchController {
 
 	private final MatchService matchService;
-	private final CoupleService coupleService;
+	private final CoupleFacade coupleFacade;
 
-	public MatchController(MatchService matchService, CoupleService coupleService) {
+	public MatchController(MatchService matchService, CoupleFacade coupleFacade) {
 		this.matchService = matchService;
-		this.coupleService = coupleService;
+		this.coupleFacade = coupleFacade;
 	}
 
 	@PostMapping("/like")
 	public ResponseEntity<LikeResponse> like(@AuthenticationPrincipal UUID userId,
 			@Valid @RequestBody LikeRequest request) {
-		Couple couple = coupleService.getCurrentCouple(userId)
-			.orElseThrow(() -> new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
+		UUID coupleId = coupleFacade.requireActiveCoupleId(userId);
 
-		return ResponseEntity.ok(matchService.like(couple.getId(), userId, request));
+		return ResponseEntity.ok(matchService.like(coupleId, userId, request));
 	}
 
 	@PostMapping("/reject")
 	public ResponseEntity<Void> reject(@AuthenticationPrincipal UUID userId,
 			@Valid @RequestBody LikeRequest request) {
-		Couple couple = coupleService.getCurrentCouple(userId)
-			.orElseThrow(() -> new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
+		UUID coupleId = coupleFacade.requireActiveCoupleId(userId);
 
-		matchService.reject(couple.getId(), userId, request);
+		matchService.reject(coupleId, userId, request);
 		return ResponseEntity.ok().build();
 	}
 
 	@GetMapping("/pending")
 	public ResponseEntity<List<PendingMatchDto>> pending(@AuthenticationPrincipal UUID userId) {
-		Couple couple = coupleService.getCurrentCouple(userId)
-			.orElseThrow(() -> new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
+		UUID coupleId = coupleFacade.requireActiveCoupleId(userId);
 
-		return ResponseEntity.ok(matchService.getPending(couple.getId(), userId));
+		return ResponseEntity.ok(matchService.getPending(coupleId, userId));
 	}
 }

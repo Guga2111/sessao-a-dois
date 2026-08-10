@@ -13,9 +13,16 @@ import java.util.UUID;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-	Page<Notification> findByRecipientUserIdOrderByCreatedAtDesc(UUID recipientUserId, Pageable pageable);
+	/**
+	 * A lista do sino e escopada ao casal ATIVO, nao so ao destinatario (epico 9, E9.18): as notificacoes
+	 * de um casal dissolvido continuam no banco (D13 - dissolver, nao apagar) e apenas saem do alcance.
+	 * As duas consultas por destinatario sem {@code couple_id} foram REMOVIDAS de proposito - reintroduzir
+	 * uma faz o MATCH/NO_MATCH do casal antigo voltar a aparecer para o ex-parceiro.
+	 */
+	Page<Notification> findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc(UUID recipientUserId, UUID coupleId,
+			Pageable pageable);
 
-	long countByRecipientUserIdAndReadFalse(UUID recipientUserId);
+	long countByRecipientUserIdAndCoupleIdAndReadFalse(UUID recipientUserId, UUID coupleId);
 
 	@Modifying
 	@Query("DELETE FROM Notification n WHERE n.createdAt < :cutoff")
@@ -46,4 +53,14 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 	@Modifying
 	@Query("UPDATE Notification n SET n.read = true WHERE n.recipientUserId = :recipientUserId AND n.read = false")
 	int markAllAsReadByRecipientUserId(@Param("recipientUserId") UUID recipientUserId);
+
+	/**
+	 * Exclusao de conta (epico 9, E9.2): apaga as notificacoes em que o usuario e destinatario
+	 * <b>ou</b> ator. O nome do ator aparece na UI do outro membro e e dado pessoal dele - a D13
+	 * ("dissolver, nao apagar") protege o historico do casal dissolvido, mas um pedido de
+	 * eliminacao do proprio titular tem peso maior.
+	 */
+	@Modifying
+	@Query("DELETE FROM Notification n WHERE n.recipientUserId = :userId OR n.actorUserId = :userId")
+	int deleteByRecipientUserIdOrActorUserId(@Param("userId") UUID userId);
 }

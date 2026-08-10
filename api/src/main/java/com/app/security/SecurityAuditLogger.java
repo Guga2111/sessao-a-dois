@@ -1,6 +1,7 @@
 package com.app.security;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -53,6 +54,35 @@ public class SecurityAuditLogger {
 
 	public void coupleJoined(UUID userId, UUID coupleId) {
 		log("couple_joined", fields("userId", userId, "coupleId", coupleId));
+	}
+
+	public void coupleDissolved(UUID userId, UUID coupleId) {
+		log("couple_dissolved", fields("userId", userId, "coupleId", coupleId));
+	}
+
+	/**
+	 * Edicao de perfil (epico 9, US-005). Recebe apenas os NOMES dos campos alterados
+	 * ({@code name}/{@code email}) - nunca o valor novo do e-mail, que e o dado pessoal que
+	 * esta linha de auditoria nao pode espalhar pelos arquivos de log.
+	 */
+	public void profileUpdated(UUID userId, List<String> changedFields) {
+		log("profile_updated", fields("userId", userId, "fields", String.join(",", changedFields)));
+	}
+
+	/**
+	 * Troca de senha estando autenticado (epico 9, US-006). So o {@code userId}: nenhuma das
+	 * duas senhas (nem a atual, nem a nova, nem os hashes) pode encostar no log de auditoria.
+	 */
+	public void passwordChanged(UUID userId) {
+		log("password_changed", fields("userId", userId));
+	}
+
+	/**
+	 * Exclusao da propria conta (epico 9, US-007). So o {@code userId} - o e-mail e justamente o
+	 * dado pessoal que o titular pediu para eliminar, e nao pode sobreviver no log de auditoria.
+	 */
+	public void accountDeleted(UUID userId) {
+		log("account_deleted", fields("userId", userId));
 	}
 
 	public void inviteCodeRegenerated(UUID userId, UUID coupleId) {

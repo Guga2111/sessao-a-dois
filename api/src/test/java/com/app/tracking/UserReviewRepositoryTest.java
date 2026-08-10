@@ -39,7 +39,7 @@ class UserReviewRepositoryTest {
 	}
 
 	private MediaTrack persistedTrack(Couple couple, MediaStatus status) {
-		MediaTrack track = new MediaTrack(couple, System.nanoTime(), MediaType.MOVIE, status);
+		MediaTrack track = new MediaTrack(couple.getId(), System.nanoTime(), MediaType.MOVIE, status);
 		return mediaTrackRepository.save(track);
 	}
 

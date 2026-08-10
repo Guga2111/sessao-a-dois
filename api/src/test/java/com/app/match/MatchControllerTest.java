@@ -1,7 +1,6 @@
 package com.app.match;
 
-import com.app.couple.Couple;
-import com.app.couple.CoupleService;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaType;
 import com.app.security.ClientIpResolver;
 import com.app.security.JwtService;
@@ -46,19 +45,13 @@ class MatchControllerTest {
 	private MatchService matchService;
 
 	@MockitoBean
-	private CoupleService coupleService;
+	private CoupleFacade coupleFacade;
 
 	@MockitoBean
 	private JwtService jwtService;
 
 	private static UsernamePasswordAuthenticationToken authenticatedUser(UUID userId) {
 		return new UsernamePasswordAuthenticationToken(userId, null, List.of());
-	}
-
-	private Couple couple(UUID coupleId, UUID userId) {
-		Couple couple = new Couple(userId, "ABC234");
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		return couple;
 	}
 
 	@Test
@@ -74,7 +67,7 @@ class MatchControllerTest {
 	void like_returnsMatchedFlagFromService() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(matchService.like(eq(coupleId), eq(userId), any(LikeRequest.class)))
 			.thenReturn(new LikeResponse(true));
 
@@ -91,7 +84,7 @@ class MatchControllerTest {
 	void like_returnsConflictWhenTitleAlreadyTracked() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(matchService.like(eq(coupleId), eq(userId), any(LikeRequest.class)))
 			.thenThrow(new TitleAlreadyTrackedException());
 
@@ -107,7 +100,8 @@ class MatchControllerTest {
 	@Test
 	void like_returnsNotFoundWhenUserHasNoCouple() throws Exception {
 		UUID userId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+		when(coupleFacade.requireActiveCoupleId(userId))
+			.thenThrow(new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
 
 		mockMvc.perform(post("/api/match/like")
 				.with(csrf())
@@ -145,7 +139,7 @@ class MatchControllerTest {
 	void reject_returnsOkOnSuccess() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		doNothing().when(matchService).reject(eq(coupleId), eq(userId), any(LikeRequest.class));
 
 		mockMvc.perform(post("/api/match/reject")
@@ -180,7 +174,7 @@ class MatchControllerTest {
 	void pending_returnsList() throws Exception {
 		UUID userId = UUID.randomUUID();
 		UUID coupleId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.of(couple(coupleId, userId)));
+		when(coupleFacade.requireActiveCoupleId(userId)).thenReturn(coupleId);
 		when(matchService.getPending(coupleId, userId))
 			.thenReturn(List.of(new PendingMatchDto(603L, MediaType.MOVIE, "Matrix", "/poster.jpg", 1999)));
 
@@ -195,7 +189,8 @@ class MatchControllerTest {
 	@Test
 	void pending_returnsNotFoundWhenUserHasNoCouple() throws Exception {
 		UUID userId = UUID.randomUUID();
-		when(coupleService.getCurrentCouple(userId)).thenReturn(Optional.empty());
+		when(coupleFacade.requireActiveCoupleId(userId))
+			.thenThrow(new ResourceNotFoundException("usuario nao pertence a nenhum casal"));
 
 		mockMvc.perform(get("/api/match/pending")
 				.with(authentication(authenticatedUser(userId))))

@@ -82,7 +82,11 @@ export const useMatchStore = create<MatchState>((set, get) => ({
       }
 
       const stompClient = new Client({
-        webSocketFactory: () => new SockJS(`${import.meta.env.VITE_API_URL}/ws`),
+        // O `?? ""` nao e cosmetico: sem ele, um build sem VITE_API_URL (todo build
+        // do CD — ver vite-env.d.ts) interpola a STRING "undefined" e o SockJS tenta
+        // `/undefined/ws`, que o nginx serve como index.html. O STOMP nunca conecta e
+        // match/notificacao morrem em silencio, sem quebrar nenhuma chamada REST.
+        webSocketFactory: () => new SockJS(`${import.meta.env.VITE_API_URL ?? ""}/ws`),
         reconnectDelay: 5000,
         onConnect: () => {
           const matchSubscription = stompClient.subscribe(

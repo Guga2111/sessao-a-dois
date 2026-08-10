@@ -1,6 +1,6 @@
 package com.app.tracking;
 
-import com.app.couple.Couple;
+import com.app.couple.CoupleFacade;
 import com.app.media.MediaDetails;
 import com.app.media.MediaDetailsService;
 import com.app.media.MediaType;
@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -42,6 +43,9 @@ class RatingRequestServiceTest {
 	@Mock
 	private MediaDetailsService mediaDetailsService;
 
+	@Mock
+	private CoupleFacade coupleFacade;
+
 	private RatingRequestService ratingRequestService;
 
 	private final UUID actorId = UUID.randomUUID();
@@ -52,18 +56,16 @@ class RatingRequestServiceTest {
 	@BeforeEach
 	void setUp() {
 		ratingRequestService = new RatingRequestService(notificationService, notificationRepository,
-				mediaDetailsService);
+				mediaDetailsService, coupleFacade);
 	}
 
-	private Couple couple(UUID user1Id, UUID user2Id) {
-		Couple couple = new Couple(user1Id, "ABC234");
-		couple.setUser2Id(user2Id);
-		ReflectionTestUtils.setField(couple, "id", coupleId);
-		return couple;
+	/** Os membros do casal agora chegam pela porta, nao mais pela entidade pendurada no track. */
+	private void stubMembers(UUID... memberIds) {
+		when(coupleFacade.memberIds(coupleId)).thenReturn(List.of(memberIds));
 	}
 
-	private MediaTrack track(Couple couple) {
-		MediaTrack track = new MediaTrack(couple, TMDB_ID, MediaType.MOVIE, MediaStatus.WATCHED);
+	private MediaTrack track() {
+		MediaTrack track = new MediaTrack(coupleId, TMDB_ID, MediaType.MOVIE, MediaStatus.WATCHED);
 		ReflectionTestUtils.setField(track, "id", trackId);
 		return track;
 	}
@@ -82,7 +84,8 @@ class RatingRequestServiceTest {
 
 	@Test
 	void notifiesPartnerWhenOnlyActorHasRated() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
+		stubMembers(actorId, partnerId);
 		addReview(track, actorId, 5);
 		stubTitle("Matrix");
 		when(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
@@ -90,13 +93,14 @@ class RatingRequestServiceTest {
 
 		ratingRequestService.onRatingRegistered(track, actorId);
 
-		verify(notificationService).notifyRatingRequest(track.getCouple(), partnerId, actorId, TMDB_ID,
+		verify(notificationService).notifyRatingRequest(coupleId, partnerId, actorId, TMDB_ID,
 				MediaType.MOVIE, "Matrix", trackId);
 	}
 
 	@Test
 	void notifiesPartnerWhenActorIsUser2() {
-		MediaTrack track = track(couple(partnerId, actorId));
+		MediaTrack track = track();
+		stubMembers(partnerId, actorId);
 		addReview(track, actorId, 3);
 		stubTitle("Matrix");
 		when(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
@@ -104,13 +108,14 @@ class RatingRequestServiceTest {
 
 		ratingRequestService.onRatingRegistered(track, actorId);
 
-		verify(notificationService).notifyRatingRequest(track.getCouple(), partnerId, actorId, TMDB_ID,
+		verify(notificationService).notifyRatingRequest(coupleId, partnerId, actorId, TMDB_ID,
 				MediaType.MOVIE, "Matrix", trackId);
 	}
 
 	@Test
 	void doesNotNotifyWhenPartnerAlreadyRated() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
+		stubMembers(actorId, partnerId);
 		addReview(track, actorId, 5);
 		addReview(track, partnerId, 4);
 
@@ -123,7 +128,8 @@ class RatingRequestServiceTest {
 
 	@Test
 	void doesNotNotifyWhenCoupleHasNoPartner() {
-		MediaTrack track = track(couple(actorId, null));
+		MediaTrack track = track();
+		stubMembers(actorId);
 		addReview(track, actorId, 5);
 
 		ratingRequestService.onRatingRegistered(track, actorId);
@@ -133,7 +139,7 @@ class RatingRequestServiceTest {
 
 	@Test
 	void doesNotNotifyWhenActorHasNoRating() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
 		addReview(track, actorId, null);
 
 		ratingRequestService.onRatingRegistered(track, actorId);
@@ -144,7 +150,8 @@ class RatingRequestServiceTest {
 
 	@Test
 	void doesNotNotifyTwiceWhenAnUnreadRequestAlreadyExists() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
+		stubMembers(actorId, partnerId);
 		addReview(track, actorId, 5);
 		when(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
 				partnerId, coupleId, TMDB_ID, NotificationType.RATING_REQUEST)).thenReturn(true);
@@ -157,7 +164,8 @@ class RatingRequestServiceTest {
 
 	@Test
 	void fallsBackToGenericTitleWhenTmdbFails() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
+		stubMembers(actorId, partnerId);
 		addReview(track, actorId, 5);
 		when(mediaDetailsService.getDetails(MediaType.MOVIE, TMDB_ID))
 			.thenThrow(new RuntimeException("TMDB indisponivel"));
@@ -166,16 +174,17 @@ class RatingRequestServiceTest {
 
 		ratingRequestService.onRatingRegistered(track, actorId);
 
-		verify(notificationService).notifyRatingRequest(eq(track.getCouple()), eq(partnerId), eq(actorId),
+		verify(notificationService).notifyRatingRequest(eq(coupleId), eq(partnerId), eq(actorId),
 				eq(TMDB_ID), eq(MediaType.MOVIE), eq(RatingRequestService.FALLBACK_TITLE), eq(trackId));
 	}
 
 	@Test
 	void marksTheActorsOwnPendingRequestAsReadWhenHeRates() {
-		MediaTrack track = track(couple(partnerId, actorId));
+		MediaTrack track = track();
+		stubMembers(partnerId, actorId);
 		addReview(track, actorId, 4);
 		addReview(track, partnerId, 5);
-		Notification pending = new Notification(track.getCouple(), actorId, NotificationType.RATING_REQUEST,
+		Notification pending = new Notification(track.getCoupleId(), actorId, NotificationType.RATING_REQUEST,
 				TMDB_ID, MediaType.MOVIE, "Matrix", partnerId, trackId);
 		when(notificationRepository.findByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(actorId,
 				coupleId, TMDB_ID, NotificationType.RATING_REQUEST))
@@ -189,7 +198,8 @@ class RatingRequestServiceTest {
 
 	@Test
 	void doesNothingWhenTheActorHasNoPendingRequest() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
+		stubMembers(actorId, partnerId);
 		addReview(track, actorId, 5);
 		addReview(track, partnerId, 4);
 
@@ -203,7 +213,7 @@ class RatingRequestServiceTest {
 
 	@Test
 	void doesNotResolveAnythingWhenTheActorDidNotRate() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
 		addReview(track, actorId, null);
 
 		ratingRequestService.onRatingRegistered(track, actorId);
@@ -211,9 +221,35 @@ class RatingRequestServiceTest {
 		verifyNoInteractions(notificationRepository);
 	}
 
+	/** Sem couple pendurado no track, achar o parceiro passa a custar uma consulta - que tem de ser UMA. */
+	@Test
+	void resolvesCoupleMembersOnlyOncePerRatingRegistered() {
+		MediaTrack track = track();
+		stubMembers(actorId, partnerId);
+		addReview(track, actorId, 5);
+		stubTitle("Matrix");
+		when(notificationRepository.existsByRecipientUserIdAndCoupleIdAndTmdbIdAndTypeAndReadFalse(
+				partnerId, coupleId, TMDB_ID, NotificationType.RATING_REQUEST)).thenReturn(false);
+
+		ratingRequestService.onRatingRegistered(track, actorId);
+
+		verify(coupleFacade, times(1)).memberIds(coupleId);
+	}
+
+	@Test
+	void doesNotNotifyAnyoneWhenTheActorIsNotAMemberOfTheCouple() {
+		MediaTrack track = track();
+		stubMembers(UUID.randomUUID(), UUID.randomUUID());
+		addReview(track, actorId, 5);
+
+		ratingRequestService.onRatingRegistered(track, actorId);
+
+		verifyNoInteractions(notificationService);
+	}
+
 	@Test
 	void onTrackDeletedRemovesOnlyTheRatingRequestsOfThatCoupleAndTitle() {
-		MediaTrack track = track(couple(actorId, partnerId));
+		MediaTrack track = track();
 
 		ratingRequestService.onTrackDeleted(track);
 

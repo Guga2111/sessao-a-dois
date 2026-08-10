@@ -1,6 +1,5 @@
 package com.app.tracking;
 
-import com.app.couple.Couple;
 import com.app.media.MediaType;
 
 import jakarta.persistence.CascadeType;
@@ -10,12 +9,10 @@ import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
@@ -34,9 +31,8 @@ public class MediaTrack {
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "couple_id", nullable = false)
-	private Couple couple;
+	@Column(name = "couple_id", nullable = false)
+	private UUID coupleId;
 
 	@Column(name = "tmdb_id", nullable = false)
 	private Long tmdbId;
@@ -79,8 +75,8 @@ public class MediaTrack {
 	protected MediaTrack() {
 	}
 
-	public MediaTrack(Couple couple, Long tmdbId, MediaType mediaType, MediaStatus status) {
-		this.couple = couple;
+	public MediaTrack(UUID coupleId, Long tmdbId, MediaType mediaType, MediaStatus status) {
+		this.coupleId = coupleId;
 		this.tmdbId = tmdbId;
 		this.mediaType = mediaType;
 		this.status = status;
@@ -90,8 +86,8 @@ public class MediaTrack {
 		return id;
 	}
 
-	public Couple getCouple() {
-		return couple;
+	public UUID getCoupleId() {
+		return coupleId;
 	}
 
 	public Long getTmdbId() {

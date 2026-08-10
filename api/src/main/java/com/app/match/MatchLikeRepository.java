@@ -3,6 +3,7 @@ package com.app.match;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,13 +16,21 @@ public interface MatchLikeRepository extends JpaRepository<MatchLike, UUID> {
 
 	Optional<MatchLike> findFirstByCoupleIdAndTmdbIdAndUserIdNot(UUID coupleId, Long tmdbId, UUID userId);
 
-	@Query("SELECT ml FROM MatchLike ml WHERE ml.couple.id = :coupleId "
+	@Query("SELECT ml FROM MatchLike ml WHERE ml.coupleId = :coupleId "
 		+ "AND ml.userId != :currentUserId "
-		+ "AND NOT EXISTS (SELECT 1 FROM MatchLike m WHERE m.couple.id = ml.couple.id "
+		+ "AND NOT EXISTS (SELECT 1 FROM MatchLike m WHERE m.coupleId = ml.coupleId "
 		+ "AND m.userId = :currentUserId AND m.tmdbId = ml.tmdbId) "
-		+ "AND NOT EXISTS (SELECT 1 FROM MatchReject r WHERE r.couple.id = ml.couple.id "
+		+ "AND NOT EXISTS (SELECT 1 FROM MatchReject r WHERE r.coupleId = ml.coupleId "
 		+ "AND r.userId = :currentUserId AND r.tmdbId = ml.tmdbId) "
-		+ "AND NOT EXISTS (SELECT 1 FROM MediaTrack mt WHERE mt.couple.id = ml.couple.id AND mt.tmdbId = ml.tmdbId)")
+		+ "AND NOT EXISTS (SELECT 1 FROM MediaTrack mt WHERE mt.coupleId = ml.coupleId AND mt.tmdbId = ml.tmdbId)")
 	Page<MatchLike> findPendingForUser(@Param("coupleId") UUID coupleId, @Param("currentUserId") UUID currentUserId,
 			Pageable pageable);
+
+	/**
+	 * Exclusao de conta (epico 9, US-007): apaga os likes DO USUARIO num unico statement. Os likes
+	 * do ex-parceiro no mesmo casal continuam intactos.
+	 */
+	@Modifying
+	@Query("DELETE FROM MatchLike ml WHERE ml.userId = :userId")
+	int deleteByUserId(@Param("userId") UUID userId);
 }

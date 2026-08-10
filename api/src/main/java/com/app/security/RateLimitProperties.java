@@ -22,6 +22,10 @@ public class RateLimitProperties {
 	private Limit coupleJoin = new Limit(5, Duration.ofMinutes(1));
 	private Limit loginByEmail = new Limit(10, Duration.ofHours(1));
 	private Limit coupleJoinByUser = new Limit(20, Duration.ofHours(1));
+	private Limit coupleDissolve = new Limit(5, Duration.ofHours(1));
+	private Limit profileUpdate = new Limit(10, Duration.ofHours(1));
+	private Limit passwordChange = new Limit(5, Duration.ofHours(1));
+	private Limit accountDelete = new Limit(3, Duration.ofHours(1));
 
 	public boolean isEnabled() {
 		return enabled;
@@ -77,6 +81,38 @@ public class RateLimitProperties {
 
 	public void setCoupleJoinByUser(Limit coupleJoinByUser) {
 		this.coupleJoinByUser = coupleJoinByUser;
+	}
+
+	public Limit getCoupleDissolve() {
+		return coupleDissolve;
+	}
+
+	public void setCoupleDissolve(Limit coupleDissolve) {
+		this.coupleDissolve = coupleDissolve;
+	}
+
+	public Limit getProfileUpdate() {
+		return profileUpdate;
+	}
+
+	public void setProfileUpdate(Limit profileUpdate) {
+		this.profileUpdate = profileUpdate;
+	}
+
+	public Limit getPasswordChange() {
+		return passwordChange;
+	}
+
+	public void setPasswordChange(Limit passwordChange) {
+		this.passwordChange = passwordChange;
+	}
+
+	public Limit getAccountDelete() {
+		return accountDelete;
+	}
+
+	public void setAccountDelete(Limit accountDelete) {
+		this.accountDelete = accountDelete;
 	}
 
 	public static class Limit {

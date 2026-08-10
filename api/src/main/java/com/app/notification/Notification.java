@@ -1,19 +1,15 @@
 package com.app.notification;
 
-import com.app.couple.Couple;
 import com.app.media.MediaType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -29,9 +25,8 @@ public class Notification {
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "couple_id", nullable = false)
-	private Couple couple;
+	@Column(name = "couple_id", nullable = false)
+	private UUID coupleId;
 
 	@Column(name = "recipient_user_id", nullable = false)
 	private UUID recipientUserId;
@@ -67,14 +62,14 @@ public class Notification {
 	protected Notification() {
 	}
 
-	public Notification(Couple couple, UUID recipientUserId, NotificationType type, Long tmdbId,
+	public Notification(UUID coupleId, UUID recipientUserId, NotificationType type, Long tmdbId,
 			MediaType mediaType, String title, UUID actorUserId) {
-		this(couple, recipientUserId, type, tmdbId, mediaType, title, actorUserId, null);
+		this(coupleId, recipientUserId, type, tmdbId, mediaType, title, actorUserId, null);
 	}
 
-	public Notification(Couple couple, UUID recipientUserId, NotificationType type, Long tmdbId,
+	public Notification(UUID coupleId, UUID recipientUserId, NotificationType type, Long tmdbId,
 			MediaType mediaType, String title, UUID actorUserId, UUID mediaTrackId) {
-		this.couple = couple;
+		this.coupleId = coupleId;
 		this.recipientUserId = recipientUserId;
 		this.type = type;
 		this.tmdbId = tmdbId;
@@ -88,8 +83,8 @@ public class Notification {
 		return id;
 	}
 
-	public Couple getCouple() {
-		return couple;
+	public UUID getCoupleId() {
+		return coupleId;
 	}
 
 	public UUID getRecipientUserId() {

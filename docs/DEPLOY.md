@@ -237,13 +237,35 @@ O script executa 5 etapas automaticamente:
 
 | Etapa | O que faz |
 |-------|-----------|
-| 1/5 | `bun install` + `bun run build` no `client/` (usa `client/.env.production` com `VITE_API_URL=https://sessaoadois.luisgosampaio.com`) |
+| 1/5 | `bun install` + `bun run build` no `client/` (**sem** `VITE_API_URL` — ver nota abaixo) |
 | 2/5 | `docker build --platform linux/amd64` da API no `api/` (multi-stage: JDK 21 build + JRE 21 runtime) |
 | 3/5 | `docker save \| gzip` — exporta a imagem como `.tar.gz` |
 | 4/5 | SCP para a VPS: frontend, imagem, `docker-compose-prod.yml` e `.env` |
 | 5/5 | SSH na VPS: `docker load` + `docker compose down` + `docker compose up -d` |
 
 Ao final mostra os logs da API e o status do container.
+
+> **`VITE_API_URL` nao existe no build de producao — e isso esta certo.** Esta tabela
+> afirmava, ate 2026-08-10, que a etapa 1/5 usava `client/.env.production`. Era falso
+> no caminho que importa: esse arquivo esta no `.gitignore` (`client/.gitignore:15`),
+> entao o runner do GitHub Actions faz `checkout` **sem** ele e o `bun run build` do CD
+> sempre roda com a variavel indefinida. So um deploy manual, da maquina de quem criou
+> o arquivo a mao, enxergava o valor — o que fazia o bundle do CD divergir do bundle
+> manual sem ninguem notar.
+>
+> O valor correto em producao e **vazio**: SPA e API sao same-origin (o nginx faz proxy
+> de `/api` e `/ws` no mesmo dominio), entao URL relativa e o que se quer. O codigo
+> passou a tratar isso explicitamente com `?? ""` (`client/src/lib/api.ts`,
+> `client/src/stores/useMatchStore.ts`), e o tipo em `client/src/vite-env.d.ts` e
+> `string | undefined` justamente para o compilador exigir o fallback.
+>
+> **O que quebrava antes da correcao:** so o WebSocket, e em silencio. O axios com
+> `baseURL: undefined` ja montava URL relativa e as chamadas REST funcionavam; o
+> template literal do SockJS virava a string literal `undefined/ws`, o nginx servia
+> `index.html` pelo `try_files` e o STOMP nunca conectava — match em tempo real, pedido
+> de avaliacao e o modal de celebracao morriam sem erro visivel. Ao mexer em qualquer
+> uso de `import.meta.env`, lembrar que interpolar `undefined` num template literal nao
+> falha: produz texto.
 
 ---
 

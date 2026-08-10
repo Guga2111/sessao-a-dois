@@ -42,7 +42,7 @@ class MatchLikeRepositoryTest {
 	void findByCoupleIdAndUserIdAndTmdbIdFindsOwnLike() {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
-		matchLikeRepository.save(new MatchLike(couple, userId, 603L, MediaType.MOVIE));
+		matchLikeRepository.save(new MatchLike(couple.getId(), userId, 603L, MediaType.MOVIE));
 
 		assertThat(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(couple.getId(), userId, 603L)).isPresent();
 		assertThat(matchLikeRepository.findByCoupleIdAndUserIdAndTmdbId(couple.getId(), UUID.randomUUID(), 603L))
@@ -55,8 +55,8 @@ class MatchLikeRepositoryTest {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
-		matchLikeRepository.save(new MatchLike(couple, userId, 603L, MediaType.MOVIE));
-		matchLikeRepository.save(new MatchLike(couple, partnerId, 603L, MediaType.MOVIE));
+		matchLikeRepository.save(new MatchLike(couple.getId(), userId, 603L, MediaType.MOVIE));
+		matchLikeRepository.save(new MatchLike(couple.getId(), partnerId, 603L, MediaType.MOVIE));
 
 		assertThat(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(couple.getId(), 603L, userId))
 			.isPresent()
@@ -75,7 +75,7 @@ class MatchLikeRepositoryTest {
 	void findFirstByCoupleIdAndTmdbIdAndUserIdNotIsEmptyWhenOnlyUserLiked() {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
-		matchLikeRepository.save(new MatchLike(couple, userId, 603L, MediaType.MOVIE));
+		matchLikeRepository.save(new MatchLike(couple.getId(), userId, 603L, MediaType.MOVIE));
 
 		assertThat(matchLikeRepository.findFirstByCoupleIdAndTmdbIdAndUserIdNot(couple.getId(), 603L, userId))
 			.isEmpty();
@@ -85,10 +85,10 @@ class MatchLikeRepositoryTest {
 	void duplicateLikeFromSameUserForSameTitleViolatesUniqueConstraint() {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
-		matchLikeRepository.saveAndFlush(new MatchLike(couple, userId, 603L, MediaType.MOVIE));
+		matchLikeRepository.saveAndFlush(new MatchLike(couple.getId(), userId, 603L, MediaType.MOVIE));
 
 		assertThatThrownBy(() ->
-			matchLikeRepository.saveAndFlush(new MatchLike(couple, userId, 603L, MediaType.MOVIE))
+			matchLikeRepository.saveAndFlush(new MatchLike(couple.getId(), userId, 603L, MediaType.MOVIE))
 		).isInstanceOf(DataIntegrityViolationException.class);
 	}
 
@@ -107,8 +107,8 @@ class MatchLikeRepositoryTest {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
-		matchLikeRepository.save(new MatchLike(couple, partnerId, 603L, MediaType.MOVIE));
-		matchRejectRepository.save(new MatchReject(couple, userId, 603L, MediaType.MOVIE));
+		matchLikeRepository.save(new MatchLike(couple.getId(), partnerId, 603L, MediaType.MOVIE));
+		matchRejectRepository.save(new MatchReject(couple.getId(), userId, 603L, MediaType.MOVIE));
 
 		Page<MatchLike> pending = matchLikeRepository.findPendingForUser(couple.getId(), userId, PageRequest.of(0, 10));
 
@@ -120,8 +120,8 @@ class MatchLikeRepositoryTest {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
-		matchLikeRepository.save(new MatchLike(couple, partnerId, 603L, MediaType.MOVIE));
-		mediaTrackRepository.save(new MediaTrack(couple, 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE));
+		matchLikeRepository.save(new MatchLike(couple.getId(), partnerId, 603L, MediaType.MOVIE));
+		mediaTrackRepository.save(new MediaTrack(couple.getId(), 603L, MediaType.MOVIE, MediaStatus.WANT_TO_SEE));
 
 		Page<MatchLike> pending = matchLikeRepository.findPendingForUser(couple.getId(), userId, PageRequest.of(0, 10));
 
@@ -133,7 +133,7 @@ class MatchLikeRepositoryTest {
 		Couple couple = persistedCouple();
 		UUID userId = UUID.randomUUID();
 		UUID partnerId = UUID.randomUUID();
-		MatchLike partnerLike = matchLikeRepository.save(new MatchLike(couple, partnerId, 603L, MediaType.MOVIE));
+		MatchLike partnerLike = matchLikeRepository.save(new MatchLike(couple.getId(), partnerId, 603L, MediaType.MOVIE));
 
 		Page<MatchLike> pending = matchLikeRepository.findPendingForUser(couple.getId(), userId, PageRequest.of(0, 10));
 

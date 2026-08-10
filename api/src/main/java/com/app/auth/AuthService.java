@@ -116,6 +116,38 @@ public class AuthService {
 		refreshTokenService.revoke(rawRefreshToken);
 	}
 
+	/**
+	 * Troca a senha de quem ja esta autenticado (epico 9, US-006) e derruba TODAS as sessoes,
+	 * inclusive a que fez a troca (E9.8): se a senha estava comprometida, a sessao do atacante
+	 * morre junto. Senha atual errada nao altera nada - nem a senha, nem as sessoes.
+	 */
+	public void changePassword(UUID userId, ChangePasswordRequest request) {
+		enforcePasswordChangeRateLimit(userId);
+
+		User user = findAuthenticatedUser(userId);
+		if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+			throw new InvalidCredentialsException();
+		}
+
+		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+		userRepository.save(user);
+		refreshTokenService.revokeFamily(userId);
+		securityAuditLogger.passwordChanged(userId);
+	}
+
+	/**
+	 * Limite POR USUARIO ({@code app.rate-limit.password-change}, 5/hora). Nao passa pelo
+	 * {@code RateLimitFilter}, que chaveia por IP e casa metodo+path.
+	 */
+	private void enforcePasswordChangeRateLimit(UUID userId) {
+		Limit limit = rateLimitProperties.getPasswordChange();
+		RateLimitResult result = rateLimitService.tryConsume("password-change:user:" + userId, limit.getCapacity(),
+				limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
+	}
+
 	public record LoginResult(String accessToken, String refreshToken, User user) {
 	}
 

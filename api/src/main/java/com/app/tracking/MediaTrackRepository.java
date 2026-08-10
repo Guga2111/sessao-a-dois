@@ -14,25 +14,25 @@ import java.util.UUID;
 
 public interface MediaTrackRepository extends JpaRepository<MediaTrack, UUID> {
 
-	@EntityGraph(attributePaths = {"reviews", "reviews.user", "couple"})
+	@EntityGraph(attributePaths = {"reviews", "reviews.user"})
 	List<MediaTrack> findByCoupleIdAndStatus(UUID coupleId, MediaStatus status);
 
 	/**
 	 * Id-only projection for the paginated variant, deliberately kept without any collection
 	 * fetch join: combining a {@code JOIN FETCH}/{@code @EntityGraph} on a collection with
 	 * {@code Pageable} makes Hibernate paginate in memory (HHH000104) instead of at the DB.
-	 * Pair with {@link #findByIdIn} to fetch the page's rows with reviews/couple eagerly loaded.
+	 * Pair with {@link #findByIdIn} to fetch the page's rows with reviews eagerly loaded.
 	 */
-	@Query("SELECT mt.id FROM MediaTrack mt WHERE mt.couple.id = :coupleId AND mt.status = :status "
+	@Query("SELECT mt.id FROM MediaTrack mt WHERE mt.coupleId = :coupleId AND mt.status = :status "
 		+ "ORDER BY mt.createdAt DESC")
 	Page<UUID> findIdsByCoupleIdAndStatusOrderByCreatedAtDesc(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status, Pageable pageable);
 
-	@EntityGraph(attributePaths = {"reviews", "reviews.user", "couple"})
+	@EntityGraph(attributePaths = {"reviews", "reviews.user"})
 	List<MediaTrack> findByIdIn(List<UUID> ids);
 
 	/** Two-column projection for {@code GET /api/tracking/keys} - no entity/collection loading. */
-	@Query("SELECT mt.mediaType AS mediaType, mt.tmdbId AS tmdbId FROM MediaTrack mt WHERE mt.couple.id = :coupleId")
+	@Query("SELECT mt.mediaType AS mediaType, mt.tmdbId AS tmdbId FROM MediaTrack mt WHERE mt.coupleId = :coupleId")
 	List<TrackKey> findKeysByCoupleId(@Param("coupleId") UUID coupleId);
 
 	boolean existsByCoupleIdAndTmdbId(UUID coupleId, Long tmdbId);
@@ -40,25 +40,25 @@ public interface MediaTrackRepository extends JpaRepository<MediaTrack, UUID> {
 	long countByCoupleIdAndStatusAndMediaType(UUID coupleId, MediaStatus status, MediaType mediaType);
 
 	@Query("SELECT COALESCE(SUM(mt.runtime), 0) FROM MediaTrack mt "
-		+ "WHERE mt.couple.id = :coupleId AND mt.status = :status AND mt.mediaType = :mediaType")
+		+ "WHERE mt.coupleId = :coupleId AND mt.status = :status AND mt.mediaType = :mediaType")
 	int sumRuntimeByCoupleIdAndStatusAndMediaType(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status, @Param("mediaType") MediaType mediaType);
 
 	@Query("SELECT COALESCE(SUM(mt.runtime), 0) FROM MediaTrack mt "
-		+ "WHERE mt.couple.id = :coupleId AND mt.status = :status AND mt.mediaType = :mediaType "
+		+ "WHERE mt.coupleId = :coupleId AND mt.status = :status AND mt.mediaType = :mediaType "
 		+ "AND EXTRACT(MONTH FROM mt.watchedDate) = :month AND EXTRACT(YEAR FROM mt.watchedDate) = :year")
 	int sumRuntimeByCoupleIdAndStatusAndMediaTypeForMonth(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status, @Param("mediaType") MediaType mediaType,
 			@Param("month") int month, @Param("year") int year);
 
 	@Query("SELECT EXTRACT(MONTH FROM mt.watchedDate) AS month, COUNT(mt) AS total FROM MediaTrack mt "
-		+ "WHERE mt.couple.id = :coupleId AND mt.status = :status AND EXTRACT(YEAR FROM mt.watchedDate) = :year "
+		+ "WHERE mt.coupleId = :coupleId AND mt.status = :status AND EXTRACT(YEAR FROM mt.watchedDate) = :year "
 		+ "GROUP BY EXTRACT(MONTH FROM mt.watchedDate)")
 	List<MonthlyCount> countByCoupleIdAndStatusGroupedByMonth(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status, @Param("year") int year);
 
 	@Query("SELECT g AS genreId, COUNT(g) AS total FROM MediaTrack mt JOIN mt.genreIds g "
-		+ "WHERE mt.couple.id = :coupleId AND mt.status = :status GROUP BY g")
+		+ "WHERE mt.coupleId = :coupleId AND mt.status = :status GROUP BY g")
 	List<GenreCount> countGenreOccurrencesByCoupleIdAndStatus(@Param("coupleId") UUID coupleId,
 			@Param("status") MediaStatus status);
 

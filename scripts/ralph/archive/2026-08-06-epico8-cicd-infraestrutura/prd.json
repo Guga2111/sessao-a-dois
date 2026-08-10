@@ -1,0 +1,117 @@
+{
+  "project": "Sessao a Dois",
+  "branchName": "epico8/cicd-infraestrutura",
+  "description": "Epico 8 - CI/CD e Infraestrutura. Fecha a ultima lacuna de cobertura da T8.1 (HealthController), tira o processo Java de root DENTRO do container e da healthcheck ao Docker, cria vigilancia de dependencia nos dois ecossistemas (Dependabot + bun audit com triagem), resolve o pin manual do jjwt e remove o SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose de producao. NAO ha mudanca de UI neste epico - nenhum pixel do client/ e tocado, exceto bun.lock na US-004. NAO ha migration nova (a ultima e V6). PRD completo em tasks/prd-epico-8-cicd-e-infraestrutura.md - ler ANTES de comecar qualquer story, especialmente a tabela de decisoes E8.1 a E8.9. As stories US-007 (conferir flyway_schema_history no Supabase) e US-009 (cadastrar secrets no GitHub e validar o CD na VPS) do PRD sao OPERACIONAIS, exigem credencial de producao e NAO estao neste prd.json - sao executadas manualmente pelo mantenedor.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Teste do HealthController",
+      "description": "Como mantenedor, quero o endpoint de health coberto por teste, para que o probe usado pelo HEALTHCHECK do Docker e pelo smoke test do CD nao possa quebrar sem o CI perceber. (PRD US-001)",
+      "acceptanceCriteria": [
+        "Existe api/src/test/java/com/app/HealthControllerTest.java usando @WebMvcTest(HealthController.class)",
+        "Teste afirma GET /api/health -> status 200 e corpo JSON {\"status\":\"UP\"}",
+        "Teste afirma que o endpoint responde SEM autenticacao - a rota e consumida pelo Docker e pelo runner do CD, que nao tem cookie de sessao",
+        "./mvnw test passa e o gate do JaCoCo (minimo 90% de linha, execution 'check' em api/pom.xml) continua verde"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Story pequena e sem dependencia - serve de aquecimento. HealthController vive em com.app (raiz do pacote), NAO em com.app.common nem numa feature. Cuidado com @WebMvcTest e a SecurityConfig: se o slice nao carregar a config de seguranca, o teste de acesso anonimo prova pouco - conferir como SecurityConfigTest (api/src/test/java/com/app/security/) resolve isso e seguir o mesmo padrao em vez de inventar outro."
+    },
+    {
+      "id": "US-002",
+      "title": "Container roda como nao-root e expoe healthcheck",
+      "description": "Como operador da VPS, quero o processo Java rodando sem privilegio e com sinal de saude no Docker, para que um escape de container nao entregue root no host e um docker ps mostre imediatamente se a API esta viva. (PRD US-002)",
+      "acceptanceCriteria": [
+        "No estagio de runtime de api/Dockerfile: addgroup -g 10001 -S app && adduser -u 10001 -S app -G app, seguido de USER app - UID/GID FIXOS em 10001, nao os que o adduser escolheria sozinho",
+        "O jar e copiado com dono app: COPY --from=build --chown=app:app /app/target/*.jar app.jar",
+        "HEALTHCHECK --interval=30s --timeout=3s --start-period=40s CMD wget -qO- http://localhost:8080/api/health || exit 1 - porta INTERNA 8080, nunca a 8085 (que e so o mapeamento do host no docker-compose-prod.yml)",
+        "A ordem de cache das camadas do multi-stage foi preservada: COPY .mvn/, mvnw, pom.xml e dependency:go-offline continuam ANTES de COPY src/",
+        "docs/DEPLOY.md ganha o passo obrigatorio, ANTES do primeiro deploy com esta mudanca: ssh root@31.97.169.38 \"chown -R 10001:10001 /var/lib/sessao-a-dois/security-audit-logs\"",
+        "docs/DEPLOY.md explica POR QUE esse chown e obrigatorio: o bind mount pertence a root e o usuario app nao conseguiria escrever security-audit.log - a trilha de auditoria do Epico 5 morreria em silencio, sem derrubar o app",
+        "Nenhuma outra mudanca de comportamento no Dockerfile: mesma imagem base, mesmo ENTRYPOINT, mesmo EXPOSE"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "ATENCAO: NAO HA DOCKER NESTE SANDBOX (docker: command not found). Os criterios de 'docker build', 'whoami' e 'docker ps (healthy)' do PRD sao para o mantenedor executar na maquina dele - NAO tente rodar docker aqui e NAO marque a story como incompleta por isso. A verificacao possivel aqui e leitura do Dockerfile + coerencia com docker-compose-prod.yml. Registre no progress.txt que a verificacao com docker ficou pendente do lado humano. A imagem base eclipse-temurin:21-jre-alpine ja traz wget (BusyBox) - NAO instale curl, isso aumentaria a imagem e quebraria o criterio de tamanho do PRD. O risco real desta story nao esta no Dockerfile, esta no chown: reler a secao 'Trilha de auditoria de seguranca' de docs/DEPLOY.md antes de escrever a documentacao."
+    },
+    {
+      "id": "US-003",
+      "title": "Dependabot para Maven, npm e GitHub Actions",
+      "description": "Como mantenedor, quero PRs automaticos de atualizacao de dependencia, para que uma CVE no backend ou no frontend nao fique meses sem ser notada. (PRD US-003)",
+      "acceptanceCriteria": [
+        "Existe .github/dependabot.yml com version: 2 e tres entradas em updates: maven em /api, npm em /client e github-actions em /",
+        "Cadencia semanal (schedule.interval: weekly) nas tres, com open-pull-requests-limit no maximo 5 por ecossistema",
+        "groups configurado para juntar patch e minor num unico PR por ecossistema, deixando major em PR separado",
+        "target-branch: dev nas tres entradas - PR do Dependabot NUNCA abre contra main, senao um bump automatico dispararia deploy de producao",
+        "O YAML e valido (parsear com um validador de YAML antes de commitar; nao existe schema check local)"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Arquivo novo, sem dependencia de outras stories. O diretorio do maven e /api e o do npm e /client - o repo tem os dois projetos em subpastas, entao 'directory: /' estaria errado para ambos. A entrada github-actions existe porque .github/workflows/ci.yml e deploy.yml pinam actions (actions/checkout@v4, actions/setup-java@v4, oven-sh/setup-bun@v2) que tambem defasam. Nao ha como validar o arquivo de verdade sem o GitHub - a verificacao real (aba Insights > Dependency graph > Dependabot sem erro de parsing) fica do lado humano."
+    },
+    {
+      "id": "US-004",
+      "title": "Limpar o que der de vulnerabilidade e triar o resto",
+      "description": "Como mantenedor, quero a arvore de dependencias do frontend atualizada e cada advisory restante classificado, para que o gate da US-005 possa ser ligado sem deixar o CI vermelho no primeiro commit. (PRD US-004)",
+      "acceptanceCriteria": [
+        "bun update executado em client/ (SEM --latest, para nao puxar breaking change), bun.lock commitado",
+        "bun run typecheck && bun run lint && bun run build passam depois do update",
+        "Nova execucao de bun audit registrada no progress.txt: quantos advisories restam, por severidade",
+        "Cada advisory ALTO ou CRITICO restante esta numa tabela em client/CLAUDE.md com: pacote, caminho de dependencia, se e dependencies ou devDependencies, e se ha versao corrigida disponivel",
+        "O caso do react-router esta registrado explicitamente: o advisory GHSA-qwww-vcr4-c8h2 e 'RSC Mode CSRF Bypass', e este app e uma SPA em Vite que NAO usa React Server Components - o vetor nao existe aqui; a correcao seria o major 7.x -> 8.x, que NAO entra neste epico",
+        "Nenhuma dependencia de PRODUCAO com advisory alto/critico fica sem decisao escrita (corrigir agora ou ignorar com justificativa)",
+        "NENHUMA mudanca de codigo do client/ alem de package.json/bun.lock - esta story nao altera nenhum componente, nenhum pixel"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Estado medido em 2026-08-06 (rodar de novo, pode ter mudado): 15 advisories, 6 altos. Os altos vem de ip-address, brace-expansion (x2), undici e fast-uri - todos por shadcn e eslint, ou seja devDependencies que nao entram no bundle do usuario - mais react-router, que e o unico de producao. bun audit da versao 1.3.14 NAO tem flag --prod/--production (so --json, --audit-level e --ignore), por isso a separacao prod/dev e feita por lista explicita, nao por flag (decisao E8.9 do PRD). Se o bun update quebrar typecheck/lint/build, REVERTA o update e registre no progress.txt qual pacote quebrou - deixar o build quebrado e pior do que deixar um advisory de devDependency."
+    },
+    {
+      "id": "US-005",
+      "title": "Ligar o gate do bun audit no CI",
+      "description": "Como mantenedor, quero o CI barrando dependencia do frontend com vulnerabilidade alta ou critica, para que ela nao chegue a producao pelo merge na main. (PRD US-005)",
+      "acceptanceCriteria": [
+        "O job frontend de .github/workflows/ci.yml ganha um step 'bun audit --audit-level=high' DEPOIS do bun install e ANTES do build",
+        "Severidade moderada ou baixa NAO quebra o build; alta e critica quebram",
+        "Os advisories triados na US-004 como sem risco real entram como --ignore=<id> no proprio step, cada um com comentario dizendo o pacote, por que nao alcanca o usuario (ex.: 'so devDependency da CLI do shadcn') e o que faria revisitar a decisao",
+        "Com a lista de ignores em vigor, 'cd client && bun audit --audit-level=high <ignores>' sai com codigo 0 - verificar rodando de verdade, nao presumir",
+        "Verificado que o gate FUNCIONA: removendo temporariamente um dos --ignore, o comando falha; depois desfazer a remocao",
+        "O step nao usa continue-on-error nem '|| true' - se e gate, tem que falhar o job"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "DEPENDE DA US-004 - ligar o gate antes da triagem deixa o CI vermelho e, por tabela, bloqueia TODO deploy (o deploy.yml reusa o ci.yml via workflow_call). Este e o unico ponto do epico que pode travar producao se feito na ordem errada. O ci.yml hoje tem 2 jobs (test e frontend) e o trigger workflow_call ja existe - nao mexer neles alem de acrescentar o step. Os ids aceitos pelo --ignore sao os que o bun audit imprime (formato GHSA-xxxx-xxxx-xxxx); confirmar na pratica que o bun aceita GHSA e nao so CVE, e se so aceitar CVE, registrar isso no progress.txt e usar o id correspondente."
+    },
+    {
+      "id": "US-006",
+      "title": "Resolver o pin manual do jjwt",
+      "description": "Como mantenedor, quero saber se o 0.12.6 do jjwt e um pin necessario ou apenas heranca, para que a biblioteca que assina os tokens de sessao nao defase em silencio. (PRD US-006)",
+      "acceptanceCriteria": [
+        "Executado ./mvnw dependency:tree -Dincludes=io.jsonwebtoken (ou help:effective-pom) e o resultado registrado no progress.txt: o BOM do Spring Boot gerencia io.jsonwebtoken ou nao?",
+        "SE O BOM GERENCIA: as 3 tags <version>0.12.6</version> de jjwt-api, jjwt-impl e jjwt-jackson sao removidas de api/pom.xml",
+        "SE O BOM NAO GERENCIA: as 3 declaracoes passam a usar uma property unica <jjwt.version> em <properties>, com comentario explicando que o jjwt esta fora do BOM do Spring Boot e por isso precisa de bump manual, e que o Dependabot da US-003 e quem passa a avisar",
+        "Em qualquer dos dois caminhos: a versao efetiva do jjwt NAO regride em relacao a 0.12.6 - conferir com dependency:tree depois da mudanca",
+        "./mvnw test passa",
+        "api/CLAUDE.md menciona a situacao resolvida, para a proxima pessoa nao repetir a investigacao"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Story de investigacao com dois caminhos possiveis - a decisao E8.3 do PRD manda executar o comando ANTES de escolher. Nao presumir que o BOM gerencia (o backlog levantou a duvida justamente porque ninguem verificou). jjwt e a biblioteca que assina os JWT de sessao (com.app.security.JwtService), entao um downgrade acidental de versao aqui e serio: conferir a versao efetiva depois da mudanca e nao so o fato de o build passar."
+    },
+    {
+      "id": "US-007",
+      "title": "Remover SPRING_FLYWAY_BASELINE_ON_MIGRATE do compose",
+      "description": "Como mantenedor, quero que uma migration que nao aplique quebre o deploy visivelmente, para que um schema divergente nunca seja mascarado como baseline. (PRD US-008)",
+      "acceptanceCriteria": [
+        "A linha SPRING_FLYWAY_BASELINE_ON_MIGRATE: \"true\" nao existe mais em docker-compose-prod.yml",
+        "docs/DEPLOY.md documenta como passa-la pontualmente, caso um ambiente novo precise: SPRING_FLYWAY_BASELINE_ON_MIGRATE=true docker compose -f docker-compose-prod.yml up -d",
+        "docs/FLYWAY.md registra que a variavel foi removida, em que data, e que a remocao depende da verificacao manual do flyway_schema_history em producao (US-007 do PRD, operacional)",
+        "O comentario de api/src/main/resources/application.properties sobre 'apenas no primeiro deploy' continua coerente com o estado novo - ajustar se ficou contraditorio",
+        "./mvnw test passa (a mudanca nao deve afetar teste nenhum; se afetar, entender por que antes de seguir)"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "ATENCAO - GATE HUMANO: esta story corresponde a US-008 do PRD e depende da US-007 do PRD, que e OPERACIONAL e nao esta neste prd.json (conferir no Supabase que flyway_schema_history tem V1 a V6 todas com success = true). A mudanca de codigo aqui e inerte ate o proximo deploy, entao pode ser implementada - MAS escreva em docs/FLYWAY.md e no progress.txt, de forma explicita, que o mantenedor precisa rodar a query de verificacao ANTES de mergear para a main. Se a verificacao falhar, esta mudanca tem que ser revertida antes do deploy. Migrations atuais: V1 a V6 (a ultima e V6__add_invite_code_expiry.sql). Este epico NAO cria migration nova."
+    }
+  ]
+}

@@ -1,18 +1,14 @@
 package com.app.match;
 
-import com.app.couple.Couple;
 import com.app.media.MediaType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
@@ -28,9 +24,8 @@ public class MatchLike {
 	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "couple_id", nullable = false)
-	private Couple couple;
+	@Column(name = "couple_id", nullable = false)
+	private UUID coupleId;
 
 	@Column(name = "user_id", nullable = false)
 	private UUID userId;
@@ -58,8 +53,8 @@ public class MatchLike {
 	protected MatchLike() {
 	}
 
-	public MatchLike(Couple couple, UUID userId, Long tmdbId, MediaType mediaType) {
-		this.couple = couple;
+	public MatchLike(UUID coupleId, UUID userId, Long tmdbId, MediaType mediaType) {
+		this.coupleId = coupleId;
 		this.userId = userId;
 		this.tmdbId = tmdbId;
 		this.mediaType = mediaType;
@@ -69,8 +64,8 @@ public class MatchLike {
 		return id;
 	}
 
-	public Couple getCouple() {
-		return couple;
+	public UUID getCoupleId() {
+		return coupleId;
 	}
 
 	public UUID getUserId() {

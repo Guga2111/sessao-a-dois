@@ -1,0 +1,21 @@
+-- Adiciona o conceito de "casal dissolvido" (com.app.couple.Couple), epico 9
+-- (US-001): a coluna marca o instante em que o vinculo foi desfeito por um dos
+-- membros. NULL significa "casal ativo" - todo casal existente hoje.
+--
+-- Decisao D13 do POST-MVP-TASK.md: dissolver, NAO apagar. Nenhuma linha de
+-- `couples` e removida em momento algum - `notification.couple_id` e `media_track`
+-- mantem FK para essa tabela, e o historico do casal precisa continuar no banco
+-- (mesmo deixando de ser acessivel pela API para os ex-membros). Por isso a
+-- dissolucao e um UPDATE nesta coluna, nunca um DELETE.
+--
+-- Consequencia de cardinalidade (E9.20): a partir daqui um usuario pode ter
+-- VARIAS linhas em `couples` - uma ativa e N dissolvidas. Toda consulta que
+-- resolve "o casal do usuario" ou "o casal do convite" tem que filtrar
+-- `dissolved_at IS NULL`, senao devolve mais de uma linha para um Optional.
+--
+-- Apenas ADD COLUMN IF NOT EXISTS (aditivo e idempotente), sem DROP/TRUNCATE.
+-- Casais existentes ficam com dissolved_at NULL, ou seja, ativos.
+-- `Instant` no lado Java -> TIMESTAMP WITH TIME ZONE, igual a `couples.created_at`
+-- e `couples.invite_code_expires_at`.
+
+ALTER TABLE couples ADD COLUMN IF NOT EXISTS dissolved_at TIMESTAMP WITH TIME ZONE;

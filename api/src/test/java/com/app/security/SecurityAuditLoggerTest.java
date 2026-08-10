@@ -79,6 +79,33 @@ class SecurityAuditLoggerTest {
 			.contains("ip=\"203.0.113.7\"");
 	}
 
+	/** Epico 9, US-005: a linha registra QUAIS campos mudaram, nunca o valor novo do e-mail. */
+	@Test
+	void logsProfileUpdateWithFieldNamesButNeverTheNewEmailValue() {
+		UUID userId = UUID.randomUUID();
+
+		securityAuditLogger.profileUpdated(userId, List.of("name", "email"));
+
+		String message = onlyMessage();
+		assertThat(message).contains("event=profile_updated")
+			.contains("userId=\"" + userId + "\"")
+			.contains("fields=\"name,email\"")
+			.doesNotContain("@");
+	}
+
+	/** Epico 9, US-007: o e-mail e justamente o dado que o titular pediu para eliminar. */
+	@Test
+	void logsAccountDeletionWithTheUserIdAndNoEmail() {
+		UUID userId = UUID.randomUUID();
+
+		securityAuditLogger.accountDeleted(userId);
+
+		String message = onlyMessage();
+		assertThat(message).contains("event=account_deleted")
+			.contains("userId=\"" + userId + "\"")
+			.doesNotContain("@");
+	}
+
 	@Test
 	void noAuditEntryEverContainsPasswordTokenHashOrInviteCodeValues() {
 		UUID userId = UUID.randomUUID();
@@ -91,7 +118,11 @@ class SecurityAuditLoggerTest {
 		securityAuditLogger.refreshReuseDetected(userId, "203.0.113.5");
 		securityAuditLogger.coupleCreated(userId, coupleId);
 		securityAuditLogger.coupleJoined(userId, coupleId);
+		securityAuditLogger.coupleDissolved(userId, coupleId);
 		securityAuditLogger.inviteCodeRegenerated(userId, coupleId);
+		securityAuditLogger.profileUpdated(userId, List.of("name", "email"));
+		securityAuditLogger.passwordChanged(userId);
+		securityAuditLogger.accountDeleted(userId);
 		securityAuditLogger.rateLimitExceeded("/api/auth/login", "203.0.113.5");
 
 		List<String> messages = logAppender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
