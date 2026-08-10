@@ -89,6 +89,12 @@ Started: 2026-08-10
   lancando `IllegalStateException` com mensagem em pt-BR nomeando a env var.
 - Padrao de job agendado: `NotificationCleanupService` e a referencia para
   `@Scheduled` + `@Transactional` + `DELETE` em massa + log da contagem em info.
+- Quando o nome da env var de producao NAO bate com o relaxed binding do nome da
+  propriedade (ex.: `RESEND_API_KEY` para `app.email.api-key`, que relaxed-bind
+  mapearia para `APP_EMAIL_API_KEY`), a indirecao `app.email.api-key=${RESEND_API_KEY:}`
+  no `application.properties` e obrigatoria - o relaxed binding sozinho nao cobre
+  esse caso, mesmo padrao ja usado por `tmdb.api-key`/`TMDB_API_KEY` (que so
+  funciona sem indirecao porque os dois nomes JA coincidem por relaxed binding).
 
 ---
 
@@ -137,4 +143,36 @@ Started: 2026-08-10
   - Nao ha ainda properties de `app.email.from`/`app.email.api-key`/
     `app.public-url` - essas nascem na US-002 (fail-fast das credenciais), junto
     com `EmailProperties`.
+---
+
+## 2026-08-10 - US-002
+- Implementado `EmailProperties` (`com.app.email`, `@Component`
+  `@ConfigurationProperties(prefix = "app.email")`): `provider` (default `log`),
+  `apiKey` (env `RESEND_API_KEY`, via indirecao no `application.properties` -
+  relaxed binding sozinho mapearia para `APP_EMAIL_API_KEY`), `from` (env
+  `EMAIL_FROM`, mesma indirecao), `connectTimeout`/`readTimeout` (default 3s/5s) e
+  `publicUrl` (campo `@Value("${app.public-url:https://sessaoadois.luisgosampaio.com}")`
+  dentro da mesma classe, ja que e a feature de e-mail quem consome o valor para
+  montar o link).
+- `@PostConstruct validate()` (pacote-privado, chamavel direto em teste sem
+  contexto Spring, mesmo padrao de `TmdbConfig`): com `provider=resend`, falha com
+  `IllegalStateException` em pt-BR nomeando `RESEND_API_KEY`/`EMAIL_FROM` se
+  ausentes; `app.public-url` e SEMPRE validada como URL absoluta
+  (`new URI(publicUrl).isAbsolute()`), independente do provider - e usada no link
+  do e-mail em ambos os casos.
+- `application.properties`: `app.email.api-key=${RESEND_API_KEY:}`,
+  `app.email.from=${EMAIL_FROM:}`, `app.email.connect-timeout=${EMAIL_CONNECT_TIMEOUT:3s}`,
+  `app.email.read-timeout=${EMAIL_READ_TIMEOUT:5s}`,
+  `app.public-url=${APP_PUBLIC_URL:https://sessaoadois.luisgosampaio.com}`.
+- Nao precisou mexer em `api/src/test/resources/application.properties`: o
+  default `provider=log` (ja declarado la desde a US-001) dispensa credencial, e
+  `app.public-url` cai no default do proprio `@Value` quando ausente do arquivo de
+  teste (que SUBSTITUI o principal).
+- Arquivos: `api/src/main/java/com/app/email/EmailProperties.java`,
+  `api/src/test/java/com/app/email/EmailPropertiesTest.java`,
+  `api/src/main/resources/application.properties`.
+- `./mvnw test`: 524 testes, 0 falhas, gate do JaCoCo verde. Nenhuma credencial
+  real em lugar nenhum (so `${VAR:default-vazio-ou-publico}`).
+- **Learnings:** ver a entrada nova em Codebase Patterns sobre indirecao de env
+  var quando o nome nao bate com o relaxed binding.
 ---
