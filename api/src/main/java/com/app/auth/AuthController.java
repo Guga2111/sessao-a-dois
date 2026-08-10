@@ -125,6 +125,17 @@ public class AuthController {
 			.build();
 	}
 
+	/**
+	 * US-006: sempre 202, corpo vazio, tanto para e-mail existente quanto inexistente -
+	 * nao ha oraculo de enumeracao aqui. O trabalho de verdade (emitir token, enviar
+	 * e-mail) roda fora deste metodo via AuthService.forgotPassword.
+	 */
+	@PostMapping("/forgot-password")
+	public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+		authService.forgotPassword(request.email());
+		return ResponseEntity.status(HttpStatus.ACCEPTED).build();
+	}
+
 	@GetMapping("/me")
 	public ResponseEntity<LoginResponse> me(@AuthenticationPrincipal UUID userId) {
 		User user = authService.findAuthenticatedUser(userId);

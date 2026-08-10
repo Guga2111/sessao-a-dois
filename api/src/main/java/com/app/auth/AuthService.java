@@ -34,10 +34,12 @@ public class AuthService {
 	private final RateLimitService rateLimitService;
 	private final RateLimitProperties rateLimitProperties;
 	private final SecurityAuditLogger securityAuditLogger;
+	private final PasswordResetDispatcher passwordResetDispatcher;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
 			RefreshTokenService refreshTokenService, RateLimitService rateLimitService,
-			RateLimitProperties rateLimitProperties, SecurityAuditLogger securityAuditLogger) {
+			RateLimitProperties rateLimitProperties, SecurityAuditLogger securityAuditLogger,
+			PasswordResetDispatcher passwordResetDispatcher) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
@@ -45,6 +47,7 @@ public class AuthService {
 		this.rateLimitService = rateLimitService;
 		this.rateLimitProperties = rateLimitProperties;
 		this.securityAuditLogger = securityAuditLogger;
+		this.passwordResetDispatcher = passwordResetDispatcher;
 	}
 
 	public User register(RegisterRequest request) {
@@ -146,6 +149,18 @@ public class AuthService {
 		if (!result.allowed()) {
 			throw new RateLimitExceededException(result.retryAfterSeconds());
 		}
+	}
+
+	/**
+	 * POST /api/auth/forgot-password (US-006). Responde sempre 202 no controller,
+	 * independentemente do e-mail existir - aqui so decidimos SE ha trabalho a fazer.
+	 * A emissao do token e o envio do e-mail rodam fora deste metodo (PasswordResetDispatcher,
+	 * @Async), entao um provedor fora do ar nunca atrasa nem altera a resposta.
+	 */
+	public void forgotPassword(String email) {
+		securityAuditLogger.passwordResetRequested(email);
+
+		userRepository.findByEmail(email).ifPresent(passwordResetDispatcher::dispatch);
 	}
 
 	public record LoginResult(String accessToken, String refreshToken, User user) {

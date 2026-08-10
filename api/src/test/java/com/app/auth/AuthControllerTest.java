@@ -36,12 +36,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +129,64 @@ class AuthControllerTest {
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errors.email").exists());
+	}
+
+	@Test
+	void forgotPasswordRespondsAcceptedForAnExistingEmail() throws Exception {
+		mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com"}
+					"""))
+			.andExpect(status().isAccepted())
+			.andExpect(content().string(""));
+
+		verify(authService).forgotPassword("ana@example.com");
+	}
+
+	@Test
+	void forgotPasswordRespondsAcceptedForAnUnknownEmailWithTheExactSameShape() throws Exception {
+		MvcResult existing = mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com"}
+					"""))
+			.andReturn();
+
+		MvcResult unknown = mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ghost@example.com"}
+					"""))
+			.andReturn();
+
+		assertThat(unknown.getResponse().getStatus()).isEqualTo(existing.getResponse().getStatus());
+		assertThat(unknown.getResponse().getContentAsString()).isEqualTo(existing.getResponse().getContentAsString());
+	}
+
+	@Test
+	void forgotPasswordRejectsMalformedEmailWithBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"not-an-email"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.email").exists());
+
+		verify(authService, never()).forgotPassword(any());
+	}
+
+	@Test
+	void forgotPasswordIsPublicAndNeverConsultsTheAccessToken() throws Exception {
+		mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com"}
+					"""))
+			.andExpect(status().isAccepted());
+
+		verifyNoInteractions(jwtService);
 	}
 
 	@Test

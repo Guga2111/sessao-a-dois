@@ -93,6 +93,26 @@ public class SecurityAuditLogger {
 		log("rate_limit_exceeded", fields("endpoint", endpoint, "ip", ip));
 	}
 
+	/**
+	 * Pedido de redefinicao de senha (epico 10, US-006). O e-mail e mascarado antes de
+	 * logar - nunca em claro, e nunca o token, que este metodo nem recebe.
+	 */
+	public void passwordResetRequested(String email) {
+		log("password_reset_requested", fields("email", maskEmail(email)));
+	}
+
+	/** Mantem so o primeiro caractere do usuario e o dominio inteiro: "a***@example.com". */
+	private static String maskEmail(String email) {
+		if (email == null || email.isBlank()) {
+			return "";
+		}
+		int at = email.indexOf('@');
+		if (at <= 0) {
+			return "***";
+		}
+		return email.charAt(0) + "***" + email.substring(at);
+	}
+
 	private static Map<String, Object> fields(Object... keyValues) {
 		Map<String, Object> fields = new LinkedHashMap<>();
 		for (int i = 0; i < keyValues.length; i += 2) {

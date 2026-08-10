@@ -285,3 +285,45 @@ Started: 2026-08-10
     `EmailSender` e disparar o envio via `@Async`; este servico so devolve o
     link, nao manda e-mail nenhum.
 ---
+
+## 2026-08-10 - US-006
+- `POST /api/auth/forgot-password` (`AuthController`, `permitAll` + fora do
+  CSRF, mesmo padrao de `login`/`register`) aceita `{ email }`
+  (`ForgotPasswordRequest`, `@NotBlank @Email`) e responde sempre `202
+  Accepted` com corpo vazio, existindo ou nao o e-mail.
+- `AuthService.forgotPassword(email)` so decide SE ha trabalho
+  (`userRepository.findByEmail`) e audita (`SecurityAuditLogger.passwordResetRequested`,
+  e-mail mascarado) - a emissao do token e o envio do e-mail rodam fora do
+  metodo, em `PasswordResetDispatcher.dispatch(User)`, o PRIMEIRO `@Async` da
+  aplicacao (`PasswordResetAsyncConfig`, `@EnableAsync` + `TaskExecutor`
+  proprio `passwordResetTaskExecutor`). Falha do `EmailSender` e capturada
+  dentro do `dispatch` (`catch (RuntimeException)`, `log.warn` com `userId`,
+  nunca o token) - ninguem mais esta esperando essa chamada para propagar a
+  excecao.
+- `SecurityAuditLogger` ganhou `passwordResetRequested(String email)` e o
+  primeiro mascaramento de e-mail do projeto (`maskEmail`, `a***@dominio`) -
+  os eventos de login antigos continuam logando o e-mail em claro, nao foram
+  tocados.
+- Arquivos: `api/src/main/java/com/app/auth/ForgotPasswordRequest.java`,
+  `PasswordResetAsyncConfig.java`, `PasswordResetDispatcher.java`,
+  `AuthController.java`, `AuthService.java`,
+  `api/src/main/java/com/app/security/SecurityAuditLogger.java`,
+  `SecurityConfig.java`, e os testes correspondentes (`AuthControllerTest`,
+  `AuthServiceTest`, `PasswordResetDispatcherTest` novo,
+  `SecurityAuditLoggerTest`).
+- `./mvnw test`: 548 testes, 0 falhas, gate do JaCoCo verde.
+- **Learnings:**
+  - `@Async` so funciona atraves do proxy do Spring: o metodo anotado tem
+    que estar num `@Component` DIFERENTE do chamador. Um metodo `@Async`
+    dentro da propria `AuthService`, chamado de outro metodo da mesma
+    classe, seria self-invocation - roda em linha, sem excecao nem aviso
+    nenhum de que o `@Async` foi ignorado. Por isso `PasswordResetDispatcher`
+    nasceu como classe separada em vez de virar mais um metodo de
+    `AuthService`.
+  - Em teste JUnit 5 + `MockitoExtension`, inicializar um campo que depende
+    de um `@Mock` no CONSTRUTOR da classe de teste falha silenciosamente
+    (o mock ainda e `null` nesse ponto - a injecao dos `@Mock` acontece
+    depois da construcao, num callback da extension). O objeto sob teste
+    que depende de mocks tem que ser montado num `@BeforeEach`, nunca no
+    construtor da classe de teste.
+---
