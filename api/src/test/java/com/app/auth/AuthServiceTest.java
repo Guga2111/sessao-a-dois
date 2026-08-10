@@ -73,6 +73,15 @@ class AuthServiceTest {
 				Mockito.mock(PasswordResetService.class));
 	}
 
+	private static AuthService newAuthServiceWithForgotPasswordByEmailLimit(UserRepository userRepository,
+			PasswordResetDispatcher passwordResetDispatcher, int capacity, Duration window) {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setForgotPasswordByEmail(new RateLimitProperties.Limit(capacity, window));
+		return new AuthService(userRepository, Mockito.mock(PasswordEncoder.class), Mockito.mock(JwtService.class),
+				Mockito.mock(RefreshTokenService.class), new RateLimitService(), properties, new SecurityAuditLogger(),
+				passwordResetDispatcher, Mockito.mock(PasswordResetService.class));
+	}
+
 	@Test
 	void registersUserWithHashedPassword() {
 		var request = new RegisterRequest("Ana", "ana@example.com", "senha1234");
@@ -335,6 +344,62 @@ class AuthServiceTest {
 		authService.forgotPassword("ghost@example.com");
 
 		verify(passwordResetDispatcher, never()).dispatch(any());
+	}
+
+	@Test
+	void blocksForgotPasswordByEmailAfterExceedingLimitEvenWhenEmailDoesNotExist() {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMinutes(1));
+		when(userRepository.findByEmail("nao-existe@example.com")).thenReturn(Optional.empty());
+
+		limitedAuthService.forgotPassword("nao-existe@example.com");
+
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword("nao-existe@example.com"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(passwordResetDispatcher, never()).dispatch(any());
+	}
+
+	@Test
+	void forgotPasswordByEmailRateLimitIgnoresCaseAndSurroundingSpaces() {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMinutes(1));
+		when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+
+		limitedAuthService.forgotPassword("ana@example.com");
+
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword(" ANA@Example.com "))
+			.isInstanceOf(RateLimitExceededException.class);
+	}
+
+	@Test
+	void forgotPasswordByEmailRateLimitAlsoAppliesWhenEmailExists() {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMinutes(1));
+		User user = new User("Ana", "ana@example.com", "hash");
+		when(userRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(user));
+
+		limitedAuthService.forgotPassword("ana@example.com");
+
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword("ana@example.com"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(passwordResetDispatcher, org.mockito.Mockito.times(1)).dispatch(user);
+	}
+
+	@Test
+	void releasesForgotPasswordByEmailRateLimitAfterWindow() throws InterruptedException {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMillis(150));
+		when(userRepository.findByEmail("nao-existe2@example.com")).thenReturn(Optional.empty());
+
+		limitedAuthService.forgotPassword("nao-existe2@example.com");
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword("nao-existe2@example.com"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		Thread.sleep(300);
+
+		limitedAuthService.forgotPassword("nao-existe2@example.com");
 	}
 
 	@Test

@@ -160,9 +160,26 @@ public class AuthService {
 	 * @Async), entao um provedor fora do ar nunca atrasa nem altera a resposta.
 	 */
 	public void forgotPassword(String email) {
+		enforceForgotPasswordRateLimit(email);
 		securityAuditLogger.passwordResetRequested(email);
 
 		userRepository.findByEmail(email).ifPresent(passwordResetDispatcher::dispatch);
+	}
+
+	/**
+	 * Limite por e-mail alvo (US-008), alem do limite por IP ja aplicado pelo
+	 * {@code RateLimitFilter}. Roda ANTES da busca do usuario e dispara mesmo
+	 * quando o e-mail nao existe, para nao virar oraculo de enumeracao - mesmo
+	 * padrao de {@link #enforceLoginRateLimit(String)}.
+	 */
+	private void enforceForgotPasswordRateLimit(String email) {
+		String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
+		Limit limit = rateLimitProperties.getForgotPasswordByEmail();
+		RateLimitResult result = rateLimitService.tryConsume("forgot-password:email:" + normalizedEmail,
+				limit.getCapacity(), limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
 	}
 
 	/**

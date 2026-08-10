@@ -380,3 +380,39 @@ Started: 2026-08-10
     `CsrfToken`. A asserção certa e "nenhum cookie `access_token` nem
     `refresh_token`", nao "nenhum `Set-Cookie` nenhum".
 ---
+
+## 2026-08-10 - US-008
+- Implementado rate limit por IP (RateLimitFilter, novas entradas do enum Endpoint
+  FORGOT_PASSWORD 5/h e RESET_PASSWORD 10/h) e por e-mail alvo (AuthService,
+  enforceForgotPasswordRateLimit, chave "forgot-password:email:<normalizado>",
+  3/h) para POST /api/auth/forgot-password e POST /api/auth/reset-password.
+- RateLimitProperties ganhou forgotPassword, forgotPasswordByEmail e
+  resetPassword (Limit proprio cada, sem reaproveitar loginByEmail/passwordChange).
+  application.properties ganhou as 6 linhas capacity/window com env vars proprias
+  (RATE_LIMIT_FORGOT_PASSWORD_*, RATE_LIMIT_FORGOT_PASSWORD_BY_EMAIL_*,
+  RATE_LIMIT_RESET_PASSWORD_*).
+- O limite por e-mail e consumido ANTES do findByEmail em AuthService.forgotPassword,
+  entao dispara igual para e-mail existente e inexistente (nao vira oraculo de
+  enumeracao) - testado explicitamente (forgotPasswordByEmailRateLimitAlsoAppliesWhenEmailExists
+  e blocksForgotPasswordByEmailAfterExceedingLimitEvenWhenEmailDoesNotExist).
+- RateLimitExceededException lancado dai cai no GlobalExceptionHandler generico
+  (429 + Retry-After) - com.app.auth nao precisou de handler novo, mesmo padrao
+  ja usado por enforceLoginRateLimit/enforcePasswordChangeRateLimit.
+- Files changed: RateLimitProperties.java, RateLimitFilter.java, AuthService.java,
+  application.properties, AuthServiceTest.java, RateLimitFilterTest.java.
+- ./mvnw test: 569 testes, 0 falhas, gate do JaCoCo verde.
+- **Learnings for future iterations:**
+  - Nao foi necessario nenhum SecurityAuditLogger.rateLimitExceeded novo para o
+    limite por e-mail - o metodo existente so recebe (endpoint, ip) e e chamado
+    so pelo RateLimitFilter (IP); um limite por conta/e-mail dentro de servico
+    (login, password-change, agora forgot-password) so lanca a excecao, sem
+    auditoria propria, e essa e a convencao ja estabelecida - nao inventar uma
+    chamada de auditoria nova so para este caso.
+  - Ao testar o filtro por IP com um endpoint que TAMBEM tem limite por e-mail
+    dentro do servico (forgot-password), o @TestPropertySource do teste do
+    filtro precisa afrouxar bastante o limite por e-mail (usei capacity=100),
+    senao os builders de request com e-mail unico por chamada (UUID.randomUUID())
+    ainda cabem, mas um teste que reusasse o mesmo e-mail em loop esbarraria no
+    teto errado (por e-mail, nao por IP) e o teste pareceria estar testando o
+    filtro quando na verdade estaria testando o outro limite.
+---
