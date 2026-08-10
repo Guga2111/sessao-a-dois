@@ -235,6 +235,26 @@ Por isso existe `isPasswordChallenge(config)`: uma lista curta de `metodo + url`
 sem redirect. **Todo endpoint novo que valide senha no corpo precisa entrar nessa lista** —
 senao a AC de "erro visivel que nao fecha o dialogo" e impossivel de cumprir na tela.
 
+### `VITE_API_URL` e OPCIONAL — o build de producao roda sem ela
+
+`import.meta.env.VITE_API_URL` esta tipada como `string | undefined`
+(`src/vite-env.d.ts`) de proposito, e todo uso precisa do fallback `?? ""`. O motivo:
+`client/.env.production` esta no `.gitignore`, entao o runner do GitHub Actions faz
+`checkout` sem ele e **todo build do CD roda com a variavel indefinida**. Em producao
+esse e o valor certo — SPA e API sao same-origin atras do nginx, entao URL relativa e
+o que se quer. So o desenvolvimento local precisa do valor absoluto
+(`http://localhost:8080`), porque a pagina esta em `localhost:5173`.
+
+O bug que isso previne (corrigido em 2026-08-10, antes de chegar a producao):
+`` `${import.meta.env.VITE_API_URL}/ws` `` sem fallback vira a string literal
+`"undefined/ws"` — interpolar `undefined` num template literal **nao** falha, produz
+texto. O SockJS pedia `/undefined/ws`, o nginx respondia `index.html` pelo `try_files`,
+e o STOMP nunca conectava: match em tempo real, pedido de avaliacao e o modal de
+celebracao morriam **em silencio**. As chamadas REST nao denunciavam nada, porque
+`baseURL: undefined` no axios ja produz URL relativa — que por acaso e o comportamento
+correto. Dois usos existem hoje (`lib/api.ts`, `stores/useMatchStore.ts`); qualquer uso
+novo tem que repetir o `?? ""`, e o tipo opcional existe para o `tsc -b` cobrar isso.
+
 ### `withXSRFToken: true` e obrigatorio — sem ele, todo POST/PUT/DELETE quebra em dev
 
 `lib/api.ts` declara `xsrfCookieName`/`xsrfHeaderName` **e** `withXSRFToken: true`. O
