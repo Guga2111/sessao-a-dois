@@ -416,3 +416,26 @@ Started: 2026-08-10
     teto errado (por e-mail, nao por IP) e o teste pareceria estar testando o
     filtro quando na verdade estaria testando o outro limite.
 ---
+
+## 2026-08-10 - US-009
+- Implementado `PasswordResetTokenCleanupService` (`com.app.auth`), mesmo molde de
+  `NotificationCleanupService`: `@Scheduled(cron = "0 30 3 * * *")` + `@Transactional`,
+  chamando `passwordResetTokenRepository.deleteExpiredOrUsed(Instant.now())` (metodo
+  ja existente desde a US-004) e logando a contagem removida em `info`. Cron as 3h30
+  para nao colidir com o das 3h00 do `NotificationCleanupService`.
+- Nao foi preciso repositorio novo nem query nova - `deleteExpiredOrUsed` (DELETE em
+  massa, expirado OR usado) ja tinha sido criado na US-004 pensando nesta story.
+- `PasswordResetTokenCleanupServiceTest` (mock do repositorio, `MockitoExtension`,
+  sem Spring) prova a contagem logada via `ArgumentCaptor` no `Instant` passado. A
+  cobertura de "token expirado e removido, token valido nao e removido" ja existe em
+  `PasswordResetTokenRepositoryTest.deleteExpiredOrUsedRemovesExpiredAndUsedButKeepsActive`
+  (US-004) - nao duplicada aqui.
+- Arquivos: `api/src/main/java/com/app/auth/PasswordResetTokenCleanupService.java`,
+  `api/src/test/java/com/app/auth/PasswordResetTokenCleanupServiceTest.java`.
+- `./mvnw test`: 570 testes, 0 falhas, gate do JaCoCo verde.
+- **Learnings for future iterations:**
+  - Quando uma story anterior ja projetou o metodo de repositorio pensando na story
+    de limpeza seguinte (aqui, `deleteExpiredOrUsed` na US-004), o servico agendado
+    fica reduzido a orquestracao pura (`@Scheduled` + `@Transactional` + log) - vale
+    conferir o repositorio da feature antes de escrever query nova.
+---
