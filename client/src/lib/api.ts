@@ -9,7 +9,11 @@ import axios, { isAxiosError, type InternalAxiosRequestConfig } from "axios"
 const REQUEST_TIMEOUT_MS = 15_000
 
 const AXIOS_CONFIG = {
-  baseURL: import.meta.env.VITE_API_URL,
+  // Sem VITE_API_URL (todo build do CD — ver vite-env.d.ts), `baseURL` vira string
+  // vazia e o axios monta URL relativa: same-origin, que e exatamente o que producao
+  // precisa. Deixar `undefined` aqui nao quebraria o axios, mas o `?? ""` mantem o
+  // contrato explicito e igual ao do WebSocket em useMatchStore.
+  baseURL: import.meta.env.VITE_API_URL ?? "",
   timeout: REQUEST_TIMEOUT_MS,
   withCredentials: true,
   xsrfCookieName: "XSRF-TOKEN",

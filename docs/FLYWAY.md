@@ -57,8 +57,65 @@ alteracao tem de ser **revertida antes do deploy** — com o schema divergente e
 a variavel, o proximo deploy falha no startup e a API nao sobe. Corrigir o
 historico primeiro, depois reaplicar a remocao.
 
-Resultado da verificacao (preencher com a data e a saida da query, sem dado
-sensivel): _pendente — nao executado por agente._
+### ✅ Resultado da verificacao — 2026-08-10
+
+Executado pelo mantenedor no Supabase de producao:
+
+| installed_rank | version | description                | type     | success |
+|----------------|---------|----------------------------|----------|---------|
+| 1              | 1       | << Flyway Baseline >>      | BASELINE | true    |
+| 2              | 2       | create notification        | SQL      | true    |
+| 3              | 3       | add indexes                | SQL      | true    |
+| 4              | 4       | denormalize media metadata | SQL      | true    |
+
+**Veredito: LIBERADO** — mas por um motivo diferente do que o gate previa, e com um
+achado que vale mais que o proprio gate.
+
+Contra os tres criterios acima:
+
+- **`success = true` em todas.** ✅
+- **Um unico `type = 'BASELINE'`, e e a V1 legitima.** ✅ Nenhuma migration que
+  deveria ter rodado foi mascarada como baseline — que era exatamente o risco que a
+  remocao de `SPRING_FLYWAY_BASELINE_ON_MIGRATE` (Epico 8, US-007) veio eliminar.
+- **"Existem linhas para V1 ate V6": nao.** O historico para na V4. ⚠️
+
+O terceiro item **nao** e o cenario de "PARAR" descrito abaixo. Ele foi escrito para
+o caso de uma migration ter **sumido ou falhado** num schema que ja deveria te-la —
+divergencia real, que quebra o startup. Aqui V5, V6 e V7 estao simplesmente
+**pendentes**: nunca foram aplicadas porque o deploy correspondente nunca chegou a
+producao. Flyway aplica pendencia em ordem no proximo startup, que e o caminho normal
+e saudavel. Nao ha nada a corrigir antes do merge.
+
+**O achado real: producao esta no Epico 3.** A ultima migration aplicada e a
+`V4__denormalize_media_metadata.sql`, do Epico 3 (US-002). Confirmado de forma
+independente pelo bundle servido em `https://sessaoadois.luisgosampaio.com` na mesma
+data, que ainda guarda JWT em `localStorage`, manda `Authorization: Bearer` e abre o
+WebSocket com `?token=` na query string — todos padroes **anteriores ao Epico 4**.
+Ou seja: **os Epicos 4 a 9 nunca foram para producao**, e o pipeline de CD
+(`.github/workflows/deploy.yml`, existente desde 2026-08-06) nunca completou um deploy
+bem-sucedido. O que esta no ar veio de um `./scripts/deploy.sh` manual antigo.
+
+Consequencias praticas para o proximo deploy, que **nao** e um deploy do Epico 9 e sim
+dos Epicos 4→9 de uma vez:
+
+1. **Tres migrations aplicam juntas** (V5, V6, V7). Todas aditivas e idempotentes
+   (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `ALTER COLUMN DROP NOT
+   NULL`) — nenhum `DROP`/`TRUNCATE`, nenhuma linha apagada. Por isso o deploy sem
+   snapshot previo e um risco aceitavel (ver "backup" abaixo e a D15 do
+   `POST-MVP-TASK.md`), ao contrario do que seria com migration destrutiva.
+2. **O cutover de autenticacao do Epico 4 acontece agora**, nao antes: todos os
+   usuarios sao deslogados uma vez (`docs/DEPLOY.md`, "Aviso de deploy"). Avisar os
+   dois usuarios do casal.
+3. **As tarefas operacionais de nginx da US-010 continuam pendentes** e agora sao mais
+   urgentes, porque o app no ar ainda coloca o JWT na URL do `/ws`: reinstalar o conf
+   com `access_log off;` no bloco `/ws/`, colar os 4 headers de seguranca no bloco 443
+   gerado pelo Certbot, purgar `access.log*` e rotacionar o `JWT_SECRET`
+   (`docs/DEPLOY.md`, "Seguranca operacional", itens (a) a (d)). O deploy sozinho para
+   o vazamento novo; nao apaga o que ja foi gravado.
+4. **`spring.jpa.hibernate.ddl-auto=validate`** significa que a API **nao sobe** se o
+   schema divergir depois das migrations. E a rede de seguranca certa: se V5/V6/V7
+   nao aplicarem, o container falha alto e o smoke test do CD reprova, em vez de subir
+   com schema errado.
 
 Contexto: ate `origin/main` (`e0f3d36`), o schema de producao (Supabase) foi criado inteiramente por `spring.jpa.hibernate.ddl-auto=update`. Nao existe `flyway_schema_history` em producao. As migrations atuais sao:
 
