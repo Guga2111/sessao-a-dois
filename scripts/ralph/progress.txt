@@ -152,3 +152,43 @@ Started: 2026-08-11
     (`{ unsubscribe: vi.fn() }`) a cada chamada, lido via `subscribe.mock.results`
     para verificar cada `unsubscribe` separadamente.
 ---
+
+## 2026-08-11 - US-004
+- Implementado: `src/stores/useAuthStore.test.ts`, cobrindo `loadCurrentUser`
+  (200 popula estado e persiste cache, 401 zera estado e remove cache sem lancar,
+  erro nao-401 relanca mas ainda desliga `loading` no `finally`, `bondDissolved`
+  liga/nao liga conforme o cache tinha `couple.partner`, `bondDissolved` nao vai
+  para o `localStorage`, o cache so tem `{ user, couple }`), bootstrap com
+  `localStorage` corrompido (cai no catch, `{ user: null, couple: null }`),
+  `clearSession` (desconecta `useMatchStore`, limpa cache, zera os quatro campos)
+  e `logout` (POST + limpeza local, inclusive quando o POST falha).
+- Arquivos alterados: client/src/stores/useAuthStore.test.ts (novo). Nenhum
+  arquivo de producao do client/ foi tocado.
+- **Learnings for future iterations:**
+  - Confirmada a previsao da US-003: `useAuthStore` acumula DUAS armadilhas de
+    escopo de modulo ao mesmo tempo (a doc `storeReset.ts` do topo deste arquivo
+    + a leitura de `localStorage` em escopo de modulo). Como a store le
+    `localStorage` na hora do `import` (nao dentro de uma acao), a solucao nao
+    pode ser "resetModules uma vez no `beforeEach`" (padrao da US-003): um teste
+    que precisa de cache pre-semeado tem que chamar `localStorage.setItem(...)`
+    e SO DEPOIS `vi.resetModules()` + `await import(...)` — os dois passos foram
+    encapsulados num helper `loadAuthStore()` chamado explicitamente no CORPO de
+    cada teste (nunca no `beforeEach` global), exatamente como a nota da US-002/
+    US-003 e o `client/CLAUDE.md` ja previam. Testes sem necessidade de cache
+    chamam o mesmo helper com o `localStorage` vazio (limpo no `beforeEach`).
+  - `useMatchStore` tambem precisou de `vi.mock("@/stores/useMatchStore")`
+    (nao so `@/lib/api`), porque `clearSession`/`dissolveCouple`/`logout` chamam
+    `useMatchStore.getState().disconnect()` internamente — o mock e um objeto
+    literal `{ getState: () => ({ disconnect: mockDisconnect }) }` (nao precisa
+    simular a store Zustand inteira, so o unico metodo que `useAuthStore` usa).
+  - `isAxiosError(error)` (importado de `"axios"` de verdade, nao mockado) aceita
+    qualquer objeto com `isAxiosError: true` — nao precisa construir um
+    `AxiosError` de verdade nem mockar o modulo `axios`. Um
+    `Object.assign(new Error("..."), { isAxiosError: true, response: { status } })`
+    basta para os testes de 401/nao-401 do `loadCurrentUser`.
+  - Testes de `clearSession`/`logout` semeiam o estado direto via
+    `useAuthStore.setState({ ... })` em vez de rodar `loadCurrentUser` primeiro —
+    mais rapido e nao acopla o teste de uma acao ao comportamento de outra.
+  - US-005 (mutacoes de perfil/casal/conta) vai poder reusar o mesmo
+    `loadAuthStore()` + os dois `vi.mock` deste arquivo quase sem alteracao.
+---
