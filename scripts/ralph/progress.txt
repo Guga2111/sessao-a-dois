@@ -576,3 +576,52 @@ Started: 2026-08-11
     pode ser silenciosa). US-007/US-008 continuam bloqueadas (decisao do
     mantenedor pendente, nao revisitadas nesta iteracao).
 ---
+
+## 2026-08-11 - US-013
+- Implementado: `src/screens/hub/HubScreen.test.tsx` (novo, 2 testes),
+  cobrindo o mount das tres secoes (cada `api.get("/api/tracking", ...)`
+  consultando o proprio `status`, sempre `page: 0` na carga inicial) e o
+  TESTE DE REGRESSAO: uma secao (`WATCHING`) cujo GET falha para o skeleton
+  (mostra `emptyMessage` em vez de girar para sempre) e chama `console.error`
+  com o status e a pagina no texto (`"Falha ao carregar a seção WATCHING
+  (página 0)"`), enquanto as outras duas secoes (`WANT_TO_SEE`, `WATCHED`)
+  continuam renderizando seus proprios itens normalmente.
+- Arquivos alterados: client/src/screens/hub/HubScreen.test.tsx (novo).
+  Nenhum arquivo de producao do client/ foi tocado (confirmado com
+  `git status --porcelain` antes de commitar: 1 arquivo, so o teste novo).
+- **Learnings for future iterations:**
+  - `HubScreen` e o primeiro teste do epico que monta a TELA inteira (nao um
+    componente presentacional isolado como `TrackSection`): ela renderiza
+    `Header` (usa `useLocation`/`NavLink`, exige `renderWithRouter`),
+    `NotificationDropdown` (le `useNotificationStore` mas nao busca nada no
+    mount, so ao interagir) e cinco modais/dialogos (`TitleModal`,
+    `MediaDetailModal`, `WatchModal`, `ReviewModal`, `DeleteTrackDialog`) que
+    so chamam `api.*` quando abertos (`track`/`open` truthy) — nenhum deles
+    dispara chamada de rede no mount fechado, entao um unico
+    `vi.mock("@/lib/api", ...)` no topo do arquivo bastou para toda a arvore,
+    sem precisar da armadilha de escopo de modulo do `storeReset.ts` (essa so
+    afeta as tres stores Zustand, `HubScreen` importa `@/lib/api` direto, nao
+    atraves de uma store).
+  - `useDelayedLoading` (delay 150ms para mostrar, 400ms minimo visivel) nao
+    precisou de fake timers aqui: o mock resolve/rejeita em microtask, entao
+    `loading` volta a `false` bem antes dos 150ms do timer de "mostrar
+    skeleton" disparar — o skeleton simplesmente nunca aparece, e o teste so
+    precisa de `findByText`/`waitFor` (timers reais) para o estado final
+    (vazio ou com itens). Nao ha necessidade de `vi.useFakeTimers()` para
+    testes de tela que soo verificam o desfecho pos-fetch, so para quem
+    precisa observar o estado INTERMEDIARIO do skeleton (nao e o caso desta
+    story).
+  - O `console.error` de `fetchSectionPage` usa acentuacao (`"seção"`,
+    `"página"`) no template literal — o assert precisa usar os MESMOS
+    caracteres acentuados, senão `toContain`/`toHaveBeenCalledWith` falha
+    silenciosamente por mismatch de string em vez de por um bug real.
+  - Identificar qual chamada do `mock.calls` corresponde a qual secao exige
+    ler `config.params.status` de cada chamada (nao a ORDEM: `Promise.all`
+    via `SECTIONS.forEach(...)` dispara as tres em paralelo, e a ordem de
+    resolucao nao e garantida so pela ordem de disparo quando uma rejeita e
+    as outras resolvem) — ordenar as tres strings antes de comparar
+    (`.sort()`) evita depender de ordem de chamada.
+  - Proxima story implementavel e US-014 (`SearchTab`: os cinco estados do
+    switch de status). US-007/US-008 continuam bloqueadas (decisao do
+    mantenedor pendente, nao revisitadas nesta iteracao).
+---
