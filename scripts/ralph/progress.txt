@@ -594,3 +594,47 @@ Started: 2026-08-10
     story tambem ficou so em `tsc`/`eslint`/`vite build`, checagem manual pendente do lado
     humano, mesma situacao da US-011.
 ---
+
+## 2026-08-11 - US-014
+- Documentacao do epico fechada nos quatro arquivos exigidos, todos ja com
+  precedente de formato a seguir (nao inventei estrutura nova em nenhum):
+  `docs/DEPLOY.md` ganhou uma linha na tabela de Secrets (`RESEND_API_KEY`) +
+  `EMAIL_FROM` na lista de Variables + uma secao nova "E-mail transacional
+  (Resend) - epico 10" com a tabela das 4 variaveis, o limite do free tier
+  (3.000/mes, 100/dia) e o que fazer se estourar, a nota de que `APP_URL` agora
+  tem dois usos, e o passo manual de verificacao de dominio no DNS do Resend.
+  `docs/FLYWAY.md` ganhou a linha da V8 na lista de migrations (mesmo formato de
+  V3-V7) e V8 entrou na frase que lista as migrations afetadas pela ressalva do
+  pooler do Supabase em modo Transaction. `docs/SCHEMA_BASELINE.md` ganhou a
+  tabela `password_reset_token`, copiada estrutura por estrutura da secao
+  `refresh_token` (V5) que ja existia. `docs/ARCHITECTURE.md` secao 3 ganhou o
+  paragrafo de `com.app.email`, descrevendo a porta `EmailSender` e as duas
+  implementacoes trocaveis (`log`/`resend`) por `@ConditionalOnProperty`.
+- `POST-MVP-TASK.md`: T10.1 a T10.4 marcadas com a linha `**Status:** ✅
+  **Concluida em 2026-08-11**` (convencao do proprio documento, linha 79-84) e
+  os criterios de aceite viraram `- [x]`, EXCETO os que exigem verificacao fora
+  do alcance de um agente, que ficaram `- [ ]` com o motivo escrito ao lado: (a)
+  em T10.1, "um e-mail real chega a caixa de entrada" - exige credencial real da
+  conta Resend e dominio verificado no DNS; (b) em T10.3, "verificacao manual em
+  navegador real" - sandbox sem Chromium (`client/CLAUDE.md`), mesma limitacao
+  ja registrada nas entradas de US-011/US-012 deste log.
+- `git log --format=%B <primeiro-commit-US-001>^..HEAD | grep -i co-authored-by`
+  retorna vazio para toda a faixa de commits deste epico (verificado antes de
+  commitar esta story) - a regra do PRD ("nenhum commit pode conter o trailer
+  Co-Authored-By") continua valendo desde a US-001.
+- Arquivos: `docs/DEPLOY.md`, `docs/FLYWAY.md`, `docs/SCHEMA_BASELINE.md`,
+  `docs/ARCHITECTURE.md`, `POST-MVP-TASK.md`.
+- `./mvnw test`: 576 testes, 0 falhas, gate do JaCoCo verde (story so toca
+  Markdown, nenhum arquivo Java mudou). `npx tsc -b`, `npx eslint .` e `npx vite
+  build` tambem passam (mesma substituicao de `bun` ja registrada desde a
+  US-011, `bun` continua ausente deste sandbox).
+- **Learnings for future iterations:**
+  - Ao fechar a documentacao de um epico, `git log --format=%B <base>..HEAD` sozinho
+    NAO basta para provar ausencia do trailer se `main` estiver muito atras da
+    branch de trabalho (traz commits de epicos anteriores que legitimamente TEM o
+    trailer, de antes desta regra de epico existir) - restringir o range ao
+    primeiro commit do epico corrente (aqui, `202f257^..HEAD`, o hash de US-001),
+    nao a `main..HEAD`.
+  - Epico 10 completo: todas as 14 stories do PRD (`scripts/ralph/prd.json`) com
+    `passes: true`.
+---

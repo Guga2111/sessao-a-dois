@@ -1685,6 +1685,7 @@ parte da D4 que dizia o contrário.
 
 ## T10.1 — Infraestrutura de e-mail
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-001 a US-003, US-013 (`task10/emails-verification`).
 **Criticidade:** Alto
 **Arquivos:** novo pacote `api/src/main/java/com/app/email/`, `api/src/main/resources/application.properties`, `docker-compose-prod.yml`, `docs/DEPLOY.md`
 
@@ -1703,12 +1704,12 @@ Criar `com.app.email` como feature nova, seguindo package-by-feature:
 - A chave entra no `.env` da VPS e no `docker-compose-prod.yml` como os outros segredos, nunca versionada.
 
 ### Critérios de aceite
-- [ ] `EmailSender` é a única superfície pública da feature; nenhuma outra feature importa classe do provedor.
-- [ ] Subir em produção sem a API key falha no startup com mensagem em pt-BR nomeando a variável.
-- [ ] Em teste/dev a implementação no-op é usada e a suíte roda sem rede.
-- [ ] Um e-mail real chega à caixa de entrada em um teste manual documentado no PR.
-- [ ] `docs/DEPLOY.md` registra provedor, variável de ambiente, limite do free tier e o que fazer se estourar.
-- [ ] Nenhuma credencial no repositório.
+- [x] `EmailSender` é a única superfície pública da feature; nenhuma outra feature importa classe do provedor.
+- [x] Subir em produção sem a API key falha no startup com mensagem em pt-BR nomeando a variável.
+- [x] Em teste/dev a implementação no-op é usada e a suíte roda sem rede.
+- [ ] Um e-mail real chega à caixa de entrada em um teste manual documentado no PR — não verificável por agente (exige credencial real da conta Resend e domínio verificado no DNS); gate humano, ver `docs/DEPLOY.md`.
+- [x] `docs/DEPLOY.md` registra provedor, variável de ambiente, limite do free tier e o que fazer se estourar.
+- [x] Nenhuma credencial no repositório.
 
 ### Fora do escopo
 Templates elaborados em HTML; fila/retry de envio; e-mail de boas-vindas ou marketing;
@@ -1718,6 +1719,7 @@ verificação de e-mail no cadastro.
 
 ## T10.2 — Fluxo de "esqueci minha senha"
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-004 a US-009 (`task10/emails-verification`).
 **Criticidade:** Alto
 **Arquivos:** `api/src/main/java/com/app/auth/`, `api/src/main/resources/db/migration/V8__create_password_reset_token.sql`, `api/src/main/java/com/app/security/RateLimitProperties.java`
 
@@ -1738,13 +1740,13 @@ UUID solto:
 7. Limpeza dos tokens expirados, no mesmo molde do `NotificationCleanupService`.
 
 ### Critérios de aceite
-- [ ] `POST /api/auth/forgot-password` responde `202` para e-mail existente e inexistente, com tempo de resposta equivalente.
-- [ ] O e-mail chega com link contendo o token em texto claro; o banco guarda só o hash.
-- [ ] Token válido redefine a senha; token usado, expirado ou adulterado responde `400`, sem distinguir os casos.
-- [ ] Depois do reset, todas as sessões anteriores estão revogadas.
-- [ ] Senha nova fora da política responde `400` com a mensagem da T5.3.
-- [ ] Rate limit por IP e por e-mail alvo funcionando, com teste.
-- [ ] Testes cobrindo: fluxo feliz, token expirado, token reusado, e-mail inexistente, política violada.
+- [x] `POST /api/auth/forgot-password` responde `202` para e-mail existente e inexistente, com tempo de resposta equivalente.
+- [x] O e-mail chega com link contendo o token em texto claro; o banco guarda só o hash.
+- [x] Token válido redefine a senha; token usado, expirado ou adulterado responde `400`, sem distinguir os casos.
+- [x] Depois do reset, todas as sessões anteriores estão revogadas.
+- [x] Senha nova fora da política responde `400` com a mensagem da T5.3.
+- [x] Rate limit por IP e por e-mail alvo funcionando, com teste.
+- [x] Testes cobrindo: fluxo feliz, token expirado, token reusado, e-mail inexistente, política violada.
 
 ### Fora do escopo
 Reabrir a D4 (enumeração no registro); verificação de e-mail no cadastro; 2FA;
@@ -1754,6 +1756,7 @@ Reabrir a D4 (enumeração no registro); verificação de e-mail no cadastro; 2F
 
 ## T10.3 — Telas de recuperação no frontend
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-011 e US-012 (`task10/emails-verification`).
 **Criticidade:** Médio
 **Arquivos:** `client/src/routes/auth/`, `client/src/App.tsx`
 
@@ -1772,12 +1775,13 @@ Duas rotas públicas, no `AuthLayout` já existente, reaproveitando o visual de
 **Esta task usa a skill `frontend-design`** (telas novas).
 
 ### Critérios de aceite
-- [ ] As duas rotas existem, são públicas e usam o `AuthLayout`.
-- [ ] A confirmação do pedido é genérica e não revela se a conta existe.
-- [ ] Token ausente ou inválido na URL mostra estado de erro claro, com caminho para pedir outro.
-- [ ] Erros da API viram mensagem visível.
-- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
-- [ ] A skill `frontend-design` foi invocada antes da implementação.
+- [x] As duas rotas existem, são públicas e usam o `AuthLayout`.
+- [x] A confirmação do pedido é genérica e não revela se a conta existe.
+- [x] Token ausente ou inválido na URL mostra estado de erro claro, com caminho para pedir outro.
+- [x] Erros da API viram mensagem visível.
+- [x] `bun run typecheck`, `bun run lint` e `bun run build` passam (sandbox sem `bun`: `npx tsc -b`/`npx eslint .`/`npx vite build` sobre o mesmo `node_modules`, ver `scripts/ralph/progress.txt`).
+- [x] A skill `frontend-design` foi invocada antes da implementação.
+- [ ] Verificação manual em navegador real — não verificável por agente (sandbox sem Chromium, ver `client/CLAUDE.md`); gate humano.
 
 ### Fora do escopo
 Medidor de força de senha; mudar o visual das telas de login/cadastro existentes.
@@ -1786,6 +1790,7 @@ Medidor de força de senha; mudar o visual das telas de login/cadastro existente
 
 ## T10.4 — Aviso de segurança por e-mail
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-010 (`task10/emails-verification`).
 **Criticidade:** Baixo
 **Arquivos:** `api/src/main/java/com/app/auth/AuthService.java`, `api/src/main/java/com/app/email/`
 
@@ -1799,10 +1804,10 @@ alterada, pelos dois caminhos. Falha no envio **não** pode derrubar a operaçã
 já mudou; logar em `warn` e seguir.
 
 ### Critérios de aceite
-- [ ] Troca autenticada (T9.3) e reset (T10.2) disparam o aviso.
-- [ ] Provedor de e-mail fora do ar não faz a troca de senha falhar; o erro aparece no log com contexto.
-- [ ] O e-mail não contém senha, token nem link de ação.
-- [ ] Teste garantindo que a falha de envio é tolerada.
+- [x] Troca autenticada (T9.3) e reset (T10.2) disparam o aviso.
+- [x] Provedor de e-mail fora do ar não faz a troca de senha falhar; o erro aparece no log com contexto.
+- [x] O e-mail não contém senha, token nem link de ação.
+- [x] Teste garantindo que a falha de envio é tolerada.
 
 ### Fora do escopo
 Avisos de login em dispositivo novo; digest de atividade; preferências de notificação.

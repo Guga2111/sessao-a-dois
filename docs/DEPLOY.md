@@ -425,6 +425,7 @@ ou no environment `production`, que o workflow referencia):
 | `DB_PASSWORD` | Password do Supabase |
 | `JWT_SECRET` | Segredo de assinatura (>= 32 bytes, `openssl rand -base64 48`) |
 | `TMDB_API_KEY` | API Read Access Token v4 do TMDB |
+| `RESEND_API_KEY` | API key da conta Resend (epico 10 - e-mail transacional, ver secao abaixo) |
 
 **Secret opcional:**
 
@@ -433,7 +434,52 @@ ou no environment `production`, que o workflow referencia):
 | `VPS_SSH_KNOWN_HOSTS` | Saida de `ssh-keyscan -H 31.97.169.38`. Se estiver definido, a host key fica fixada; se nao, o workflow faz `ssh-keyscan` a cada execucao (trust-on-first-use, aceitavel mas menos seguro). |
 
 **Variables** (nao sao segredos; todas tem default no workflow, so definir para
-mudar o alvo): `VPS_IP`, `VPS_USER`, `APP_URL`, `CORS_ALLOWED_ORIGIN`, `API_PORT`.
+mudar o alvo): `VPS_IP`, `VPS_USER`, `APP_URL`, `CORS_ALLOWED_ORIGIN`, `API_PORT`,
+`EMAIL_FROM` (epico 10, default `Sessão a Dois <nao-responda@sessaoadois.luisgosampaio.com>`).
+
+### E-mail transacional (Resend) — epico 10
+
+`com.app.email` (ver `docs/ARCHITECTURE.md`, secao 3) manda e-mail de verdade em
+producao atraves do [Resend](https://resend.com); em dev/test a implementacao
+default (`app.email.provider=log`) so loga, sem rede nem credencial.
+
+**Quatro variaveis novas**, escritas no `.env` da VPS pelo
+`.github/workflows/deploy.yml` (ver "O `.env` da VPS e SOBRESCRITO a cada
+deploy" acima — nenhuma delas deve ser editada a mao na VPS):
+
+| Variavel | Tipo no GitHub | Default | Para que serve |
+|---|---|---|---|
+| `RESEND_API_KEY` | Secret (obrigatorio) | nenhum | Autentica as chamadas a API do Resend. Sem ela, `com.app.email.EmailProperties` falha o startup (fail-fast, mesmo padrao de `TMDB_API_KEY`). |
+| `EMAIL_FROM` | Variable | `Sessão a Dois <nao-responda@sessaoadois.luisgosampaio.com>` | Remetente que aparece nos e-mails enviados. |
+| `APP_PUBLIC_URL` | derivada de `APP_URL` (sem variavel propria no GitHub) | igual ao default de `APP_URL` | Base do link de redefinicao de senha (`${APP_PUBLIC_URL}/redefinir-senha?token=...`). |
+| `APP_EMAIL_PROVIDER` | fixo no workflow (`resend`) | `resend` | Liga o adaptador real; so producao usa este valor — dev/test/CI usam o default `log`. |
+
+**`APP_URL` passou a ter dois usos.** Ate o Epico 10 essa variavel so alimentava o
+smoke test do CD (`curl https://.../api/health`). Agora o mesmo valor tambem vira
+`APP_PUBLIC_URL` no `.env` — mudar `APP_URL` sem lembrar disso muda tambem o
+dominio que aparece nos links de e-mail enviados aos usuarios.
+
+**Limite do free tier do Resend:** 3.000 e-mails/mes, 100 e-mails/dia. Com ~8
+usuarios conhecidos (`docs/BACKLOG.md`, decisao #3 SUPERADA) e o volume deste
+epico (pedido de reset + aviso de senha alterada), o uso normal fica muito abaixo
+do teto. **Se o limite diario/mensal estourar:** o Resend devolve 4xx/5xx, que
+`com.app.email.ResendEmailSender` converte em `EmailDeliveryException` — nenhum
+fluxo do usuario quebra por causa disso (o `forgot-password` continua respondendo
+`202`, a troca de senha continua respondendo `204`; o erro so fica registrado em
+`warn` no log da API, nunca em silencio). Para resolver: conferir o uso no
+dashboard do Resend e, se for abuso genuino (spam contra um e-mail alvo), o rate
+limit por e-mail/IP do `forgot-password` (ver `docs/ARCHITECTURE.md`) ja limita o
+quanto um unico ator consegue gerar; se for volume legitimo acima do plano
+gratuito, fazer upgrade do plano Resend.
+
+**Verificacao de dominio no DNS (obrigatoria para enviar de
+`nao-responda@sessaoadois.luisgosampaio.com`):** no dashboard do Resend, em
+**Domains**, adicionar `sessaoadois.luisgosampaio.com` e criar os registros DNS
+que o Resend indicar (tipicamente TXT para SPF/DKIM e um registro de
+verificacao) no provedor onde o dominio esta gerido. Sem o dominio verificado, o
+Resend rejeita o envio com remetente desse dominio — isto e um passo manual,
+fora do alcance de qualquer agente ou pipeline, e precisa acontecer **antes** do
+primeiro deploy que ligue `APP_EMAIL_PROVIDER=resend` em producao.
 
 ### Gerar a chave de deploy
 

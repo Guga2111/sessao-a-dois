@@ -129,6 +129,24 @@ deteccao de reuso.
 
 Indices `idx_refresh_token_user` (`user_id`) e `idx_refresh_token_expires` (`expires_at`).
 
+### `password_reset_token` (`com.app.auth.PasswordResetToken`, V8)
+
+Nova em V8, epico 10 (recuperacao de senha e e-mail transacional). Guarda apenas
+o hash do token de redefinicao (nunca o valor em claro), no mesmo espirito do
+`refresh_token` acima.
+
+| Coluna | Tipo | Constraints |
+|---|---|---|
+| `id` | UUID | PK |
+| `user_id` | UUID | NOT NULL, FK -> `users.id` |
+| `token_hash` | varchar(64) | NOT NULL, UNIQUE (SHA-256 em hex) |
+| `expires_at` | timestamptz (`Instant`) | NOT NULL |
+| `used_at` | timestamptz (`Instant`) | nullable |
+| `created_at` | timestamptz (`Instant`) | NOT NULL |
+
+Indices `idx_password_reset_token_user` (`user_id`) e
+`idx_password_reset_token_expires` (`expires_at`).
+
 ## Fora do escopo do V1 (documentado para referencia do V2)
 
 `notification` (`com.app.notification.Notification`) — nova em `create-migrations`, nao existe em producao:
