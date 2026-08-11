@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom"
 import { MatchCelebrationModal } from "@/components/MatchCelebrationModal"
 import { AppShellSkeleton } from "@/components/skeletons/AppShellSkeleton"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
+import { ForgotPasswordPage } from "@/routes/auth/ForgotPasswordPage"
 import { JoinPage } from "@/routes/auth/JoinPage"
 import { LoginPage } from "@/routes/auth/LoginPage"
 import { RegisterPage } from "@/routes/auth/RegisterPage"
@@ -88,6 +89,14 @@ export function App() {
           element={
             <PublicOnlyRoute>
               <RegisterPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/esqueci-senha"
+          element={
+            <PublicOnlyRoute>
+              <ForgotPasswordPage />
             </PublicOnlyRoute>
           }
         />

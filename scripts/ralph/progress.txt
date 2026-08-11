@@ -477,3 +477,39 @@ Started: 2026-08-10
     A prova de verdade exige `@SpringBootTest` com o `PlatformTransactionManager` real e
     `TransactionTemplate.execute` alternando `setRollbackOnly()`/commit normal.
 ---
+
+## 2026-08-11 - US-011
+- Nova tela `ForgotPasswordPage` (`client/src/routes/auth/ForgotPasswordPage.tsx`), rota
+  publica `/esqueci-senha` em `App.tsx` (dentro de `PublicOnlyRoute`, mesmo padrao de
+  `/login`/`/register`), reusando o `AuthLayout` existente sem nenhum token de design novo.
+  Campo de e-mail com validacao de formato local (regex simples) antes do submit, botao
+  desabilitado + texto "Enviando…" durante a requisicao.
+- `POST /api/auth/forgot-password` sempre 202: sucesso troca o conteudo do `AuthLayout`
+  para uma confirmacao GENERICA ("Se existir uma conta com esse e-mail, enviamos as
+  instrucoes...", cobre spam + e-mail digitado) com botao para voltar ao login - nao ha
+  um segundo componente/rota, so um `if (sent)` que troca eyebrow/title/subtitle/children
+  do mesmo `AuthLayout`, no espirito do `notice` que a `LoginPage` ja usa.
+  429 vira mensagem propria ("Muitas tentativas..."), qualquer outro erro (rede, 5xx) cai
+  no mesmo alerta vermelho de `LoginPage`/`RegisterPage` (nenhum `.catch` mudo).
+- `LoginPage` ganhou o link "Esqueci minha senha" ao lado do label "Senha" (mesma linha,
+  `justify-between`), sem alterar mais nada da tela.
+- Tipo novo `ForgotPasswordRequest` em `types/auth.ts`, ao lado de `ChangePasswordRequest`
+  (espelhado a mao, sem codegen, seguindo a convencao ja documentada no comentario do topo
+  do arquivo).
+- Arquivos: `client/src/routes/auth/ForgotPasswordPage.tsx` (novo), `client/src/App.tsx`,
+  `client/src/routes/auth/LoginPage.tsx`, `client/src/types/auth.ts`.
+- `npx tsc -b`, `npx eslint .` e `npx vite build` (sem `bun` disponivel neste sandbox -
+  usado `npx` direto sobre o `node_modules` ja instalado) passam sem erro.
+- **Learnings for future iterations:**
+  - Este sandbox NAO tem o binario `bun` (`which bun` falha, `node_modules` ja esta
+    instalado do lado de fora). `npx tsc -b`/`npx eslint .`/`npx vite build` rodam os
+    mesmos scripts que `bun run typecheck`/`lint`/`build` chamam por baixo (conferir
+    `package.json`) e sao o substituto direto quando `bun` nao existe.
+  - Sem Chromium no sandbox (ja registrado no `client/CLAUDE.md`), a verificacao de
+    browser desta story ficou so em `tsc`/`eslint`/`vite build` - checagem manual em
+    browser real continua pendente do lado humano.
+  - `Button` com `render={<Link to="..." />}` (nao `asChild`) para um botao com cara de
+    link de navegacao, mesmo padrao ja documentado no `client/CLAUDE.md` para
+    `TooltipTrigger`/`PopoverTrigger` - reusado aqui para o CTA "Voltar para o login" da
+    tela de confirmacao.
+---
