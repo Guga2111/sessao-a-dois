@@ -23,6 +23,32 @@ Started: 2026-08-11
   `await import(...)`: `useAuthStore` le `localStorage` no import
   (`const initialSession = loadPersistedSession()`), e `lib/api.ts` guarda o
   `refreshPromise` do single-flight em escopo de modulo.
+- TERCEIRA armadilha de escopo de modulo, descoberta na US-003, que afeta QUALQUER
+  teste que precise mockar uma dependencia interna de `useAuthStore`/`useMatchStore`/
+  `useNotificationStore` (ex.: `@stomp/stompjs`, `sockjs-client`, `@/lib/api`):
+  `src/test/storeReset.ts` (importado por `setup.ts`, que roda para TODO arquivo de
+  teste) importa as tres stores em escopo de modulo, para o `afterEach` global. Esse
+  import acontece ANTES dos `vi.mock(...)` do proprio arquivo de teste surtirem
+  efeito (os `vi.mock` sao hospedados so no topo do ARQUIVO DE TESTE, nao do
+  `setupFiles`), entao a store fica em cache com as dependencias REAIS (nao
+  mockadas) fechadas no seu closure — um `import { useMatchStore } from "..."`
+  comum no arquivo de teste devolve esse MESMO modulo ja poluido, e o mock nunca e
+  usado (confirmado na pratica: 0 instancias do `Client` mockado, e uma chamada de
+  rede REAL saindo do `fetchPending`). Solucao: `vi.resetModules()` +
+  `await import("@/stores/useMatchStore")` DENTRO de um `beforeEach` (nao no topo do
+  arquivo) — forca o modulo a ser reavaliado depois que os `vi.mock` do arquivo ja
+  estao registrados. Consequencia direta: qualquer objeto mockado que a store vai
+  usar internamente (ex.: `api` de `@/lib/api`) tambem precisa ser uma referencia
+  ESTAVEL entre reimports — declare-o dentro do `vi.hoisted(...)` (nao como um
+  literal criado de novo a cada chamada da factory do `vi.mock`), senao o teste
+  configura `mockResolvedValueOnce` num `vi.fn()` que a store recem-reimportada
+  nunca chama. Como o `afterEach` do `storeReset.ts` ainda segura a referencia
+  ANTIGA (real) da store, ele vira um no-op para o modulo reimportado — nao ha
+  vazamento de estado entre testes porque cada teste ja pede um modulo 100% novo no
+  `beforeEach`, mas nao contar com aquele `afterEach` global para limpar o estado
+  de uma store reimportada assim. US-004 (useAuthStore) e US-006
+  (useNotificationStore) vao precisar do mesmo padrao sempre que mockarem algo que
+  essas stores importam internamente (`@/lib/api` no caso das duas).
 - O sandbox roda Node 20.20.2 (sem nvm/fnm/n — so essa versao existe). `jsdom@30`
   (o latest que `bun add -d jsdom` traz) exige Node `^22.22.2 || ^24.15.0 || >=26.0.0`
   e falha o worker do Vitest em runtime com
@@ -92,4 +118,37 @@ Started: 2026-08-11
     `IntersectionObserver` + `triggerIntersection`, `renderWithRouter`) e o reset de
     store (seta `loading: false` num teste, confirma `loading: true` de volta no
     teste seguinte) — todos passaram antes de eu confiar na infraestrutura.
+---
+
+## 2026-08-11 - US-003
+- Implementado: `src/stores/useMatchStore.test.ts`, cobrindo `connect`/`disconnect`
+  (instanciacao unica do `Client`, espera do `pendingDisconnect`, timeout de 3s do
+  `deactivate` que nunca resolve, unsubscribe das duas subscriptions e reset do
+  `celebratedMatchKeys`), `celebrateMatch` (dedupe) e `fetchPending` (sucesso, erro
+  com `console.error`, `pendingLoading` voltando a `false` nos dois caminhos).
+- Arquivos alterados: client/src/stores/useMatchStore.test.ts (novo). Nenhum arquivo
+  de producao do client/ foi tocado.
+- **Learnings for future iterations:**
+  - Descoberta a TERCEIRA armadilha de escopo de modulo do epico (consolidada na
+    secao Codebase Patterns no topo deste arquivo e em `client/CLAUDE.md`):
+    `storeReset.ts` importa as tres stores em escopo de modulo antes dos `vi.mock`
+    do arquivo de teste surtirem efeito, entao mockar `@stomp/stompjs`/
+    `sockjs-client`/`@/lib/api` exige `vi.resetModules()` + `await import(...)`
+    dentro de um `beforeEach`, com qualquer mock que a store usa internamente
+    declarado em `vi.hoisted(...)` para manter identidade estavel entre reimports.
+    US-004 e US-006 vao precisar do mesmo padrao.
+  - `connect()` e uma funcao `async` cujo corpo roda SINCRONAMENTE ate o primeiro
+    `await` de verdade ser alcancado: quando `pendingDisconnect` e `null` (primeira
+    conexao), nenhum `await` e alcancado, entao o `Client` ja esta instanciado e
+    `set({client, connecting:false})` ja aconteceu no momento em que `connect()`
+    retorna — nao precisa de `await`/`waitFor` para o caminho feliz. So depois de
+    um `disconnect()` (que popula `pendingDisconnect`) e que `connect()` de fato
+    suspende no `await Promise.race(...)`, e e so nesse cenario que o teste precisa
+    de `vi.waitFor`/fake timers para observar o estado intermediario.
+  - O mock do `Client` do `@stomp/stompjs` guarda `onConnect`/`onDisconnect` como
+    campos publicos (em vez de so chamar `activate()`) para o teste disparar
+    `client.onConnect?.()` manualmente e exercitar as duas `subscribe()` sem
+    precisar de um servidor STOMP real — `subscribe` retorna um objeto novo
+    (`{ unsubscribe: vi.fn() }`) a cada chamada, lido via `subscribe.mock.results`
+    para verificar cada `unsubscribe` separadamente.
 ---
