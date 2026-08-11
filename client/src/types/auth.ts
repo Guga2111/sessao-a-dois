@@ -14,3 +14,9 @@ export interface ChangePasswordRequest {
 export interface ForgotPasswordRequest {
   email: string
 }
+
+/** Corpo de `POST /api/auth/reset-password` (record `ResetPasswordRequest`). Responde 204, sem cookie de sessao. */
+export interface ResetPasswordRequest {
+  token: string
+  newPassword: string
+}

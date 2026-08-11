@@ -513,3 +513,40 @@ Started: 2026-08-10
     `TooltipTrigger`/`PopoverTrigger` - reusado aqui para o CTA "Voltar para o login" da
     tela de confirmacao.
 ---
+
+## 2026-08-11 - US-012
+- Nova tela `ResetPasswordPage` (`client/src/routes/auth/ResetPasswordPage.tsx`), rota
+  publica `/redefinir-senha` em `App.tsx` (dentro de `PublicOnlyRoute`, mesmo padrao das
+  outras rotas de auth), lendo `?token=` via `useSearchParams`. Token ausente na URL cai
+  direto no mesmo componente de erro (`BrokenLinkState`) que um 400 do backend (token
+  invalido/expirado/reusado) usa depois do submit - a tela nunca tenta adivinhar qual dos
+  tres casos foi, exatamente como o backend nao distingue (US-007).
+- Campos "Senha nova"/"Confirmar senha nova" com `LengthHint`, uma copia local (nao
+  importada) da regua visual de `screens/account/PasswordSection.tsx` (`LengthRail`) -
+  mesma janela 8-72 sempre visivel antes do submit, nao so na mensagem de erro. Nao
+  reusei o componente original por import porque ele pertence a uma tela autenticada
+  (`screens/account/`) e este fluxo e publico (`routes/auth/`); duplicar ~15 linhas ficou
+  mais simples que promover o componente para um lugar compartilhado por um unico segundo
+  uso.
+  Divergencia entre senha e confirmacao e barrada no cliente (`canSubmit`), sem chamar a
+  API.
+- Sucesso mostra confirmacao ("Senha redefinida") e redireciona para `/login` depois de
+  2.4s (mesmo `REDIRECT_DELAY_MS` de `PasswordSection.tsx`) - SEM chamar nenhuma acao do
+  `useAuthStore`, porque o backend não emite cookie nenhum no reset (US-007): a tela so
+  navega, nunca autentica.
+- Tipo novo `ResetPasswordRequest` em `types/auth.ts`, ao lado de `ForgotPasswordRequest`.
+- Arquivos: `client/src/routes/auth/ResetPasswordPage.tsx` (novo), `client/src/App.tsx`,
+  `client/src/types/auth.ts`.
+- `npx tsc -b`, `npx eslint .` e `npx vite build` (sem `bun` neste sandbox, mesma
+  substituicao ja registrada na US-011) passam sem erro.
+- **Learnings for future iterations:**
+  - Quando um mesmo componente visual (aqui, a "regua" de tamanho de senha) e usado tanto
+    numa tela autenticada quanto numa publica, duplicar o componente pequeno em vez de
+    promove-lo para um arquivo compartilhado e a escolha certa enquanto so houver dois
+    usos em arvores de rota diferentes (`screens/account/` vs `routes/auth/`) - evita
+    criar um import cruzado entre uma feature autenticada e o fluxo publico de auth so
+    por causa de CSS/JSX repetido.
+  - Continua sem Chromium neste sandbox (client/CLAUDE.md) - verificacao de browser desta
+    story tambem ficou so em `tsc`/`eslint`/`vite build`, checagem manual pendente do lado
+    humano, mesma situacao da US-011.
+---
