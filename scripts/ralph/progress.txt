@@ -225,3 +225,45 @@ Started: 2026-08-11
     `useMatchStore.getState().disconnect()`) — e a unica das seis acoes onde a
     ORDEM das chamadas dentro da acao importa para o teste de erro.
 ---
+
+## 2026-08-11 - US-006
+- Implementado: `src/stores/useNotificationStore.test.ts` (novo, 16 testes),
+  cobrindo `fetchNotifications` (popula `notifications`/`page`/`hasMore` a
+  partir do `PagedNotificationResponse`, `loading` desliga no `finally` mesmo
+  com erro), `fetchMore` (concatena a proxima pagina, no-op quando `hasMore`
+  e false), `markAsRead` (aplica a mudanca otimista ANTES do `await` do PATCH
+  resolver — verificado com uma Promise controlada manualmente por um
+  `resolvePatch` guardado fora do mock —, reverte `notifications`/
+  `unreadCount` e relanca o erro quando o PATCH falha, e-op para id
+  inexistente e para notificacao ja lida), `markAllAsRead` (zera o contador e
+  reverte igual no erro) e `pushIncoming` (insere no topo e incrementa
+  `unreadCount`; chama `celebrateMatch` da `useMatchStore` com a chave
+  `tmdb:<id>` SO quando `type === "MATCH"`).
+- Arquivos alterados: client/src/stores/useNotificationStore.test.ts (novo).
+  Nenhum arquivo de producao do client/ foi tocado (confirmado com
+  `git status --porcelain` antes de commitar).
+- **Learnings for future iterations:**
+  - Confirmada de novo a armadilha de escopo de modulo do `storeReset.ts`
+    (documentada em Codebase Patterns): `useNotificationStore` precisou do
+    mesmo padrao `vi.resetModules()` + `await import(...)` dentro de um
+    helper (`loadNotificationStore()`) chamado no corpo de cada teste, com
+    `mockApi`/`mockCelebrateMatch` declarados em `vi.hoisted(...)` para
+    manter identidade estavel entre reimports — mesmo molde de
+    `useAuthStore.test.ts` (US-004/US-005), so que aqui a store nao le
+    `localStorage`, entao nao precisou do cuidado extra de "semear antes do
+    import" que o bootstrap da US-004 exigiu.
+  - `useNotificationStore` depende de `@/stores/useMatchStore` so para
+    `celebrateMatch` (nao `disconnect`, como em `useAuthStore`) — o mock e o
+    mesmo objeto literal `{ getState: () => ({ celebrateMatch: mockFn }) }`,
+    trocando so o metodo exposto.
+  - Para provar a ordem "otimista antes da resposta" (AC da US-006), um
+    `mockApi.patch.mockImplementationOnce` que devolve uma `Promise` cuja
+    `resolve` fica guardada numa variavel externa (`resolvePatch`) permite
+    inspecionar o estado do store ANTES de resolver o PATCH — sem isso, dar
+    `await` na acao inteira so mostraria o estado final e nao provaria nada
+    sobre a ordem.
+  - `Math.max(0, unreadCount - 1)` ja presente na acao (codigo de producao)
+    cobre o "nao passar de zero" sozinho — o teste so precisou semear
+    `unreadCount: 0` e chamar `markAsRead` uma vez para confirmar que o
+    resultado continua `0` em vez de `-1`.
+---
