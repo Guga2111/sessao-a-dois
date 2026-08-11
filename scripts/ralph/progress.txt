@@ -478,6 +478,50 @@ Started: 2026-08-10
     `TransactionTemplate.execute` alternando `setRollbackOnly()`/commit normal.
 ---
 
+## 2026-08-11 - US-013
+- `.github/workflows/deploy.yml`: novo `env` do job `EMAIL_FROM` (var, default
+  `Sessão a Dois <nao-responda@sessaoadois.luisgosampaio.com>`, mesmo padrao de
+  `APP_URL`/`CORS_ALLOWED_ORIGIN`). O passo "Escrever .env" ganhou
+  `RESEND_API_KEY` (secret, entrou no loop `for var in ... RESEND_API_KEY` dos
+  obrigatorios - falta dela quebra o deploy com a mesma mensagem dos outros) e
+  passou a escrever 4 linhas novas no `.env`: `RESEND_API_KEY`, `EMAIL_FROM`,
+  `APP_PUBLIC_URL` (copiado do `APP_URL` ja existente do job - a mesma var do
+  smoke test agora tambem vira a base do link de e-mail, sem env var nova no
+  GitHub) e `APP_EMAIL_PROVIDER=resend` (fixo, sem var - so producao usa o
+  provedor real).
+- `docker-compose-prod.yml`: `RESEND_API_KEY`, `EMAIL_FROM`, `APP_PUBLIC_URL` e
+  `APP_EMAIL_PROVIDER` propagadas em `environment:` do servico `api` - sem isso
+  o `.env` escrito pelo workflow nunca atravessa para dentro do container
+  (mesmo motivo pelo qual `TMDB_API_KEY` ja estava la).
+- `.env.example`: secao nova "E-mail transacional (Resend)" com as mesmas
+  quatro variaveis, comentario explicando o fail-fast do
+  `com.app.email.EmailProperties` e o requisito de dominio verificado -
+  nenhum valor real, so placeholder/default publico.
+- Arquivos: `.github/workflows/deploy.yml`, `docker-compose-prod.yml`,
+  `.env.example`.
+- Verificacao: sem `docker`/`psql` neste sandbox (nao roda `docker compose
+  config`), entao os dois YAMLs foram parseados com
+  `node client/node_modules/js-yaml/bin/js-yaml.js <arquivo>` (sintaxe valida,
+  nenhuma tentativa de aplicar de verdade). `./mvnw -B test`: 576 testes, 0
+  falhas (story nao toca em codigo Java, so confirma que nada quebrou).
+  `npx tsc -b`, `npx eslint .` e `npx vite build` tambem passam (mesma
+  substituicao de `bun` ja registrada na US-011/US-012).
+- **Learnings for future iterations:**
+  - Mudanca de infraestrutura pura (workflow YAML + compose + .env.example)
+    nao tem teste automatizado que prove "o valor chega no container" neste
+    sandbox - falta `docker compose config`/deploy real. O criterio objetivo
+    que da para verificar aqui e sintatico (YAML parseia) e de completude
+    (grep confirma que a var aparece nos 3 arquivos: workflow, compose,
+    .env.example); o restante (secret configurado no GitHub antes do merge,
+    dominio verificado no Resend) e gate humano, ja documentado no PRD como
+    tal.
+  - `js-yaml` do `client/node_modules` (via `node
+    client/node_modules/js-yaml/bin/js-yaml.js <arquivo>`) e um substituto
+    direto para `bunx --bun js-yaml` quando `bun` nao existe no sandbox - o
+    pacote ja esta instalado como dependencia transitiva do Vite, nao precisa
+    de install novo.
+---
+
 ## 2026-08-11 - US-011
 - Nova tela `ForgotPasswordPage` (`client/src/routes/auth/ForgotPasswordPage.tsx`), rota
   publica `/esqueci-senha` em `App.tsx` (dentro de `PublicOnlyRoute`, mesmo padrao de
