@@ -44,6 +44,13 @@ const couple: Couple = {
   partner: { id: "u2", name: "Leo" },
   createdAt: "2026-01-01T00:00:00Z",
 }
+const couple2: Couple = {
+  id: "c2",
+  inviteCode: "XYZ999",
+  inviteCodeExpiresAt: "2026-03-01T00:00:00Z",
+  partner: null,
+  createdAt: "2026-02-01T00:00:00Z",
+}
 
 beforeEach(() => {
   localStorage.clear()
@@ -200,5 +207,198 @@ describe("logout", () => {
     const state = useAuthStore.getState()
     expect(state.user).toBeNull()
     expect(state.isAuthenticated).toBe(false)
+  })
+})
+
+describe("updateProfile", () => {
+  it("sends PATCH /api/user/me and writes the new AuthUser to the store AND localStorage in the same action", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    const updated = { id: user.id, name: "Ana Nova", email: user.email }
+    mockApi.patch.mockResolvedValueOnce({ data: updated })
+
+    const result = await useAuthStore.getState().updateProfile({ name: "Ana Nova" })
+
+    expect(mockApi.patch).toHaveBeenCalledWith("/api/user/me", { name: "Ana Nova" })
+    expect(result).toEqual(updated)
+    expect(useAuthStore.getState().user).toEqual(updated)
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!)).toEqual({
+      user: updated,
+      couple,
+    })
+  })
+
+  it("propagates the error and leaves the user unchanged", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.patch.mockRejectedValueOnce(new Error("email already taken"))
+
+    await expect(
+      useAuthStore.getState().updateProfile({ email: "taken@example.com" })
+    ).rejects.toThrow("email already taken")
+
+    expect(useAuthStore.getState().user).toEqual(user)
+  })
+})
+
+describe("joinCouple", () => {
+  it("persists the couple, writes it to the store and clears bondDissolved", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple: null, isAuthenticated: true, bondDissolved: true })
+    mockApi.post.mockResolvedValueOnce({ data: couple })
+
+    const result = await useAuthStore.getState().joinCouple("INVITE1")
+
+    expect(mockApi.post).toHaveBeenCalledWith("/api/couple/join", { inviteCode: "INVITE1" })
+    expect(result).toEqual(couple)
+    const state = useAuthStore.getState()
+    expect(state.couple).toEqual(couple)
+    expect(state.bondDissolved).toBe(false)
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!)).toEqual({ user, couple })
+  })
+
+  it("propagates the error and leaves couple/bondDissolved unchanged", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple: null, isAuthenticated: true, bondDissolved: true })
+    mockApi.post.mockRejectedValueOnce(new Error("invalid invite code"))
+
+    await expect(useAuthStore.getState().joinCouple("BAD")).rejects.toThrow(
+      "invalid invite code"
+    )
+
+    const state = useAuthStore.getState()
+    expect(state.couple).toBeNull()
+    expect(state.bondDissolved).toBe(true)
+  })
+})
+
+describe("createCouple", () => {
+  it("persists the couple, writes it to the store and clears bondDissolved", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple: null, isAuthenticated: true, bondDissolved: true })
+    mockApi.post.mockResolvedValueOnce({ data: couple2 })
+
+    const result = await useAuthStore.getState().createCouple()
+
+    expect(mockApi.post).toHaveBeenCalledWith("/api/couple")
+    expect(result).toEqual(couple2)
+    const state = useAuthStore.getState()
+    expect(state.couple).toEqual(couple2)
+    expect(state.bondDissolved).toBe(false)
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!)).toEqual({
+      user,
+      couple: couple2,
+    })
+  })
+})
+
+describe("regenerateInviteCode", () => {
+  it("updates the couple in the store and in the cache", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.post.mockResolvedValueOnce({ data: couple2 })
+
+    const result = await useAuthStore.getState().regenerateInviteCode()
+
+    expect(mockApi.post).toHaveBeenCalledWith("/api/couple/invite-code/regenerate")
+    expect(result).toEqual(couple2)
+    expect(useAuthStore.getState().couple).toEqual(couple2)
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!)).toEqual({
+      user,
+      couple: couple2,
+    })
+  })
+})
+
+describe("dissolveCouple", () => {
+  it("sends DELETE /api/couple/me, disconnects useMatchStore and zeros only couple", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.delete.mockResolvedValueOnce({ data: undefined })
+
+    await useAuthStore.getState().dissolveCouple()
+
+    expect(mockApi.delete).toHaveBeenCalledWith("/api/couple/me")
+    expect(mockDisconnect).toHaveBeenCalledTimes(1)
+    const state = useAuthStore.getState()
+    expect(state.couple).toBeNull()
+    expect(state.user).toEqual(user)
+    expect(state.isAuthenticated).toBe(true)
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!)).toEqual({
+      user,
+      couple: null,
+    })
+  })
+
+  it("propagates the error without disconnecting or touching the couple", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.delete.mockRejectedValueOnce(new Error("rate limited"))
+
+    await expect(useAuthStore.getState().dissolveCouple()).rejects.toThrow("rate limited")
+
+    expect(mockDisconnect).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().couple).toEqual(couple)
+  })
+})
+
+describe("changePassword", () => {
+  it("sends PUT /api/auth/password and does not touch local state", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.put.mockResolvedValueOnce({ data: undefined })
+    const request = { currentPassword: "old-pass", newPassword: "new-pass" }
+
+    await useAuthStore.getState().changePassword(request)
+
+    expect(mockApi.put).toHaveBeenCalledWith("/api/auth/password", request)
+    const state = useAuthStore.getState()
+    expect(state.user).toEqual(user)
+    expect(state.couple).toEqual(couple)
+    expect(state.isAuthenticated).toBe(true)
+  })
+
+  it("propagates the error and does not touch local state", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.put.mockRejectedValueOnce(new Error("wrong current password"))
+
+    await expect(
+      useAuthStore.getState().changePassword({ currentPassword: "x", newPassword: "y" })
+    ).rejects.toThrow("wrong current password")
+
+    const state = useAuthStore.getState()
+    expect(state.user).toEqual(user)
+    expect(state.isAuthenticated).toBe(true)
+  })
+})
+
+describe("deleteAccount", () => {
+  it("sends DELETE /api/user/me with the body in { data } and does not touch local state", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.delete.mockResolvedValueOnce({ data: undefined })
+
+    await useAuthStore.getState().deleteAccount({ password: "secret" })
+
+    expect(mockApi.delete).toHaveBeenCalledWith("/api/user/me", { data: { password: "secret" } })
+    const state = useAuthStore.getState()
+    expect(state.user).toEqual(user)
+    expect(state.couple).toEqual(couple)
+    expect(state.isAuthenticated).toBe(true)
+  })
+
+  it("propagates the error and does not touch local state", async () => {
+    const useAuthStore = await loadAuthStore()
+    useAuthStore.setState({ user, couple, isAuthenticated: true })
+    mockApi.delete.mockRejectedValueOnce(new Error("wrong password"))
+
+    await expect(
+      useAuthStore.getState().deleteAccount({ password: "wrong" })
+    ).rejects.toThrow("wrong password")
+
+    const state = useAuthStore.getState()
+    expect(state.user).toEqual(user)
+    expect(state.isAuthenticated).toBe(true)
   })
 })

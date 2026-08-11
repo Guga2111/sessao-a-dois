@@ -192,3 +192,36 @@ Started: 2026-08-11
   - US-005 (mutacoes de perfil/casal/conta) vai poder reusar o mesmo
     `loadAuthStore()` + os dois `vi.mock` deste arquivo quase sem alteracao.
 ---
+
+## 2026-08-11 - US-005
+- Implementado: 13 testes novos em `src/stores/useAuthStore.test.ts`, adicionados
+  ao arquivo existente da US-004 (nao criou arquivo novo), cobrindo `updateProfile`
+  (PATCH + escrita simultanea em store/localStorage), `joinCouple`/`createCouple`
+  (persistencia do casal + limpeza de `bondDissolved`), `regenerateInviteCode`
+  (atualiza store e cache), `dissolveCouple` (DELETE + disconnect da
+  `useMatchStore` + zera SO `couple`, mantendo `user`/`isAuthenticated`),
+  `changePassword` e `deleteAccount` (nenhuma mexe no estado local, corpo de
+  `deleteAccount` vai em `{ data }`), e um teste de propagacao de erro sem
+  corromper o estado para cada uma das seis acoes.
+- Arquivos alterados: client/src/stores/useAuthStore.test.ts (so este). Nenhum
+  arquivo de producao do client/ foi tocado (confirmado com `git diff --stat`
+  antes de commitar: 1 arquivo, so insercoes).
+- **Learnings for future iterations:**
+  - A previsao da US-004 se confirmou: os mesmos dois `vi.mock` (`@/lib/api` e
+    `@/stores/useMatchStore`) e o helper `loadAuthStore()` ja existentes no
+    arquivo cobriram as seis acoes novas sem nenhuma mudanca de infraestrutura —
+    nenhuma delas precisou de mock adicional alem do que US-004 ja tinha montado.
+  - Nenhuma dessas seis acoes le `localStorage` fora do escopo de modulo (ao
+    contrario do bootstrap da US-004), entao nao precisaram do padrao
+    "`localStorage.setItem` antes do `loadAuthStore()`" — bastou
+    `useAuthStore.setState({...})` depois de criar a store para semear o estado
+    inicial de cada teste, mais simples que os testes de `loadCurrentUser`.
+  - Teste de propagacao de erro usa o padrao "seed state -> reject -> assert
+    state ainda igual ao seed" em vez de comparar contra um snapshot profundo do
+    state inteiro — mais legivel e evita acoplar o teste a campos que a acao
+    nunca tocou (ex.: `loading`).
+  - `dissolveCouple` com erro precisa verificar explicitamente que `disconnect`
+    NAO foi chamado (o `await api.delete` lanca antes de alcancar a linha do
+    `useMatchStore.getState().disconnect()`) — e a unica das seis acoes onde a
+    ORDEM das chamadas dentro da acao importa para o teste de erro.
+---
