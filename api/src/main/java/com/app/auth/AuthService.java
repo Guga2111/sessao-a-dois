@@ -10,8 +10,10 @@ import com.app.security.SecurityAuditLogger;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -36,11 +38,13 @@ public class AuthService {
 	private final SecurityAuditLogger securityAuditLogger;
 	private final PasswordResetDispatcher passwordResetDispatcher;
 	private final PasswordResetService passwordResetService;
+	private final ApplicationEventPublisher eventPublisher;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
 			RefreshTokenService refreshTokenService, RateLimitService rateLimitService,
 			RateLimitProperties rateLimitProperties, SecurityAuditLogger securityAuditLogger,
-			PasswordResetDispatcher passwordResetDispatcher, PasswordResetService passwordResetService) {
+			PasswordResetDispatcher passwordResetDispatcher, PasswordResetService passwordResetService,
+			ApplicationEventPublisher eventPublisher) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
@@ -50,6 +54,7 @@ public class AuthService {
 		this.securityAuditLogger = securityAuditLogger;
 		this.passwordResetDispatcher = passwordResetDispatcher;
 		this.passwordResetService = passwordResetService;
+		this.eventPublisher = eventPublisher;
 	}
 
 	public User register(RegisterRequest request) {
@@ -126,6 +131,7 @@ public class AuthService {
 	 * inclusive a que fez a troca (E9.8): se a senha estava comprometida, a sessao do atacante
 	 * morre junto. Senha atual errada nao altera nada - nem a senha, nem as sessoes.
 	 */
+	@Transactional
 	public void changePassword(UUID userId, ChangePasswordRequest request) {
 		enforcePasswordChangeRateLimit(userId);
 
@@ -138,6 +144,7 @@ public class AuthService {
 		userRepository.save(user);
 		refreshTokenService.revokeFamily(userId);
 		securityAuditLogger.passwordChanged(userId);
+		eventPublisher.publishEvent(new PasswordChangedNoticeEvent(userId, user.getEmail(), user.getName()));
 	}
 
 	/**
@@ -188,6 +195,7 @@ public class AuthService {
 	 * PasswordEncoder do login e derruba TODAS as sessoes do usuario (E9.8) - a
 	 * resposta nao emite nenhum cookie, o reset nao autentica quem o fez.
 	 */
+	@Transactional
 	public void resetPassword(String rawToken, String newPassword) {
 		UUID userId = passwordResetService.consumeToken(rawToken);
 		User user = findAuthenticatedUser(userId);
@@ -196,6 +204,7 @@ public class AuthService {
 		userRepository.save(user);
 		refreshTokenService.revokeFamily(userId);
 		securityAuditLogger.passwordResetCompleted(userId);
+		eventPublisher.publishEvent(new PasswordChangedNoticeEvent(userId, user.getEmail(), user.getName()));
 	}
 
 	public record LoginResult(String accessToken, String refreshToken, User user) {

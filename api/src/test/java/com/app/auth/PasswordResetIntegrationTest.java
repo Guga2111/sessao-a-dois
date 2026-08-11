@@ -1,5 +1,6 @@
 package com.app.auth;
 
+import com.app.email.EmailSender;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
@@ -10,12 +11,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -38,6 +42,26 @@ class PasswordResetIntegrationTest {
 
 	@Autowired
 	private PasswordResetService passwordResetService;
+
+	@MockitoBean
+	private EmailSender emailSender;
+
+	@Test
+	void resettingThePasswordSucceedsEvenWhenTheEmailProviderIsDown() throws Exception {
+		doThrow(new RuntimeException("provedor fora do ar")).when(emailSender)
+			.sendPasswordChangedNotice(anyString(), anyString());
+
+		String email = "reset-provedor-fora-" + UUID.randomUUID() + "@example.com";
+		register(email, "senha-antiga-1");
+		String rawToken = issueRawToken(email);
+
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"" + rawToken + "\",\"newPassword\":\"senha-nova-12\"}"))
+			.andExpect(status().isNoContent());
+
+		login(email, "senha-nova-12").andExpect(status().isOk());
+	}
 
 	@Test
 	void resettingThePasswordDropsEverySessionAndOnlyTheNewPasswordLogsInAgain() throws Exception {

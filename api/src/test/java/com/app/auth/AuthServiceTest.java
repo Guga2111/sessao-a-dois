@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
@@ -51,6 +52,9 @@ class AuthServiceTest {
 	@Mock
 	private PasswordResetService passwordResetService;
 
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
+
 	private RateLimitProperties rateLimitProperties;
 
 	private AuthService authService;
@@ -60,7 +64,7 @@ class AuthServiceTest {
 		rateLimitProperties = new RateLimitProperties();
 		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
 				new RateLimitService(), rateLimitProperties, new SecurityAuditLogger(), passwordResetDispatcher,
-				passwordResetService);
+				passwordResetService, eventPublisher);
 	}
 
 	private static AuthService newAuthServiceWithLoginByEmailLimit(UserRepository userRepository,
@@ -70,7 +74,7 @@ class AuthServiceTest {
 		properties.setLoginByEmail(new RateLimitProperties.Limit(capacity, window));
 		return new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
 				new RateLimitService(), properties, new SecurityAuditLogger(), Mockito.mock(PasswordResetDispatcher.class),
-				Mockito.mock(PasswordResetService.class));
+				Mockito.mock(PasswordResetService.class), Mockito.mock(ApplicationEventPublisher.class));
 	}
 
 	private static AuthService newAuthServiceWithForgotPasswordByEmailLimit(UserRepository userRepository,
@@ -79,7 +83,8 @@ class AuthServiceTest {
 		properties.setForgotPasswordByEmail(new RateLimitProperties.Limit(capacity, window));
 		return new AuthService(userRepository, Mockito.mock(PasswordEncoder.class), Mockito.mock(JwtService.class),
 				Mockito.mock(RefreshTokenService.class), new RateLimitService(), properties, new SecurityAuditLogger(),
-				passwordResetDispatcher, Mockito.mock(PasswordResetService.class));
+				passwordResetDispatcher, Mockito.mock(PasswordResetService.class),
+				Mockito.mock(ApplicationEventPublisher.class));
 	}
 
 	@Test
@@ -253,6 +258,11 @@ class AuthServiceTest {
 		verify(userRepository).save(captor.capture());
 		assertThat(captor.getValue().getPasswordHash()).isEqualTo("hash-novo");
 		verify(refreshTokenService).revokeFamily(userId);
+
+		ArgumentCaptor<PasswordChangedNoticeEvent> eventCaptor = ArgumentCaptor.forClass(PasswordChangedNoticeEvent.class);
+		verify(eventPublisher).publishEvent(eventCaptor.capture());
+		assertThat(eventCaptor.getValue().userId()).isEqualTo(userId);
+		assertThat(eventCaptor.getValue().email()).isEqualTo("ana@example.com");
 	}
 
 	@Test
@@ -270,6 +280,7 @@ class AuthServiceTest {
 		verify(userRepository, never()).save(any(User.class));
 		verify(refreshTokenService, never()).revokeFamily(any());
 		verify(passwordEncoder, never()).encode(anyString());
+		verify(eventPublisher, never()).publishEvent(any());
 	}
 
 	@Test
@@ -278,7 +289,7 @@ class AuthServiceTest {
 		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
 		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
 				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher,
-				passwordResetService);
+				passwordResetService, eventPublisher);
 		UUID userId = UUID.randomUUID();
 		User user = new User("Ana", "ana@example.com", "hash-antigo");
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -300,7 +311,7 @@ class AuthServiceTest {
 		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
 		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
 				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher,
-				passwordResetService);
+				passwordResetService, eventPublisher);
 		UUID first = UUID.randomUUID();
 		UUID second = UUID.randomUUID();
 		// Uma instancia por chamada: a primeira troca muda o hash da entidade em memoria, e
@@ -416,6 +427,11 @@ class AuthServiceTest {
 		verify(userRepository).save(captor.capture());
 		assertThat(captor.getValue().getPasswordHash()).isEqualTo("hash-novo");
 		verify(refreshTokenService).revokeFamily(userId);
+
+		ArgumentCaptor<PasswordChangedNoticeEvent> eventCaptor = ArgumentCaptor.forClass(PasswordChangedNoticeEvent.class);
+		verify(eventPublisher).publishEvent(eventCaptor.capture());
+		assertThat(eventCaptor.getValue().userId()).isEqualTo(userId);
+		assertThat(eventCaptor.getValue().email()).isEqualTo("ana@example.com");
 	}
 
 	@Test
@@ -428,5 +444,6 @@ class AuthServiceTest {
 
 		verify(userRepository, never()).save(any(User.class));
 		verify(refreshTokenService, never()).revokeFamily(any());
+		verify(eventPublisher, never()).publishEvent(any());
 	}
 }

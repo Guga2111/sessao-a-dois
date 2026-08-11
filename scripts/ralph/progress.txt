@@ -439,3 +439,41 @@ Started: 2026-08-10
     fica reduzido a orquestracao pura (`@Scheduled` + `@Transactional` + log) - vale
     conferir o repositorio da feature antes de escrever query nova.
 ---
+
+## 2026-08-11 - US-010
+- `AuthService.changePassword`/`resetPassword` ganharam `@Transactional` (nao tinham antes) e
+  publicam `PasswordChangedNoticeEvent(userId, email, name)` via `ApplicationEventPublisher`
+  como ultimo passo do metodo, dentro da mesma transacao que grava a senha nova.
+- `PasswordChangedNoticeListener` (`com.app.auth`) escuta com `@TransactionalEventListener(phase
+  = TransactionPhase.AFTER_COMMIT)` e chama `EmailSender.sendPasswordChangedNotice`, com a
+  MESMA receita de `PasswordResetDispatcher`: `catch (RuntimeException)` + `log.warn` com o
+  `userId`, nunca a excecao vazando, nunca dado sensivel. O e-mail/nome viajam dentro do
+  evento (nao um id) porque o listener roda depois do commit, quando a sessao do Hibernate
+  que carregou o `User` ja fechou (`open-in-view=false`).
+- `AuthService` ganhou um 10o argumento no construtor (`ApplicationEventPublisher`) - todo
+  `new AuthService(...)` direto em teste precisou do argumento extra (`AuthServiceTest`).
+- Testes novos: `PasswordChangedNoticeListenerTest` (unidade, prova que a excecao do
+  `EmailSender` nao propaga), `PasswordChangedNoticeEventTransactionTest` (`@SpringBootTest`
+  real + `TransactionTemplate` sobre o `PlatformTransactionManager` de verdade - a UNICA forma
+  de provar "nunca dispara em rollback", ja que um `ApplicationEventPublisher` mockado nao
+  sabe o que e uma transacao), e um teste novo em cada integration test existente
+  (`PasswordChangeIntegrationTest`/`PasswordResetIntegrationTest`) com `EmailSender` mockado
+  lancando excecao, provando que a troca/reset ainda respondem sucesso nos dois caminhos.
+- Arquivos: `api/src/main/java/com/app/auth/PasswordChangedNoticeEvent.java`,
+  `PasswordChangedNoticeListener.java`, `AuthService.java`, e os testes correspondentes
+  (`AuthServiceTest`, `PasswordChangedNoticeListenerTest` novo,
+  `PasswordChangedNoticeEventTransactionTest` novo, `PasswordChangeIntegrationTest`,
+  `PasswordResetIntegrationTest`).
+- `./mvnw test`: 576 testes, 0 falhas, gate do JaCoCo verde.
+- **Learnings for future iterations:**
+  - `@TransactionalEventListener` so dispara se existir uma transacao REAL em andamento no
+    momento do `publishEvent` - um metodo de servico sem `@Transactional` publica o evento
+    "no vazio" e o listener nunca roda (nem erro, nem log, silencio total). `changePassword`/
+    `resetPassword` nao tinham `@Transactional` ate esta story porque cada chamada de
+    repositorio ja era transacional por conta propria (Spring Data) e isso bastava; precisou
+    da anotacao explicita no metodo assim que precisou de um listener pos-commit.
+  - Testar "AFTER_COMMIT nunca roda em rollback" com um `ApplicationEventPublisher` mockado
+    nao prova nada - o mock nao entende fase de transacao nenhuma, so registra a chamada.
+    A prova de verdade exige `@SpringBootTest` com o `PlatformTransactionManager` real e
+    `TransactionTemplate.execute` alternando `setRollbackOnly()`/commit normal.
+---

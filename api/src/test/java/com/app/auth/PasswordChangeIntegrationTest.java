@@ -1,5 +1,7 @@
 package com.app.auth;
 
+import com.app.email.EmailSender;
+
 import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.Test;
@@ -8,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -15,6 +18,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +38,31 @@ class PasswordChangeIntegrationTest {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@MockitoBean
+	private EmailSender emailSender;
+
+	@Test
+	void changingThePasswordSucceedsEvenWhenTheEmailProviderIsDown() throws Exception {
+		doThrow(new RuntimeException("provedor fora do ar")).when(emailSender)
+			.sendPasswordChangedNotice(anyString(), anyString());
+
+		String email = "senha-provedor-fora-" + UUID.randomUUID() + "@example.com";
+		register(email, "senha-antiga-1");
+		MvcResult login = login(email, "senha-antiga-1").andExpect(status().isOk()).andReturn();
+		Cookie accessCookie = login.getResponse().getCookie(AuthCookieService.ACCESS_TOKEN_COOKIE);
+
+		mockMvc.perform(put("/api/auth/password")
+				.with(csrf())
+				.cookie(accessCookie)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"currentPassword":"senha-antiga-1","newPassword":"senha-nova-12"}
+					"""))
+			.andExpect(status().isNoContent());
+
+		login(email, "senha-nova-12").andExpect(status().isOk());
+	}
 
 	@Test
 	void changingThePasswordDropsEverySessionAndOnlyTheNewPasswordLogsInAgain() throws Exception {
