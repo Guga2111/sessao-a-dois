@@ -485,3 +485,46 @@ Started: 2026-08-11
     continuam bloqueadas (decisao do mantenedor pendente), nao foram
     revisitadas nesta iteracao.
 ---
+
+## 2026-08-11 - US-011
+- Implementado: `src/routes/guards.test.tsx` (novo, 12 testes), cobrindo os
+  quatro guards de `src/routes/guards.tsx` (`ProtectedRoute`, `PublicOnlyRoute`,
+  `RequireCouple`, `RedirectIfCoupled`): redirecionamento correto por estado de
+  sessao/casal, renderizacao do filho no caminho feliz, o estado "casal criado
+  mas ainda sem parceiro" (`couple` presente, `partner` null) testado nos
+  quatro guards (inclusive `ProtectedRoute`, que nao olha para `couple` — o
+  teste confirma que ele so olha para `isAuthenticated`), e que TODO
+  redirecionamento usa `replace` (historico nao acumula a rota barrada).
+- Arquivos alterados: client/src/routes/guards.test.tsx (novo). Nenhum arquivo
+  de producao do client/ foi tocado (confirmado com `git status --porcelain`
+  antes de commitar: 1 arquivo, so o teste novo).
+- **Learnings for future iterations:**
+  - `renderWithRouter` (US-002) so envolve `ui` num `<MemoryRouter>` **sem**
+    `<Routes>`, entao nao ha como ler de volta se a navegacao disparada por
+    `<Navigate replace />` foi de fato um REPLACE (vs PUSH) — o
+    `MemoryRouter` declarativo nao expoe o historico interno. A forma
+    confiavel de provar "nao acumula historico" e usar o **data router**
+    (`createMemoryRouter` + `<RouterProvider>`, ambos re-exportados de
+    `react-router-dom`) com uma tabela de rotas que inclui tanto a rota
+    protegida quanto os tres destinos possiveis (`/login`, `/hub`, `/join`)
+    como telas-dublê (`<div>texto</div>`) — o `router.state.historyAction`
+    resultante e literalmente `"POP" | "PUSH" | "REPLACE"` (enum do
+    `@remix-run/router` por baixo), e vira `"REPLACE"` assim que o efeito do
+    `<Navigate replace />` roda. Optei por NAO usar `renderWithRouter` aqui
+    (apesar da AC do `prd.json` citar o helper por nome) porque ele estrutura-
+    lmente nao consegue verificar a AC mais importante da story ("todos os
+    redirecionamentos usam replace"); a alternativa (uma segunda rota atras
+    da protegida + navegar para tras manualmente) exigiria mais infraestrutura
+    nova do que o helper de data router pronto do proprio react-router-dom.
+    `renderWithRouter` continua correto para qualquer teste futuro que so
+    precise montar um componente sob rota sem inspecionar o historico.
+  - Os guards leem `isAuthenticated`/`couple` direto da `useAuthStore` (sem
+    `@/lib/api` nem `@/stores/useMatchStore` no meio) — nenhuma das tres
+    armadilhas de escopo de modulo do topo deste arquivo se aplica aqui.
+    `useAuthStore.setState({...})` no corpo de cada teste basta (mesmo padrao
+    mais simples que US-005/US-006 usaram para semear estado sem exercitar a
+    acao que o produz); o `afterEach` global de `storeReset.ts` limpa entre
+    testes sem esforco extra.
+  - Proxima story implementavel e US-012 (`TrackSection`). US-007/US-008
+    continuam bloqueadas (decisao do mantenedor pendente).
+---
