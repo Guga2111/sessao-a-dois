@@ -53,3 +53,43 @@ Started: 2026-08-11
     `__dirname` em `vite.config.ts` (pre-existente, nao relacionado a este epico) —
     nao e erro, so warning; nao mexi nisso por estar fora do escopo da story.
 ---
+
+## 2026-08-11 - US-002
+- Implementado: stubs de ambiente e helpers de teste compartilhados usados pelas
+  16 stories seguintes, e a secao de testes documentada em `client/CLAUDE.md`.
+- Arquivos alterados: client/src/test/setup.ts (stubs de `window.matchMedia`,
+  `ResizeObserver` e `IntersectionObserver`, este ultimo com `triggerIntersection`
+  exportado para disparo manual; agora importa `./storeReset` como efeito colateral),
+  client/src/test/storeReset.ts (novo — `afterEach` global que reseta useAuthStore/
+  useMatchStore/useNotificationStore via `store.setState(store.getInitialState(), true)`),
+  client/src/test/renderWithRouter.tsx (novo — helper que monta um componente dentro
+  de `MemoryRouter` com rota inicial parametrizavel), client/CLAUDE.md (nova secao
+  "Testes (Epico 11)").
+- **Learnings for future iterations:**
+  - `useMatchStore.getInitialState().celebratedMatchKeys` e o MESMO objeto `Set`
+    desde a criacao da store: a acao `celebrateMatch` faz `celebratedMatchKeys.add(...)`
+    **mutando o Set em vez de substituir via `set()`** — so `disconnect()` troca por
+    um `Set` novo (`set({ celebratedMatchKeys: new Set() })`). Consequencia pratica
+    para a US-003: se um teste chamar `celebrateMatch` sem depois chamar `disconnect`,
+    a chave fica gravada no MESMO objeto que `getInitialState()` devolve, entao o
+    `afterEach` de `storeReset.ts` (que faz `setState(getInitialState(), true)`) NAO
+    limpa esse Set entre testes — o proximo teste que chamar `celebrateMatch` com a
+    mesma chave vai encontrar `celebratedMatchKeys.has(...)` ja true e o modal nao
+    abre. Nao e bug do `storeReset.ts`: e um efeito colateral de como a acao de
+    producao muta o Set, e esta fora do escopo deste epico mexer nisso (regra de
+    escopo: nenhuma story altera codigo de producao do client/). US-003 precisa
+    tratar isso explicitamente no teste (ex.: chamar `disconnect()` no fim de cada
+    teste que usa `celebrateMatch`, ou verificar a identidade do Set antes/depois).
+  - `zustand@5.0.14` expoe `useStore.getInitialState()` prontinho (documentado em
+    `node_modules/zustand/vanilla.d.ts`) — nao precisou snapshot manual do estado
+    inicial de cada store.
+  - `triggerIntersection` ficou exportado do proprio `src/test/setup.ts` (nao um
+    arquivo `.ts` separado): setup.ts nao e um arquivo de componente, entao a regra
+    `react-refresh/only-export-components` nao se aplica a ele — so os HELPERS QUE
+    RENDERIZAM (`renderWithRouter.tsx`) precisam ficar isolados num `.tsx` proprio.
+  - Verificado na pratica antes de remover: um teste temporario (`_verify.test.tsx`,
+    apagado depois) exercitou os quatro stubs (`matchMedia`, `ResizeObserver`,
+    `IntersectionObserver` + `triggerIntersection`, `renderWithRouter`) e o reset de
+    store (seta `loading: false` num teste, confirma `loading: true` de volta no
+    teste seguinte) — todos passaram antes de eu confiar na infraestrutura.
+---
