@@ -226,6 +226,53 @@ Started: 2026-08-11
     ORDEM das chamadas dentro da acao importa para o teste de erro.
 ---
 
+## 2026-08-11 - US-007 (BLOQUEADA — registrada, nao implementada)
+- Tentativa: testar o `reducer` de `src/screens/match/useDiscoverSearch.ts` como
+  funcao pura (AC explicita: "Os testes do reducer nao renderizam React nem
+  tocam a rede").
+- **Motivo do bloqueio:** `reducer`, `initialState`, `State` e `Action` NAO sao
+  exportados do modulo — sao `function`/`const`/`type` privados do arquivo, so
+  usados internamente por `useReducer(reducer, initialState)` dentro de
+  `useDiscoverSearch()`. Para um arquivo de teste importar `reducer` e chama-lo
+  diretamente (sem `renderHook`, sem montar componente) e OBRIGATORIO adicionar
+  `export` a essas quatro declaracoes — uma mudanca em codigo de producao do
+  `client/`, mesmo sendo estritamente aditiva (so a palavra `export`, zero
+  mudanca de comportamento, zero pixel).
+  Isso colide de frente com duas regras explicitas deste epico: a REGRA DE
+  ESCOPO do `prd.json` ("nenhuma story deste epico... altera codigo de
+  producao do client/ - se um teste so passar mexendo em codigo de producao,
+  PARAR e registrar em vez de alterar") e a propria AC da US-007 ("Nenhum
+  arquivo de producao do client/ e alterado"). Testar via `renderHook` (unica
+  forma de alcancar o reducer sem exporta-lo) violaria a OUTRA AC da mesma
+  story ("Os testes do reducer nao renderizam React").
+  Cheguei a implementar as duas partes (export das 4 declaracoes + arquivo de
+  teste com 14 casos cobrindo QUERY_CHANGED vazio/com espacos/com texto,
+  FILTERS_CLEARED, as duas sequencias FETCH_STARTED->SUCCEEDED/FAILED->SETTLED,
+  e as acoes de campo unico), confirmei que os 14 testes passavam e que
+  `bun run typecheck`/`bun run lint`/`bun run test:run` (suite inteira, 59
+  testes) ficavam verdes — depois revertive tudo (`git checkout` no arquivo de
+  producao + remocao do teste) para nao decidir uma excecao de escopo sozinho.
+- Arquivos alterados nesta iteracao: NENHUM (working tree limpa ao final;
+  tentativa revertida).
+- `passes` de US-007 continua `false`. Decisao pendente do mantenedor entre:
+  (a) exportar `reducer`/`initialState`/`State`/`Action` (mudanca minima,
+  aditiva, sem efeito em runtime) e ajustar a AC "nenhum arquivo de producao e
+  alterado" para essa excecao, ou (b) reescrever a AC da US-007 para testar via
+  `renderHook` (abrindo mao de "nao renderizam React"), ou (c) mover o reducer
+  para um arquivo separado (`useDiscoverSearch.reducer.ts`) exportado por
+  padrao, se isso contar como "nao e codigo de producao alterado" por ser
+  extracao pura sem mudanca de comportamento (ainda assim toca no arquivo
+  principal para importar de volta).
+- **Learnings for future iterations:**
+  - Este e o primeiro caso do epico em que a UNICA forma de escrever o teste
+    pedido pela story exige tocar em codigo de producao — nas 6 stories
+    anteriores (US-001 a US-006) o alvo do teste sempre era publico (store
+    Zustand exportada, ou tinha uma acao publica). US-008 em diante deve ser
+    checada com a mesma pergunta ANTES de escrever o teste: "o que a AC pede
+    testar ja e exportado?" — se nao for, parar e registrar em vez de exportar
+    por conta propria, como fiz aqui.
+---
+
 ## 2026-08-11 - US-006
 - Implementado: `src/stores/useNotificationStore.test.ts` (novo, 16 testes),
   cobrindo `fetchNotifications` (popula `notifications`/`page`/`hasMore` a
@@ -266,4 +313,101 @@ Started: 2026-08-11
     cobre o "nao passar de zero" sozinho — o teste so precisou semear
     `unreadCount: 0` e chamar `markAsRead` uma vez para confirmar que o
     resultado continua `0` em vez de `-1`.
+---
+
+## 2026-08-11 - US-008 (BLOQUEADA — registrada, nao implementada)
+- Tentativa: testar `useDiscoverSearch` com `renderHook` + `vi.mock("@/lib/api")`
+  (debounce, erro de rede, replay de paginacao, `TMDB_MAX_PAGE`, carga inicial).
+- **Motivo do bloqueio:** a AC "Erro de rede acende fetchError e NAO limpa os
+  results anteriores" e falsa para o codigo atual de
+  `src/screens/match/useDiscoverSearch.ts`. Escrevi um teste descartavel
+  (`_verify.test.ts`, apagado depois) que populava `results` com uma busca bem-
+  sucedida e depois disparava uma busca que falha: `result.current.results.length`
+  cai de `1` para `0` — o `reducer` (case `FETCH_FAILED`) zera
+  `results`/`totalResults`/`totalPages` incondicionalmente, sem excecao para
+  "ja havia resultado antes". Confirmado rodando `bun run test:run -- _verify`
+  duas vezes (uma com `expect(...).toBe(1)` falhando de verdade, nao so lendo o
+  codigo). Fazer a AC passar como escrita exigiria remover esse zeramento do
+  reducer — uma mudanca de COMPORTAMENTO em codigo de producao (nao so
+  estrutural como o `export` pendente da US-007), o que colide com a regra de
+  escopo do epico ("se um teste so passar mexendo em codigo de producao, PARAR
+  e registrar em vez de alterar").
+  A nota original do PRD-fonte (`tasks/prd-epico-11-rede-de-testes-do-frontend.md`,
+  linha 205) diz "comportamento atual — o grid segue montado", que parece se
+  referir a outra coisa (o `<div>` da grade nao desmontar entre estados, ja
+  coberto pela nota de `SearchTab.tsx` no `client/CLAUDE.md`), nao a preservacao
+  do ARRAY `results` do hook — ao ser convertida para a AC do `prd.json` a
+  frase virou uma afirmacao especifica sobre `results` que o codigo atual nao
+  cumpre.
+  As outras 5 ACs de comportamento (renderHook+vi.mock sem rede real, UMA
+  chamada apos debounce mesmo digitando rapido, replay de pagina via
+  `lastFetchRef` com so o `page` diferente, `TMDB_MAX_PAGE` como teto, carga
+  inicial de trending na montagem) sao testaveis sem tocar em producao — mas a
+  story so fecha com `passes:true` quando TODAS as AC do `prd.json` baterem,
+  entao nao commitei um arquivo de teste parcial (decisao consistente com a
+  US-007: nao decidir uma excecao de escopo sozinho).
+- Arquivos alterados nesta iteracao: NENHUM em `client/` (working tree limpo
+  ao final; `_verify.test.ts` criado e apagado). `scripts/ralph/prd.json`
+  (campo `notes` da US-008) e este arquivo foram atualizados.
+- `passes` de US-008 continua `false`. Decisao pendente do mantenedor entre:
+  (a) corrigir o reducer para preservar `results`/`totalResults`/`totalPages`
+  em `FETCH_FAILED` (mudanca de comportamento real, fora do escopo deste
+  epico de testes) e so entao testar a AC como escrita, ou (b) reescrever a AC
+  para refletir o comportamento atual (`fetchError` acende e `results` E
+  zerado — a UI decide o que mostrar a partir do `status` derivado em
+  `SearchTab.tsx`, nao do `results` cru).
+- **Learnings for future iterations:**
+  - Quando uma AC descreve um comportamento que "parece" plausivel mas nao foi
+    lido no codigo-fonte, vale escrever um teste descartavel ANTES de assumir
+    que da para escrever a versao "de verdade" — a leitura estatica do
+    `reducer` (US-007) ja bastava para desconfiar aqui, mas so o teste
+    rodando (com o `expect` fazendo o teste falhar de propósito) confirma sem
+    ambiguidade. Nao decida so lendo o codigo quando a AC afirma um
+    comportamento especifico — rode.
+  - `renderHook` de `@testing-library/react` funciona neste projeto sem
+    configuracao extra (nenhuma story anterior tinha usado ainda); combinado
+    com `vi.mock("@/lib/api", () => ({ api: { get: (...args) => mockGet(...args) } }))`
+    (mock simples, sem a armadilha de escopo de modulo do `storeReset.ts` —
+    essa armadilha e so para as tres stores Zustand, `useDiscoverSearch` nao e
+    uma store).
+---
+
+## 2026-08-11 - US-009
+- Implementado: `src/lib/useCompareSelection.test.ts` (novo, 8 testes), usando
+  `renderHook` da `@testing-library/react` (segunda story a usar, depois da
+  tentativa registrada da US-008). Cobre `toggle` (adiciona, remove pelo
+  `keyOf`, para em 2 sem substituir o terceiro), o fetch dos dois `buildItem`
+  via `Promise.all` ao chegar a 2 selecionados (`left`/`right` preenchidos,
+  `dialogOpen` true), a falha de um `buildItem` (dialogOpen false, left/right
+  nulos, mensagem de erro, selecao preservada), `retry` (nova identidade de
+  array em `selected`, sem duplicar logica de fetch — confirmado contando
+  `buildItem` chamado 4x: 2 na tentativa que falha + 2 na que reusa o mesmo
+  efeito), `exitCompareMode`/`clearSelection` (zeram selecao/left/right/error;
+  so o primeiro tambem desliga `compareMode`) e o listener de `Escape`
+  (so ativo com `compareMode` ligado, removido ao sair do modo e no unmount,
+  verificado com `vi.spyOn(window, "addEventListener"/"removeEventListener")`).
+- Arquivos alterados: client/src/lib/useCompareSelection.test.ts (novo).
+  Nenhum arquivo de producao do client/ foi tocado (confirmado com
+  `git status --porcelain` + `git diff --stat -- client/` antes de commitar).
+- **Learnings for future iterations:**
+  - `useCompareSelection` nao e uma store Zustand nem consome `@/lib/api`
+    diretamente (recebe `buildItem`/`keyOf` como parametros do generico `T`) —
+    nenhuma das tres armadilhas de escopo de modulo do topo deste arquivo se
+    aplica aqui. E o hook mais simples de testar do epico ate agora: so
+    `renderHook` + `vi.fn()` para os callbacks, zero `vi.mock`.
+  - O efeito que dispara o fetch usa `setTimeout(fn, 0)` (nao debounce de
+    verdade) — bastou `await waitFor(...)` com timers reais, sem precisar de
+    `vi.useFakeTimers()` (diferente do debounce de 400ms da US-008).
+  - Para o teste de `toggle` que so verifica o LIMITE de selecao (parar em 2,
+    ignorar o terceiro), o `buildItem` foi mockado devolvendo uma Promise que
+    NUNCA resolve (`() => new Promise(() => {})`) — evita que o efeito de
+    fetch dispare `setState` depois que o teste ja terminou (o que geraria
+    warning de "act" fora de um teste que nao aguarda o efeito).
+  - Para testar `retry` sem depender da ORDEM de resolucao de dois
+    `mockResolvedValueOnce`/`mockRejectedValueOnce` encadeados (o
+    `Promise.all(selected.map(buildItem))` chama `buildItem` para os dois
+    itens sincronamente a cada tentativa, entao a ordem das chamadas e
+    previsivel mas facil de contar errado), foi mais simples usar uma flag
+    (`let shouldFail`) capturada pela `mockImplementation` e alternar o valor
+    entre o `toggle` inicial e o `retry`.
 ---

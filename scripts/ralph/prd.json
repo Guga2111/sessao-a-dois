@@ -167,7 +167,7 @@
       ],
       "priority": 7,
       "passes": false,
-      "notes": ""
+      "notes": "BLOQUEADA: reducer/initialState/State/Action de useDiscoverSearch.ts nao sao exportados. Testar como funcao pura sem renderizar React exige export (= alterar codigo de producao), o que colide com a AC 'nenhum arquivo de producao e alterado' e com a regra de escopo do epico. Decisao do mantenedor pendente - ver progress.txt secao US-007."
     },
     {
       "id": "US-008",
@@ -188,7 +188,7 @@
       ],
       "priority": 8,
       "passes": false,
-      "notes": ""
+      "notes": "BLOQUEADA (parcial): a AC 'Erro de rede acende fetchError e NAO limpa os results anteriores' e falsa para o codigo atual - confirmado na pratica com um teste descartavel (renderHook, sucesso popula results, fetch seguinte falha, results.length caiu de 1 para 0). O reducer de useDiscoverSearch.ts (FETCH_FAILED) zera results/totalResults/totalPages incondicionalmente. Fazer essa AC passar como escrita exige mudar o reducer (remover o zeramento) - alteracao de comportamento de producao, nao so estrutural como a exportacao pendente da US-007, e colide com a mesma regra de escopo do epico. As outras 5 ACs de comportamento (debounce de 1 chamada, replay de paginacao via lastFetchRef, limite TMDB_MAX_PAGE, carga inicial de trending, renderHook+vi.mock sem rede real) sao testaveis sem tocar producao, mas a story so fecha com passes:true quando TODAS as AC baterem - decisao do mantenedor pendente (corrigir o reducer, ou reescrever a AC para refletir o comportamento real). Ver progress.txt secao US-008."
     },
     {
       "id": "US-009",
@@ -209,7 +209,7 @@
         "Commit sem trailer Co-Authored-By"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
