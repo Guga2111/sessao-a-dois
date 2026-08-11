@@ -1,0 +1,777 @@
+# Ralph Progress Log
+Epico 9 - Ciclo de Vida de Conta e Casal
+Started: 2026-08-06
+(o log do Epico 8 esta em scripts/ralph/archive/2026-08-06-epico8-cicd-infraestrutura/)
+---
+
+## Codebase Patterns
+- Backend: `./mvnw test` roda de verdade no sandbox (~40s, 431 testes) e ja inclui o
+  gate do JaCoCo (`check` na fase `test`, minimo 90% de linha). Nunca dar uma story de
+  backend como pronta sem rodar. `./mvnw -q test` esconde o resumo e mostra so
+  stacktrace de log esperado — usar `./mvnw test | grep -E "Tests run:|BUILD"`.
+- `@WebMvcTest` so prova alguma coisa sobre autenticacao se a `SecurityConfig` do app
+  entrar no slice. Conjunto padrao de import:
+  `@Import({ SecurityConfig.class, ClientIpResolver.class, RateLimitService.class,
+  RateLimitProperties.class, SecurityAuditLogger.class })` + `@MockitoBean JwtService`.
+  Filtros (`RateLimitFilter`, `CorrelationIdFilter`, `JwtAuthenticationFilter`) sao
+  auto-incluidos por implementarem `jakarta.servlet.Filter` — nao importar, so prover
+  as dependencias deles.
+- Para uma rota publica, `verifyNoInteractions(jwtService)` e a assercao que realmente
+  prova "nao exige autenticacao"; um 200 sozinho passaria mesmo se a rota virasse
+  autenticada-com-anonimo.
+- NAO ha `docker` nem `psql` neste sandbox. Criterio de aceite que depende de
+  `docker build`/`docker ps`/Postgres real fica pendente do lado humano — registrar
+  aqui em vez de travar a story.
+- Mudanca de infraestrutura (variavel de ambiente, compose, workflow) NAO e coberta por
+  `./mvnw test`. Verificar de outro jeito: parsear o YAML (`bunx --bun js-yaml <arquivo>`),
+  rodar o step de verdade quando for shell, e registrar o que so pode ser conferido do
+  lado humano.
+- Imports do Spring Boot 4.1 mudaram de pacote: `@WebMvcTest` vem de
+  `org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest`; `@DataJpaTest` de
+  `org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest`. Copiar o import
+  de um teste vizinho em vez de escrever de memoria.
+- Entidade com `@GeneratedValue` nao tem setter de id nem de campo interno. Para montar
+  um estado que o dominio nao deixa montar (ex.: linha legada dissolvida com
+  `invite_code` preenchido), usar
+  `ReflectionTestUtils.setField(entity, "campo", valor)` — ja e o padrao do projeto
+  para `id`.
+- `@DataJpaTest` NAO passa pelas migrations: `spring.flyway.enabled=false` +
+  `ddl-auto=create-drop` no `src/test/resources/application.properties`, schema gerado
+  das entidades JPA. O unico teste que aplica V1..Vn de verdade e
+  `com.app.migration.FlywayMigrationTest`, e a lista de versoes dele e literal — toda
+  migration nova precisa da string correspondente adicionada la, senao o teste passa
+  sem provar nada sobre o arquivo novo.
+- Contagem de queries com `Page`: o Spring Data SO emite a query de `count` quando o
+  resultado enche a pagina. Comparar contagem de queries entre "poucos" e "muitos"
+  registros so mede N+1 se OS DOIS casos passarem do tamanho da pagina — senao a
+  diferenca de 1 query e a do `count`, nao um N+1.
+- Mock do Mockito com retorno `List` devolve LISTA VAZIA quando nao stubado (nao null).
+  Um teste que esperava membros do casal passa a produzir zero reviews em silencio —
+  stubar `coupleFacade.memberIds(...)` onde a assercao depende dos membros.
+- Consulta derivada nao expressa `IS NULL` combinado com `OR` de forma legivel; para
+  filtros de dominio (ex.: "casal ativo") usar `@Query` JPQL com `@Param`, que tambem
+  deixa o nome do metodo livre para dizer a intencao (`findActiveByUserId`) em vez da
+  mecanica (`findByUser1IdOrUser2IdAndDissolvedAtIsNull`).
+- `RateLimitExceededException` NAO e tratada pelo `CoupleExceptionHandler` (nem pelo
+  `AuthExceptionHandler`): quem devolve o 429 + `Retry-After` e o
+  `GlobalExceptionHandler` de `com.app.common`, e um `@WebMvcTest` de controller o
+  enxerga porque a slice inclui todo `@RestControllerAdvice`. Limite novo por usuario =
+  `Limit` em `RateLimitProperties` + linha em `application.properties` + `tryConsume`
+  dentro do servico; nenhum handler novo.
+- Um limite por usuario dentro do servico NAO respeita `app.rate-limit.enabled=false`
+  (a flag so desliga o `RateLimitFilter`). Teste de integracao que repete a mesma
+  operacao limitada precisa de ids de usuario diferentes por teste, senao o balde
+  compartilhado vaza entre metodos da mesma classe.
+- Os `@RestControllerAdvice` de feature deste projeto sao TODOS escopados por
+  `basePackages`. Reusar a excecao de outra feature (padrao aceito aqui) NAO traz o
+  mapeamento HTTP junto: sem um advice na feature que lanca, a excecao cai no
+  `handleGeneric` do `GlobalExceptionHandler` e vira 500 em vez do status certo.
+- Em DTO de PATCH nenhum campo pode ser `@NotBlank`/`@NotNull` (reprovaria o caso
+  normal de "so mandei o outro campo"). O par que valida sem quebrar a semantica e
+  `@Pattern(regexp = ".*\\S.*")` (ignora null por especificacao) e, para e-mail,
+  `@Size(min = 1)` ao lado de `@Email` — o validador de `@Email` aceita string vazia.
+- Prova de "a sessao continua valida" exige cookie `access_token` real (emitido pelo
+  `JwtService` autowired) num `@SpringBootTest`; o post-processor `authentication(...)`
+  injeta o principal direto e passaria mesmo se o token tivesse deixado de valer.
+- Metodo publico "de brinde" num servico novo (getter sem endpoint) e reprovado pelo
+  gate do JaCoCo na hora — so escrever o que a story usa.
+- Endpoint autenticado e mutante em `@WebMvcTest` precisa de `.with(csrf())` alem do
+  `.with(authentication(...))` — sem ele o 403 do CSRF passa por "funcionou como esperado"
+  em qualquer assercao que nao seja de status.
+- No frontend, o interceptor de `lib/api.ts` trata TODO 401 como sessao expirada (refresh,
+  repete, e no segundo 401 manda para `/login`). Endpoint que valida senha no CORPO tem um
+  401 de dominio, nao de sessao, e precisa entrar em `isPasswordChallenge` — senao a tela
+  nao consegue mostrar "senha errada", o usuario e expulso do formulario.
+- "O Postgres so checa a FK no fim do statement" NAO e portavel: vale para uma constraint
+  imediata no Postgres, mas o H2 `MODE=PostgreSQL` do ambiente de teste checa linha a
+  linha. Exclusao em massa numa tabela com AUTO-REFERENCIA (ex.: `refresh_token.replaced_by_id`)
+  precisa de `UPDATE ... SET <coluna_fk> = null` antes do `DELETE`. Os dois continuam
+  baseados em conjunto — `deleteAll(entidades)` (um `DELETE` por linha) segue proibido.
+- Quando a regra e a ORDEM entre duas chamadas, a assercao e `InOrder` do Mockito; dois
+  `verify` soltos passam com a ordem invertida.
+- Reusar uma excecao dentro da PROPRIA feature traz o mapeamento HTTP de graca; reusar de
+  outra feature nao (os `@RestControllerAdvice` sao escopados por `basePackages`).
+- Endpoint destrutivo de casal tem DOIS caminhos que nao se unificam: o do endpoint
+  (404 quando nao ha casal) e o interno/no-op usado por porta e exclusao de conta. Se
+  um servico ganhar um metodo `xIfActive`, conferir se o endpoint novo precisa do
+  irmao estrito antes de reusar o no-op.
+
+---
+
+## 2026-08-06 - Setup do Epico 9
+- O `prd.json` ainda continha o Epico 8 (todas as stories `passes: true`) enquanto o
+  branch atual (`epic9/couple-lifecycle`) e o commit `eeb7e82` ("chore: prd for
+  epico9") ja apontavam para o Epico 9, cujo PRD estava so em markdown
+  (`tasks/prd-epico-9-ciclo-de-vida-de-conta-e-casal.md`, 611 linhas).
+- Arquivado o Epico 8 em `scripts/ralph/archive/2026-08-06-epico8-cicd-infraestrutura/`
+  (prd.json + progress.txt), `prd.json` reescrito com as 14 stories do Epico 9 e
+  `.last-branch` atualizado para `epic9/couple-lifecycle` — sem isso o `ralph.sh`
+  arquivaria o prd.json NOVO dentro da pasta do epico ANTIGO na proxima execucao (ele
+  compara `.last-branch` com `branchName` do prd.json) e ainda zeraria este progress.txt.
+- **Learnings for future iterations:**
+  - Quando o `prd.json` estiver de um epico anterior e existir um PRD novo em `tasks/`,
+    a conversao (arquivar + reescrever + `.last-branch`) e parte do trabalho, nao um
+    bloqueio. Os tres passos andam juntos.
+---
+
+## 2026-08-06 - US-001 (Migration V7 e o conceito de casal dissolvido)
+- `api/src/main/resources/db/migration/V7__add_couple_dissolved_at.sql` (novo):
+  `ALTER TABLE couples ADD COLUMN IF NOT EXISTS dissolved_at TIMESTAMP WITH TIME ZONE;`
+  — aditivo, idempotente, sem `DROP`/`TRUNCATE`. O cabecalho registra a D13 (dissolver,
+  nao apagar) e a consequencia de cardinalidade da E9.20.
+- `Couple`: campo `dissolvedAt` (`Instant`, nullable), `getDissolvedAt()`, `isActive()`
+  e o metodo de dominio `dissolve()` — grava o instante, chama o `clearInviteCode()` que
+  ja existia (E9.17) e lanca `CoupleAlreadyDissolvedException` (nova, em `com.app.couple`)
+  quando o casal ja esta dissolvido (E9.7).
+- `CoupleAlreadyDissolvedException extends IllegalStateException`, DELIBERADAMENTE sem
+  entrada no `CoupleExceptionHandler`: nenhum fluxo de usuario chega la (casal dissolvido
+  ja nao e "ativo" e vira 404 antes), entao se ela aparecer em producao e bug interno e
+  500 e a resposta certa. Se uma story futura precisar mapear, mapear conscientemente.
+- `CoupleRepository`: nascem `findActiveByUserId(UUID)` e `findActiveByInviteCode(String)`
+  (`@Query` JPQL com `dissolved_at is null`); `findByInviteCode` foi **removido** e o
+  unico caller (`CoupleService.joinCouple`) migrado. `findByUser1IdOrUser2Id` continua
+  vivo de proposito — a remocao dele e da US-002, que migra os quatro callers de uma vez.
+- Testes: `CoupleTest` (novo, 4 testes de dominio: casal novo e ativo, dissolve grava o
+  instante, dissolve limpa o convite, dissolve duas vezes lanca e preserva o primeiro
+  instante); `CoupleRepositoryTest` ganhou 3 testes (dissolvido nao e retornado por
+  usuario; usuario com um dissolvido + um ativo devolve so o ativo — o cenario que a
+  E9.20 protege; linha legada dissolvida com `invite_code` preenchido a mao nao e
+  retornada por `findActiveByInviteCode`). `CoupleServiceTest` teve os 11 stubs de
+  `findByInviteCode` trocados. `FlywayMigrationTest` passou a exigir a versao `"7"`.
+- `docs/FLYWAY.md`: a lista de migrations do corpo ganhou as linhas da **V6** (que estava
+  faltando) e da **V7**, e a ressalva do pooler do Supabase (5432 direta ou pooler em modo
+  Session, nunca Transaction/6543) passou a citar as duas explicitamente.
+- `api/CLAUDE.md`: secao nova sobre o ciclo de vida do casal dissolvido.
+- Arquivos alterados: `V7__add_couple_dissolved_at.sql` (novo),
+  `CoupleAlreadyDissolvedException.java` (novo), `CoupleTest.java` (novo), `Couple.java`,
+  `CoupleRepository.java`, `CoupleService.java`, `CoupleRepositoryTest.java`,
+  `CoupleServiceTest.java`, `FlywayMigrationTest.java`, `docs/FLYWAY.md`, `api/CLAUDE.md`,
+  `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> **431 testes, 0 falhas, 0 erros**; JaCoCo `check` verde
+  ("All coverage checks have been met").
+  **PENDENTE DO LADO HUMANO:** o `FlywayMigrationTest` rodou contra **H2 em
+  MODE=PostgreSQL**, nao contra Postgres real — `DB_URL` nao existe neste sandbox e o
+  arranjo cai para H2 em silencio. Quem exerce a V7 contra `postgres:17-alpine` de
+  verdade e o CI (`.github/workflows/ci.yml`). E, no deploy que carregar a V7: connection
+  string direta (5432) ou pooler em modo Session, mais o snapshot manual do Supabase
+  (D15: nao ha backup gerenciado).
+- **Learnings for future iterations:**
+  - `dissolve()` faz DUAS coisas (marca o instante e limpa o convite) porque os dois
+    caminhos de resolucao de casal sao independentes: `findActiveByUserId` parte do
+    usuario, `findActiveByInviteCode` parte do codigo. Limpar sozinho nao cobre linha
+    legada; filtrar sozinho nao cobre um `dissolve()` futuro fora do servico. Cinto e
+    suspensorio, os dois de proposito.
+  - Remover um metodo de repositorio e mais barato do que parece: o compilador aponta o
+    caller de producao na hora, e os testes quebram por `when(...)` de um metodo que nao
+    existe mais. Foi assim com `findByInviteCode` (1 caller de producao, 11 stubs de
+    teste) e sera assim com `findByUser1IdOrUser2Id` na US-002 (4 callers).
+  - `CoupleServiceTest` nao precisou de nenhum teste novo nesta story porque
+    `joinCouple` so trocou de consulta, sem mudar de comportamento — a cobertura do
+    convite de casal dissolvido no nivel de servico/controller e AC da US-004, junto com
+    o endpoint que dissolve.
+---
+
+## 2026-08-06 - US-002 (Porta CoupleFacade - so UUID cruza a fronteira)
+- `CoupleFacade` (novo, `com.app.couple`): `findActiveCoupleId`, `requireActiveCoupleId`
+  (404 via `com.app.common.ResourceNotFoundException`, E9.16), `memberIds(coupleId)` e
+  `dissolveIfActive(userId)`. Fachada FINA sobre o `CoupleService` — todo metodo delega,
+  nenhum reimplementa consulta. Nenhuma assinatura aceita/devolve `Couple` (E9.4).
+- `Couple.memberIds()` (novo metodo de dominio): user1 + user2, pulando o `user2Id` nulo.
+  A semantica que hoje vive em `MediaTrackMapper.memberIds(Couple)` desceu para a
+  entidade, que e quem sabe "quem sao os dois" — a US-003 apaga a estatica do mapper.
+- `CoupleService`: `memberIds(UUID coupleId)` (por `findById`, SEM filtro de dissolucao —
+  ver learning abaixo) e `dissolveIfActive(UUID) -> Optional<UUID>` (id do casal
+  dissolvido, vazio se nao havia; o `Optional` e para a US-004/US-007 auditarem).
+  Os 4 callers de `findByUser1IdOrUser2Id` (`createCouple`, `getCurrentCouple`,
+  `joinCouple`, `regenerateInviteCode`) migrados para `findActiveByUserId`.
+- `CoupleRepository`: **`findByUser1IdOrUser2Id` removido**. `grep -rn
+  "findByUser1IdOrUser2Id" api/src` -> VAZIO (inclusive nos comentarios: o javadoc do
+  `getCurrentCouple` cita "a derivada sem filtro" em vez do nome, senao o grep de aceite
+  nao fecha).
+- Testes: `CoupleFacadeTest` (novo, 10 testes — casal ativo, sem casal, dissolvido,
+  require nos dois caminhos, memberIds com/sem parceiro, memberIds de coupleId
+  inexistente, dissolveIfActive dissolvendo e o no-op). Monta o `CoupleService` REAL
+  sobre `CoupleRepository` mockado, nao um mock de servico: o que precisa ser provado e
+  que a porta HERDA o filtro, e mock de servico provaria so o proprio stub.
+  `CoupleDestinationAuthorizationManagerTest` ganhou
+  `deniesExMemberSubscribingToTheTopicOfADissolvedCouple` com o mesmo arranjo (servico
+  real + repositorio mockado) — o componente nao mudou uma linha (E9.19).
+  `CoupleServiceTest` (16 stubs) e `CoupleRepositoryTest` (1 teste) migrados de consulta.
+- `api/CLAUDE.md`: secao nova sobre a porta `CoupleFacade`.
+- Arquivos alterados: `CoupleFacade.java` (novo), `CoupleFacadeTest.java` (novo),
+  `Couple.java`, `CoupleService.java`, `CoupleRepository.java`, `CoupleServiceTest.java`,
+  `CoupleRepositoryTest.java`, `CoupleDestinationAuthorizationManagerTest.java`,
+  `api/CLAUDE.md`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> **442 testes, 0 falhas, 0 erros**; JaCoCo `check` verde
+  ("All coverage checks have been met"). Os dois greps objetivos do AC fecham.
+- **Learnings for future iterations:**
+  - `memberIds(coupleId)` NAO filtra casal dissolvido, e isso e a decisao, nao um
+    esquecimento: ele parte do `couple_id` de um track/notificacao, que sobrevive a
+    dissolucao (D13), e o historico precisa continuar mostrando os nomes dos dois. O
+    filtro mora no caminho que parte do USUARIO (`findActiveCoupleId`), que e quem
+    autoriza a operacao. Se a US-003 filtrasse aqui, o historico ficaria sem nomes.
+  - Quando um AC pede `grep X` VAZIO, o comentario/javadoc conta. Reescrever a mencao em
+    vez de deixar o nome literal — ou o criterio de aceite falha por documentacao.
+  - Para provar que um componente "herda" um filtro sem ganhar codigo, mock de servico
+    nao serve (o stub prova a si mesmo). O arranjo que prova e servico REAL + repositorio
+    mockado: a cadeia `getCurrentCouple -> findActiveByUserId` fica exercitada de
+    verdade, e o `CoupleRepositoryTest` (@DataJpaTest) e quem prova o filtro no SQL.
+  - `dissolveIfActive` devolve `Optional<UUID>` no servico e `void` na porta de proposito:
+    o AC exige `void` na porta, mas a US-004 vai querer o id do casal para o
+    `SecurityAuditLogger`. O log de auditoria de dissolucao foi deixado para a US-004,
+    junto com o endpoint — nao esquecer la.
+---
+
+## 2026-08-06 - US-003 (Trocar a associacao Couple por UUID em tracking e match)
+- `MediaTrack`, `MatchLike`, `MatchReject` e **`Notification`** trocaram
+  `@ManyToOne(fetch=LAZY) @JoinColumn("couple_id") Couple` por
+  `@Column(name="couple_id", nullable=false) UUID coupleId`. Mesma coluna, **nenhuma
+  migration**. `Notification` nao estava na lista literal do AC, mas entrou por
+  necessidade: `notifyCouple(UUID coupleId, ...)` (E9.19) nao consegue construir a
+  entidade sem a instancia de `Couple` — a alternativa seria `NotificationService`
+  injetar `CoupleRepository` e fazer um `findById` por notificacao, que e exatamente o
+  acoplamento (e o N+1) que a story remove.
+- JPQL: as 6 queries de `MediaTrackRepository` (`mt.couple.id` -> `mt.coupleId`), a de
+  `UserReviewRepository` (`ur.mediaTrack.couple.id` -> `ur.mediaTrack.coupleId`) e as 4
+  ocorrencias dentro do `findPendingForUser` de `MatchLikeRepository` (que o AC nao
+  citava — `ml/m/r/mt.couple.id`). Os dois `@EntityGraph` perderam o path `"couple"`.
+- Portas: `TrackingFacade.createTrackFromMatch(UUID, ...)`,
+  `NotificationService.notifyCouple(UUID, ...)`/`notifyRatingRequest(UUID, ...)`.
+  `MediaTrackController`/`MatchController` resolvem o casal por
+  `CoupleFacade.requireActiveCoupleId`/`findActiveCoupleId` (stats); `MediaTrackService`
+  e `MatchService` nao injetam mais `CoupleRepository`.
+- `MediaTrackMapper.memberIds(Couple)` sumiu; `toResponse(track, memberIds, userNames)`
+  recebe a lista pronta. `RatingRequestService.partnerOf` passou a operar sobre
+  `coupleFacade.memberIds(coupleId)`, resolvido UMA vez por operacao (e com guarda: ator
+  que nao e membro nao notifica ninguem).
+- `CoupleFacade.requireActiveCoupleId` teve a mensagem trocada para
+  `"usuario nao pertence a nenhum casal"` — e a mensagem que `tracking`/`match` ja
+  devolviam no 404, e o AC exige contrato identico. Sem isso o corpo do erro mudaria.
+- Testes: 2 novos (`RatingRequestServiceTest`: resolucao unica de membros por operacao,
+  e ator fora do casal nao notifica) + 1 novo em `MediaTrackQueryCountTest`
+  (contagem constante de queries no endpoint paginado, 21 vs 40 tracks). Ajustados:
+  `MediaTrackServiceTest`, `MediaTrackMapperTest`, `MediaTrackControllerTest`,
+  `UserReviewServiceTest`, `TrackCreationParityTest`, `MediaTrackRepositoryTest`,
+  `MatchServiceTest`, `MatchControllerTest`, `MatchLike/MatchRejectRepositoryTest`,
+  `NotificationServiceTest`, `NotificationRepositoryTest`. Tres testes foram REMOVIDOS
+  por perderem o sujeito (`addTrackThrowsWhenCoupleNotFound`, `like_throwsWhenCoupleNotFound`
+  — o servico nao busca mais o casal, quem valida e o controller pela porta — e os dois
+  `memberIds*` do `MediaTrackMapperTest`, cuja regra desceu para `Couple.memberIds`).
+- `api/CLAUDE.md`: secao nova sobre `couple_id` como UUID nas tres features.
+- Verificacao: `./mvnw test` -> **441 testes, 0 falhas, 0 erros**; JaCoCo verde. O grep
+  objetivo do AC (`com.app.couple.Couple\b|CoupleRepository|CoupleService` em
+  `tracking`/`match`) retorna VAZIO. `FlywayMigrationTest` com `ddl-auto=validate` verde —
+  **mas contra H2 em MODE=PostgreSQL**, nao Postgres real (sem `DB_URL` no sandbox); quem
+  exerce o schema de verdade e o CI.
+- **Learnings for future iterations:**
+  - Trocar associacao por UUID esconde uma armadilha de contagem de queries: o casal, que
+    vinha de graca no `@EntityGraph`, passa a custar 1 query por request. Constante, tudo
+    bem — o perigo e resolver DENTRO do laco de tracks/notificacoes. O sinal de alerta e
+    qualquer `coupleFacade.memberIds(...)` dentro de um `stream().map(...)`.
+  - A entidade `Notification` teve de mudar junto mesmo sem estar no AC. Quando um AC diz
+    "metodo X passa a receber UUID", conferir se a entidade que o metodo CONSTROI tambem
+    depende da entidade antiga — senao a assinatura nova so empurra o `findById` para
+    dentro do servico.
+  - Um AC que promete "contrato identico" inclui a MENSAGEM de erro, nao so o status. A
+    troca de `getCurrentCouple().orElseThrow(...)` por `requireActiveCoupleId` mudava o
+    corpo do 404 em silencio; os testes de controller pegaram.
+---
+
+## 2026-08-06 - US-004 (DELETE /api/couple/me - dissolver o vinculo)
+- `CoupleController.dissolve` (`@DeleteMapping("/me")`) -> `204` sem corpo, delegando a
+  `CoupleService.dissolveCouple(userId)` (novo): rate limit por usuario, `findActiveByUserId`
+  -> `CoupleNotFoundException` (404) quando nao ha casal ativo, `Couple.dissolve()`, `save`,
+  `SecurityAuditLogger.coupleDissolved(userId, coupleId)` (metodo novo, mesmo formato dos
+  demais). Devolve o id do casal dissolvido.
+- `dissolveIfActive` (US-002) NAO foi tocado nem unificado com o novo metodo: um tem de dar
+  404 sem casal (endpoint), o outro nao pode (porta/US-007). Dissolver duas vezes cai no
+  mesmo 404 da primeira, porque o casal dissolvido nao volta em `findActiveByUserId` — a
+  `CoupleAlreadyDissolvedException` da E9.7 nunca e alcancada por HTTP (continua sem handler,
+  como decidido na US-001).
+- Rate limit PROPRIO: `app.rate-limit.couple-dissolve` (5/hora) em `RateLimitProperties` +
+  as duas linhas em `application.properties` (`RATE_LIMIT_COUPLE_DISSOLVE_*`), consumido em
+  `enforceDissolveRateLimit` com a chave `couple-dissolve:user:<id>`. O 429 + `Retry-After`
+  sai do `GlobalExceptionHandler` que ja existia — nenhum handler novo.
+- **E9.18 (a unica AC que nao saiu de graca):** `NotificationRepository` perdeu
+  `findByRecipientUserIdOrderByCreatedAtDesc` e `countByRecipientUserIdAndReadFalse`, que
+  viraram `findByRecipientUserIdAndCoupleIdOrderByCreatedAtDesc` e
+  `countByRecipientUserIdAndCoupleIdAndReadFalse`. `NotificationService.listNotifications`/
+  `unreadCount` resolvem o casal ativo pelo `CoupleFacade` que o servico JA injetava (US-003)
+  e devolvem pagina vazia/zero **sem tocar no repositorio** quando nao ha casal. `tracking` e
+  `match` nao precisaram de nada: resolvem o casal por `requireActiveCoupleId`.
+- `markAllAsRead` ficou por destinatario de proposito (fora da AC): marcar como lida uma
+  notificacao que ja nao e listada nem contada nao muda nada que o usuario ve.
+- Testes: `CoupleDissolutionIntegrationTest` (novo, 5 testes, `@SpringBootTest` +
+  `@AutoConfigureMockMvc` com repositorios reais) — dissolucao unilateral escondendo
+  couple/tracking/match/notification dos DOIS ex-membros com contagem de linhas antes/depois
+  (nada apagado, a linha em `couples` continua la), os dois recriando casal, convite do casal
+  dissolvido barrado nos dois casos (codigo limpo e linha legada via
+  `ReflectionTestUtils.setField(couple, "dissolvedAt", ...)`), e o cenario da E9.20 (uma linha
+  dissolvida + uma ativa -> `GET /api/couple/me` 200 e regenerate 200). `CoupleServiceTest`
+  +7 (dissolver por qualquer membro, sem casal, duas vezes, recriar depois, convite de casal
+  dissolvido, bloqueio por rate limit, balde independente do join). `CoupleControllerTest` +5
+  (204, sem auth, 404, segundo 404, 429 com `Retry-After`). `NotificationServiceTest` +2 (sem
+  casal ativo: lista vazia e contador zero, `verifyNoInteractions(notificationRepository)`) e
+  os 4 stubs migrados. `NotificationRepositoryTest` +1 (escopo por casal com as duas linhas no
+  banco) e os 3 existentes migrados.
+- `api/CLAUDE.md`: secao nova sobre o endpoint de dissolucao e o escopo do sino.
+- Arquivos alterados: `CoupleController.java`, `CoupleService.java`, `RateLimitProperties.java`,
+  `SecurityAuditLogger.java`, `NotificationRepository.java`, `NotificationService.java`,
+  `application.properties`, `CoupleDissolutionIntegrationTest.java` (novo),
+  `CoupleServiceTest.java`, `CoupleControllerTest.java`, `NotificationServiceTest.java`,
+  `NotificationRepositoryTest.java`, `api/CLAUDE.md`, `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> **461 testes, 0 falhas, 0 erros**; JaCoCo `check` verde
+  ("All coverage checks have been met").
+- **Learnings for future iterations:**
+  - A AC "nenhum endpoint retorna dado do casal dissolvido" so vira teste de verdade com
+    repositorio real: a metade "some da API" e a metade "continua no banco" tem de estar no
+    MESMO teste, senao um `DELETE` acidental passaria pela primeira. `@SpringBootTest` +
+    `MockMvc` + `repository.count()` antes/depois e o arranjo.
+  - Assercao ANTES da acao destrutiva (lista com 1 item, contador 1) e o que impede o teste
+    de ser vacuo — sem ela, "lista vazia depois de dissolver" passaria com um bug que deixa a
+    lista sempre vazia.
+  - `notification` foi a unica feature a precisar de codigo porque e a unica que filtra por
+    `recipient_user_id` e nao pelo casal. O criterio para a proxima feature: se a consulta
+    parte do USUARIO e nao do `couple_id`, ela NAO herda o filtro de dissolucao.
+---
+
+## 2026-08-07 - US-005 (PATCH /api/user/me - editar nome e e-mail)
+- `com.app.user` ganhou a primeira borda HTTP do projeto: `UserProfileController`
+  (`@PatchMapping("/me")`, injeta SO o servico - anti-pattern #1) ->
+  `UserProfileService.updateProfile(userId, request)` -> `UserProfileResponse` (record proprio,
+  E9.15: `com.app.auth.UserSummary` nao e importado em lugar nenhum desta feature).
+- Semantica de PATCH no DTO (`UpdateProfileRequest`): campo `null` nao e alterado, e por isso
+  **nenhum campo pode ser `@NotBlank`** - a anotacao reprovaria o caso normal de "so mandei o
+  outro campo". O que valida sem quebrar isso sao as anotacoes que ignoram `null` por
+  especificacao: `@Pattern(regexp = ".*\\S.*")` no `name` (pega `"   "`) e
+  `@Size(min = 1, max = 255)` + `@Email` no `email` - o `@Size` esta ali porque o validador de
+  `@Email` considera string VAZIA valida. Os 400 saem do `GlobalExceptionHandler` com o formato
+  `{message: "dados invalidos", errors: {...}}` ja usado pelos demais endpoints.
+- **`UserExceptionHandler` (novo) e a parte que nao era obvia:** `AuthExceptionHandler` e
+  `@RestControllerAdvice(basePackages = "com.app.auth")`, entao ele NAO aconselha o controller
+  de `com.app.user`. Reusar `EmailAlreadyExistsException` (D4) sem um advice proprio nesta
+  feature faria o 409 cair no `handleGeneric` do `GlobalExceptionHandler` e virar **500**. O
+  tipo da excecao continua sendo o de `com.app.auth` - so o mapeamento e local.
+- Rate limit por usuario proprio (E9.3): `app.rate-limit.profile-update` (10/h) em
+  `RateLimitProperties` + as duas linhas em `application.properties`
+  (`RATE_LIMIT_PROFILE_UPDATE_*`), consumido em `enforceProfileUpdateRateLimit` com a chave
+  `profile-update:user:<id>`. 429 + `Retry-After` pelo `GlobalExceptionHandler` - nenhum handler
+  novo (mesmo caminho da US-004).
+- `SecurityAuditLogger.profileUpdated(userId, changedFields)`: so os NOMES dos campos
+  (`fields="name,email"`), nunca o valor novo do e-mail. Nao e chamado quando nada muda - campo
+  ausente OU igual ao atual nao conta como alteracao, e nesse caso nem `save` acontece.
+- Testes: `UserProfileServiceTest` (9: so nome, so e-mail, ambos, payload vazio, reenviar o
+  proprio e-mail nao e conflito consigo mesmo, e-mail de outra conta -> 409 sem `save`, usuario
+  inexistente -> `ResourceNotFoundException`, limite estourado, balde por usuario);
+  `UserProfileControllerTest` (7, `@WebMvcTest` com o conjunto padrao de `@Import` + o
+  `UserExceptionHandler`: sem auth, sucesso com dois campos, so um campo, 409, e-mail
+  malformado, nome em branco, 429 com `Retry-After`); `UserProfileIntegrationTest` (2,
+  `@SpringBootTest` + repositorios reais); `SecurityAuditLoggerTest` +1 e os dois eventos novos
+  do epico (`coupleDissolved`, `profileUpdated`) entraram no teste que varre todos os eventos
+  atras de dado sensivel.
+- O `UserProfileIntegrationTest` autentica com um cookie `access_token` **de verdade** (emitido
+  pelo `JwtService`), e nao com o post-processor `authentication(...)`: a AC "a sessao continua
+  valida depois da troca de e-mail" so e provada se o mesmo token emitido ANTES da troca ainda
+  resolver o usuario DEPOIS - o post-processor injeta o principal direto e curto-circuitaria
+  exatamente isso. O teste tambem cobre "GET /api/auth/me reflete os valores novos".
+- `api/CLAUDE.md`: secao nova sobre a borda HTTP de `com.app.user`.
+- Arquivos alterados: `UserProfileController.java` (novo), `UserProfileService.java` (novo),
+  `UserProfileResponse.java` (novo), `UpdateProfileRequest.java` (novo),
+  `UserExceptionHandler.java` (novo), `RateLimitProperties.java`, `SecurityAuditLogger.java`,
+  `application.properties`, `UserProfileServiceTest.java` (novo),
+  `UserProfileControllerTest.java` (novo), `UserProfileIntegrationTest.java` (novo),
+  `SecurityAuditLoggerTest.java`, `api/CLAUDE.md`, `scripts/ralph/prd.json`,
+  `scripts/ralph/progress.txt`.
+- Verificacao: `./mvnw test` -> **480 testes, 0 falhas, 0 erros**; JaCoCo `check` verde
+  ("All coverage checks have been met").
+- **Learnings for future iterations:**
+  - Reusar a excecao de OUTRA feature exige conferir o `basePackages` do advice dela. Os
+    `@RestControllerAdvice` de feature deste projeto sao todos escopados, entao o mapeamento
+    NAO viaja junto com o tipo - a US-006/US-007 vao reusar `InvalidCredentialsException` e
+    caem na mesma armadilha (o `UserExceptionHandler` ja existe, e o lugar de acrescentar).
+  - Em DTO de PATCH, `@NotBlank`/`@NotNull` estao proibidos por construcao. O par
+    `@Pattern(".*\\S.*")` (ignora null) + `@Size(min = 1)` ao lado de `@Email` (que aceita
+    string vazia) e a receita para "opcional, mas nao vazio se vier".
+  - Nao adicionar metodo publico "de brinde" num servico novo (um `getProfile` sem endpoint):
+    o gate do JaCoCo e por linha e cobra o codigo morto na hora.
+
+## 2026-08-07 - US-006
+- `PUT /api/auth/password`: troca de senha estando autenticado, 204 + os dois cookies de
+  sessao expirados. `AuthService.changePassword` confere a senha atual com o mesmo
+  `PasswordEncoder` do login (erro -> `InvalidCredentialsException`/401 sem alterar nada),
+  grava o hash novo e chama `RefreshTokenService.revokeFamily(userId)` (E9.8) — o metodo
+  construido no Epico 4 que so o logout usava. Auditoria: `SecurityAuditLogger.passwordChanged`
+  (so o userId). Rate limit proprio por usuario `app.rate-limit.password-change` (5/h).
+- Arquivos: `api/src/main/java/com/app/auth/ChangePasswordRequest.java` (novo),
+  `AuthService.java`, `AuthController.java`,
+  `api/src/main/java/com/app/security/SecurityAuditLogger.java`, `RateLimitProperties.java`,
+  `api/src/main/resources/application.properties`, `api/CLAUDE.md`,
+  testes: `AuthServiceTest` (+4), `AuthControllerTest` (+6),
+  `api/src/test/java/com/app/auth/PasswordChangeIntegrationTest.java` (novo).
+- Verificacao: `./mvnw test` verde, 493 testes (era 431 no inicio do epico), gate do JaCoCo
+  (90% de linha) verde. `AuthControllerTest` roda 28 testes — o `.txt` do surefire mostra
+  "Tests run: 0" por causa das classes `@Nested`; a contagem real esta no XML.
+- **Learnings for future iterations:**
+  - Um endpoint autenticado e mutante precisa de `.with(csrf())` no `@WebMvcTest`, senao
+    volta 403 e o teste "prova" a coisa errada. `/api/auth/password` NAO entrou na lista de
+    `ignoringRequestMatchers` do `SecurityConfig` (ao contrario de login/refresh/logout):
+    quem chama ja tem sessao e, portanto, ja tem o cookie `XSRF-TOKEN`.
+  - Reusar `InvalidCredentialsException` para "senha atual errada" sai de graca aqui porque
+    o `AuthExceptionHandler` e da PROPRIA feature (`basePackages = "com.app.auth"`). Foi o
+    oposto da US-005, que precisou de um handler novo por reusar `EmailAlreadyExistsException`
+    fora de `com.app.auth`.
+  - `AuthExceptionHandler` nao trata `RateLimitExceededException`: o 429 + `Retry-After`
+    continua vindo do `GlobalExceptionHandler` de `com.app.common` (confirmado no codigo,
+    contrariando o que o `api/CLAUDE.md` sugere no paragrafo de rate limit por conta).
+  - Teste de rate limit por usuario que roda a operacao com sucesso duas vezes precisa de
+    uma INSTANCIA de entidade por chamada quando a operacao muta a entidade em memoria: o
+    mesmo objeto `User` reusado ja tem o hash novo na segunda chamada e o teste falha em
+    "senha atual errada" sem nenhuma relacao com o que ele queria medir.
+---
+
+## 2026-08-07 - US-007 (DELETE /api/user/me - excluir a conta)
+- `UserDeletionService` (`com.app.user`) ORQUESTRA a exclusao (E9.14) — cada feature apaga o que e
+  dela atras da sua porta. Nasceram `MatchFacade.deleteUserData(UUID)` (likes + rejects) e
+  `NotificationFacade.deleteUserData(UUID)`; `TrackingFacade` ganhou `deleteUserData(UUID)` (SO
+  `user_review`) e `RefreshTokenService`, `deleteAllForUser(UUID)`. Uma unica `@Transactional`, na
+  ordem `dissolveIfActive` -> tracking -> refresh token -> match -> notification -> `delete(user)`.
+- Nada de `couples` e nada de `media_track` sai do banco (D13) — a dissolucao continua sendo
+  `UPDATE dissolved_at`. `notification` apaga por destinatario OU ator (E9.2).
+- `DeleteAccountRequest` exige a senha (E9.12, `@NotBlank` — aqui pode, nao e PATCH); senha errada
+  -> `InvalidCredentialsException` ANTES de qualquer escrita. O 401 exigiu um `@ExceptionHandler`
+  novo no `UserExceptionHandler` (o advice de `com.app.auth` e escopado por `basePackages`).
+- Rate limit `app.rate-limit.account-delete` (3/h, chave `account-delete:user:<id>`);
+  `SecurityAuditLogger.accountDeleted(userId)` sem e-mail.
+- Arquivos novos: `MatchFacade.java`, `NotificationFacade.java`, `DeleteAccountRequest.java`,
+  `UserDeletionService.java`, `MatchFacadeTest`, `NotificationFacadeTest`, `TrackingFacadeTest`,
+  `UserDeletionServiceTest`, `UserDeletionIntegrationTest`, `UserDeletionAtomicityTest`,
+  `UserDeletionIntegrityTest`. Alterados: `RefreshTokenRepository`, `RefreshTokenService`,
+  `MatchLikeRepository`, `MatchRejectRepository`, `NotificationRepository`, `UserReviewRepository`,
+  `TrackingFacade`, `RateLimitProperties`, `SecurityAuditLogger`, `UserExceptionHandler`,
+  `UserProfileController`, `application.properties`, `RefreshTokenServiceTest`,
+  `SecurityAuditLoggerTest`, `TrackCreationParityTest`, `UserProfileControllerTest`, `api/CLAUDE.md`.
+- Verificacao: `./mvnw test` -> **516 testes, 0 falhas, 0 erros**; JaCoCo `check` verde.
+- **PENDENTE DO LADO HUMANO:** `UserDeletionIntegrityTest` so vale como prova de integridade
+  referencial quando `DB_URL` aponta para o Postgres de verdade (CI). No sandbox ele cai em H2
+  `MODE=PostgreSQL` em silencio — a integridade referencial NAO foi provada localmente.
+- **Learnings for future iterations:**
+  - A auto-FK `fk_refresh_token_replaced_by` nao e `DEFERRABLE`. Um `DELETE` unico por `user_id`
+    funciona no Postgres (constraint imediata e checada no FIM do statement) e **falha no H2** do
+    ambiente de teste, que checa linha a linha. O que vale nos dois e quebrar a cadeia primeiro:
+    `UPDATE ... SET replaced_by_id = null` e so entao o `DELETE`. Os dois continuam baseados em
+    conjunto — `deleteAll(entidades)` segue proibido, e e o que a AC realmente queria dizer.
+  - Corolario geral: "o Postgres checa a FK no fim do statement" NAO e uma garantia portavel. Toda
+    exclusao em massa numa tabela com auto-referencia deve anular a coluna de auto-FK antes.
+  - `InOrder` do Mockito e a assercao certa quando a ORDEM entre dois statements e a regra (aqui,
+    limpar antes de apagar); dois `verify` soltos passariam com a ordem invertida.
+
+## 2026-08-07 - US-008 (Rota /conta - casca, layout e entrada no Header)
+- `client/src/screens/account/AccountScreen.tsx` (novo): a tela, com o mesmo shell das
+  outras (`font-auth-body min-h-svh`, gradiente radial ambar + `#09090a`, `<Header />`,
+  `main` com `max-w-[1240px]`), eyebrow "Conta e Casal", h1 em `font-display` e as quatro
+  secoes (Perfil, Senha, Casal, Excluir conta). Cada uma renderiza, por enquanto, so um
+  placeholder tracejado dizendo o que entra ali — o conteudo funcional vem nas US-009 a
+  US-012. Em `lg` a tela ganha um rail lateral sticky (`grid-cols-[220px_minmax(0,1fr)]`)
+  com ancoras `#perfil/#senha/#casal/#excluir` e a legenda dos dois alcances.
+- `client/src/screens/account/AccountSection.tsx` (novo): `AccountSection` (cartao
+  `#161513`, borda `rgba(255,255,255,.07)`, raio 18px, prop `destructive`) e `ReachChip`.
+  **Aqui nasce o token destrutivo do design system**: `#ff5c47` + borda
+  `rgba(255,92,71,.28)` + tinta `rgba(255,92,71,.07)` + titulo `#ffb3a5`, aplicado
+  igual nos dois blocos destrutivos (Casal e Excluir conta), como a story pedia.
+- `client/src/App.tsx`: rota `/conta` dentro de `ProtectedRoute` e **fora** de
+  `RequireCouple`, declarada antes do catch-all `*`.
+- `client/src/components/Header.tsx`: `NavLink` de engrenagem (`Settings`) no cluster da
+  direita, visivel so em `md+` (`hidden md:grid`), e um item "Conta" no `MobileNav` depois
+  de um divisor. `NAV_ITEMS` ficou intacto — o layout dos itens atuais nao mudou.
+- `client/CLAUDE.md`: secao nova `screens/account/` documentando o token destrutivo, o
+  marcador de alcance e a regra do guard.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - A skill `frontend-design` foi invocada antes de escrever codigo (AC da story). O
+    brief ja fixa paleta e tipografia, entao a margem de decisao real e layout + o token
+    destrutivo novo; e ali que vale gastar o esforco de design, nao em inventar cor.
+  - `/conta` e a UNICA rota autenticada fora do `RequireCouple`. Ao adicionar rota nova,
+    conferir conscientemente em qual dos dois guards ela entra — o default do arquivo
+    (hub/match/dashboard) e o guard de casal.
+  - Nao meter `/conta` em `NAV_ITEMS`: aquele pill ambar agrupa exatamente as rotas que
+    exigem casal, e um usuario sem casal veria tres links que redirecionam para `/join`.
+    Entrada propria (engrenagem no desktop, item apos divisor no mobile) resolve os dois
+    ACs sem mexer no layout existente.
+  - `react-refresh/only-export-components` NAO reclamou de `AccountSection.tsx` exportar
+    dois componentes + um `export type` — o que a regra proibe e componente junto com
+    valor/funcao comum. Tipo puro passa.
+  - Verificacao no browser continua PENDENTE DO LADO HUMANO: nao ha Chromium/Playwright
+    nem skill `dev-browser` neste sandbox (ver `client/CLAUDE.md`). Conferido so por
+    typecheck/lint/build e leitura do JSX.
+---
+
+## 2026-08-07 - US-009 (Bloco Perfil - editar nome e e-mail)
+- `client/src/screens/account/ProfileSection.tsx` (novo): formulario de nome e e-mail dentro
+  do `AccountSection` "Perfil". Campos inicializados do `useAuthStore` (lazy `useState`, sem
+  `useEffect` — dentro de `ProtectedRoute` o `user` ja existe, `isAuthenticated` e `user` sao
+  setados juntos). O elemento de assinatura da secao e a **faixa de estado** abaixo do form,
+  que mostra em chips ambar exatamente quais campos vao no corpo do PATCH ("Vai ser enviado:
+  Nome / E-mail") — encodifica a semantica de PATCH em vez de um "voce tem alteracoes nao
+  salvas" generico; vira "Salvando…" (spinner) e depois "Nome e e-mail salvos." (check ambar,
+  `role="status" aria-live="polite"`).
+- `client/src/types/user.ts` (novo): `UpdateProfileRequest`, `UserProfileResponse` e
+  `ValidationErrorResponse` espelhados a mao de `com.app.user` + do corpo de 400 do
+  `GlobalExceptionHandler`.
+- `client/src/stores/useAuthStore.ts`: acao `updateProfile(request)` — PATCH, `persistSession`
+  e `set({user})` num lugar so; devolve o `AuthUser` novo. O Header reflete o nome sem reload.
+- `client/src/screens/account/AccountScreen.tsx`: a secao "perfil" renderiza o form no lugar
+  do placeholder (o campo `placeholder` do `SectionDef` virou opcional).
+- `client/CLAUDE.md`: secao nova com a regra "mutacao do usuario nasce como acao do store" e
+  o mapeamento de erro 409/400/429 para reuso nas US-010 a US-012.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - `persistSession` e privada do modulo do store — qualquer mutacao do proprio usuario
+    (US-010 senha, US-011 casal, US-012 exclusao) TEM que virar acao do `useAuthStore`, senao
+    o cache de UI em `localStorage` e o `user` do store saem de sincronia.
+  - Formulario que le do store nao precisa de `useEffect` de sincronizacao (que cairia no
+    `react-hooks/set-state-in-effect`): `useState(user?.campo ?? "")` no mount + `setState`
+    com os valores da RESPOSTA depois do sucesso ja mantem "limpo == igual ao servidor".
+  - Derivar `changedFields` no corpo do render (comparando com o `user` do store) da de graca
+    o "botao desabilitado quando nada mudou", o corpo minimo do PATCH e o texto da faixa de
+    estado — nao guardar isso em `useState`.
+  - O 400 do backend traz `errors` por campo; o 409 nao traz campo nenhum (so `message`), por
+    isso a mensagem de e-mail em uso e escrita no cliente e ancorada no campo via
+    `aria-describedby`/`aria-invalid` (o `Input` ja tem estilo de `aria-invalid`).
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox, e sem backend rodando — ver `client/CLAUDE.md`).
+---
+
+## 2026-08-07 - US-010 (Bloco Senha - trocar a senha)
+- `client/src/screens/account/PasswordSection.tsx` (novo): senha atual (campo solo, ate 420px)
+  + senha nova / repita a senha nova (grid 2 colunas em `sm`). O elemento de assinatura e a
+  **regua 8-72** sob a senha nova: a politica do backend e uma JANELA, nao um limiar, entao ela
+  e desenhada como janela (trilho com marca fixa no minimo, preenchimento ambar so quando o
+  comprimento esta dentro, contador `n / 72`) — os requisitos aparecem antes do submit sem virar
+  lista de checkmarks. Acima do botao, a linha de consequencia em dois pontos coral: "esta aba
+  sai" / "os outros aparelhos tambem", reusando o vocabulario de alcance da tela.
+- Confirmacao divergente e barrada no cliente (`canSubmit` exige `confirmation === newPassword`),
+  com mensagem no campo; a API nao chega a ser chamada. Erros: **401** -> "Essa nao e a sua senha
+  atual." no campo de senha atual; **400** -> `errors.currentPassword`/`errors.newPassword` do
+  `GlobalExceptionHandler` (com fallback escrito no cliente); **429** -> mensagem geral; fallback
+  faz `console.error` com contexto.
+- Sucesso (E9.8): o form da lugar a um painel `role="status"` dizendo que TODAS as sessoes cairam
+  (inclusive esta aba) e por que isso e o ponto; 2,4s depois `clearSession()` + `navigate("/login",
+  { replace: true, state: { notice } })`. A `LoginPage` mostra o mesmo aviso numa faixa ambar lida
+  de `useLocation().state`, entao o motivo sobrevive ao redirect.
+- `client/src/stores/useAuthStore.ts`: acoes `changePassword(request)` (PUT `/api/auth/password`,
+  sem mexer no estado) e `clearSession()` (disconnect do WebSocket + limpa `localStorage` + zera
+  `user`/`couple`/`isAuthenticated`). `logout()` foi reescrito em cima de `clearSession` — a
+  teardown existe uma vez so.
+- `client/src/types/auth.ts` (novo): `ChangePasswordRequest`, `PASSWORD_MIN_LENGTH`/`MAX_LENGTH`.
+  `client/src/screens/account/helpers.ts` (novo): `PASSWORD_CHANGED_NOTICE`.
+- Alterados: `AccountScreen.tsx` (a secao "senha" renderiza o bloco no lugar do placeholder),
+  `routes/auth/LoginPage.tsx`, `client/CLAUDE.md`.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - `PUT /api/auth/password` devolve 204 com os cookies JA expirados. Chamar `logout()` depois
+    disso dispararia um `POST /api/auth/logout` que so pode tomar 401 — por isso nasceu
+    `clearSession()`, a metade local do logout. Toda tela que recebe do backend uma resposta que
+    ja invalidou a sessao deve usar ela, nunca `logout()`.
+  - Nao limpar o estado do store imediatamente no sucesso: `ProtectedRoute` reage na hora e
+    desmonta a tela, engolindo o aviso que a AC pede. A ordem que funciona e mostrar o painel,
+    e so depois (num `setTimeout` dentro do handler, que o `react-hooks/set-state-in-effect`
+    nao alcanca) derrubar o estado e navegar.
+  - Motivo de logout involuntario viaja em `navigate(path, { state })` + `useLocation().state`
+    no destino — nao ha store de "flash message" neste projeto e nao precisou nascer uma.
+  - Constante exportada junto com componente reprova em `react-refresh/only-export-components`
+    (ao contrario de dois componentes ou de `export type`, que passam) — por isso o texto do
+    aviso foi para `screens/account/helpers.ts`, seguindo o mesmo split de `screens/match/`.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---
+
+## 2026-08-07 - US-011 (Bloco Casal - desfazer o vinculo)
+- `client/src/screens/account/CoupleSection.tsx` (novo): o bloco Casal da `/conta`. Estado
+  com casal: `CoupleAvatars` (iniciais de usuario/parceiro), "Você e {nome}", "Juntos no app
+  desde {data}" (`toLocaleDateString("pt-BR")` do `couple.createdAt`) e o elemento de
+  assinatura, a **linha do vínculo** (`BondLine`): uma linha ambar com o chip "{n} dias
+  juntos" no meio — no dialogo de confirmacao a MESMA linha reaparece coral e partida
+  (metade tracejada), entao o desenho muda exatamente o que a acao muda.
+- Estado vazio (`EmptyBond`): sem casal -> "Você não está em um casal" + botao "Formar um
+  casal"; casal sem parceiro (convite aberto) -> "Seu convite está aberto" + "Ver o convite".
+  Os dois levam para `/join`, nunca uma mensagem de erro.
+- `DissolveDialog`: mesmo padrao estrutural do `DeleteTrackDialog` (backdrop `fixed inset-0`
+  proprio, clique fora, Escape, `role="dialog"`/`aria-modal`), com as tres consequencias
+  enumeradas antes do botao (acaba para os dois / historico sai do alcance sem ser apagado /
+  os dois ficam livres). Botoes: "Manter o vínculo" (outline) e "Desfazer o vínculo" (coral).
+- `client/src/stores/useAuthStore.ts`: acao `dissolveCouple()` — `DELETE /api/couple/me`,
+  `useMatchStore.disconnect()`, `persistSession(user, null)` e `set({couple: null})`.
+- Erros: **404** "Você já não está em um casal…", **429** "Muitas tentativas seguidas…",
+  fallback com `console.error` (anti-pattern #4). Nenhum ramo engole excecao.
+- Sucesso: `navigate("/join", { replace: true })` (o store ja limpou o couple, entao o aviso
+  da US-013 nao dispara para quem dissolveu).
+- Alterados: `AccountScreen.tsx` (secao "casal" perde o placeholder), `client/CLAUDE.md`.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - O `Button` embrulha `@base-ui/react/button`, que **nao tem `asChild`** — link com cara de
+    botao e `render={<Link to="…" />}` com o texto como children (mesma prop de
+    `TooltipTrigger`/`PopoverTrigger`). `asChild` compila, mas e prop desconhecida.
+  - "Sem casal" tem DOIS casos no store: `couple === null` e `couple` com `partner === null`
+    (convite aberto, esperando alguem entrar). O `RequireCouple` trata os dois como "sem
+    casal"; qualquer tela de casal precisa distinguir os dois no texto, senao quem gerou
+    convite le "você não está em um casal" logo depois de criar um.
+  - `Date.now()` no corpo do render reprova em `react-hooks/purity` — a contagem de dias do
+    vinculo usa `const [now] = useState(() => Date.now())` (mesmo truque do
+    `InviteCodeTicket`).
+  - Toda mutacao do proprio usuario/casal continua nascendo como acao do `useAuthStore`
+    (`persistSession` e privada do modulo); no caso da dissolucao a acao TAMBEM derruba o
+    WebSocket, senao a `useMatchStore` fica assinando o topico de um casal extinto.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---
+
+## 2026-08-07 - US-012 (Bloco Excluir conta - zona destrutiva)
+- `client/src/screens/account/DeleteAccountSection.tsx` (novo): o bloco Excluir conta da
+  `/conta`. Fora do dialogo o bloco fica quieto (uma linha de consequencia + botao coral);
+  todo o peso mora na confirmacao, que e onde a decisao acontece.
+- Elemento de assinatura: o **inventario de duas colunas** dentro do dialogo. A exclusao e
+  assimetrica, entao o desenho e essa assimetria — "Sai com voce" (coral: conta, avaliacoes,
+  notificacoes, TODAS as sessoes) e "Fica onde esta" (ambar: o historico de titulos do casal,
+  que continua com o parceiro nomeado quando ha um; o e-mail, livre para cadastro novo, E9.13),
+  separadas por uma regua vertical em gradiente coral -> ambar. A AC "diga o que apaga e o que
+  permanece" virou estrutura em vez de dois paragrafos.
+- **Duas barreiras** (AC + E9.12): senha atual + digitar a palavra `EXCLUIR`
+  (`ACCOUNT_DELETE_CONFIRMATION_WORD` em `screens/account/helpers.ts`, comparada com
+  `trim().toUpperCase()`). Desenhadas como duas **travas** com estado real (`Lock` cinza
+  enquanto seguram, `LockOpen` ambar quando satisfeitas) — sem numeracao 01/02, que nao diria
+  nada aqui porque a ordem entre elas nao importa. O botao so habilita com as duas abertas.
+- Erros: **401** -> mensagem no campo de senha, dialogo **continua aberto**; **400** ->
+  `errors.password` do `GlobalExceptionHandler` com fallback; **429** -> mensagem geral
+  (limite 3/h por usuario); fallback com `console.error` (anti-pattern #4).
+- Sucesso: painel `role="status"` de despedida dentro do proprio dialogo, 2,2s depois
+  `clearSession()` (limpa `SESSION_STORAGE_KEY` + desconecta a `useMatchStore`) e
+  `navigate("/", { replace: true })`.
+- `client/src/lib/api.ts`: **correcao real de comportamento** — `isPasswordChallenge(config)`
+  faz o 401 de `PUT /api/auth/password` e `DELETE /api/user/me` ser rejeitado cru, sem passar
+  pelo refresh-e-repete do interceptor.
+- `client/src/stores/useAuthStore.ts`: acao `deleteAccount(request)` (DELETE com corpo em
+  `{ data }`, sem mexer no estado local). `client/src/types/user.ts`: `DeleteAccountRequest`.
+- Alterados: `AccountScreen.tsx` (some o ultimo placeholder e o campo `placeholder` do
+  `SectionDef`), `client/CLAUDE.md`.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- **Learnings for future iterations:**
+  - O interceptor de `lib/api.ts` transformava um 401 de **senha errada** em logout: refresh
+    (que funciona, a sessao e valida) -> repete -> 401 de novo -> `_retry` ja marcado ->
+    `redirectToLogin()`. A AC "401 nao fecha o dialogo" era **impossivel** de cumprir do lado
+    da tela. Endpoint novo que valide senha no corpo precisa entrar em `isPasswordChallenge`.
+    Isso tambem consertou o mesmo buraco na `PasswordSection` (US-010), que nao tinha sido
+    percebido la.
+  - `api.delete(url, { data })` — axios nao aceita corpo posicional no `delete`, ao contrario
+    de `post`/`put`/`patch`. Erro silencioso: o backend recebe corpo vazio e responde 400.
+  - A landing e `PublicOnlyRoute`: `clearSession()` + `navigate("/")` no MESMO handler sao
+    batidos num render so, entao o destino ja resolve com `isAuthenticated: false`. Inverter
+    a ordem (navegar antes de limpar) devolveria o usuario para `/hub`.
+  - `border-image` com gradiente + `border-l` sozinho e fragil no Tailwind arbitrario; um
+    `<span absolute w-px>` com `bg-[linear-gradient(...)]` dentro de um pai `relative` da o
+    mesmo resultado e nao depende de como o motor resolve borda parcial.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---
+
+## 2026-08-07 - US-013 (Aviso em /join para o ex-parceiro)
+- `client/src/stores/useAuthStore.ts`: nasce `bondDissolved` (booleano **so em memoria**) +
+  a acao `dismissBondDissolvedNotice()`. O gatilho vive dentro do `loadCurrentUser`, que e o
+  unico ponto onde o "antes" e o "depois" coexistem: le `get().couple` (o cache de UI de
+  `localStorage`, `SESSION_STORAGE_KEY`) ANTES da resposta e, se aquele casal tinha
+  `partner` e o `GET /api/auth/me` voltou sem casal, acende o aviso. O `persistSession` da
+  linha seguinte ja sobrescreve o cache — nenhuma flag paralela em `localStorage` (AC).
+  `joinCouple`/`createCouple`/`clearSession` e o ramo 401 apagam o booleano.
+- `client/src/routes/auth/BondDissolvedNotice.tsx` (novo): cartao coral discreto acima das
+  abas do `/join` — titulo "O vínculo foi desfeito", uma frase dizendo que o historico nao
+  foi apagado (continua sendo daquele casal e sai do alcance) e o botao "Entendi".
+  Elemento de assinatura: a **mesma linha do vinculo** do bloco Casal da `/conta`
+  (`screens/account/CoupleSection.tsx`), agora vista depois do corte — lado esquerdo coral
+  cheio, direito tracejado, e no meio, no lugar do chip que contava os dias juntos, o chip
+  "histórico guardado". Quem recebe o aviso ja conhecia a linha inteira, entao o desenho
+  fecha o loop em vez de introduzir metafora nova.
+- `client/src/routes/auth/JoinPage.tsx`: renderiza o aviso no ramo "sem casal" (o ramo do
+  ingresso de convite e inalcancavel com o aviso ligado — `createCouple` apaga o booleano).
+- `client/CLAUDE.md`: secao nova sobre o gatilho ser o cache, nao uma flag.
+- Checks: `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- Cobertura dos casos das ACs (nao ha framework de teste no `client/` — verificado por
+  leitura do caminho de codigo, nao por teste automatizado):
+  - **nunca teve casal** -> nao ha cache, `cachedCouple?.partner != null` e `false`,
+    `/join` normal;
+  - **quem dissolveu** -> a US-011 ja zerou o `couple` do store, entao o "antes" tambem e
+    nulo e o aviso nao acende;
+  - **aparece uma vez** -> o booleano some no "Entendi", ao formar casal novo e no reload
+    (o cache que o dispara ja foi sobrescrito pelo proprio `loadCurrentUser`).
+- **Learnings for future iterations:**
+  - Quando a AC pede "detectar que o servidor discorda do cache", o lugar e a acao do store
+    que faz a atualizacao, nao a tela: e o unico ponto onde os dois valores existem ao mesmo
+    tempo. Ler o cache na tela depois do bootstrap ja pega o valor novo.
+  - Sinal derivado (o cache obsoleto) em vez de flag persistida nova nao e so elegancia:
+    tres ACs ("nunca teve casal nao ve", "quem dissolveu nao ve", "aparece uma vez") saem de
+    graca do proprio mecanismo, sem nenhum `if` extra.
+  - `bondDissolved` mora no estado do store mas NAO no `PersistedSession` — `persistSession`
+    grava so `{user, couple}` e nao foi tocado; qualquer campo novo de UI que nao deva
+    sobreviver ao reload segue esse mesmo caminho.
+  - Verificacao no browser continua **PENDENTE DO LADO HUMANO** (sem Chromium/Playwright no
+    sandbox e sem backend rodando — ver `client/CLAUDE.md`).
+---
+
+## 2026-08-07 - US-014 (Fechar a documentacao do epico)
+- Story de documentacao pura — nenhum arquivo de producao tocado (`git status` so acusa
+  os 5 `.md`).
+- `docs/ARCHITECTURE.md` secao 3: `com.app.user` deixa de ser "apenas a entidade e o
+  repositorio" e passa a descrever `UserProfileController` (`PATCH`/`DELETE /api/user/me`)
+  + o papel de orquestrador do `UserDeletionService`; `com.app.couple` registra o
+  `CoupleFacade` ao lado do `TrackingFacade`, com os 4 metodos e a regra de que **so UUID
+  cruza a fronteira**; `com.app.match` e `com.app.notification` registram `MatchFacade` e
+  `NotificationFacade` e a troca de `Couple` por `UUID coupleId` em `notifyCouple`/
+  `notifyRatingRequest`; `com.app.websocket` vira a excecao deliberada (E9.19), escrita
+  na propria entrada do pacote **e** na regra de dependencia. A regra de dependencia
+  passou a listar as 4 portas e ganhou a nota do PRD sobre superficie arquitetural:
+  `MatchFacade`/`NotificationFacade` tem um metodo so (`deleteUserData`) e existem por
+  causa da regra, nao por precisarem de fachada rica.
+- `docs/ARCHITECTURE.md` secao 4: `Couple` ganha `dissolved_at` (e o
+  `invite_code_expires_at` que faltava desde o Epico 5) nos campos, mais a regra de
+  negocio da dissolucao — unilateral, `UPDATE` e nunca `DELETE`, historico preservado no
+  banco e inacessivel pela API, os dois liberados para um casal novo, e a consequencia de
+  um usuario poder ter N linhas em `couples`. `MediaTrack` registra `couple_id` como
+  `UUID` sem associacao JPA (idem `MatchLike`/`MatchReject`/`Notification`).
+- `docs/FLYWAY.md`: a lista do corpo ja tinha V6 e V7 corretas (US-001) — **mas** o gate
+  humano do topo dizia "V6 e a ultima migration do repo", o que virou mentira quando a V7
+  entrou. Corrigido para dizer que a V7 e posterior ao gate e ainda nao aplicada em
+  producao. Conferir "continua correto" tambem quer dizer olhar o resto do arquivo.
+- `POST-MVP-TASK.md`: T9.1-T9.5 com `**Status:** ✅ Concluida em 2026-08-07 — <stories>`
+  e os criterios de aceite em `- [x]`. **Nao existia formato anterior** (nenhum `[x]` no
+  arquivo inteiro, epicos 1-8 nunca foram marcados), entao a convencao foi criada e
+  documentada numa nota abaixo do indice. Divergencias registradas ao lado do criterio em
+  vez de escondidas: `POST /api/couple/leave` virou `DELETE /api/couple/me`; a exclusao
+  de conta tambem apaga `notification` (E9.2, fora do texto original da T9.4); a
+  integridade de FK so e provada de verdade no CI (`DB_URL`).
+- **Um criterio ficou `- [ ]` de proposito:** "os quatro blocos funcionam ponta a ponta
+  contra a API" (T9.5). Sem navegador e sem backend no sandbox, marcar seria otimismo.
+- `api/CLAUDE.md`: a linha do package-by-feature lista as 4 portas + a excecao do
+  websocket, e nasceu um bullet com os 4 endpoints novos do epico ao lado dos que ja
+  existiam, cada um com o seu rate limit por usuario.
+- `client/CLAUDE.md`: a secao `screens/account/` abre com os 4 endpoints que a tela
+  consome e o lembrete de que nenhum e chamado direto por tela (passam pelo `useAuthStore`).
+- Checks: nao rodei `./mvnw test` nem os scripts do `client/` — o diff nao toca em codigo
+  nem em config. Os nomes de arquivo/metodo citados foram conferidos contra o codigo
+  (`CoupleRepository.findActiveByUserId`/`findActiveByInviteCode`, os 4 facades,
+  `screens/account/DeleteAccountSection.tsx` — que **nao** se chama `DangerZoneSection`).
+- **Learnings for future iterations:**
+  - "Conferir que a documentacao continua correta" != "conferir a lista que a AC cita".
+    A lista de migrations do `FLYWAY.md` estava certa; o que envelheceu foi uma frase a
+    30 linhas dali afirmando qual era a ultima migration. Ler o arquivo inteiro atras de
+    afirmacoes que a story nova invalidou, nao so o paragrafo apontado.
+  - AC que diz "no mesmo formato usado pelos epicos anteriores" pode nao ter formato
+    anterior nenhum — `grep -c "^- \[x\]"` deu 0 no arquivo todo. Nesse caso a saida e
+    criar a convencao **e** escreve-la no proprio documento, senao o proximo epico
+    inventa uma terceira.
+  - Story de documentacao sem codigo nao precisa de `./mvnw test`, mas precisa de
+    verificacao propria: todo nome de classe/metodo/arquivo citado tem de ser conferido
+    por `grep`/`ls` contra o codigo. Escrever de memoria produziu `DangerZoneSection`,
+    que nao existe.
+  - Marcar um criterio de aceite como cumprido quando o ambiente nao permite verificar
+    apaga a informacao de que ele ficou pendente. `- [ ]` com o motivo escrito ao lado
+    preserva o gate para o lado humano.
+---

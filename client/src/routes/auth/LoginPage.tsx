@@ -79,7 +79,15 @@ export function LoginPage() {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-[#a6a39a]">Senha</span>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-xs font-medium text-[#a6a39a]">Senha</span>
+            <Link
+              to="/esqueci-senha"
+              className="text-xs font-medium text-[#ffcb2b] hover:text-[#ffe08a]"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
           <Input
             type="password"
             autoComplete="current-password"

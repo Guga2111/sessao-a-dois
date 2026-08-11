@@ -9,6 +9,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
       TMDB_API_KEY: ${TMDB_API_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL}
+      APP_EMAIL_PROVIDER: ${APP_EMAIL_PROVIDER}
       # SPRING_FLYWAY_BASELINE_ON_MIGRATE foi REMOVIDO daqui (Epico 8, 2026-08-06).
       # Producao ja tem flyway_schema_history com V1..V6; com a variavel ligada,
       # uma migration que nao aplicasse seria mascarada como baseline em vez de

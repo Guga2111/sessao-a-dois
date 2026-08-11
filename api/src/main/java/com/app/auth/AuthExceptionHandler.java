@@ -32,4 +32,9 @@ public class AuthExceptionHandler {
 	public ResponseEntity<Map<String, String>> handleRefreshReuseDetected(RefreshReuseDetectedException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", ex.getMessage()));
 	}
+
+	@ExceptionHandler(InvalidPasswordResetTokenException.class)
+	public ResponseEntity<Map<String, String>> handleInvalidPasswordResetToken(InvalidPasswordResetTokenException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+	}
 }

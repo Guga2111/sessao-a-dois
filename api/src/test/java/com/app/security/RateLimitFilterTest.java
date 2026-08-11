@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Cobre {@link RateLimitFilter}: bloqueio por IP em cada um dos 4 endpoints
+ * Cobre {@link RateLimitFilter}: bloqueio por IP em cada um dos 6 endpoints
  * protegidos, presenca/plausibilidade do Retry-After, liberacao apos a
  * janela, contadores independentes por IP, e ausencia de efeito em outros
  * endpoints. Capacidades/janelas sao reduzidas via @TestPropertySource so
@@ -37,7 +37,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 	"app.rate-limit.refresh.capacity=2",
 	"app.rate-limit.refresh.window=3s",
 	"app.rate-limit.couple-join.capacity=2",
-	"app.rate-limit.couple-join.window=3s"
+	"app.rate-limit.couple-join.window=3s",
+	"app.rate-limit.forgot-password.capacity=2",
+	"app.rate-limit.forgot-password.window=3s",
+	"app.rate-limit.forgot-password-by-email.capacity=100",
+	"app.rate-limit.forgot-password-by-email.window=1h",
+	"app.rate-limit.reset-password.capacity=2",
+	"app.rate-limit.reset-password.window=3s"
 })
 class RateLimitFilterTest {
 
@@ -117,6 +123,34 @@ class RateLimitFilterTest {
 	}
 
 	@Test
+	void forgotPasswordBlocksAfterExceedingLimit() throws Exception {
+		String ip = uniqueIp();
+
+		for (int i = 0; i < 2; i++) {
+			mockMvc.perform(forgotPasswordRequest(ip))
+				.andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(429));
+		}
+
+		mockMvc.perform(forgotPasswordRequest(ip))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().exists("Retry-After"));
+	}
+
+	@Test
+	void resetPasswordBlocksAfterExceedingLimit() throws Exception {
+		String ip = uniqueIp();
+
+		for (int i = 0; i < 2; i++) {
+			mockMvc.perform(resetPasswordRequest(ip))
+				.andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(429));
+		}
+
+		mockMvc.perform(resetPasswordRequest(ip))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().exists("Retry-After"));
+	}
+
+	@Test
 	void allowsAgainAfterWindowElapses() throws Exception {
 		String ip = uniqueIp();
 
@@ -188,6 +222,24 @@ class RateLimitFilterTest {
 			.content("""
 				{"inviteCode":"ABCDEFGH"}
 				""");
+	}
+
+	private static MockHttpServletRequestBuilder forgotPasswordRequest(String ip) {
+		return post("/api/auth/forgot-password")
+			.header("X-Forwarded-For", ip)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+				{"email":"forgot-rate-limit-%s@example.com"}
+				""".formatted(UUID.randomUUID()));
+	}
+
+	private static MockHttpServletRequestBuilder resetPasswordRequest(String ip) {
+		return post("/api/auth/reset-password")
+			.header("X-Forwarded-For", ip)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+				{"token":"tok-%s","newPassword":"senha1234"}
+				""".formatted(UUID.randomUUID()));
 	}
 
 	private static String uniqueIp() {

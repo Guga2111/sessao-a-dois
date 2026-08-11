@@ -36,12 +36,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +129,132 @@ class AuthControllerTest {
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errors.email").exists());
+	}
+
+	@Test
+	void forgotPasswordRespondsAcceptedForAnExistingEmail() throws Exception {
+		mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com"}
+					"""))
+			.andExpect(status().isAccepted())
+			.andExpect(content().string(""));
+
+		verify(authService).forgotPassword("ana@example.com");
+	}
+
+	@Test
+	void forgotPasswordRespondsAcceptedForAnUnknownEmailWithTheExactSameShape() throws Exception {
+		MvcResult existing = mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com"}
+					"""))
+			.andReturn();
+
+		MvcResult unknown = mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ghost@example.com"}
+					"""))
+			.andReturn();
+
+		assertThat(unknown.getResponse().getStatus()).isEqualTo(existing.getResponse().getStatus());
+		assertThat(unknown.getResponse().getContentAsString()).isEqualTo(existing.getResponse().getContentAsString());
+	}
+
+	@Test
+	void forgotPasswordRejectsMalformedEmailWithBadRequest() throws Exception {
+		mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"not-an-email"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.email").exists());
+
+		verify(authService, never()).forgotPassword(any());
+	}
+
+	@Test
+	void forgotPasswordIsPublicAndNeverConsultsTheAccessToken() throws Exception {
+		mockMvc.perform(post("/api/auth/forgot-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"email":"ana@example.com"}
+					"""))
+			.andExpect(status().isAccepted());
+
+		verifyNoInteractions(jwtService);
+	}
+
+	@Test
+	void resetPasswordReturnsNoContentAndSetsNoCookie() throws Exception {
+		MvcResult result = mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"raw-token","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isNoContent())
+			.andReturn();
+
+		verify(authService).resetPassword("raw-token", "senha-nova-1234");
+		List<String> setCookies = result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+		assertThat(setCookies).noneMatch(c -> c.startsWith("access_token=") || c.startsWith("refresh_token="));
+	}
+
+	@Test
+	void resetPasswordWithInvalidTokenIsBadRequestWithAGenericMessage() throws Exception {
+		org.mockito.Mockito.doThrow(new InvalidPasswordResetTokenException())
+			.when(authService)
+			.resetPassword("token-invalido", "senha-nova-1234");
+
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"token-invalido","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value("token invalido ou expirado"));
+	}
+
+	@Test
+	void resetPasswordRejectsShortNewPasswordWithTheSameMessageAsRegister() throws Exception {
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"raw-token","newPassword":"1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.newPassword").value("senha deve ter entre 8 e 72 caracteres"));
+
+		verify(authService, never()).resetPassword(any(), any());
+	}
+
+	@Test
+	void resetPasswordRejectsBlankToken() throws Exception {
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.token").exists());
+
+		verify(authService, never()).resetPassword(any(), any());
+	}
+
+	@Test
+	void resetPasswordIsPublicAndNeverConsultsTheAccessToken() throws Exception {
+		mockMvc.perform(post("/api/auth/reset-password")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"token":"raw-token","newPassword":"senha-nova-1234"}
+					"""))
+			.andExpect(status().isNoContent());
+
+		verifyNoInteractions(jwtService);
 	}
 
 	@Test

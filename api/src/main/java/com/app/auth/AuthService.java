@@ -10,8 +10,10 @@ import com.app.security.SecurityAuditLogger;
 import com.app.user.User;
 import com.app.user.UserRepository;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -34,10 +36,15 @@ public class AuthService {
 	private final RateLimitService rateLimitService;
 	private final RateLimitProperties rateLimitProperties;
 	private final SecurityAuditLogger securityAuditLogger;
+	private final PasswordResetDispatcher passwordResetDispatcher;
+	private final PasswordResetService passwordResetService;
+	private final ApplicationEventPublisher eventPublisher;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
 			RefreshTokenService refreshTokenService, RateLimitService rateLimitService,
-			RateLimitProperties rateLimitProperties, SecurityAuditLogger securityAuditLogger) {
+			RateLimitProperties rateLimitProperties, SecurityAuditLogger securityAuditLogger,
+			PasswordResetDispatcher passwordResetDispatcher, PasswordResetService passwordResetService,
+			ApplicationEventPublisher eventPublisher) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
@@ -45,6 +52,9 @@ public class AuthService {
 		this.rateLimitService = rateLimitService;
 		this.rateLimitProperties = rateLimitProperties;
 		this.securityAuditLogger = securityAuditLogger;
+		this.passwordResetDispatcher = passwordResetDispatcher;
+		this.passwordResetService = passwordResetService;
+		this.eventPublisher = eventPublisher;
 	}
 
 	public User register(RegisterRequest request) {
@@ -121,6 +131,7 @@ public class AuthService {
 	 * inclusive a que fez a troca (E9.8): se a senha estava comprometida, a sessao do atacante
 	 * morre junto. Senha atual errada nao altera nada - nem a senha, nem as sessoes.
 	 */
+	@Transactional
 	public void changePassword(UUID userId, ChangePasswordRequest request) {
 		enforcePasswordChangeRateLimit(userId);
 
@@ -133,6 +144,7 @@ public class AuthService {
 		userRepository.save(user);
 		refreshTokenService.revokeFamily(userId);
 		securityAuditLogger.passwordChanged(userId);
+		eventPublisher.publishEvent(new PasswordChangedNoticeEvent(userId, user.getEmail(), user.getName()));
 	}
 
 	/**
@@ -146,6 +158,53 @@ public class AuthService {
 		if (!result.allowed()) {
 			throw new RateLimitExceededException(result.retryAfterSeconds());
 		}
+	}
+
+	/**
+	 * POST /api/auth/forgot-password (US-006). Responde sempre 202 no controller,
+	 * independentemente do e-mail existir - aqui so decidimos SE ha trabalho a fazer.
+	 * A emissao do token e o envio do e-mail rodam fora deste metodo (PasswordResetDispatcher,
+	 * @Async), entao um provedor fora do ar nunca atrasa nem altera a resposta.
+	 */
+	public void forgotPassword(String email) {
+		enforceForgotPasswordRateLimit(email);
+		securityAuditLogger.passwordResetRequested(email);
+
+		userRepository.findByEmail(email).ifPresent(passwordResetDispatcher::dispatch);
+	}
+
+	/**
+	 * Limite por e-mail alvo (US-008), alem do limite por IP ja aplicado pelo
+	 * {@code RateLimitFilter}. Roda ANTES da busca do usuario e dispara mesmo
+	 * quando o e-mail nao existe, para nao virar oraculo de enumeracao - mesmo
+	 * padrao de {@link #enforceLoginRateLimit(String)}.
+	 */
+	private void enforceForgotPasswordRateLimit(String email) {
+		String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
+		Limit limit = rateLimitProperties.getForgotPasswordByEmail();
+		RateLimitResult result = rateLimitService.tryConsume("forgot-password:email:" + normalizedEmail,
+				limit.getCapacity(), limit.getWindow());
+		if (!result.allowed()) {
+			throw new RateLimitExceededException(result.retryAfterSeconds());
+		}
+	}
+
+	/**
+	 * POST /api/auth/reset-password (US-007). Consome o token (uso unico, mesmo erro
+	 * generico para inexistente/expirado/ja usado), grava a senha nova com o mesmo
+	 * PasswordEncoder do login e derruba TODAS as sessoes do usuario (E9.8) - a
+	 * resposta nao emite nenhum cookie, o reset nao autentica quem o fez.
+	 */
+	@Transactional
+	public void resetPassword(String rawToken, String newPassword) {
+		UUID userId = passwordResetService.consumeToken(rawToken);
+		User user = findAuthenticatedUser(userId);
+
+		user.setPasswordHash(passwordEncoder.encode(newPassword));
+		userRepository.save(user);
+		refreshTokenService.revokeFamily(userId);
+		securityAuditLogger.passwordResetCompleted(userId);
+		eventPublisher.publishEvent(new PasswordChangedNoticeEvent(userId, user.getEmail(), user.getName()));
 	}
 
 	public record LoginResult(String accessToken, String refreshToken, User user) {

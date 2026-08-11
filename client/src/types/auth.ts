@@ -9,3 +9,14 @@ export interface ChangePasswordRequest {
   currentPassword: string
   newPassword: string
 }
+
+/** Corpo de `POST /api/auth/forgot-password` (record `ForgotPasswordRequest`). Responde 202 sempre. */
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+/** Corpo de `POST /api/auth/reset-password` (record `ResetPasswordRequest`). Responde 204, sem cookie de sessao. */
+export interface ResetPasswordRequest {
+  token: string
+  newPassword: string
+}
