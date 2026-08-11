@@ -63,6 +63,15 @@ services:
       # ela). Lida do .env na raiz do repo (docker compose carrega .env
       # automaticamente) ou de uma env var exportada no shell. Veja .env.example.
       TMDB_API_KEY: ${TMDB_API_KEY:?defina TMDB_API_KEY no .env ou no ambiente - veja .env.example}
+      # E-mail transacional (Epico 10): default fica em log (LoggingEmailSender,
+      # nao envia nada de verdade) para nao exigir credencial Resend de quem so
+      # quer rodar o resto da app. Para testar o envio real, defina as 4 no .env
+      # da raiz (RESEND_API_KEY/EMAIL_FROM/APP_PUBLIC_URL/APP_EMAIL_PROVIDER=resend)
+      # - veja .env.example.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:5173}
+      APP_EMAIL_PROVIDER: ${APP_EMAIL_PROVIDER:-log}
     ports:
       - "8080:8080"
     depends_on:
