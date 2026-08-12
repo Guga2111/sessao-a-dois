@@ -129,7 +129,7 @@
         "Commit sem trailer Co-Authored-By"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

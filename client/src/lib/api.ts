@@ -48,6 +48,17 @@ function captureRequestId(headers: unknown): void {
   }
 }
 
+/**
+ * Ultimo X-Request-Id visto (ver `lastRequestId` acima). Usado pelo error boundary
+ * (US-006) para mostrar ao usuario o mesmo correlation id que acabou de ser enviado
+ * em `reportClientError` — a resposta do POST /api/client-errors sempre carrega o
+ * header, entao chamar isto depois de `reportClientError` resolver reflete o id
+ * daquele relatorio especifico.
+ */
+export function getLastRequestId(): string | undefined {
+  return lastRequestId
+}
+
 const REFRESH_URL = "/api/auth/refresh"
 const CLIENT_ERROR_URL = "/api/client-errors"
 const CLIENT_ERROR_STACK_MAX_LENGTH = 4000

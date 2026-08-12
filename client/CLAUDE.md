@@ -360,3 +360,18 @@ tambem apagam o booleano — formar casal novo encerra o assunto.
 A landing (`/`) e `PublicOnlyRoute`, entao ela so aceita o usuario **depois** do
 `clearSession()` — as duas chamadas no mesmo handler sao batidas num render so e o destino
 ja resolve com `isAuthenticated: false`.
+
+## Error boundary de topo (`src/components/ErrorBoundary.tsx`, US-006, Epico 12)
+
+Montado em `main.tsx` **por fora** de `ThemeProvider`/`BrowserRouter` para capturar tambem
+uma excecao vinda de dentro deles — por isso a tela de erro so usa cores inline (arbitrary
+values, mesmo padrao do resto do `client/`), nunca `useNavigate`/`Link`/token de tema; um
+segundo botao de navegacao e sempre `<a href="/">`. `componentDidCatch` chama
+`reportClientError` (US-005) e, quando a promise resolve, le `getLastRequestId()` — um getter
+novo em `lib/api.ts` sobre o `lastRequestId` ja existente — para mostrar o mesmo correlation
+id que acabou de ir no relatorio (a resposta do `POST /api/client-errors` sempre carrega o
+header `X-Request-Id`, entao o valor so fica correto depois daquela promise assentar, nao
+antes). Teste (`ErrorBoundary.test.tsx`) usa `vi.mock("@/lib/api")` mockando
+`reportClientError`/`getLastRequestId` diretamente (o componente e o consumidor, nao o
+proprio `lib/api.ts` — o outro padrao de mock, com adapter falso do axios, e so para testar
+`lib/api.ts` em si).
