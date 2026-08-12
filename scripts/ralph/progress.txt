@@ -691,3 +691,63 @@ Started: 2026-08-11
     continuam bloqueadas (decisao do mantenedor pendente, nao revisitadas
     nesta iteracao).
 ---
+
+## 2026-08-11 - US-015
+- Implementado: `src/screens/match/SuggestionsTab.test.tsx` (novo, 7 testes),
+  cobrindo o ramo de erro (`pendingError`), o estado vazio (`pendingQueue`
+  vazia sem erro), o card da sugestao atual (`pendingQueue` com item),
+  falha ao registrar reject/like (mensagem `"Nao foi possivel registrar.
+  Tentem novamente."` visivel, item permanece na fila) e sucesso de
+  reject/like (item removido da fila, `api.post` chamado com o endpoint e o
+  corpo certos).
+- Arquivos alterados: client/src/screens/match/SuggestionsTab.test.tsx
+  (novo). Nenhum arquivo de producao do client/ foi tocado (confirmado com
+  `git status --porcelain` antes de commitar: 1 arquivo, so o teste novo).
+- **Learnings for future iterations:**
+  - `SuggestionsTab` e o primeiro COMPONENTE do epico que consome uma das
+    tres stores Zustand diretamente (`useMatchStore()`) E dispara uma acao
+    dessa store automaticamente no mount (`fetchPending()` no `useEffect`) —
+    HubScreen/SearchTab (US-013/014) so tocavam `@/lib/api` direto, e
+    guards.tsx (US-011) so lia estado sem disparar acao nenhuma. Isso junta
+    as duas armadilhas pela primeira vez: `SuggestionsTab.tsx` e avaliado
+    DEPOIS do `vi.mock("@/lib/api")` do arquivo de teste (herda o mock
+    corretamente para as chamadas que ele mesmo faz, `api.post` em
+    `handleLike`/`handleReject`), mas `useMatchStore.ts` foi avaliado ANTES
+    (via `storeReset.ts` no `setup.ts`) — `fetchPending` real, fechado sobre
+    o `@/lib/api` REAL, dispararia uma chamada de rede de verdade no mount
+    se chamado sem tratamento.
+  - Resolvido SEM `vi.resetModules()`: como `fetchPending` e uma chave comum
+    do estado do Zustand (nao um metodo de classe), basta sobrescreve-la via
+    `useMatchStore.setState({ fetchPending: vi.fn().mockResolvedValue(undefined),
+    pendingQueue, pendingLoading: false, pendingError })` no corpo do teste —
+    o proprio `useEffect` do componente chama essa versao mockada em vez da
+    real, sem nenhuma chamada de rede, e ainda bate literalmente com a AC
+    "a store e semeada via setState no teste". Cogitei `vi.resetModules()` +
+    reimport dinamico de `SuggestionsTab.tsx` (padrao das US-003/004/006),
+    mas isso reavaliaria "react"/"react-dom" tambem (resetModules limpa o
+    registro inteiro, nao so a store), arriscando duas instancias de React
+    coexistindo (`@testing-library/react` carregado no topo do arquivo,
+    antes do reset, vs. o componente reimportado depois) e o classico erro
+    de "Invalid hook call" — a sobrescrita via `setState` evita esse risco
+    por inteiro e e mais simples. Vale para QUALQUER teste futuro de
+    componente que dispare uma acao de uma das tres stores automaticamente
+    no mount: sobrescrever so a ACAO especifica via `setState`, nao tentar
+    resetar o modulo inteiro.
+  - `removePending` (tambem uma acao real da store) NAO precisou de mock: e
+    sincrona, so filtra o array em memoria, nao toca `@/lib/api` — usar a
+    versao real (ainda que seja a instancia "poluida" da store, o que nao
+    importa aqui) confirma o comportamento de verdade sem risco de rede.
+  - Os botoes de reject/like (`X`/`Heart` do `lucide-react`) sao icon-only,
+    sem `aria-label` — o unico botao do card com nome acessivel e o
+    `CompareToggleButton` ("Comparar titulos"/"Cancelar comparacao"). Como a
+    AC desta story nao exige "consultar so por papel/texto acessivel"
+    (diferente de US-011/012/013/014), usei
+    `screen.getAllByRole("button").filter(b => !b.hasAttribute("aria-label"))`
+    para isolar os dois botoes de acao pela ORDEM do JSX (reject primeiro,
+    like depois) — estrutural, nao CSS, mas registrar aqui porque destoa do
+    padrao "nunca por classe CSS" que a maioria das stories anteriores exigia.
+  - Proxima story implementavel e US-016 (cobertura medida e limiar). US-007/
+    US-008 continuam bloqueadas (decisao do mantenedor pendente, nao
+    revisitadas nesta iteracao).
+---
+---
