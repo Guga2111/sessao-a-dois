@@ -750,4 +750,49 @@ Started: 2026-08-11
     US-008 continuam bloqueadas (decisao do mantenedor pendente, nao
     revisitadas nesta iteracao).
 ---
+
+## 2026-08-11 - US-016
+- Implementado: `client/vite.config.ts` ganhou `test.coverage` (`provider: "v8"`,
+  `reporter: ["text", "html"]`, o `exclude` pedido pela AC — `src/test/**`,
+  `src/components/ui/**`, `src/main.tsx`, `*.config.*`, `src/types/**` — e
+  `thresholds` fixado no patamar medido). `client/.gitignore` ganhou a linha
+  `coverage`.
+- Numeros medidos com `bun run test:coverage` (98 testes, 11 arquivos, todos
+  os que ja existiam de US-001 a US-015): Statements 52.47% (637/1214),
+  Branches 37.43% (365/975), Functions 40.32% (175/434), Lines 55.39%
+  (585/1056). `thresholds` fixado ARREDONDADO PARA BAIXO: statements 52,
+  branches 37, functions 40, lines 55 (comentario no proprio `vite.config.ts`
+  registra a data e que subir o limiar e task propria).
+- Arquivos alterados: client/vite.config.ts, client/.gitignore. Nenhum arquivo
+  de producao do client/ foi tocado — so configuracao de teste (confirmado com
+  `git status --porcelain`/`git diff --stat` antes de commitar: 2 arquivos).
+- **Learnings for future iterations:**
+  - Verificacao na pratica pedida pela AC ("comentar um teste faz
+    `bun run test:coverage` sair com codigo 1") foi feita sem comentar codigo:
+    `mv src/lib/api.test.ts /tmp/... ` (o arquivo com mais testes/maior
+    cobertura de um arquivo unico, `lib/api.ts` caiu de 97.72% para fora do
+    conjunto) fez os quatro numeros globais carem abaixo dos quatro
+    thresholds simultaneamente e o processo sair com `REAL_EXIT:1` (capturado
+    com `bun run test:coverage > arquivo 2>&1; echo $?` — depois de um `|
+    tail`, `$?` reflete o `tail`, nao o `bun`, entao a primeira tentativa
+    mostrou `EXIT:0` mesmo com o gate tendo falhado; sempre capturar o
+    `$?` imediatamente apos o comando real, nunca depois de um pipe).
+    `mv` de volta restaurou `REAL_EXIT:0`.
+  - O `.gitignore` do `client/` ja tinha `dist`/`dist-ssr` mas nao `coverage`
+    — sem a entrada nova, `bun run test:coverage` local deixaria
+    `client/coverage/**` aparecer no `git status`.
+  - Gerar `client/coverage/` localmente (mesmo que temporario, e mesmo
+    listado no `.gitignore`) faz `bun run lint` emitir 3 warnings de
+    `no-unused-eslint-disable` para os `.js` gerados dentro da propria pasta
+    de relatorio (`coverage/block-navigation.js` etc.) — sao **warnings**
+    (exit 0, nao bloqueiam), acontecem so quando a pasta existe em disco no
+    momento do lint, e o job `frontend` do CI (US-017) roda o step de Lint
+    ANTES do de Test, entao esse artefato nem existe ainda nesse ponto do
+    pipeline. `eslint.config.js` so ignora `dist` via `globalIgnores` — nao
+    precisou adicionar `coverage` la porque o CI nunca lint depois de gerar
+    cobertura, mas se uma story futura reordenar os steps, vale adicionar
+    `coverage` ao `globalIgnores`.
+  - Proxima story implementavel e US-017 (gate de teste no CI). US-007/US-008
+    continuam bloqueadas (decisao do mantenedor pendente, nao revisitadas
+    nesta iteracao).
 ---
