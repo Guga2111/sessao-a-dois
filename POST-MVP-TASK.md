@@ -1863,7 +1863,7 @@ Teste E2E (Playwright/Cypress); teste de regressão visual; cobertura mínima (�
 
 ## T11.2 — Testes das stores e hooks
 
-**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-003 a US-006, US-009 (`epico11/frontend-tests`).
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 11, US-003 a US-009 (`epico11/frontend-tests`).
 **Criticidade:** Alto
 **Arquivos:** testes novos para `client/src/stores/{useAuthStore,useMatchStore,useNotificationStore}.ts`, `client/src/screens/match/useDiscoverSearch.ts`, `client/src/lib/useCompareSelection.ts`
 
@@ -1882,7 +1882,7 @@ Priorizar por risco, não por cobertura:
 5. `useNotificationStore` — contagem de não-lidas e marcar-como-lida.
 
 ### Critérios de aceite
-- [ ] Cada um dos 5 módulos tem teste cobrindo o caminho feliz **e** o caso de erro. — `useMatchStore`, `useAuthStore`, `useNotificationStore` e `useCompareSelection` cobertos (US-003/004/005/006/009); `useDiscoverSearch` fica de fora: o `reducer` não é exportado (US-007) e a AC "erro não limpa `results` anteriores" é falsa para o `reducer` atual (US-008) — as duas exigiriam mudar código de produção do `client/`, fora do escopo deste épico de testes. Decisão do mantenedor pendente, ver `scripts/ralph/progress.txt` (seções US-007/US-008).
+- [x] Cada um dos 5 módulos tem teste cobrindo o caminho feliz **e** o caso de erro. — `useMatchStore`, `useAuthStore`, `useNotificationStore` e `useCompareSelection` cobertos (US-003/004/005/006/009). `useDiscoverSearch` (US-007/US-008) exigiu duas exceções autorizadas pelo mantenedor em 2026-08-12: (a) exportar `reducer`/`initialState`/`State`/`Action`, mudança puramente aditiva; (b) reescrever a AC "erro não limpa `results` anteriores" para o comportamento real do `reducer` (`FETCH_FAILED` zera `results`/`totalResults`/`totalPages` incondicionalmente — a UI decide o que mostrar via `fetchError`/`searched`). Nenhuma mudança de comportamento em produção. Ver `scripts/ralph/progress.txt` (seções US-007/US-008) e `scripts/ralph/prd.json`.
 - [x] Existe teste que falharia se o vazamento de subscription da T7.3 voltasse. _(`src/stores/useMatchStore.test.ts`, US-003)_
 - [x] Existe teste que falharia se `celebratedMatchKeys` voltasse a crescer sem limite. _(idem)_
 - [x] Nenhum teste depende de rede real.
@@ -2121,9 +2121,8 @@ existem; o que não existe é a regra que impede o app de contorná-los.
 
 **Dependências:** T13.2 depende da T13.1. A T13.4 depende da T13.2. **Fortemente
 recomendado fazer o Épico 11 antes** — a T13.2 toca dezenas de arquivos visuais e hoje
-não há nada que detecte uma quebra. **Dependência satisfeita em 2026-08-11:** o Épico 11
-(T11.1–T11.4, US-001 a US-006 e US-009 a US-017 — US-007/US-008 bloqueadas, decisão do
-mantenedor pendente, ver `scripts/ralph/progress.txt`) já cobre guards de rota,
+não há nada que detecte uma quebra. **Dependência satisfeita em 2026-08-11, completa em
+2026-08-12:** o Épico 11 (T11.1–T11.4, US-001 a US-018 — as 18 stories) já cobre guards de rota,
 `HubScreen`/`TrackSection` e `SearchTab`/`SuggestionsTab` com testes que consultam por
 papel/texto acessível, não por classe CSS — a rede de regressão que a T13.2 precisa para
 não quebrar em silêncio já existe.

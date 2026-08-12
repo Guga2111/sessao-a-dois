@@ -1,7 +1,7 @@
 {
   "project": "Sessao a Dois",
   "branchName": "ralph/epico11-rede-de-testes-frontend",
-  "description": "Epico 11 - Rede de Testes do Frontend. O client/ nao tem runner de teste nenhum enquanto o api/ tem 48+ arquivos e gate JaCoCo de 90%. Este epico instala Vitest + Testing Library + jsdom configurados dentro do vite.config.ts existente, cobre os 6 modulos de logica (useMatchStore, useAuthStore, useNotificationStore, useDiscoverSearch, useCompareSelection e o interceptor de lib/api.ts), os 4 guards de rota e os estados de carregando/vazio/erro das telas decompostas no Epico 7, e fecha com limiar de cobertura no patamar medido e um gate no job frontend do ci.yml. PRD completo em tasks/prd-epico-11-rede-de-testes-do-frontend.md. REGRA DE COMMIT DESTE EPICO: nenhum commit pode conter o trailer Co-Authored-By (nem Claude, nem Opus, nem nenhuma variacao) - a mensagem termina no corpo do commit. REGRA DE ESCOPO: nenhuma story deste epico muda um pixel do app nem altera codigo de producao do client/ - se um teste so passar mexendo em codigo de producao, PARAR e registrar em vez de alterar. Por isso nenhuma story tem verificacao em navegador: nao ha mudanca visual (e nao ha Chromium no sandbox).",
+  "description": "Epico 11 - Rede de Testes do Frontend. O client/ nao tem runner de teste nenhum enquanto o api/ tem 48+ arquivos e gate JaCoCo de 90%. Este epico instala Vitest + Testing Library + jsdom configurados dentro do vite.config.ts existente, cobre os 6 modulos de logica (useMatchStore, useAuthStore, useNotificationStore, useDiscoverSearch, useCompareSelection e o interceptor de lib/api.ts), os 4 guards de rota e os estados de carregando/vazio/erro das telas decompostas no Epico 7, e fecha com limiar de cobertura no patamar medido e um gate no job frontend do ci.yml. PRD completo em tasks/prd-epico-11-rede-de-testes-do-frontend.md. REGRA DE COMMIT DESTE EPICO: nenhum commit pode conter o trailer Co-Authored-By (nem Claude, nem Opus, nem nenhuma variacao) - a mensagem termina no corpo do commit. REGRA DE ESCOPO: nenhuma story deste epico muda um pixel do app nem altera codigo de producao do client/ - se um teste so passar mexendo em codigo de producao, PARAR e registrar em vez de alterar. Por isso nenhuma story tem verificacao em navegador: nao ha mudanca visual (e nao ha Chromium no sandbox). EXCECOES DE ESCOPO AUTORIZADAS PELO MANTENEDOR EM 2026-08-12 (US-007/US-008): (a) reducer/initialState/State/Action de useDiscoverSearch.ts ganharam export (mudanca aditiva, zero efeito em runtime); (b) a AC de US-008 sobre erro de rede foi reescrita para refletir o comportamento real do reducer (results E zerado no erro), em vez de mudar o reducer para bater com uma AC errada. Nenhuma outra excecao de escopo foi concedida.",
   "userStories": [
     {
       "id": "US-001",
@@ -162,12 +162,12 @@
         "bun run test:run passa",
         "bun run typecheck passa",
         "bun run lint passa",
-        "Nenhum arquivo de producao do client/ e alterado",
+        "EXCECAO AUTORIZADA (2026-08-12): reducer/initialState/State/Action de useDiscoverSearch.ts podem ganhar `export` - mudanca puramente aditiva. Nenhum OUTRO arquivo de producao e alterado, e nenhum comportamento muda.",
         "Commit sem trailer Co-Authored-By"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "BLOQUEADA: reducer/initialState/State/Action de useDiscoverSearch.ts nao sao exportados. Testar como funcao pura sem renderizar React exige export (= alterar codigo de producao), o que colide com a AC 'nenhum arquivo de producao e alterado' e com a regra de escopo do epico. Decisao do mantenedor pendente - ver progress.txt secao US-007."
+      "passes": true,
+      "notes": "Exportacao de reducer/initialState/State/Action de useDiscoverSearch.ts autorizada pelo mantenedor em 2026-08-12 como excecao pontual a regra de escopo do epico (mudanca puramente aditiva, zero efeito em runtime). Implementado em client/src/screens/match/useDiscoverSearch.reducer.test.ts (7 testes)."
     },
     {
       "id": "US-008",
@@ -176,7 +176,7 @@
       "acceptanceCriteria": [
         "O hook e exercitado com renderHook e vi.mock('@/lib/api') - nenhuma chamada de rede real",
         "Digitar uma query dispara UMA chamada apos o debounce, nao uma por tecla (verificado com fake timers contando chamadas do mock)",
-        "Erro de rede acende fetchError e NAO limpa os results anteriores",
+        "Erro de rede acende fetchError e ESVAZIA results/totalResults (comportamento real do reducer, confirmado em teste - nao ha excecao para \"ja havia resultado antes\"); searching volta a false",
         "Trocar de pagina replica a ultima requisicao bem-sucedida (lastFetchRef) com apenas o page diferente - mesmo endpoint e mesmos params",
         "A paginacao respeita TMDB_MAX_PAGE como limite superior",
         "A carga inicial (trending) acontece uma vez na montagem",
@@ -187,8 +187,8 @@
         "Commit sem trailer Co-Authored-By"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "BLOQUEADA (parcial): a AC 'Erro de rede acende fetchError e NAO limpa os results anteriores' e falsa para o codigo atual - confirmado na pratica com um teste descartavel (renderHook, sucesso popula results, fetch seguinte falha, results.length caiu de 1 para 0). O reducer de useDiscoverSearch.ts (FETCH_FAILED) zera results/totalResults/totalPages incondicionalmente. Fazer essa AC passar como escrita exige mudar o reducer (remover o zeramento) - alteracao de comportamento de producao, nao so estrutural como a exportacao pendente da US-007, e colide com a mesma regra de escopo do epico. As outras 5 ACs de comportamento (debounce de 1 chamada, replay de paginacao via lastFetchRef, limite TMDB_MAX_PAGE, carga inicial de trending, renderHook+vi.mock sem rede real) sao testaveis sem tocar producao, mas a story so fecha com passes:true quando TODAS as AC baterem - decisao do mantenedor pendente (corrigir o reducer, ou reescrever a AC para refletir o comportamento real). Ver progress.txt secao US-008."
+      "passes": true,
+      "notes": "AC de erro de rede reescrita pelo mantenedor em 2026-08-12 para refletir o comportamento real do reducer (FETCH_FAILED zera results/totalResults/totalPages incondicionalmente - a UI decide o que mostrar via fetchError/searched, nao via results cru). Nenhuma mudanca de comportamento em producao. Implementado em client/src/screens/match/useDiscoverSearch.test.ts (5 testes, renderHook + vi.mock + fake timers)."
     },
     {
       "id": "US-009",

@@ -908,3 +908,103 @@ Started: 2026-08-11
     dela parece ser — vale isolar cada hunk (`git diff -w` ajuda a filtrar
     ruido de espaco em branco) antes de decidir se e seguro commitar junto.
 ---
+
+## 2026-08-12 - Decisao do mantenedor (US-007/US-008 desbloqueadas)
+
+Perguntado diretamente ao mantenedor (fora do loop autonomo do Ralph, numa sessao
+interativa) como resolver os dois bloqueios registrados acima. Duas decisoes:
+
+1. **US-007:** autorizado exportar `reducer`/`initialState`/`State`/`Action` de
+   `useDiscoverSearch.ts`. Mudanca aditiva, zero efeito em runtime.
+2. **US-008:** autorizado reescrever a AC "erro de rede acende fetchError e NAO
+   limpa os results anteriores" para refletir o comportamento REAL do reducer
+   (results E zerado no erro) — em vez de mudar o reducer para bater com uma AC
+   que descrevia um comportamento que o codigo nunca teve. `SearchTab.tsx` deriva
+   o que mostrar de `fetchError`/`searched`, nao do array `results` cru, entao a
+   UI ja nao dependia do comportamento que a AC original presumia.
+
+`scripts/ralph/prd.json` atualizado: `acceptanceCriteria` das duas stories editadas
+para refletir essas decisoes, `notes` preenchidas, `passes: true` nas duas. A
+REGRA DE ESCOPO na descricao do epico (campo `description`) ganhou um paragrafo
+registrando as duas excecoes autorizadas, para quem ler o `prd.json` sozinho
+(sem este arquivo) entender por que ele nao bate 100% com a regra geral.
+---
+
+## 2026-08-12 - US-007 (desbloqueada e implementada)
+
+- Implementado: `export` adicionado a `reducer`, `initialState`, `State` e `Action`
+  em `client/src/screens/match/useDiscoverSearch.ts` (4 linhas, so a palavra
+  `export` — nenhuma outra mudanca no arquivo). Novo
+  `client/src/screens/match/useDiscoverSearch.reducer.test.ts` (7 testes,
+  reducer testado como funcao pura via `actions.reduce(reducer, state)`):
+  `QUERY_CHANGED` vazio/com espaco limpa `results`+`searched`, `QUERY_CHANGED`
+  com texto preserva `results`, `FILTERS_CLEARED` volta aos defaults, as duas
+  sequencias `FETCH_STARTED -> FETCH_SUCCEEDED/FAILED -> FETCH_SETTLED`, e as
+  acoes de campo unico (`GENRES_LOADED`/`SORT_CHANGED`/`FILTERS_OPEN_CHANGED`
+  e os 5 setters de filtro) alterando so o proprio campo.
+- Arquivos alterados: `client/src/screens/match/useDiscoverSearch.ts` (so os 4
+  `export`), `client/src/screens/match/useDiscoverSearch.reducer.test.ts` (novo).
+- `bun run test:run`, `typecheck`, `lint` verdes (7 testes novos, nenhum dos
+  existentes quebrou).
+- **Learnings for future iterations:**
+  - Nenhum teste do reducer renderiza React nem toca `@/lib/api` — e a AC "os
+    testes do reducer nao renderizam React nem tocam a rede" que motivou manter
+    o `reducer` puro em vez de testa-lo so via `renderHook` (que a US-008 ja
+    cobre de outro angulo).
+---
+
+## 2026-08-12 - US-008 (desbloqueada e implementada)
+
+- Implementado: `client/src/screens/match/useDiscoverSearch.test.ts` (5 testes,
+  `renderHook` de `@testing-library/react` + `vi.mock("@/lib/api")` +
+  `vi.useFakeTimers()`): carga inicial de trending na montagem (uma chamada a
+  `/api/media/trending`), debounce de 400ms (4 `setQuery` seguidos disparam
+  UMA chamada a `/api/media/search`), erro de rede acende `fetchError` e
+  ESVAZIA `results` (AC reescrita pelo mantenedor — ver decisao acima), replay
+  de paginacao via `lastFetchRef` (so o `page` muda no payload), e o teto de
+  `TMDB_MAX_PAGE` na paginacao.
+- **PEGADINHA NOVA descoberta nesta story:** `waitFor` de
+  `@testing-library/react` faz polling com `setTimeout` REAL por padrao; com
+  `vi.useFakeTimers()` ativo esse `setTimeout` nunca dispara e o teste trava
+  ate o timeout de 5s do PROPRIO Vitest (nao ate o timer que se queria testar)
+  — os 3 primeiros testes escritos com `await waitFor(...)` travaram exatamente
+  assim. Resolvido trocando todo `waitFor` por
+  `await act(async () => { await vi.advanceTimersByTimeAsync(N) })` seguido de
+  `expect(...)` direto — `advanceTimersByTimeAsync` tambem drena as microtasks
+  (a cadeia `.then`/`.catch`/`.finally` do `api.get(...)`) entre cada timer
+  disparado, entao o estado ja esta assentado quando o `act` termina. Registrado
+  em `client/CLAUDE.md` porque e generico: qualquer teste futuro combinando
+  fake timers com uma promise encadeada cai na mesma armadilha se usar `waitFor`.
+- Arquivos alterados: `client/src/screens/match/useDiscoverSearch.test.ts` (novo).
+  Nenhum arquivo de producao alem do `export` da US-007 (ja commitado antes
+  desta story) foi tocado.
+- `bun run test:coverage` (suite inteira): 110 testes, 13 arquivos, todos
+  verdes. Cobertura subiu de 52.47/37.43/40.32/55.39 para
+  53.7/38.97/41.01/56.81 (stmts/branches/funcs/lines) — acima dos thresholds
+  de 52/37/40/55 fixados na US-016, que **nao** foram alterados (nao e o
+  objetivo desta story subir o piso, so a cobertura real subiu como
+  consequencia natural de mais teste).
+- `bun run typecheck`, `bun run lint`, `bun run build` verdes.
+- **Learnings for future iterations:**
+  - Epico 11 fecha com as 18 de 18 stories `passes:true`. Nenhuma story
+    restante.
+---
+
+## 2026-08-12 - Achado avulso: eslint lintava client/coverage/ gerado
+
+- Rodar `bun run test:coverage` e depois `bun run lint`, nessa ordem (fluxo
+  natural de desenvolvimento local, ainda que o CI sempre rode `Lint` antes de
+  `Test` num checkout limpo sem `coverage/`), fazia o ESLint processar os
+  arquivos `.js` gerados dentro de `client/coverage/` (relatorio HTML do
+  `@vitest/coverage-v8`) e emitir 3 warnings de `no-unused-eslint-disable`
+  (`coverage/block-navigation.js`, `coverage/prettify.js`, `coverage/sorter.js`).
+  Inofensivo (exit 0, sao warnings) mas ruido evitavel e um sintoma de que o
+  `eslint.config.js` so ignorava `dist`, nao `coverage` (que ja estava no
+  `.gitignore` desde a US-016, so nao no `globalIgnores` do ESLint).
+- Corrigido: `client/eslint.config.js`, `globalIgnores(['dist', 'coverage'])`.
+  Verificado que os 3 warnings somem mesmo com `client/coverage/` presente em
+  disco.
+- Nao e uma story do `prd.json` (achado durante a verificacao final antes de
+  abrir PR, nao durante a implementacao de uma story especifica) — registrado
+  aqui para nao se perder, e documentado em `client/CLAUDE.md`.
+---
