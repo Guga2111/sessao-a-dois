@@ -759,6 +759,107 @@ identico, e a razao de `logback-spring.xml` nao incluir `base.xml` (evitar um
 segundo `FILE` appender implicito escrevendo em `/tmp/spring.log`) continua
 valendo — ver o comentario no topo desse arquivo.
 
+### Procedimento de investigacao por correlation id (Epico 12, US-008)
+
+Toda requisicao tem um correlation id (`com.app.security.CorrelationIdFilter`)
+que aparece em **tres** lugares. Partindo de um id, este e o passo a passo
+para chegar ao que aconteceu usando so estes comandos, sem abrir codigo.
+
+**As duas portas de entrada reais:**
+
+- **(a) O usuario leu o id na tela de erro.** A tela de erro do frontend
+  (US-006) mostra o correlation id em texto pequeno quando o
+  `POST /api/client-errors` (US-003) responde a tempo — e o id que o usuario
+  te manda ao relatar "ficou tudo branco".
+- **(b) Ninguem relatou nada, mas existe um `event=client_error` no log.**
+  Nesse caso o primeiro passo e achar o id, nao partir dele:
+
+  ```bash
+  ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs api | grep event=client_error"
+  ```
+
+  A propria linha ja traz o `correlationId=...` a ser usado nos passos abaixo.
+
+**Passo 1 — header `X-Request-Id` da resposta.** Presente em toda resposta,
+sempre (`CorrelationIdFilter` gera um quando o cliente nao manda um —
+`CorrelationIdFilterTest.generatesNewCorrelationIdWhenHeaderAbsent` cobre
+isso). Se voce tem como reproduzir a chamada (DevTools do navegador ou um
+`curl -i`), o id esta ali:
+
+```bash
+curl -sI https://sessaoadois.luisgosampaio.com/api/health | grep -i x-request-id
+```
+
+**Passo 2 — log da aplicacao (`docker compose logs api`).** Todas as linhas
+daquela requisicao, nao so a de `client_error` — util para ver o que
+aconteceu antes e depois dela:
+
+```bash
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs api | grep 'correlationId=<id>'"
+```
+
+Para restringir a janela de tempo, quando o log e grande e o incidente tem
+hora aproximada:
+
+```bash
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs --since 2h api | grep 'correlationId=<id>'"
+```
+
+**Passo 3 — audit log (`security.audit`).** Login, logout, dissolucao de
+casal, regeneracao de convite, bloqueio por rate limit — o mesmo comando ja
+documentado acima, na secao "Trilha de auditoria de seguranca":
+
+```bash
+ssh root@31.97.169.38 "grep 'correlationId=<id>' /var/lib/sessao-a-dois/security-audit-logs/security-audit.log"
+```
+
+Se o id nao aparecer no audit log, nao e falha do procedimento: significa que
+nenhum dos eventos que o `SecurityAuditLogger` grava aconteceu naquela
+requisicao (ex.: um erro de render puro, sem nenhuma chamada autenticada).
+
+**O que NAO da para achar:**
+
+- Nada anterior ao ultimo `docker compose down` no log da aplicacao — ele nao
+  tem arquivo dedicado (E12.6, ver "Retencao de log" acima) e nao sobrevive ao
+  ciclo de vida do container, ao contrario do audit log.
+- Nada alem do teto do audit log — pior caso ~110MB / 10 arquivos comprimidos
+  (ver "Retencao de log" acima): um incidente velho o suficiente pode ja ter
+  sido descartado pela rotacao.
+- Nenhum dado de negocio (nota, opiniao, titulo assistido) — nenhum dos dois
+  logs registra isso; essa pergunta e do banco (Supabase), fora do escopo
+  deste procedimento.
+
+**Incidente simulado, rastreado ponta a ponta so com este procedimento —
+executado no sandbox de desenvolvimento (sem Docker nem browser disponiveis
+aqui, mesma limitacao ja registrada em `client/CLAUDE.md` e nas notas da
+US-006 no `progress.txt` do ralph):**
+
+Rodado `./mvnw -B test -Dtest=RateLimitFilterTest#clientErrorsBlocksAfterExceedingLimit`,
+que dispara 3 `POST /api/client-errors` do mesmo IP sem header `X-Request-Id`
+(o backend gera um por requisicao, como um cliente anonimo real) — o 3o
+estoura o limite de 2/janela do teste e volta `429`. A saida (equivalente ao
+`docker compose logs api` do Passo 2, mesmo `logback-spring.xml`/mesmo
+formato) mostrou duas linhas `event=client_error` (uma por requisicao aceita,
+cada uma com seu proprio correlation id gerado pelo backend) e uma
+`event=rate_limit_exceeded correlationId=6e368689-b080-4815-9ba0-2aedbff3bc88
+endpoint="/api/client-errors" ip="10.0.137.108"` para a 3a. Essa ultima linha
+tambem foi escrita de verdade em `target/test-logs/security-audit.log` (o
+equivalente local do volume da VPS, via `app.security.audit-log.path` do
+`api/src/test/resources/application.properties`) — rodando literalmente o
+comando do Passo 3 contra esse arquivo
+(`grep 'correlationId=6e368689-b080-4815-9ba0-2aedbff3bc88' target/test-logs/security-audit.log`)
+devolveu exatamente essa linha. **Verificado de ponta a ponta:** Passo 2 (log
+da aplicacao) e Passo 3 (audit log), os dois contra saida/arquivo reais, nao
+mockados. **Nao verificado, fica de gate humano:** o Passo 1 contra uma
+resposta HTTP real (a garantia vem do teste unitario existente
+`CorrelationIdFilterTest`, citado acima, nao de um `curl` ao vivo), os
+comandos SSH/`docker compose` literais contra a VPS de producao (sem Docker
+neste sandbox) e o ciclo completo pela tela de erro no navegador (US-006, sem
+Chromium neste sandbox). Deliberadamente **nao** foi usado o `DB_URL` de
+producao (Supabase) do `.env` deste repo para tentar completar o ciclo — subir
+a aplicacao contra o banco real so para este teste seria um risco
+desnecessario e fora do escopo desta story de documentacao.
+
 ---
 
 ## Estrutura de ficheiros na VPS
