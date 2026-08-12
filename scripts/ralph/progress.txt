@@ -796,3 +796,33 @@ Started: 2026-08-11
     continuam bloqueadas (decisao do mantenedor pendente, nao revisitadas
     nesta iteracao).
 ---
+
+## 2026-08-11 - US-017
+- Implementado: novo step `Test` no job `frontend` de `.github/workflows/ci.yml`,
+  posicionado entre `Lint` e `Build`, rodando `bun run test:coverage` sem
+  `continue-on-error` nem `|| true` — mesma postura do step `Audit dependencies`
+  ja existente. Comentario acima do step registra que o `deploy.yml` reusa este
+  workflow via `workflow_call`, entao um teste quebrado tambem barra o deploy.
+- Arquivos alterados: .github/workflows/ci.yml (so este). Nenhum step existente
+  foi alterado (confirmado com `git diff` antes de commitar: bloco novo puro,
+  sem remocao de linha).
+- **Learnings for future iterations:**
+  - Verificacao na pratica pedida pela AC ("com um teste deliberadamente
+    quebrado, `bun run test:coverage` sai com codigo diferente de zero"): criei
+    `client/src/test/_broken.test.ts` com um `expect(1).toBe(2)`, rodei
+    `bun run test:coverage` (saiu `REAL_EXIT:1`, com o teste falho listado no
+    output), apaguei o arquivo e rodei de novo (`REAL_EXIT:0`, os mesmos quatro
+    numeros de cobertura da US-016 — 52.47/37.43/40.32/55.39). Mesma leitura da
+    US-016: sempre capturar `$?` logo apos o comando real (nao depois de um
+    `tail`/pipe).
+  - Nao ha `pyyaml`/`yamllint`/`ruby` disponiveis no sandbox para validar o
+    YAML; `client/node_modules/js-yaml` (dependencia transitiva ja instalada)
+    serviu para um `node -e "require('js-yaml').load(...)"` rapido, confirmando
+    o parse E a ordem dos oito steps do job `frontend`
+    (`Checkout, Set up Bun, Install dependencies, Audit dependencies,
+    Typecheck, Lint, Test, Build`) sem precisar instalar nada novo.
+  - Proxima story implementavel e US-018 (documentacao e fechamento do
+    epico) — ultima do epico alem das duas bloqueadas. US-007/US-008 continuam
+    bloqueadas (decisao do mantenedor pendente, nao revisitadas nesta
+    iteracao).
+---

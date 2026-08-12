@@ -384,8 +384,8 @@
         "Commit sem trailer Co-Authored-By"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Step 'Test' (bun run test:coverage) adicionado no job frontend do ci.yml, entre Lint e Build, sem continue-on-error. Verificado na pratica com um teste quebrado deliberado (arquivo descartavel em src/test/_broken.test.ts, apagado depois): bun run test:coverage saiu com codigo 1; restaurado e confirmado codigo 0 de volta."
     },
     {
       "id": "US-018",
