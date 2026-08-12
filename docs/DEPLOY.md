@@ -725,6 +725,40 @@ sozinho na primeira escrita (testado tambem em `api/src/test/resources/applicati
 que aponta `app.security.audit-log.path` para `target/test-logs/` em vez do
 default de producao, para nao tentar escrever em `/var/log` durante os testes).
 
+### Retencao de log — os dois logs (Epico 12, US-007)
+
+Esta VPS tem **dois** logs distintos, com politicas de retencao diferentes e
+ja configuradas — nenhuma das duas mudou nesta story, que so documenta o que
+ja existe em `logback-spring.xml` e `docker-compose-prod.yml`.
+
+**1. Audit log (`security.audit`)** — ja detalhado acima. Resumo do teto:
+`maxFileSize` 10MB por arquivo, `maxHistory` 10 arquivos, `totalSizeCap` 100MB
+para o historico comprimido. **Pior caso em disco: ~110MB** (100MB de
+`totalSizeCap` do historico comprimido + ate 10MB do arquivo ativo, que ainda
+nao rotacionou e portanto nao conta para o teto). Vive no volume
+`/var/lib/sessao-a-dois/security-audit-logs` (bind mount na VPS) — sobrevive a
+`docker compose down` + `up`.
+
+**2. Log da aplicacao (stdout/stderr, `docker compose logs api`)** — driver
+`json-file` do Docker, configurado em `docker-compose-prod.yml`:
+`max-size: "10m"`, `max-file: "3"`. **Pior caso em disco: ~30MB** (3 arquivos
+de 10MB). **Sem arquivo dedicado** (decisao E12.4/E12.6 do PRD do Epico 12) —
+o `docker logs` com esse teto e suficiente para o volume desta aplicacao
+(~8 usuarios conhecidos), e nao ha um segundo `RollingFileAppender` para ele.
+Isso e deliberado, nao uma lacuna: o unico log que precisa sobreviver a um
+restart e o audit log (trilha de seguranca, ja em volume acima); o log da
+aplicacao e operacional e **some** no `docker compose down` — aceito
+conscientemente, porque `docker compose down` + `up` e exatamente a etapa 5/5
+de `scripts/deploy.sh`, e recriar o log da aplicacao a cada deploy nao perde
+nenhum dado que precise de retencao entre deploys (o que precisa persistir —
+login, logout, dissolucao de casal, etc. — ja esta no audit log, que e o que
+o volume protege).
+
+Nenhuma mudanca de comportamento de logging: o formato do console continua
+identico, e a razao de `logback-spring.xml` nao incluir `base.xml` (evitar um
+segundo `FILE` appender implicito escrevendo em `/tmp/spring.log`) continua
+valendo — ver o comentario no topo desse arquivo.
+
 ---
 
 ## Estrutura de ficheiros na VPS
