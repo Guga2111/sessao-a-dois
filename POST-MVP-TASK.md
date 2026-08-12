@@ -1828,6 +1828,7 @@ o non-goal que o PRD do Épico 8 deixou explicitamente em aberto ("Testes no fro
 
 ## T11.1 — Infraestrutura de teste
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-001, US-002 (`epico11/frontend-tests`).
 **Criticidade:** Alto
 **Arquivos:** `client/package.json`, `client/vite.config.ts`, novo `client/src/test/setup.ts`, `client/CLAUDE.md`
 
@@ -1849,11 +1850,11 @@ configurados dentro do `vite.config.ts` já existente (sem arquivo de config sep
 - Decidir e registrar a estratégia de mock de HTTP: `axios` é o cliente (`client/src/lib/api.ts`), então mockar o módulo já resolve. MSW só se a T11.3 provar que é necessário — não introduzir a dependência antes.
 
 ### Critérios de aceite
-- [ ] `bun run test:run` executa e passa localmente.
-- [ ] `bun run typecheck` continua passando com os tipos de teste incluídos.
-- [ ] O teste-canário roda em ambiente jsdom com um componente React real.
-- [ ] `client/CLAUDE.md` documenta comando, localização e convenção de nome dos testes.
-- [ ] Nenhuma mudança de comportamento no app.
+- [x] `bun run test:run` executa e passa localmente.
+- [x] `bun run typecheck` continua passando com os tipos de teste incluídos.
+- [x] O teste-canário roda em ambiente jsdom com um componente React real. _(`src/test/canary.test.tsx`)_
+- [x] `client/CLAUDE.md` documenta comando, localização e convenção de nome dos testes.
+- [x] Nenhuma mudança de comportamento no app.
 
 ### Fora do escopo
 Teste E2E (Playwright/Cypress); teste de regressão visual; cobertura mínima (é a T11.4).
@@ -1862,6 +1863,7 @@ Teste E2E (Playwright/Cypress); teste de regressão visual; cobertura mínima (�
 
 ## T11.2 — Testes das stores e hooks
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-003 a US-006, US-009 (`epico11/frontend-tests`).
 **Criticidade:** Alto
 **Arquivos:** testes novos para `client/src/stores/{useAuthStore,useMatchStore,useNotificationStore}.ts`, `client/src/screens/match/useDiscoverSearch.ts`, `client/src/lib/useCompareSelection.ts`
 
@@ -1880,11 +1882,11 @@ Priorizar por risco, não por cobertura:
 5. `useNotificationStore` — contagem de não-lidas e marcar-como-lida.
 
 ### Critérios de aceite
-- [ ] Cada um dos 5 módulos tem teste cobrindo o caminho feliz **e** o caso de erro.
-- [ ] Existe teste que falharia se o vazamento de subscription da T7.3 voltasse.
-- [ ] Existe teste que falharia se `celebratedMatchKeys` voltasse a crescer sem limite.
-- [ ] Nenhum teste depende de rede real.
-- [ ] `bun run test:run` verde.
+- [ ] Cada um dos 5 módulos tem teste cobrindo o caminho feliz **e** o caso de erro. — `useMatchStore`, `useAuthStore`, `useNotificationStore` e `useCompareSelection` cobertos (US-003/004/005/006/009); `useDiscoverSearch` fica de fora: o `reducer` não é exportado (US-007) e a AC "erro não limpa `results` anteriores" é falsa para o `reducer` atual (US-008) — as duas exigiriam mudar código de produção do `client/`, fora do escopo deste épico de testes. Decisão do mantenedor pendente, ver `scripts/ralph/progress.txt` (seções US-007/US-008).
+- [x] Existe teste que falharia se o vazamento de subscription da T7.3 voltasse. _(`src/stores/useMatchStore.test.ts`, US-003)_
+- [x] Existe teste que falharia se `celebratedMatchKeys` voltasse a crescer sem limite. _(idem)_
+- [x] Nenhum teste depende de rede real.
+- [x] `bun run test:run` verde.
 
 ### Fora do escopo
 Testar componentes (é a T11.3); testar o servidor STOMP de verdade.
@@ -1893,6 +1895,7 @@ Testar componentes (é a T11.3); testar o servidor STOMP de verdade.
 
 ## T11.3 — Testes de componente das telas críticas
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-011 a US-015 (`epico11/frontend-tests`).
 **Criticidade:** Médio
 **Arquivos:** testes para `client/src/screens/hub/`, `client/src/screens/match/`, `client/src/routes/guards.tsx`
 
@@ -1909,11 +1912,11 @@ Testes de comportamento observável pelo usuário, não de detalhe de implementa
 - `SearchTab` — o `switch` que substituiu a cadeia de condicionais na T7, com todos os estados.
 
 ### Critérios de aceite
-- [ ] Os 4 guards têm teste para cada estado de sessão relevante.
-- [ ] Estados de carregando, vazio e **erro** cobertos nas telas listadas.
-- [ ] Existe teste que falharia se a falha de carregamento voltasse a ser silenciosa.
-- [ ] Os testes consultam por papel/texto acessível, não por classe CSS — assim o Épico 13 pode mexer em estilo sem quebrá-los.
-- [ ] `bun run test:run` verde.
+- [x] Os 4 guards têm teste para cada estado de sessão relevante. _(`src/routes/guards.test.tsx`, US-011)_
+- [x] Estados de carregando, vazio e **erro** cobertos nas telas listadas. _(`TrackSection`/`HubScreen` US-012/013, `SearchTab`/`SuggestionsTab` US-014/015)_
+- [x] Existe teste que falharia se a falha de carregamento voltasse a ser silenciosa. _(`HubScreen.test.tsx`, US-013)_
+- [x] Os testes consultam por papel/texto acessível, não por classe CSS — assim o Épico 13 pode mexer em estilo sem quebrá-los.
+- [x] `bun run test:run` verde.
 
 ### Fora do escopo
 Cobrir todos os 14 componentes de `client/src/components/`; testes de landing page.
@@ -1922,6 +1925,7 @@ Cobrir todos os 14 componentes de `client/src/components/`; testes de landing pa
 
 ## T11.4 — Gate no CI
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-016, US-017 (`epico11/frontend-tests`).
 **Criticidade:** Médio
 **Arquivos:** `.github/workflows/ci.yml`
 
@@ -1935,10 +1939,10 @@ cobertura no patamar recém-alcançado, **não** num número aspiracional — me
 adotada para o JaCoCo na T8.1.
 
 ### Critérios de aceite
-- [ ] O CI roda os testes do frontend e falha se algum quebrar.
-- [ ] Limiar de cobertura declarado e no patamar atual.
-- [ ] Um PR com teste quebrado é bloqueado.
-- [ ] O tempo total do CI continua aceitável (registrar o antes/depois no PR).
+- [x] O CI roda os testes do frontend e falha se algum quebrar. _(step `Test` do job `frontend`, entre `Lint` e `Build`, sem `continue-on-error`, US-017)_
+- [x] Limiar de cobertura declarado e no patamar atual. _(52/37/40/55 — statements/branches/functions/lines medidos em 2026-08-11, US-016)_
+- [x] Um PR com teste quebrado é bloqueado. _(verificado localmente com um teste deliberadamente quebrado — `bun run test:coverage` saiu com código 1 — não há PR real aberto nesta iteração, ver `scripts/ralph/progress.txt` seção US-017)_
+- [ ] O tempo total do CI continua aceitável (registrar o antes/depois no PR). — não medido: o agente não executa o workflow real do GitHub Actions no sandbox (sem runner) e nenhum PR foi aberto nesta iteração para comparar os tempos; gate humano no próximo PR real que exercitar o step `Test`.
 
 ### Fora do escopo
 Subir o limiar de cobertura; badge de cobertura; publicar relatório em serviço externo.
@@ -2117,7 +2121,12 @@ existem; o que não existe é a regra que impede o app de contorná-los.
 
 **Dependências:** T13.2 depende da T13.1. A T13.4 depende da T13.2. **Fortemente
 recomendado fazer o Épico 11 antes** — a T13.2 toca dezenas de arquivos visuais e hoje
-não há nada que detecte uma quebra.
+não há nada que detecte uma quebra. **Dependência satisfeita em 2026-08-11:** o Épico 11
+(T11.1–T11.4, US-001 a US-006 e US-009 a US-017 — US-007/US-008 bloqueadas, decisão do
+mantenedor pendente, ver `scripts/ralph/progress.txt`) já cobre guards de rota,
+`HubScreen`/`TrackSection` e `SearchTab`/`SuggestionsTab` com testes que consultam por
+papel/texto acessível, não por classe CSS — a rede de regressão que a T13.2 precisa para
+não quebrar em silêncio já existe.
 
 ### O diagnóstico, medido
 

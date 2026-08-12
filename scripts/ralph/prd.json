@@ -405,8 +405,8 @@
         "Commit sem trailer Co-Authored-By"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "client/CLAUDE.md: secao de testes ganhou bullet sobre limiar de cobertura/onde mora, e o Sandbox gotcha ganhou a nota de npm install -g bun / bun install (nunca npm install). docs/ARCHITECTURE.md secao 2 ganhou uma linha sobre a estrategia de teste do frontend. POST-MVP-TASK.md: T11.1-T11.4 marcadas Concluida em 2026-08-11, com criterios em [x] exceto dois deixados [ ] com motivo (T11.2: useDiscoverSearch fora, US-007/US-008 bloqueadas; T11.4: tempo de CI antes/depois nao medido, nenhum PR real aberto nesta iteracao). Nota de dependencia do Epico 13 atualizada registrando que a dependencia foi satisfeita."
     }
   ]
 }

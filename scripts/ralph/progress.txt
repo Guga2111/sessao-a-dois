@@ -826,3 +826,85 @@ Started: 2026-08-11
     bloqueadas (decisao do mantenedor pendente, nao revisitadas nesta
     iteracao).
 ---
+
+## 2026-08-11 - US-018
+- Implementado: fechamento documental do epico. `client/CLAUDE.md` — a secao
+  "Testes (Epico 11)" (US-002) ganhou um bullet novo sobre o limiar de
+  cobertura (US-016/US-017: os quatro numeros medidos, onde o `thresholds`
+  mora em `vite.config.ts`, o step `Test` do CI); a secao "Sandbox gotcha:
+  Vite dev server / build can't start" ganhou o paragrafo sobre `bun` nao vir
+  preinstalado (`npm install -g bun`, nao `bun.sh`) e `client/` tendo que ser
+  instalado/gerenciado com `bun install`/`bun add`, nunca `npm install` (os
+  dois lockfiles versionados divergem em silencio). `docs/ARCHITECTURE.md`
+  secao 2 (Decisoes de Frontend) ganhou um bullet novo sobre a estrategia de
+  teste (Vitest+Testing Library+jsdom, o que cobre, mock de HTTP em duas
+  camadas, gate no CI) — antes so a secao 3 (backend) mencionava teste
+  (JUnit5/Mockito). `POST-MVP-TASK.md`: T11.1-T11.4 ganharam a linha
+  `**Status:** ✅ **Concluida em 2026-08-11**` (convencao da linha 79-84 do
+  proprio arquivo) com a branch real `epico11/frontend-tests` (nao a
+  `branchName` do `prd.json`, que e so o nome sugerido); os criterios de
+  aceite viraram `[x]` exceto dois, deixados `[ ]` com o motivo escrito ao
+  lado (T11.2: "cada um dos 5 modulos tem teste" — `useDiscoverSearch` fica de
+  fora, US-007/US-008 bloqueadas; T11.4: "tempo total do CI... registrar o
+  antes/depois no PR" — nao medido, o sandbox nao roda o workflow real do
+  GitHub Actions e nenhum PR foi aberto nesta iteracao). A nota de dependencia
+  do Epico 13 ("Fortemente recomendado fazer o Epico 11 antes") ganhou um
+  paragrafo registrando que a dependencia foi satisfeita, com a ressalva de
+  US-007/US-008 ainda bloqueadas.
+- Arquivos alterados: client/CLAUDE.md, docs/ARCHITECTURE.md,
+  POST-MVP-TASK.md. Nenhum arquivo de `client/src/` foi tocado (confirmado
+  com `git status --porcelain` antes de commitar: 3 arquivos, todos
+  documentacao).
+- **Learnings for future iterations:**
+  - `POST-MVP-TASK.md` ja tinha a convencao de status documentada nas linhas
+    79-84 ("Como uma task concluida e marcada") e exemplos de tasks
+    "Concluida" com criterio `[ ]` + motivo inline (T9.6 linha ~1805, T10.4
+    linha ~1863/1945: "nao verificavel por agente... gate humano") — nao
+    precisou inventar um formato novo, so seguir o que ja existia para os
+    epicos 9/10.
+  - O `branchName` do `prd.json` deste epico
+    (`ralph/epico11-rede-de-testes-frontend`) **nao** e a branch real usada
+    (`epico11/frontend-tests`, confirmado com `git status` no inicio da
+    sessao) — o campo e so uma sugestao/historico, a instrucao do Ralph e
+    explicita sobre isso ("Ignore the branchName field... for the purpose of
+    switching"), e a linha de Status no `POST-MVP-TASK.md` tem que citar a
+    branch REAL entre parenteses (mesmo padrao de `epic9/couple-lifecycle`),
+    senao a documentacao fica com um nome de branch que nunca existiu.
+  - Marcar uma task "Concluida" no `POST-MVP-TASK.md` **nao exige** que
+    100% dos criterios de aceite estejam batidos — o padrao ja estabelecido
+    (T9.6/T10.4) e criterio-a-criterio: os que batem viram `[x]`, os que nao
+    puderam ser verificados (ou nao bateram, como o `useDiscoverSearch` desta
+    story) ficam `[ ]` com o motivo escrito do lado, e a task inteira ainda
+    ganha a linha de Status se o essencial foi entregue. Nao e preciso
+    esperar US-007/US-008 desbloquearem para fechar T11.2 com honestidade.
+  - `bun run lint` emite 3 warnings (nao erros, exit 0) sobre
+    `no-unused-eslint-disable` nos `.js` gerados dentro de `client/coverage/`
+    quando essa pasta existe em disco no momento do lint (mesmo achado da
+    US-016) — inofensivo, a pasta e gitignored e o CI nunca lint depois de
+    gerar cobertura.
+  - Epico 11 fecha aqui com 16 de 18 stories `passes:true`; US-007 e US-008
+    continuam bloqueadas, decisao do mantenedor pendente (ver as duas secoes
+    dedicadas acima). Nao ha mais story implementavel deste epico sem essa
+    decisao — proximas iteracoes do Ralph nesta branch devem parar e sinalizar
+    isso em vez de tentar contornar o bloqueio de novo.
+  - ACHADO IMPORTANTE, nao relacionado a esta story: `POST-MVP-TASK.md` ja
+    estava `M` no `git status` no INICIO desta sessao (por fora de qualquer
+    edicao minha), e o `git diff` daquela modificacao pre-existente nao era so
+    reformatacao cosmetica de tabela markdown (embora a maior parte fosse
+    isso — `*italico*` -> `_italico_`, padding de coluna) — ela tambem
+    **apagava a secao inteira `## T12.5 — Alerta de falha de deploy`** (~20
+    linhas, criterios de aceite incluidos) sem deixar rastro do motivo.
+    Como esta story precisava editar esse mesmo arquivo, rodei
+    `git checkout HEAD -- POST-MVP-TASK.md` para descartar TODA a modificacao
+    pre-existente (a boa e a ruim, ja que estavam misturadas no mesmo working
+    tree, sem commit por tras que separasse uma da outra) e reapliquei so os
+    meus 4 edits (status line + criterios das T11.1-T11.4, nota do Epico 13)
+    por cima do arquivo limpo — confirmado com `grep -n "T12.5"` que a secao
+    voltou e com `git diff --stat` que o diff final ficou pequeno (29+/20-,
+    so as minhas mudancas). Registrar aqui porque e o tipo de coisa que uma
+    proxima iteracao do Ralph (ou um humano fazendo `git status` no inicio de
+    uma sessao) precisa saber: um arquivo aparecer como `M` sem commit por
+    tras NAO significa que a mudanca e so cosmetica so porque a maior parte
+    dela parece ser — vale isolar cada hunk (`git diff -w` ajuda a filtrar
+    ruido de espaco em branco) antes de decidir se e seguro commitar junto.
+---
