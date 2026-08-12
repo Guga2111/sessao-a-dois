@@ -52,3 +52,17 @@
   - Deliberately did NOT add a `com.app.observability`-specific `@RestControllerAdvice`: the only exception this endpoint can throw is the validation one, which `GlobalExceptionHandler` (registered `@Order(LOWEST_PRECEDENCE)`, `basePackages`-unscoped) already handles correctly. Don't add a feature-specific advice here unless a feature-specific exception type shows up.
   - Confirmed no persistence was added — no entity, no repository, no migration — matching the AC and E12.6/the epic's "log is sufficient aggregation for ~8 users" decision.
 ---
+
+## 2026-08-12 - US-004
+- Implemented: rate limit by IP for `POST /api/client-errors`, reusing the existing `RateLimitFilter`/`RateLimitProperties`/`RateLimitService` infrastructure — no new rate-limit mechanism, just one more entry in the existing enum, exactly as E12.1/the PRD's "O que já está pronto" table predicted.
+- Files changed:
+  - `api/src/main/java/com/app/security/RateLimitProperties.java`: added `clientErrors` field (default `new Limit(10, Duration.ofMinutes(1))`, i.e. `app.rate-limit.client-errors`) with getter/setter in the same shape as the other 12 limits.
+  - `api/src/main/java/com/app/security/RateLimitFilter.java`: added `CLIENT_ERRORS("POST", "/api/client-errors")` to the `Endpoint` enum, delegating to `properties.getClientErrors()` like every other entry. Updated the class javadoc's endpoint list to include it.
+  - `api/src/test/java/com/app/security/RateLimitFilterTest.java`: added `app.rate-limit.client-errors.capacity=2`/`window=3s` to the shared `@TestPropertySource`, a `clientErrorsRequest(ip)` helper (`POST /api/client-errors` with a minimal valid body, `{"message":"algo quebrou no render"}`), and a `clientErrorsBlocksAfterExceedingLimit` test following the exact same 2-allowed-then-429-with-Retry-After shape as the other 6 endpoint tests in this class. Updated the class javadoc's "6 endpoints" to "7 endpoints".
+  - `api/CLAUDE.md`: updated the stale "US-004 (rate limit, not yet implemented as of this note)" sentence at the end of the `com.app.observability` bullet to describe what actually landed.
+  - `scripts/ralph/prd.json`: US-004 `passes` set to `true`.
+- Verification: `./mvnw -B test` — 585 tests, 0 failures, 0 errors, JaCoCo coverage check passed, BUILD SUCCESS.
+- **Learnings for future iterations:**
+  - Adding a new IP-keyed rate limit to an already-covered set of endpoints is purely additive and mechanical: one `Limit` field + getter/setter in `RateLimitProperties`, one enum constant in `RateLimitFilter.Endpoint` delegating to it, and one more `@TestPropertySource` pair + test method + request-builder helper in `RateLimitFilterTest`. No change was needed in `RateLimitFilter.doFilterInternal`, `RateLimitService`, `ClientErrorController`, or `SecurityConfig` — the 429-path audit logging (`SecurityAuditLogger.rateLimitExceeded`) is already endpoint-agnostic (keyed by `Endpoint.key()`, which is just the path), so it covered the new route for free, satisfying the AC that no new emission point be added.
+  - `RateLimitFilterTest` is a full `@SpringBootTest` (not a `@WebMvcTest` slice like `ClientErrorControllerTest`), so the `POST /api/client-errors` body only needs to satisfy Bean Validation (`message` present, ≤500 chars) — it does not need `X-Request-Id` or any other header, since this test is about the 429 threshold, not the log line (that's already covered by `ClientErrorControllerTest`).
+---

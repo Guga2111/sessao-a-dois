@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Cobre {@link RateLimitFilter}: bloqueio por IP em cada um dos 6 endpoints
+ * Cobre {@link RateLimitFilter}: bloqueio por IP em cada um dos 7 endpoints
  * protegidos, presenca/plausibilidade do Retry-After, liberacao apos a
  * janela, contadores independentes por IP, e ausencia de efeito em outros
  * endpoints. Capacidades/janelas sao reduzidas via @TestPropertySource so
@@ -43,7 +43,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 	"app.rate-limit.forgot-password-by-email.capacity=100",
 	"app.rate-limit.forgot-password-by-email.window=1h",
 	"app.rate-limit.reset-password.capacity=2",
-	"app.rate-limit.reset-password.window=3s"
+	"app.rate-limit.reset-password.window=3s",
+	"app.rate-limit.client-errors.capacity=2",
+	"app.rate-limit.client-errors.window=3s"
 })
 class RateLimitFilterTest {
 
@@ -151,6 +153,20 @@ class RateLimitFilterTest {
 	}
 
 	@Test
+	void clientErrorsBlocksAfterExceedingLimit() throws Exception {
+		String ip = uniqueIp();
+
+		for (int i = 0; i < 2; i++) {
+			mockMvc.perform(clientErrorsRequest(ip))
+				.andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(429));
+		}
+
+		mockMvc.perform(clientErrorsRequest(ip))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(header().exists("Retry-After"));
+	}
+
+	@Test
 	void allowsAgainAfterWindowElapses() throws Exception {
 		String ip = uniqueIp();
 
@@ -240,6 +256,15 @@ class RateLimitFilterTest {
 			.content("""
 				{"token":"tok-%s","newPassword":"senha1234"}
 				""".formatted(UUID.randomUUID()));
+	}
+
+	private static MockHttpServletRequestBuilder clientErrorsRequest(String ip) {
+		return post("/api/client-errors")
+			.header("X-Forwarded-For", ip)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("""
+				{"message":"algo quebrou no render"}
+				""");
 	}
 
 	private static String uniqueIp() {

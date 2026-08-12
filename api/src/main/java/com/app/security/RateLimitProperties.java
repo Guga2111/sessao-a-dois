@@ -29,6 +29,7 @@ public class RateLimitProperties {
 	private Limit forgotPassword = new Limit(5, Duration.ofHours(1));
 	private Limit forgotPasswordByEmail = new Limit(3, Duration.ofHours(1));
 	private Limit resetPassword = new Limit(10, Duration.ofHours(1));
+	private Limit clientErrors = new Limit(10, Duration.ofMinutes(1));
 
 	public boolean isEnabled() {
 		return enabled;
@@ -140,6 +141,14 @@ public class RateLimitProperties {
 
 	public void setResetPassword(Limit resetPassword) {
 		this.resetPassword = resetPassword;
+	}
+
+	public Limit getClientErrors() {
+		return clientErrors;
+	}
+
+	public void setClientErrors(Limit clientErrors) {
+		this.clientErrors = clientErrors;
 	}
 
 	public static class Limit {
