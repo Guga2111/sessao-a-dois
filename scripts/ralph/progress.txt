@@ -625,3 +625,69 @@ Started: 2026-08-11
     switch de status). US-007/US-008 continuam bloqueadas (decisao do
     mantenedor pendente, nao revisitadas nesta iteracao).
 ---
+
+## 2026-08-11 - US-014
+- Implementado: `src/screens/match/SearchTab.test.tsx` (novo, 6 testes),
+  cobrindo os cinco valores de `SearchStatus` (`idle`, `loading`, `error`,
+  `empty`, `ready`) derivados do switch de `SearchTab.tsx` a partir de
+  `useDiscoverSearch` mockado via `vi.mock("@/lib/api")`: idle (mensagem de
+  convite antes de qualquer fetch disparar), loading (skeleton visivel
+  enquanto a busca inicial fica pendente para sempre), error (mensagem de
+  falha do "em alta" visivel, cabecalho "Resultados para"/"Em alta esta
+  semana" ausente), empty (mensagem de nada encontrado sem query) e ready
+  (card do resultado visivel). Sexto teste, REGRESSAO da AC "grid continua
+  montado em loading": populei o grid com um resultado da carga inicial,
+  digitei uma query nova cujo fetch fica pendente para sempre, e confirmei
+  que o card antigo continua no DOM ao mesmo tempo que o skeleton aparece —
+  prova que o grid e escondido por classe, nao desmontado, sem depender de
+  `querySelector` por classe CSS (a prova e a co-presenca do card antigo com
+  o skeleton, nao uma leitura de `className`).
+- Arquivos alterados: client/src/screens/match/SearchTab.test.tsx (novo).
+  Nenhum arquivo de producao do client/ foi tocado (confirmado com
+  `git status --porcelain` + `git diff --stat -- client/` antes de commitar:
+  1 arquivo, so o teste novo). `POST-MVP-TASK.md` ja estava modificado por
+  fora desta sessao (visto no `git status` antes de qualquer alteracao) e
+  ficou de fora do commit por nao ter relacao com esta story.
+- **Learnings for future iterations:**
+  - `SearchTab` nao consome nenhuma das tres stores Zustand (so `@/lib/api`
+    direto), entao nenhuma das armadilhas de escopo de modulo do topo deste
+    arquivo se aplica — mesmo molde simples de `vi.mock("@/lib/api", ...)`
+    do `HubScreen.test.tsx` (US-013), sem `vi.resetModules()`.
+  - A mensagem de erro do estado `error` ("Nao foi possivel carregar os
+    titulos em alta agora. Tentem novamente em instantes.") esta partida em
+    TRES text nodes irmaos dentro do mesmo `<p>` (`{cond ? "..." : "..."}`
+    seguido de `{" "}Tentem novamente em instantes.`) — `findByText` com a
+    string exata de UM dos trechos falha (o matcher por padrao exige que o
+    `textContent` do elemento bata EXATAMENTE, e o `textContent` do `<p>` e a
+    concatenacao dos tres). Resolvido com `{ exact: false }` (substring),
+    nao com `RegExp` nem com leitura de `container.textContent` na mao.
+  - Para provar "idle" de forma deterministica sem `vi.useFakeTimers()`: o
+    efeito de busca inicial usa `setTimeout(fn, 0)` (debounce com delay 0
+    para query vazia) — como JS e single-thread, esse timer SO tem chance de
+    disparar depois que a pilha sincrona do teste termina de rodar. Um
+    `render()` seguido de um `expect(...)` SINCRONO (sem `await` no meio)
+    roda inteiro antes do timer de 0ms ter qualquer chance de disparar,
+    entao o estado inicial (`searched:false`, `query:""`) e garantido no
+    assert, sem precisar mockar temporizadores.
+  - Para "loading" persistente (tanto na carga inicial quanto apos digitar),
+    basta um mock de `api.get` que devolve `new Promise(() => {})` (nunca
+    resolve) para o endpoint de busca/trending — o `showSearchSkeleton` (via
+    `useDelayedLoading`, delay 150ms) acaba flipando `true` com tempo real
+    (`waitFor` sem fake timers, mesmo padrao real-timers que `HubScreen.test.tsx`
+    ja usava) porque `searching` fica `true` para sempre e nunca ha
+    `FETCH_SETTLED`.
+  - O input de busca nao tem `aria-label`/`role` proprio, so `placeholder`
+    (`"Ex.: Coracao de Vidro, Fronteira Norte..."`) — `getByPlaceholderText`
+    e uma query padrao do testing-library (nao e selecao por classe CSS),
+    usada aqui pela primeira vez no epico.
+  - `QUERY_CHANGED` com texto NAO limpa `results` (reducer preserva o estado
+    anterior quando `action.query.trim()` e truthy — comportamento ja
+    confirmado na investigacao bloqueada da US-007/US-008): e exatamente
+    isso que torna o teste de regressao possivel sem mexer em producao — o
+    card antigo continua no `results` do estado ate a nova busca succeder ou
+    falhar, entao so precisa ficar pendente para o teste capturar a
+    co-presenca com o skeleton.
+  - Proxima story implementavel e US-015 (`SuggestionsTab`). US-007/US-008
+    continuam bloqueadas (decisao do mantenedor pendente, nao revisitadas
+    nesta iteracao).
+---
