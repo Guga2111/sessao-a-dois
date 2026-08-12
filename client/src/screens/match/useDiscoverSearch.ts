@@ -25,7 +25,7 @@ type FetchAttempt = {
   context: ResultsContext
 }
 
-type State = {
+export type State = {
   // busca
   query: string
   // filtros
@@ -50,7 +50,7 @@ type State = {
   fetchError: boolean
 }
 
-const initialState: State = {
+export const initialState: State = {
   query: "",
   sortBy: SORT_OPTIONS[0].value,
   filtersOpen: false,
@@ -70,7 +70,7 @@ const initialState: State = {
   fetchError: false,
 }
 
-type Action =
+export type Action =
   | { type: "QUERY_CHANGED"; query: string }
   | { type: "SORT_CHANGED"; sortBy: string }
   | { type: "FILTERS_OPEN_CHANGED"; open: boolean }
@@ -93,7 +93,7 @@ type Action =
   | { type: "FETCH_FAILED"; context: ResultsContext }
   | { type: "FETCH_SETTLED" }
 
-function reducer(state: State, action: Action): State {
+export function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "QUERY_CHANGED": {
       if (!action.query.trim()) {

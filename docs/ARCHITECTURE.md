@@ -9,6 +9,7 @@ O sistema é um aplicativo para casais gerenciarem o consumo de filmes e séries
 - **Estado Global:** Zustand.
   - Store `useAuthStore`: Gerencia dados do usuário ativo e o status do vínculo do casal (código de pareamento). Não guarda nenhum token — a sessão vive em cookies HttpOnly (`access_token` de 15 minutos + `refresh_token` de 30 dias com rotação e detecção de reuso, ver Epico 4 de autenticação), inacessíveis ao JavaScript. O bootstrap do app chama `GET /api/auth/me` para descobrir se há sessão válida; `user`/`couple` continuam em `localStorage` apenas como cache de UI, nunca como credencial.
   - Store `useMatchStore`: Gerencia a fila de WebSockets e o estado global da tela de Match.
+- **Testes:** Vitest + Testing Library + jsdom (Épico 11), configurados dentro do `vite.config.ts` já existente. Cobre as três stores Zustand, `useDiscoverSearch`/`useCompareSelection`, o interceptor de 401 de `lib/api.ts`, os quatro guards de rota e os estados de carregando/vazio/erro das telas decompostas no Épico 7 — mock de HTTP em duas camadas (`vi.mock('@/lib/api')` para consumidores; adapter falso do axios para testar o próprio `lib/api.ts`). Gate no job `frontend` do CI com limiar de cobertura declarado; convenções completas em `client/CLAUDE.md`.
 - **UI & Estilização:** Shadcn UI + Tailwind CSS.
   - Comando de setup: `bunx --bun shadcn@latest init --preset bbb02Km --template vite --pointer`.
 - **Mapeamento do Protótipo (Claude Design) para Componentes React:**
