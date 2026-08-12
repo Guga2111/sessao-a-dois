@@ -19,5 +19,24 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     globals: false,
     css: false,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      exclude: [
+        "src/test/**",
+        "src/components/ui/**",
+        "src/main.tsx",
+        "*.config.*",
+        "src/types/**",
+      ],
+      // Patamar medido em 2026-08-11 (Epico 11, US-016), arredondado para baixo.
+      // Subir este limiar e uma task propria, nao um efeito colateral de outro PR.
+      thresholds: {
+        statements: 52,
+        branches: 37,
+        functions: 40,
+        lines: 55,
+      },
+    },
   },
 })
