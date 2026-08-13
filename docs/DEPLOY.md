@@ -426,6 +426,7 @@ ou no environment `production`, que o workflow referencia):
 | `JWT_SECRET` | Segredo de assinatura (>= 32 bytes, `openssl rand -base64 48`) |
 | `TMDB_API_KEY` | API Read Access Token v4 do TMDB |
 | `RESEND_API_KEY` | API key da conta Resend (epico 10 - e-mail transacional, ver secao abaixo) |
+| `ALERT_EMAIL_TO` | Endereco pessoal do mantenedor que recebe o alerta de falha de deploy (epico 12, job `notify-failure` em `deploy.yml`). **Excecao a regra dos "tres lugares" acima:** e consumido so pelo workflow - nao entra no `.env` da VPS nem em `environment:` do `docker-compose-prod.yml`, porque nenhum container precisa dele. |
 
 **Secret opcional:**
 
