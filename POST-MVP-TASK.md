@@ -2110,6 +2110,18 @@ secret do repositório). A mensagem precisa dizer qual job falhou e trazer o lin
 Rollback automático (segue sendo `git revert` + merge, por decisão do Épico 8);
 notificação de deploy bem-sucedido; abrir issue automática.
 
+### Fechamento da Open Question #1 do Épico 8 (2026-08-13)
+**Resolvida.** Implementada pela US-009 do PRD do Épico 12
+(`tasks/prd-epico-12-observabilidade-e-alerta.md`): job `notify-failure` em
+`.github/workflows/deploy.yml`, `needs: [tests, deploy]` + `if: failure()`, alerta por
+e-mail via Resend (não Telegram — decisão E12.4 do PRD do Épico 12, reaproveitando o
+provedor de e-mail já pago zero desde o Épico 10 em vez de introduzir um segundo canal).
+O PRD original do Épico 8 (`tasks/prd-epico-8-cicd-e-infraestrutura.md`) **não existe
+mais no repo** — a pasta `tasks/` é esvaziada quando um épico fecha, e o que sobrou é
+`scripts/ralph/archive/2026-08-06-epico8-cicd-infraestrutura/` (só `prd.json` e
+`progress.txt`, sem o texto da Open Question #1). Por isso o fechamento fica registrado
+aqui, não lá (decisão E12.8 do PRD do Épico 12).
+
 ---
 
 # Épico 13 — Governança do Design System
