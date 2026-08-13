@@ -88,6 +88,23 @@ o consumidor ja pediu, entao nao ha risco de quebrar a CLI do `shadcn`.
 Se um `overrides` futuro precisar cruzar major, prefira o `--ignore` com
 justificativa (padrao da tabela acima) a arriscar a ferramenta.
 
+### 2026-08-13 — `GHSA-2v37-7h3g-55p8` reapareceu, `overrides` bumped para `^3.3.18`
+
+O mesmo advisory do `nanoid` (loop infinito quando `size` e zero) voltou a quebrar o
+step `Audit dependencies` — o range vulneravel do GHSA foi atualizado e passou a
+cobrir `< 3.3.18`, entao o override anterior (`^3.3.17`, fixado em 2026-08-08 acima)
+ficou vulneravel de novo sem que nada no repo tivesse mudado. `typecheck`/`lint`/
+`test:coverage`/`build` continuavam verdes — so o `Audit dependencies` falhava, e
+rapido (~10s), porque roda antes de qualquer um dos outros steps. Correcao: bump do
+`overrides.nanoid` em `package.json` de `^3.3.17` para `^3.3.18`, `bun install` para
+regravar o `bun.lock`. `bun audit --audit-level=high` com os 6 `--ignore` da tabela
+principal volta a sair sem nenhum advisory. Nao houve mudanca de major nem de
+`--ignore`; a licao e que um `overrides` fixado numa versao especifica pode precisar
+de bump de novo se o proprio advisory for revisado, mesmo sem nenhuma dependencia
+nova entrar no grafo — vale conferir a versao corrigida atual do GHSA (nao so
+confiar na tabela historica) quando este step voltar a falhar sem nenhuma mudanca
+de codigo associada.
+
 ## `typecheck` script must use `tsc -b`, not `tsc --noEmit`
 
 The root `tsconfig.json` has `"files": []` and only `references` to `tsconfig.app.json`/`tsconfig.node.json` (standard Vite project-references setup). Running plain `tsc --noEmit` against it checks **zero files** and always exits 0 — it never actually type-checks `src/`, silently. `package.json`'s `typecheck` script must use `tsc -b` (build mode, which follows `references`), same as the first half of the `build` script (`tsc -b && vite build`). If you ever touch `tsconfig*.json` or the `typecheck`/`build` scripts, verify with a deliberate type error (add one, confirm the script exits non-zero, revert) rather than trusting a clean run — a no-op script produces a clean run too.

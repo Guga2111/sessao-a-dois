@@ -32,8 +32,12 @@ export function App() {
   const hasPartner = useAuthStore((state) => Boolean(state.couple?.partner))
   const connect = useMatchStore((state) => state.connect)
   const disconnect = useMatchStore((state) => state.disconnect)
-  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications)
-  const fetchUnreadCount = useNotificationStore((state) => state.fetchUnreadCount)
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications
+  )
+  const fetchUnreadCount = useNotificationStore(
+    (state) => state.fetchUnreadCount
+  )
 
   useEffect(() => {
     void loadCurrentUser()
