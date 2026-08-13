@@ -15,6 +15,7 @@ const BREADCRUMB_KEY = "sessaoADois.lastAuthRedirect"
 interface QueuedOk {
   status: number
   data?: unknown
+  headers?: Record<string, string>
 }
 
 interface QueuedNetworkError {
@@ -31,10 +32,16 @@ function requestKey(method: string | undefined, url: string | undefined): string
   return `${(method ?? "get").toUpperCase()} ${url ?? ""}`
 }
 
-function queueResponse(method: string, url: string, status: number, data?: unknown): void {
+function queueResponse(
+  method: string,
+  url: string,
+  status: number,
+  data?: unknown,
+  headers?: Record<string, string>
+): void {
   const key = requestKey(method, url)
   const arr = responseQueues.get(key) ?? []
-  arr.push({ status, data })
+  arr.push({ status, data, headers })
   responseQueues.set(key, arr)
 }
 
@@ -72,7 +79,7 @@ const fakeAdapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
       data: next.data,
       status: next.status,
       statusText: "",
-      headers: {},
+      headers: next.headers ?? {},
       config,
       request: {},
     }
@@ -91,6 +98,7 @@ function stubLocation(pathname: string): { pathname: string; href: string } {
 }
 
 let api: typeof import("@/lib/api").api
+let reportClientError: typeof import("@/lib/api").reportClientError
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(async () => {
@@ -105,6 +113,7 @@ beforeEach(async () => {
   axiosModule.default.defaults.adapter = fakeAdapter
   const apiModule = await import("@/lib/api")
   api = apiModule.api
+  reportClientError = apiModule.reportClientError
 })
 
 afterEach(() => {
@@ -238,6 +247,71 @@ describe("erro que nao e 401", () => {
     queueNetworkError("GET", "/api/foo", "timeout of 15000ms exceeded", "ECONNABORTED")
 
     await expect(api.get("/api/foo")).rejects.toBeTruthy()
+
+    expect(refreshCallCount()).toBe(0)
+    expect(window.location.href).toBe("http://localhost/hub")
+  })
+})
+
+describe("reportClientError", () => {
+  const CLIENT_ERRORS_URL = "/api/client-errors"
+
+  function clientErrorCall() {
+    return fakeAdapter.mock.calls.find(
+      ([config]) => requestKey(config.method, config.url) === requestKey("POST", CLIENT_ERRORS_URL)
+    )?.[0]
+  }
+
+  it("manda o X-Request-Id quando ha um id guardado de uma resposta anterior", async () => {
+    queueResponse("GET", "/api/foo", 200, { ok: true }, { "x-request-id": "corr-abc-123" })
+    queueResponse("POST", CLIENT_ERRORS_URL, 204)
+
+    await api.get("/api/foo")
+    await reportClientError({ message: "algo quebrou no render" })
+
+    const call = clientErrorCall()
+    expect(call).toBeDefined()
+    expect(call?.headers.get("X-Request-Id")).toBe("corr-abc-123")
+  })
+
+  it("nao manda o header X-Request-Id quando nenhum id foi guardado ainda", async () => {
+    queueResponse("POST", CLIENT_ERRORS_URL, 204)
+
+    await reportClientError({ message: "algo quebrou no render" })
+
+    const call = clientErrorCall()
+    expect(call).toBeDefined()
+    expect(call?.headers.get("X-Request-Id")).toBeFalsy()
+  })
+
+  it("falha de rede nao propaga excecao para quem chamou", async () => {
+    queueNetworkError("POST", CLIENT_ERRORS_URL, "Network Error")
+
+    await expect(reportClientError({ message: "algo quebrou no render" })).resolves.toBeUndefined()
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[api] falha ao reportar erro do cliente",
+      expect.anything()
+    )
+  })
+
+  it("trunca o stack em 4000 caracteres antes de enviar", async () => {
+    queueResponse("POST", CLIENT_ERRORS_URL, 204)
+    const hugeStack = "x".repeat(5000)
+
+    await reportClientError({ message: "algo quebrou no render", stack: hugeStack })
+
+    const call = clientErrorCall()
+    expect(call?.data).toBeDefined()
+    const body = JSON.parse(call!.data as string)
+    expect(body.stack).toHaveLength(4000)
+  })
+
+  it("um 401 em /api/client-errors nao dispara refresh nem redirect", async () => {
+    stubLocation("/hub")
+    queueResponse("POST", CLIENT_ERRORS_URL, 401)
+
+    await expect(reportClientError({ message: "algo quebrou no render" })).resolves.toBeUndefined()
 
     expect(refreshCallCount()).toBe(0)
     expect(window.location.href).toBe("http://localhost/hub")

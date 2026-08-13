@@ -32,7 +32,36 @@ const AXIOS_CONFIG = {
 
 export const api = axios.create(AXIOS_CONFIG)
 
+// Ultimo X-Request-Id visto numa resposta (sucesso ou erro), em escopo de modulo.
+// reportClientError (US-005) manda esse valor de volta ao backend para que o
+// relatorio de erro do cliente carregue o mesmo correlation id da chamada que
+// falhou, sem o boundary da US-006 precisar saber nada de HTTP.
+let lastRequestId: string | undefined
+
+function captureRequestId(headers: unknown): void {
+  if (!headers || typeof headers !== "object") {
+    return
+  }
+  const value = (headers as Record<string, unknown>)["x-request-id"]
+  if (typeof value === "string" && value) {
+    lastRequestId = value
+  }
+}
+
+/**
+ * Ultimo X-Request-Id visto (ver `lastRequestId` acima). Usado pelo error boundary
+ * (US-006) para mostrar ao usuario o mesmo correlation id que acabou de ser enviado
+ * em `reportClientError` — a resposta do POST /api/client-errors sempre carrega o
+ * header, entao chamar isto depois de `reportClientError` resolver reflete o id
+ * daquele relatorio especifico.
+ */
+export function getLastRequestId(): string | undefined {
+  return lastRequestId
+}
+
 const REFRESH_URL = "/api/auth/refresh"
+const CLIENT_ERROR_URL = "/api/client-errors"
+const CLIENT_ERROR_STACK_MAX_LENGTH = 4000
 
 // Separate instance (no response interceptor) so a failed refresh call
 // never recurses back into the 401 handler below.
@@ -112,15 +141,31 @@ function isPasswordChallenge(config: RetryableRequestConfig): boolean {
   )
 }
 
+// POST /api/client-errors (reportClientError, US-005) roda sem gesto do usuario, dentro de
+// um componentDidCatch que ja esta lidando com uma falha - um 401 dali (nao deveria
+// acontecer, o endpoint e permitAll, mas nada impede um proxy/middleware de devolver um no
+// meio do caminho) nao pode disparar refresh nem redirect por cima do que o boundary da
+// US-006 esta tentando mostrar. Mesmo tratamento cru do isPasswordChallenge acima.
+function isClientErrorReport(config: RetryableRequestConfig): boolean {
+  return config.method?.toUpperCase() === "POST" && config.url === CLIENT_ERROR_URL
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    captureRequestId(response.headers)
+    return response
+  },
   async (error) => {
+    if (error.response) {
+      captureRequestId(error.response.headers)
+    }
+
     const config = error.config as RetryableRequestConfig | undefined
     if (error.response?.status !== 401 || !config) {
       return Promise.reject(error)
     }
 
-    if (isPasswordChallenge(config)) {
+    if (isPasswordChallenge(config) || isClientErrorReport(config)) {
       return Promise.reject(error)
     }
 
@@ -149,3 +194,35 @@ api.interceptors.response.use(
     return api(config)
   }
 )
+
+interface ClientErrorReport {
+  message: string
+  stack?: string
+  route?: string
+}
+
+/**
+ * Manda o relatorio de erro de render do frontend ao backend (POST /api/client-errors,
+ * publico, US-003/US-004). Fire-and-forget por design: quem chama (o error boundary da
+ * US-006) esta lidando com uma falha de render e nao pode ficar bloqueado nem quebrar de
+ * novo por causa deste envio — a promise devolvida nunca rejeita, so serve para quem
+ * quiser aguardar em teste. O X-Request-Id da ultima resposta viaja no header quando
+ * existe; sem ele o backend gera um novo.
+ */
+export function reportClientError({ message, stack, route }: ClientErrorReport): Promise<void> {
+  const headers = lastRequestId ? { "X-Request-Id": lastRequestId } : undefined
+  return api
+    .post(
+      CLIENT_ERROR_URL,
+      {
+        message,
+        stack: stack?.slice(0, CLIENT_ERROR_STACK_MAX_LENGTH),
+        route,
+      },
+      { headers }
+    )
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      console.error("[api] falha ao reportar erro do cliente", error)
+    })
+}

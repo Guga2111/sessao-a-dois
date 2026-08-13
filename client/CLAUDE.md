@@ -18,6 +18,7 @@ React + TypeScript + Vite, Tailwind v4 (CSS-based config in `src/index.css`, no 
 - **Mock de HTTP em duas camadas:**
   - Para store/hook/componente que **consome** `src/lib/api.ts`: `vi.mock("@/lib/api")` e mockar `api.get`/`api.post`/etc diretamente — nao deixa a requisicao chegar perto do axios.
   - Para testar o **proprio** `src/lib/api.ts` (o interceptor de refresh/401, `withXSRFToken`, etc): `vi.mock` esconderia justamente o que se quer testar. Em vez disso, instala-se um adapter falso em `axios.defaults.adapter` *antes* do import de `@/lib/api`, para que tanto `api` quanto o `refreshClient` interno (nao exportado) herdem o mesmo adapter.
+  - O adapter falso de `api.test.ts` (`queueResponse(method, url, status, data, headers?)`) tambem aceita `headers` de resposta desde a US-005 (Epico 12), para testar codigo que le um header de resposta (ex.: `X-Request-Id`, capturado em escopo de modulo por `reportClientError`). No `fakeAdapter.mock.calls`, o `config.headers` que chega no adapter ja e uma instancia `AxiosHeaders` (depois dos request interceptors) — leia com `config.headers.get("Nome-Do-Header")`, case-insensitive, em vez de acesso por colchete.
 - **Stubs de jsdom** (`src/test/setup.ts`): `window.matchMedia` (usado por `theme-provider.tsx` e `lib/useIsMobile.ts`), `ResizeObserver` (posicionamento dos primitivos `@base-ui/react`) e `IntersectionObserver` (usado por `screens/hub/LoadMoreSentinel.tsx` e `components/landing/DashboardPreview.tsx`) — este ultimo com `triggerIntersection(el, isIntersecting)`, exportado do proprio `setup.ts`, para disparar a intersecao manualmente num teste.
 - **Reset de store** (`src/test/storeReset.ts`): registra um `afterEach` global (importado por `setup.ts`, roda para todo arquivo de teste sem precisar de import explicito) que faz `store.setState(store.getInitialState(), true)` em `useAuthStore`, `useMatchStore` e `useNotificationStore` — sem isso uma acao chamada num teste (`login`, `connect`, `pushIncoming`...) vaza para o proximo teste do mesmo worker.
 - **Helper de rota** (`src/test/renderWithRouter.tsx`): monta um componente dentro de `MemoryRouter` com a rota inicial parametrizavel (`{ route: "/join" }`). Fica num `.tsx` **separado** de `storeReset.ts`/`setup.ts` (que nao sao componente) porque `react-refresh/only-export-components` proibe um arquivo exportar componente e funcao comum ao mesmo tempo.
@@ -86,6 +87,23 @@ o consumidor ja pediu, entao nao ha risco de quebrar a CLI do `shadcn`.
 
 Se um `overrides` futuro precisar cruzar major, prefira o `--ignore` com
 justificativa (padrao da tabela acima) a arriscar a ferramenta.
+
+### 2026-08-13 — `GHSA-2v37-7h3g-55p8` reapareceu, `overrides` bumped para `^3.3.18`
+
+O mesmo advisory do `nanoid` (loop infinito quando `size` e zero) voltou a quebrar o
+step `Audit dependencies` — o range vulneravel do GHSA foi atualizado e passou a
+cobrir `< 3.3.18`, entao o override anterior (`^3.3.17`, fixado em 2026-08-08 acima)
+ficou vulneravel de novo sem que nada no repo tivesse mudado. `typecheck`/`lint`/
+`test:coverage`/`build` continuavam verdes — so o `Audit dependencies` falhava, e
+rapido (~10s), porque roda antes de qualquer um dos outros steps. Correcao: bump do
+`overrides.nanoid` em `package.json` de `^3.3.17` para `^3.3.18`, `bun install` para
+regravar o `bun.lock`. `bun audit --audit-level=high` com os 6 `--ignore` da tabela
+principal volta a sair sem nenhum advisory. Nao houve mudanca de major nem de
+`--ignore`; a licao e que um `overrides` fixado numa versao especifica pode precisar
+de bump de novo se o proprio advisory for revisado, mesmo sem nenhuma dependencia
+nova entrar no grafo — vale conferir a versao corrigida atual do GHSA (nao so
+confiar na tabela historica) quando este step voltar a falhar sem nenhuma mudanca
+de codigo associada.
 
 ## `typecheck` script must use `tsc -b`, not `tsc --noEmit`
 
@@ -359,3 +377,18 @@ tambem apagam o booleano — formar casal novo encerra o assunto.
 A landing (`/`) e `PublicOnlyRoute`, entao ela so aceita o usuario **depois** do
 `clearSession()` — as duas chamadas no mesmo handler sao batidas num render so e o destino
 ja resolve com `isAuthenticated: false`.
+
+## Error boundary de topo (`src/components/ErrorBoundary.tsx`, US-006, Epico 12)
+
+Montado em `main.tsx` **por fora** de `ThemeProvider`/`BrowserRouter` para capturar tambem
+uma excecao vinda de dentro deles — por isso a tela de erro so usa cores inline (arbitrary
+values, mesmo padrao do resto do `client/`), nunca `useNavigate`/`Link`/token de tema; um
+segundo botao de navegacao e sempre `<a href="/">`. `componentDidCatch` chama
+`reportClientError` (US-005) e, quando a promise resolve, le `getLastRequestId()` — um getter
+novo em `lib/api.ts` sobre o `lastRequestId` ja existente — para mostrar o mesmo correlation
+id que acabou de ir no relatorio (a resposta do `POST /api/client-errors` sempre carrega o
+header `X-Request-Id`, entao o valor so fica correto depois daquela promise assentar, nao
+antes). Teste (`ErrorBoundary.test.tsx`) usa `vi.mock("@/lib/api")` mockando
+`reportClientError`/`getLastRequestId` diretamente (o componente e o consumidor, nao o
+proprio `lib/api.ts` — o outro padrao de mock, com adapter falso do axios, e so para testar
+`lib/api.ts` em si).

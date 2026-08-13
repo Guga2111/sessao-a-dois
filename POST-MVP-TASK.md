@@ -1966,6 +1966,7 @@ com a **D15**, nenhuma task deste épico introduz custo recorrente.
 
 ## T12.1 — Uptime check externo
 
+**Status:** ✅ **Concluída em 2026-08-13** — Épico 12, US-011 (`epico12/alert-observability`). *A ativação do monitor em si é a US-012, story operacional fora do `prd.json` do ralph (mesmo tratamento das stories operacionais do Épico 8) — ver critérios abaixo.*
 **Criticidade:** Médio
 **Arquivos:** `docs/DEPLOY.md`
 
@@ -1983,10 +1984,10 @@ Task **operacional** — executada pelo mantenedor no painel do serviço, não p
 agente. A entrega em repositório é a documentação.
 
 ### Critérios de aceite
-- [ ] Monitor ativo, apontando para o health check, com alerta configurado.
-- [ ] Derrubar a API deliberadamente (`docker compose stop api`) gera alerta em até 10 min — teste feito e registrado.
-- [ ] `docs/DEPLOY.md` ganha seção de monitoramento: serviço, o que é monitorado, para onde vai o alerta, e como pausar durante deploy planejado.
-- [ ] Nenhum custo recorrente.
+- [ ] Monitor ativo, apontando para o health check, com alerta configurado. — não executável por agente: exige conta num serviço de monitoramento externo e acesso ao respectivo painel; gate humano (US-012, ver checklist na seção "Monitoramento" de `docs/DEPLOY.md`).
+- [ ] Derrubar a API deliberadamente (`docker compose stop api`) gera alerta em até 10 min — teste feito e registrado. — mesma razão acima; gate humano (US-012).
+- [x] `docs/DEPLOY.md` ganha seção de monitoramento: serviço, o que é monitorado, para onde vai o alerta, e como pausar durante deploy planejado. *(US-011)*
+- [ ] Nenhum custo recorrente. — não verificável por agente: exige confirmar no painel do serviço de monitoramento escolhido, que ainda não foi ativado; gate humano (US-012).
 
 ### Fora do escopo
 APM, tracing distribuído, dashboard de métricas, SLO formal.
@@ -1995,6 +1996,7 @@ APM, tracing distribuído, dashboard de métricas, SLO formal.
 
 ## T12.2 — Health check com profundidade
 
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 12, US-001, US-002 (`epico12/alert-observability`).
 **Criticidade:** Médio
 **Arquivos:** `api/src/main/java/com/app/HealthController.java`, `api/src/test/java/com/app/HealthControllerTest.java`, `api/Dockerfile`
 
@@ -2013,12 +2015,12 @@ Verificar a dependência crítica antes de responder:
 - Avaliar Spring Boot Actuator: o `pom.xml` **não** o inclui hoje. Se entrar, expor **somente** o grupo de health, sem `/actuator/**` aberto — caso contrário, resolver no controller manual, que é o caminho mais simples.
 
 ### Critérios de aceite
-- [ ] Banco no ar → `200` com status detalhado.
-- [ ] Banco fora → `503` em no máximo ~2s, sem pendurar a thread.
-- [ ] A resposta de falha não contém credencial, host nem stack trace.
-- [ ] `/api/health` continua público e a `SecurityConfigTest` continua passando.
-- [ ] `HealthControllerTest` cobre os dois cenários.
-- [ ] O `HEALTHCHECK` do container passa a refletir o estado real (container fica `unhealthy` com o banco fora).
+- [x] Banco no ar → `200` com status detalhado.
+- [x] Banco fora → `503` em no máximo ~2s, sem pendurar a thread.
+- [x] A resposta de falha não contém credencial, host nem stack trace.
+- [x] `/api/health` continua público e a `SecurityConfigTest` continua passando.
+- [x] `HealthControllerTest` cobre os dois cenários.
+- [ ] O `HEALTHCHECK` do container passa a refletir o estado real (container fica `unhealthy` com o banco fora). — não verificável por agente: sandbox sem Docker (ver `api/CLAUDE.md`), o cenário "banco fora" foi provado com datasource/indicador falso no `HealthControllerTest`, não derrubando um Postgres real nem observando o `HEALTHCHECK` de um container de verdade; gate humano.
 
 ### Fora do escopo
 Checar TMDB no health (dependência externa fora do ar não deve derrubar o container);
@@ -2028,6 +2030,7 @@ métricas de negócio.
 
 ## T12.3 — Erro não tratado no frontend deixa de ser tela branca
 
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 12, US-003 a US-006 (`epico12/alert-observability`).
 **Criticidade:** Médio
 **Arquivos:** `client/src/main.tsx`, novo componente de error boundary, `api/src/main/java/com/app/`
 
@@ -2044,12 +2047,12 @@ coberto.
 3. Proteger o endpoint: rate limit por IP na infra que já existe, limite de tamanho do corpo, e nada de refletir o conteúdo recebido em resposta.
 
 ### Critérios de aceite
-- [ ] Erro de render mostra a tela de erro, não tela branca.
-- [ ] O erro chega ao log do backend com correlation id, rota e mensagem.
-- [ ] O endpoint é rate-limited e rejeita corpo acima do limite.
-- [ ] Nenhum dado sensível (token, e-mail) é enviado no relatório.
-- [ ] Teste do boundary (renderizar filho que lança) e teste do endpoint.
-- [ ] A skill `frontend-design` foi invocada para a tela de erro.
+- [x] Erro de render mostra a tela de erro, não tela branca.
+- [x] O erro chega ao log do backend com correlation id, rota e mensagem.
+- [x] O endpoint é rate-limited e rejeita corpo acima do limite.
+- [x] Nenhum dado sensível (token, e-mail) é enviado no relatório.
+- [x] Teste do boundary (renderizar filho que lança) e teste do endpoint.
+- [x] A skill `frontend-design` foi invocada para a tela de erro. *(a verificação visual da tela em navegador real ficou de gate humano — sandbox sem Chromium, ver `client/CLAUDE.md` e progress.txt da US-006)*
 
 ### Fora do escopo
 Sentry ou qualquer SaaS de erro; source maps em produção; captura de `unhandledrejection`
@@ -2059,6 +2062,7 @@ global.
 
 ## T12.4 — Retenção e consulta de log
 
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 12, US-007, US-008 (`epico12/alert-observability`).
 **Criticidade:** Baixo
 **Arquivos:** `api/src/main/resources/logback-spring.xml`, `docs/DEPLOY.md`
 
@@ -2074,10 +2078,10 @@ procedimento escrito para investigar um incidente por correlation id.
 - Documentar o procedimento de investigação em `docs/DEPLOY.md`: dado um correlation id vindo da T12.3, quais comandos rodar.
 
 ### Critérios de aceite
-- [ ] Retenção do audit log declarada em configuração, com teto de tamanho.
-- [ ] Log da aplicação com limite de tamanho, sem risco de encher o disco.
-- [ ] `docs/DEPLOY.md` traz o passo a passo de investigação por correlation id.
-- [ ] Um incidente simulado é rastreado ponta a ponta seguindo só a documentação.
+- [x] Retenção do audit log declarada em configuração, com teto de tamanho.
+- [x] Log da aplicação com limite de tamanho, sem risco de encher o disco.
+- [x] `docs/DEPLOY.md` traz o passo a passo de investigação por correlation id.
+- [ ] Um incidente simulado é rastreado ponta a ponta seguindo só a documentação. — parcialmente verificável por agente: os passos 2 (log da aplicação) e 3 (audit log, `grep` contra arquivo real) foram rastreados de ponta a ponta contra saída real de teste; o passo 1 (header `X-Request-Id` via `curl` ao vivo contra a aplicação de pé) não, por não haver Docker/Postgres no sandbox (ver `api/CLAUDE.md`) — coberto em vez disso pelo teste unitário pré-existente `CorrelationIdFilterTest`. Detalhe completo em `scripts/ralph/progress.txt`, entrada da US-008; gate humano para o ciclo 100% real contra a VPS.
 
 ### Fora do escopo
 ELK, Loki, Grafana; log estruturado em JSON; envio de log para fora da VPS.
@@ -2086,6 +2090,7 @@ ELK, Loki, Grafana; log estruturado em JSON; envio de log para fora da VPS.
 
 ## T12.5 — Alerta de falha de deploy
 
+**Status:** ✅ **Concluída em 2026-08-13** — Épico 12, US-009, US-010 (`epico12/alert-observability`).
 **Criticidade:** Baixo
 **Arquivos:** `.github/workflows/deploy.yml`
 
@@ -2100,15 +2105,27 @@ celular (webhook de Telegram é o caminho gratuito e mais direto; o token entra 
 secret do repositório). A mensagem precisa dizer qual job falhou e trazer o link da run.
 
 ### Critérios de aceite
-- [ ] Falha no deploy dispara a notificação; sucesso não dispara nada.
-- [ ] A mensagem identifica o job e linka a run.
-- [ ] O token está em secret do repositório, nunca no YAML.
-- [ ] Testado com uma falha forçada, registrada no PR.
-- [ ] A Open Question #1 do PRD do Épico 8 é marcada como fechada, referenciando esta task.
+- [ ] Falha no deploy dispara a notificação; sucesso não dispara nada. — a metade "sucesso não dispara nada" é garantida por construção (`if: failure()` no job `notify-failure`), mas nenhuma das duas metades foi observada numa run real do GitHub Actions — este sandbox não dispara workflows reais; gate humano, passo a passo em `scripts/ralph/progress.txt` (entrada da US-009).
+- [x] A mensagem identifica o job e linka a run. *(lê `needs.tests.result`/`needs.deploy.result` e monta o link com `github.server_url`/`github.repository`/`github.run_id`)*
+- [x] O token está em secret do repositório, nunca no YAML. *(`RESEND_API_KEY` e `ALERT_EMAIL_TO`, ambos `secrets.*`)*
+- [ ] Testado com uma falha forçada, registrada no PR. — não executável por agente: exigiria forçar uma falha numa run real do `deploy.yml`; gate humano, passo a passo em `scripts/ralph/progress.txt` (entrada da US-009).
+- [x] A Open Question #1 do PRD do Épico 8 é marcada como fechada, referenciando esta task. *(US-010, ver seção logo abaixo)*
 
 ### Fora do escopo
 Rollback automático (segue sendo `git revert` + merge, por decisão do Épico 8);
 notificação de deploy bem-sucedido; abrir issue automática.
+
+### Fechamento da Open Question #1 do Épico 8 (2026-08-13)
+**Resolvida.** Implementada pela US-009 do PRD do Épico 12
+(`tasks/prd-epico-12-observabilidade-e-alerta.md`): job `notify-failure` em
+`.github/workflows/deploy.yml`, `needs: [tests, deploy]` + `if: failure()`, alerta por
+e-mail via Resend (não Telegram — decisão E12.4 do PRD do Épico 12, reaproveitando o
+provedor de e-mail já pago zero desde o Épico 10 em vez de introduzir um segundo canal).
+O PRD original do Épico 8 (`tasks/prd-epico-8-cicd-e-infraestrutura.md`) **não existe
+mais no repo** — a pasta `tasks/` é esvaziada quando um épico fecha, e o que sobrou é
+`scripts/ralph/archive/2026-08-06-epico8-cicd-infraestrutura/` (só `prd.json` e
+`progress.txt`, sem o texto da Open Question #1). Por isso o fechamento fica registrado
+aqui, não lá (decisão E12.8 do PRD do Épico 12).
 
 ---
 
