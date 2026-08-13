@@ -863,6 +863,72 @@ desnecessario e fora do escopo desta story de documentacao.
 
 ---
 
+## Monitoramento (Epico 12, US-011)
+
+**O valor deste monitor depende da US-002.** Antes dela, `/api/health` respondia
+`{"status":"UP"}` constante independentemente do banco — um monitor apontando
+para aquele endpoint seria decorativo, verde mesmo com a aplicacao 100% quebrada
+para o usuario. So a partir da US-002 (banco fora => `503` em ate ~2s) o endpoint
+diz a verdade e o monitor passa a significar algo.
+
+**Servico:** UptimeRobot (free tier) ou equivalente (BetterStack e a alternativa
+mais citada, com free tier menor em numero de monitores mas UI melhor) — decisao
+final do mantenedor na execucao da US-012; esta secao e atualizada com o servico
+realmente escolhido se divergir do aqui documentado. **Nenhum custo recorrente**
+(decisao D15) — o plano usado e sempre free tier; confirmar no painel do servico
+apos a ativacao.
+
+**O que e monitorado:** `https://sessaoadois.luisgosampaio.com/api/health`
+(o mesmo endpoint publico do smoke test do `deploy.yml`), a cada **5 minutos**.
+
+**Para onde vai o alerta:** e-mail (decisao E12.4). **O alerta de uptime desta
+secao e o alerta de falha de deploy (US-009, ver "CI/CD" acima) chegam pelo
+mesmo canal — e-mail — mas por assuntos diferentes:** o alerta de deploy tem
+assunto `Deploy falhou (<job>) - Sessão a Dois`; o alerta de uptime tem o
+assunto padrao do servico escolhido (tipicamente algo como "sessaoadois.
+luisgosampaio.com is DOWN"). Se os dois comecarem a chegar parecidos a ponto de
+confundir, ajustar o nome do monitor no painel do servico, nao este documento.
+
+**Como pausar durante um deploy planejado (e como despausar):** o deploy normal
+via `deploy.yml` e rapido o bastante (smoke test com ate 12 tentativas de 10s)
+para nao costumar disparar o monitor de 5 em 5 minutos, mas para uma manutencao
+mais longa (ex.: troca manual de infraestrutura na VPS):
+
+1. No painel do servico de monitoramento, abrir o monitor de
+   `https://sessaoadois.luisgosampaio.com/api/health` e usar a opcao de
+   pausar (ex.: "Pause Monitor" no UptimeRobot).
+2. Fazer a manutencao.
+3. **Despausar assim que terminar.** Um monitor esquecido em pausa e pior do
+   que nenhum monitor: da a falsa sensacao de que uma queda real seria
+   detectada. Se a manutencao for maior que o esperado, e melhor conferir o
+   monitor de novo no dia seguinte do que confiar na memoria.
+
+### Checklist operacional (US-012 — executado pelo mantenedor, nao por agente)
+
+Story operacional: exige conta no servico de monitoramento e acesso a VPS de
+producao, mesmo tratamento das stories operacionais do Epico 8. Passos:
+
+1. Criar conta no servico escolhido (UptimeRobot ou equivalente, free tier).
+2. Criar o monitor: URL `https://sessaoadois.luisgosampaio.com/api/health`,
+   metodo HTTP GET, intervalo de 5 minutos, alerta por e-mail configurado para
+   o mesmo endereco (ou equivalente) do secret `ALERT_EMAIL_TO` do Epico 12.
+3. Confirmar que um e-mail de teste do proprio servico chega normalmente
+   (a maioria oferece um botao "Send test alert" ou similar).
+4. **Teste real de queda:** `ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml stop api"`,
+   cronometrar ate o alerta chegar (esperado: ate 10 minutos), religar com
+   `docker compose -f docker-compose-prod.yml start api`, e registrar os tres
+   horarios (parada, alerta, volta ao verde) no `progress.txt` ou no PR.
+5. **Complementar (so faz sentido depois da US-002 existir):** derrubar so o
+   banco em vez da API inteira — ou apontar `DB_URL` para um destino invalido
+   momentaneamente — e confirmar que o mesmo alerta dispara. Esse e o cenario
+   que um health check raso escondia (a API de pe, o banco fora, o health
+   antigo respondendo `200` do mesmo jeito) e e o motivo de a T12.1 depender
+   da T12.2 (ver `tasks/prd-epico-12-observabilidade-e-alerta.md` secao 4).
+6. Atualizar esta secao com o nome do servico realmente escolhido, se
+   diferente do default (UptimeRobot) aqui documentado.
+
+---
+
 ## Estrutura de ficheiros na VPS
 
 ```
