@@ -360,3 +360,14 @@
   - Confirms the "RGB must match exactly, alpha doesn't matter" rule from US-003/US-004 also applies as a *negative* filter: `rgba(255,90,90,X)` is visually close to `--destructive` (`rgb(255,107,107)`) but the R/G/B don't match exactly (90≠107), so it correctly stays untokenized rather than being rounded into `bg-destructive/N` — a near-miss RGB is not the same case as an alpha-only mismatch.
   - Next priority story is US-027 (`ForgotPasswordPage.tsx` + `LandingFooter.tsx`, 52 occurrences) — no new leftover patterns expected beyond the now-familiar set (named-white opacity utilities, `shadow-[...]`, near-miss non-token hex, alpha-mismatched rgba).
 ---
+
+## 2026-08-14 - US-027
+- Implemented: `client/src/routes/auth/ForgotPasswordPage.tsx` and `client/src/components/landing/LandingFooter.tsx` now consume the US-001 semantic tokens (`text-primary`, `bg-primary`/`text-background`/`hover:bg-accent`, `text-muted-foreground`, `border-destructive`/`bg-destructive`, `text-foreground`, `focus-visible:outline-primary`) instead of the equivalent hex/rgba literals, mechanical 1:1 substitution — 14 occurrences converted total.
+- Files changed: `client/src/routes/auth/ForgotPasswordPage.tsx`, `client/src/components/landing/LandingFooter.tsx`, `scripts/ralph/prd.json` (US-027 passes:true), `scripts/ralph/progress.txt`.
+- Leftovers with no matching token (left untouched, same fallback rule as US-003 through US-026): `text-[#ff9b9b]` (ForgotPasswordPage — close to but not an exact match of `--destructive-foreground` `#ffb3b3`), `text-[#111]` (LandingFooter — recurring "dark text on yellow surface" leftover already documented in several earlier stories), `text-[#ff9e2c]` (LandingFooter — same untokenized accent hue already documented as DashboardScreen's chart-series-2 color in US-007), `border-white/[0.07]` (LandingFooter — Tailwind named `white` + opacity, confirmed since US-008/US-009 to never match `ARBITRARY_COLOR_RE`). Both files stay in `color-migration-allowlist.txt` because `node scripts/check-color-literals.mjs --list-offenders` still lists them — removing either would break the `check:colors` CI gate.
+- Verification: `bun run typecheck` / `bun run lint` / `bun run test:run` (119 tests, 14 files) / `bun run build` / `node scripts/check-color-literals.mjs` (54 files still allowlisted, no new raw color) all pass from `client/`. Diff confirmed to be className-string-only via full `git diff` read.
+- Registrado conforme AC: verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcado como verificado visualmente.
+- **Learnings for future iterations:**
+  - No new patterns beyond what's already in Codebase Patterns above — this story followed the established exact-RGB-match mechanical rule with no new edge cases.
+  - Next priority story is US-028 (`AccountSection.tsx` + `LandingHeader.tsx`).
+---
