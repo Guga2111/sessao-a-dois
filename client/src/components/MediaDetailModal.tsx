@@ -34,7 +34,7 @@ const STATUS_BADGE: Record<
   WATCHING: {
     bg: "rgba(255,203,43,.18)",
     border: "rgba(255,203,43,.4)",
-    text: "#ffcb2b",
+    text: "var(--primary)",
   },
   WANT_TO_SEE: {
     bg: "rgba(180,130,255,.14)",
@@ -158,16 +158,16 @@ export function MediaDetailModal({
       style={{ background: "rgba(9,9,10,.82)", backdropFilter: "blur(12px)" }}
     >
       <div
-        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.08)] text-[#f6f4ec] sm:w-full sm:max-w-[900px]"
+        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.08)] text-foreground sm:w-full sm:max-w-[900px]"
         style={{
           background:
-            "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), #161513",
+            "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), var(--card)",
           maxHeight: "90svh",
           overflowY: "auto",
         }}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/90 px-6 pt-6 pb-4 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,.06)] bg-card/90 px-6 pt-6 pb-4 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {showSkeleton ? (
@@ -177,7 +177,7 @@ export function MediaDetailModal({
                   {details?.title ?? `Título #${track.tmdbId}`}
                 </h2>
               )}
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#a6a39a]">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
                 <span
                   className="rounded-md px-2.5 py-0.5 text-[11px] font-semibold"
                   style={{
@@ -195,7 +195,7 @@ export function MediaDetailModal({
                     <span>{TYPE_LABEL[track.mediaType]}</span>
                     {providerLine && (
                       <>
-                        <span className="text-[#a6a39a]/40">·</span>
+                        <span className="text-muted-foreground/40">·</span>
                         <span>{providerLine}</span>
                       </>
                     )}
@@ -208,7 +208,7 @@ export function MediaDetailModal({
               variant="outline"
               size="icon-sm"
               onClick={onClose}
-              className="mt-0.5 flex-none rounded-xl border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#a6a39a] hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
+              className="mt-0.5 flex-none rounded-xl border-border bg-[rgba(255,255,255,.05)] text-muted-foreground hover:bg-[rgba(255,255,255,.1)] hover:text-foreground"
             >
               <X className="size-4" />
             </Button>
@@ -253,15 +253,15 @@ export function MediaDetailModal({
           {/* Details */}
           <div className="min-w-0 flex-1">
             {detailsError ? (
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-8 text-center">
-                <TriangleAlert className="size-5 text-[#ffb3b3]" />
-                <p className="text-[13px] text-[#ffb3b3]">
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 px-5 py-8 text-center">
+                <TriangleAlert className="size-5 text-destructive-foreground" />
+                <p className="text-[13px] text-destructive-foreground">
                   Não foi possível carregar os detalhes deste título.
                 </p>
                 <Button
                   type="button"
                   onClick={handleRetryDetails}
-                  className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                  className="flex items-center gap-2 rounded-full border border-destructive/40 bg-transparent px-4 py-1.5 text-[13px] font-semibold text-destructive-foreground hover:bg-destructive/12"
                 >
                   <RefreshCw className="size-3.5" /> Tentar novamente
                 </Button>
@@ -274,7 +274,7 @@ export function MediaDetailModal({
                 <div className="flex flex-wrap gap-x-6 gap-y-3">
                   {details?.year && (
                     <div className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                      <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                         Ano
                       </span>
                       <span className="text-[17px] font-bold">{details.year}</span>
@@ -283,12 +283,12 @@ export function MediaDetailModal({
 
                   {coupleAvg !== null && (
                     <div className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                      <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                         Aval. Casal
                       </span>
                       <div className="flex items-center gap-1.5">
                         <Stars count={coupleAvg} />
-                        <span className="text-[13px] font-semibold text-[#f6f4ec]">
+                        <span className="text-[13px] font-semibold text-foreground">
                           {coupleAvg.toFixed(1).replace(".", ",")} / 5
                         </span>
                       </div>
@@ -296,7 +296,7 @@ export function MediaDetailModal({
                   )}
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Nota TMDB
                     </span>
                     <div className="flex items-center gap-1.5">
@@ -308,7 +308,7 @@ export function MediaDetailModal({
                         {details?.voteAverage != null
                           ? details.voteAverage.toFixed(1)
                           : "—"}
-                        <span className="text-[13px] font-normal text-[#a6a39a]">
+                        <span className="text-[13px] font-normal text-muted-foreground">
                           {" "}
                           /10
                         </span>
@@ -320,14 +320,14 @@ export function MediaDetailModal({
                 {/* Genres */}
                 {details?.genres && details.genres.length > 0 && (
                   <div>
-                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Gêneros
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {details.genres.map((genre) => (
                         <span
                           key={genre}
-                          className="rounded-full border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-3 py-0.5 text-[12px] text-[#d6d2c8]"
+                          className="rounded-full border border-border bg-[rgba(255,255,255,.05)] px-3 py-0.5 text-[12px] text-[#d6d2c8]"
                         >
                           {genre}
                         </span>
@@ -339,14 +339,14 @@ export function MediaDetailModal({
                 {/* Watch Providers */}
                 {details?.watchProviders && details.watchProviders.length > 0 && (
                   <div>
-                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Onde Assistir
                     </span>
                     <div className="flex flex-wrap gap-2">
                       {details.watchProviders.map((provider) => (
                         <span
                           key={provider.name}
-                          className="flex items-center gap-1.5 rounded-full border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-3 py-1 text-[12px] text-[#d6d2c8]"
+                          className="flex items-center gap-1.5 rounded-full border border-border bg-[rgba(255,255,255,.05)] px-3 py-1 text-[12px] text-[#d6d2c8]"
                         >
                           {provider.logoUrl ? (
                             <img
@@ -357,7 +357,7 @@ export function MediaDetailModal({
                           ) : (
                             <span
                               className="size-2 rounded-full"
-                              style={{ background: "#ffcb2b" }}
+                              style={{ background: "var(--primary)" }}
                             />
                           )}
                           {provider.name}
@@ -370,7 +370,7 @@ export function MediaDetailModal({
                 {/* Overview */}
                 {details?.overview && (
                   <div>
-                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Sinopse
                     </span>
                     <p className="text-[14px] leading-relaxed text-[#c4bfb4]">
@@ -382,7 +382,7 @@ export function MediaDetailModal({
                 {/* Individual ratings */}
                 {ratedReviews.length > 0 && (
                   <div>
-                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Avaliações
                     </span>
                     <div className="flex flex-wrap gap-4">
@@ -391,18 +391,18 @@ export function MediaDetailModal({
                           key={review.userId}
                           className="flex flex-col gap-1"
                         >
-                          <span className="text-[12px] text-[#a6a39a]">
+                          <span className="text-[12px] text-muted-foreground">
                             {review.userId === myUserId ? "Você" : review.userName}
                           </span>
                           <div className="flex items-center gap-1.5">
                             <Stars count={review.rating!} />
-                            <span className="text-[12px] text-[#a6a39a]">
+                            <span className="text-[12px] text-muted-foreground">
                               {review.rating},0
                             </span>
                           </div>
                           {review.opinion && (
                             <p className="mt-0.5 max-w-[200px] text-[12px] leading-snug text-[#d9d4e6] italic">
-                              <span className="font-bold text-[#ffcb2b] not-italic">"</span>
+                              <span className="font-bold text-primary not-italic">"</span>
                               {review.opinion}
                             </p>
                           )}
@@ -419,7 +419,7 @@ export function MediaDetailModal({
                       onStatusChange?.(track)
                       onClose()
                     }}
-                    className="mt-4 ml-auto flex h-auto rounded-full border-0 bg-[#ffcb2b] px-8 py-3.5 text-[15px] font-bold text-[#09090a] shadow-[0_4px_20px_rgba(255,203,43,.35)] hover:bg-[#ffe08a] hover:text-[#09090a]"
+                    className="mt-4 ml-auto flex h-auto rounded-full border-0 bg-primary px-8 py-3.5 text-[15px] font-bold text-background shadow-[0_4px_20px_rgba(255,203,43,.35)] hover:bg-accent hover:text-background"
                   >
                     Marcar como visto
                   </Button>
