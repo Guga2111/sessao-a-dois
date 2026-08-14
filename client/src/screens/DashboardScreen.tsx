@@ -34,7 +34,7 @@ function ChartCard({
 }) {
   return (
     <div
-      className={`rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] p-6 ${className ?? ""}`}
+      className={`rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-6 ${className ?? ""}`}
     >
       <h3 className="font-display m-0 text-[17px]">{title}</h3>
       {children}
@@ -50,7 +50,7 @@ function MonthlyBarsChart({ monthlySeries }: { monthlySeries: MonthlyStatDto[] }
     <ChartCard title="Títulos por mês" className="min-w-0">
       <div className="mb-5.5 mt-0 flex items-center justify-between">
         <span className="sr-only">Títulos por mês</span>
-        <span className="ml-auto text-[12px] text-[#a6a39a]">
+        <span className="ml-auto text-[12px] text-muted-foreground">
           {new Date().getFullYear()}
         </span>
       </div>
@@ -61,19 +61,19 @@ function MonthlyBarsChart({ monthlySeries }: { monthlySeries: MonthlyStatDto[] }
               key={m.month}
               className="flex h-full flex-1 flex-col items-center justify-end gap-2.5"
             >
-              <span className="text-[12px] text-[#a6a39a]">{m.count}</span>
+              <span className="text-[12px] text-muted-foreground">{m.count}</span>
               <div
-                className="w-full rounded-t-[8px] rounded-b-[3px] bg-[#ffcb2b]"
+                className="w-full rounded-t-[8px] rounded-b-[3px] bg-primary"
                 style={{ height: `${Math.max((m.count / maxCount) * 100, 2)}%` }}
               />
-              <span className="text-[12px] text-[#a6a39a]">
+              <span className="text-[12px] text-muted-foreground">
                 {MONTH_LABELS[m.month - 1]}
               </span>
             </div>
           ))}
         </div>
       ) : (
-        <div className="flex h-[200px] items-center justify-center text-sm text-[#a6a39a]">
+        <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
           Nenhum título assistido este ano ainda.
         </div>
       )}
@@ -100,34 +100,34 @@ function MovieTvDonutChart({
         <div
           className="relative h-[130px] w-[130px] flex-none rounded-full"
           style={{
-            background: `conic-gradient(#ffcb2b 0 ${moviePercentage}%, #ff9e2c ${moviePercentage}% 100%)`,
+            background: `conic-gradient(var(--primary) 0 ${moviePercentage}%, var(--chart-2) ${moviePercentage}% 100%)`,
           }}
         >
-          <div className="absolute inset-4 grid place-items-center rounded-full bg-[#161513] text-center">
+          <div className="absolute inset-4 grid place-items-center rounded-full bg-card text-center">
             <div>
               <div className="font-display text-[22px] font-bold">
                 {totalTitles}
               </div>
-              <div className="text-[10px] text-[#a6a39a]">títulos</div>
+              <div className="text-[10px] text-muted-foreground">títulos</div>
             </div>
           </div>
         </div>
         <div className="flex flex-col gap-3.5">
           <div>
             <div className="flex items-center gap-2">
-              <span className="h-[11px] w-[11px] rounded-[3px] bg-[#ffcb2b]" />
+              <span className="h-[11px] w-[11px] rounded-[3px] bg-primary" />
               <span className="text-[13px] font-semibold">Filmes</span>
             </div>
-            <div className="ml-[19px] text-[12px] text-[#a6a39a]">
+            <div className="ml-[19px] text-[12px] text-muted-foreground">
               {movieCount} · {Math.round(moviePercentage)}%
             </div>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="h-[11px] w-[11px] rounded-[3px] bg-[#ff9e2c]" />
+              <span className="h-[11px] w-[11px] rounded-[3px] bg-chart-2" />
               <span className="text-[13px] font-semibold">Séries</span>
             </div>
-            <div className="ml-[19px] text-[12px] text-[#a6a39a]">
+            <div className="ml-[19px] text-[12px] text-muted-foreground">
               {tvCount} · {Math.round(tvPercentage)}%
             </div>
           </div>
@@ -150,13 +150,13 @@ function GenreBarsChart({
             <div key={genre.name}>
               <div className="mb-1.5 flex justify-between text-[13px]">
                 <span className="font-semibold">{genre.name}</span>
-                <span className="text-[#a6a39a]">
+                <span className="text-muted-foreground">
                   {Math.round(genre.percentage)}%
                 </span>
               </div>
               <div className="h-[9px] rounded-[20px] bg-white/[0.06]">
                 <div
-                  className="h-full rounded-[20px] bg-[#ffcb2b]"
+                  className="h-full rounded-[20px] bg-primary"
                   style={{ width: `${genre.percentage}%` }}
                 />
               </div>
@@ -164,7 +164,7 @@ function GenreBarsChart({
           ))}
         </div>
       ) : (
-        <div className="mt-5 text-sm text-[#a6a39a]">
+        <div className="mt-5 text-sm text-muted-foreground">
           Sem dados de gênero suficientes ainda.
         </div>
       )}
@@ -184,8 +184,8 @@ function KpiCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] p-5.5">
-      <div className="flex items-center gap-2 text-[13px] font-semibold text-[#a6a39a]">
+    <div className="rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-5.5">
+      <div className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
         <span style={{ color: iconColor }}>{icon}</span> {label}
       </div>
       {children}
@@ -214,10 +214,10 @@ export function DashboardScreen() {
 
   return (
     <div
-      className="font-auth-body min-h-svh text-[#f6f4ec]"
+      className="font-auth-body min-h-svh text-foreground"
       style={{
         background:
-          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), #09090a",
+          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), var(--background)",
       }}
     >
       <Header />
@@ -229,13 +229,13 @@ export function DashboardScreen() {
           <h1 className="font-display text-[clamp(28px,4vw,40px)] font-bold tracking-tight">
             O ano de vocês em telas
           </h1>
-          <p className="mt-2 text-[15px] text-[#a6a39a]">
+          <p className="mt-2 text-[15px] text-muted-foreground">
             Um retrato de tudo que vocês assistiram juntos.
           </p>
         </div>
 
         {isEmpty ? (
-          <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-[#a6a39a]">
+          <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-muted-foreground">
             Ainda não há títulos assistidos para gerar estatísticas. Marquem
             algo como visto para ver o painel ganhar vida.
           </div>
@@ -250,10 +250,10 @@ export function DashboardScreen() {
               </>
             ) : (
               <>
-                <KpiCard icon="◷" iconColor="#ffcb2b" label="Tempo juntos">
+                <KpiCard icon="◷" iconColor="var(--primary)" label="Tempo juntos">
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {stats.totalWatchedHours}h{" "}
-                    <span className="text-[20px] text-[#a6a39a]">
+                    <span className="text-[20px] text-muted-foreground">
                       {stats.totalWatchedMinutes}m
                     </span>
                   </div>
@@ -267,19 +267,19 @@ export function DashboardScreen() {
                 <KpiCard icon="◲" iconColor="#ff9e2c" label="Filmes vs Séries">
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {Math.round(stats.moviePercentage)}
-                    <span className="text-[18px] text-[#a6a39a]"> % filmes</span>
+                    <span className="text-[18px] text-muted-foreground"> % filmes</span>
                   </div>
                   <div className="mt-3 flex h-2 overflow-hidden rounded-[20px] bg-white/[0.06]">
                     <div
-                      className="bg-[#ffcb2b]"
+                      className="bg-primary"
                       style={{ width: `${stats.moviePercentage}%` }}
                     />
                     <div
-                      className="bg-[#ff9e2c]"
+                      className="bg-chart-2"
                       style={{ width: `${stats.tvPercentage}%` }}
                     />
                   </div>
-                  <div className="mt-1.5 flex justify-between text-[11.5px] text-[#a6a39a]">
+                  <div className="mt-1.5 flex justify-between text-[11.5px] text-muted-foreground">
                     <span>{stats.movieCount} filmes</span>
                     <span>{stats.tvCount} séries</span>
                   </div>
@@ -289,7 +289,7 @@ export function DashboardScreen() {
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {stats.favoriteGenre ?? "—"}
                   </div>
-                  <div className="mt-1.5 text-[12.5px] text-[#a6a39a]">
+                  <div className="mt-1.5 text-[12.5px] text-muted-foreground">
                     {stats.topGenres[0]
                       ? `${stats.topGenres[0].count} títulos${secondFavoriteGenre ? ` · seguido de ${secondFavoriteGenre}` : ""}`
                       : "Sem dados suficientes ainda"}
@@ -299,9 +299,9 @@ export function DashboardScreen() {
                 <KpiCard icon="✓" iconColor="#3ddc97" label="Total assistido">
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {stats.totalTitles}{" "}
-                    <span className="text-[18px] text-[#a6a39a]">títulos</span>
+                    <span className="text-[18px] text-muted-foreground">títulos</span>
                   </div>
-                  <div className="mt-1.5 text-[12.5px] text-[#a6a39a]">
+                  <div className="mt-1.5 text-[12.5px] text-muted-foreground">
                     Nota média do casal: {stats.averageRating.toFixed(1).replace(".", ",")} ★
                   </div>
                 </KpiCard>
