@@ -468,8 +468,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migrado o que mapeia para os 8 tokens US-001; ambos os arquivos permanecem no allowlist. Leftovers sem token: bg-[rgba(8,7,11,.72)] (backdrop, rgb(8,7,11) proximo mas nao exato de --background rgb(9,9,10)); text-[#d8d3c5] (label das secoes nota/opiniao, 2x cada arquivo); style color #ffb443 / rgba(255,255,255,.18) (estrelas de avaliacao); bg-[#201e18] (fundo do textarea); shadow-[0_30px_80px_rgba(0,0,0,.6)] e shadow-[0_0_0_3px_rgba(255,203,43,.2)] (sem --shadow-* token); WatchModal: border-[rgba(61,220,151,.35)]/bg-[rgba(61,220,151,.12)]/text-[#3ddc97]/shadow-[...]/hover:bg-[rgba(61,220,151,.18)] (verde Confirmar, leftover recorrente desde US-003); ReviewModal: shadow-[0_6px_20px_rgba(255,203,43,.15)] (sombra do botao Salvar avaliacao, sem token de shadow)."
     },
     {
       "id": "US-023",

@@ -71,7 +71,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 p-6 pb-5">
@@ -79,7 +79,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
             <h2 className="font-display text-[20px] font-bold tracking-tight">
               Marcar como visto
             </h2>
-            <p className="mt-1 text-[13px] text-[#a6a39a]">
+            <p className="mt-1 text-[13px] text-muted-foreground">
               Nota e opinião são opcionais.
             </p>
           </div>
@@ -89,7 +89,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
             size="icon-sm"
             onClick={onClose}
             aria-label="Fechar"
-            className="flex-none rounded-[10px] border-white/10 text-[#a6a39a] hover:bg-white/[0.06] hover:text-white"
+            className="flex-none rounded-[10px] border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
           >
             <X className="size-4.5" />
           </Button>
@@ -100,7 +100,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
           <div>
             <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
               Sua nota{" "}
-              <span className="font-normal text-[#a6a39a]">(opcional)</span>
+              <span className="font-normal text-muted-foreground">(opcional)</span>
             </label>
             <div className="flex h-10 items-center gap-0.5">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -125,19 +125,19 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
           <div>
             <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
               Sua opinião{" "}
-              <span className="font-normal text-[#a6a39a]">(opcional)</span>
+              <span className="font-normal text-muted-foreground">(opcional)</span>
             </label>
             <textarea
               rows={3}
               value={opinion}
               onChange={(e) => setOpinion(e.target.value)}
               placeholder="O que você achou? Alguma cena inesquecível?"
-              className="w-full resize-y rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3.5 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+              className="w-full resize-y rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3.5 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
             />
           </div>
 
           {error && (
-            <p className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3.5 py-2.5 text-[13px] text-[#ffb3b3]">
+            <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-[13px] text-destructive-foreground">
               {error}
             </p>
           )}
@@ -149,7 +149,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
               variant="outline"
               onClick={onClose}
               disabled={saving}
-              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
+              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-foreground hover:bg-white/[0.06]"
             >
               Cancelar
             </Button>
