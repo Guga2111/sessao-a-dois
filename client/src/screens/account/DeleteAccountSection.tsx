@@ -15,7 +15,7 @@ const PASSWORD_ERROR_ID = "conta-excluir-senha-erro"
 const WORD_HINT_ID = "conta-excluir-palavra-dica"
 
 const FIELD_LABEL_CLASS =
-  "text-[11px] font-semibold tracking-[.08em] text-[#a6a39a] uppercase"
+  "text-[11px] font-semibold tracking-[.08em] text-muted-foreground uppercase"
 
 const LEAVING = [
   "Sua conta e o seu acesso a ela",
@@ -46,7 +46,7 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
         <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-[#ff8f7c] uppercase">
           Sai com você
         </p>
-        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-[#f6f4ec]">
+        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-foreground">
           {LEAVING.map((item) => (
             <li key={item} className="flex gap-2.5">
               <span
@@ -65,15 +65,15 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
           aria-hidden="true"
           className="absolute top-0 left-0 hidden h-full w-px bg-[linear-gradient(180deg,rgba(255,92,71,.5),rgba(255,203,43,.5))] sm:block"
         />
-        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-[#ffcb2b] uppercase">
+        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-primary uppercase">
           Fica onde está
         </p>
-        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-[#a6a39a]">
+        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-muted-foreground">
           {staying(partnerName).map((item) => (
             <li key={item} className="flex gap-2.5">
               <span
                 aria-hidden="true"
-                className="mt-[7px] size-1.5 flex-none rounded-full bg-[#ffcb2b]"
+                className="mt-[7px] size-1.5 flex-none rounded-full bg-primary"
               />
               <span>{item}</span>
             </li>
@@ -95,7 +95,7 @@ function Latch({ open, label }: { open: boolean; label: string }) {
     <span
       className={
         open
-          ? "inline-flex items-center gap-1.5 rounded-full border border-[#ffcb2b]/30 bg-[#ffcb2b]/10 px-2.5 py-1 text-[11px] font-semibold text-[#ffcb2b]"
+          ? "inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary"
           : "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-[#6f6c62]"
       }
     >
@@ -201,7 +201,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
         aria-modal="true"
         aria-labelledby="conta-excluir-dialogo-titulo"
         onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[560px]"
+        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[560px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,92,71,.12)] text-[#ff5c47]">
@@ -214,7 +214,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
             >
               {done ? "Conta excluída." : "Excluir a sua conta?"}
             </h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[#a6a39a]">
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               {done
                 ? "Foi tudo embora, agora."
                 : "É definitivo. Não existe desfazer, nem no suporte."}
@@ -228,7 +228,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
             aria-live="polite"
             className="flex flex-col gap-3 px-6 pb-6"
           >
-            <p className="m-0 max-w-[56ch] text-[14px] leading-relaxed text-[#a6a39a]">
+            <p className="m-0 max-w-[56ch] text-[14px] leading-relaxed text-muted-foreground">
               Sua conta, suas avaliações, suas notificações e todas as suas sessões foram
               apagadas. O histórico de títulos do casal ficou onde estava.
             </p>
@@ -315,7 +315,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                   variant="outline"
                   onClick={onClose}
                   disabled={working}
-                  className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
+                  className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-foreground hover:bg-white/[0.06]"
                 >
                   Manter minha conta
                 </Button>
