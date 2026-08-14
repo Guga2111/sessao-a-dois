@@ -24,12 +24,12 @@ export function Header() {
   const days = couple?.createdAt ? daysSince(couple.createdAt) : 0
 
   return (
-    <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-[#09090a]/72 px-5 py-4 backdrop-blur-xl sm:px-8">
+    <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-background/72 px-5 py-4 backdrop-blur-xl sm:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-[#ffcb2b] shadow-[0_6px_20px_rgba(255,203,43,.35)]">
+        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-primary shadow-[0_6px_20px_rgba(255,203,43,.35)]">
           <Heart className="size-[18px] fill-current text-[#111]" />
         </div>
-        <div className="font-display truncate text-[19px] font-bold tracking-tight text-[#f6f4ec]">
+        <div className="font-display truncate text-[19px] font-bold tracking-tight text-foreground">
           Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
         </div>
       </div>
@@ -44,8 +44,8 @@ export function Header() {
               cn(
                 "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors",
                 isActive
-                  ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                  : "text-[#a6a39a] hover:text-[#f6f4ec]"
+                  ? "bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                  : "text-muted-foreground hover:text-foreground"
               )
             }
           >
@@ -59,10 +59,10 @@ export function Header() {
         {couple?.partner && (
           <>
             <div className="hidden text-right leading-tight sm:block">
-              <div className="text-[13px] font-semibold text-[#f6f4ec]">
+              <div className="text-[13px] font-semibold text-foreground">
                 {firstName} & {partnerFirstName}
               </div>
-              <div className="text-[11px] text-[#a6a39a]">
+              <div className="text-[11px] text-muted-foreground">
                 {days} {days === 1 ? "dia" : "dias"} juntos no app
               </div>
             </div>
@@ -82,8 +82,8 @@ export function Header() {
             cn(
               "hidden size-9.5 flex-none place-items-center rounded-[10px] border transition-colors md:grid",
               isActive
-                ? "border-transparent bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                : "border-white/[0.06] bg-white/[0.05] text-[#a6a39a] hover:bg-white/[0.09] hover:text-[#f6f4ec]"
+                ? "border-transparent bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                : "border-white/[0.06] bg-white/[0.05] text-muted-foreground hover:bg-white/[0.09] hover:text-foreground"
             )
           }
         >
@@ -106,7 +106,7 @@ function MobileNav() {
         onClick={() => setMenuOpen((open) => !open)}
         aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
         aria-expanded={menuOpen}
-        className="grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-[#f6f4ec] transition-colors hover:bg-white/[0.09]"
+        className="grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-foreground transition-colors hover:bg-white/[0.09]"
       >
         {menuOpen ? <X size={19} /> : <Menu size={19} />}
       </button>
@@ -123,8 +123,8 @@ function MobileNav() {
                 cn(
                   "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
                   isActive
-                    ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                    : "text-[#a6a39a] hover:text-[#f6f4ec]"
+                    ? "bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                    : "text-muted-foreground hover:text-foreground"
                 )
               }
             >
@@ -142,8 +142,8 @@ function MobileNav() {
               cn(
                 "inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
                 isActive
-                  ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                  : "text-[#a6a39a] hover:text-[#f6f4ec]"
+                  ? "bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                  : "text-muted-foreground hover:text-foreground"
               )
             }
           >

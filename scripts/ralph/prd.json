@@ -342,8 +342,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migrados: bg-[#09090a] -> bg-background, bg-[#ffcb2b] -> bg-primary (x5), text-[#f6f4ec] -> text-foreground (x7), text-[#a6a39a] -> text-muted-foreground (x5). Cores remanescentes SEM token (arquivo continua na allowlist, per padrao US-003+): text-[#111] (x5, texto escuro sobre fundo primario/amarelo - logo+nav ativo+conta ativo), text-[#ff9e2c] (x1, ponto decorativo entre 'Sessao' e 'a Dois' no logo), bg-[#141312] (x1, fundo do dropdown do menu mobile - proximo mas nao igual a --card #161513), shadow-[...rgba(255,203,43,.35)] e .4 (glow do botao/pill primario, sem token --shadow-*), shadow-[...rgba(0,0,0,.5)] (sombra do dropdown do menu mobile, sem token --shadow-*). node scripts/check-color-literals.mjs --list-offenders (client/) confirma Header.tsx ainda aparece por causa desses residuos, entao NAO removido de color-migration-allowlist.txt (quebraria o gate check:colors). Verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19)."
     },
     {
       "id": "US-017",
