@@ -122,7 +122,7 @@ export function ProfileSection() {
     <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold tracking-[.08em] text-[#a6a39a] uppercase">
+          <span className="text-[11px] font-semibold tracking-[.08em] text-muted-foreground uppercase">
             Nome
           </span>
           <Input
@@ -145,7 +145,7 @@ export function ProfileSection() {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold tracking-[.08em] text-[#a6a39a] uppercase">
+          <span className="text-[11px] font-semibold tracking-[.08em] text-muted-foreground uppercase">
             E-mail
           </span>
           <Input
@@ -186,13 +186,13 @@ export function ProfileSection() {
         >
           {saving ? (
             <>
-              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-[#ffcb2b]" />
+              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-primary" />
               Salvando…
             </>
           ) : savedFields ? (
             <>
-              <Check aria-hidden="true" className="size-3.5 text-[#ffcb2b]" />
-              <span className="text-[#f6f4ec]">
+              <Check aria-hidden="true" className="size-3.5 text-primary" />
+              <span className="text-foreground">
                 {savedFields.length === 2
                   ? "Nome e e-mail salvos."
                   : `${FIELD_LABEL[savedFields[0]]} salvo.`}
@@ -204,7 +204,7 @@ export function ProfileSection() {
               {changedFields.map((field) => (
                 <span
                   key={field}
-                  className="inline-flex items-center rounded-full border border-[#ffcb2b]/30 bg-[#ffcb2b]/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-[.02em] text-[#ffcb2b]"
+                  className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-[.02em] text-primary"
                 >
                   {FIELD_LABEL[field]}
                 </span>
@@ -218,7 +218,7 @@ export function ProfileSection() {
         <Button
           type="submit"
           disabled={!hasChanges || saving}
-          className="bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-50"
+          className="bg-primary text-background hover:bg-accent disabled:opacity-50"
         >
           {saving ? "Salvando…" : "Salvar alterações"}
         </Button>

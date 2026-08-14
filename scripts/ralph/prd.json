@@ -510,8 +510,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Ambos os arquivos permanecem na allowlist: sobra de cor sem token exato apos a migracao mecanica (padrao US-003, ver client/CLAUDE.md). Valores sem token correspondente, deixados como estavam: #6f6c62 (ResetPasswordPage.tsx bg-/text-, ProfileSection.tsx text- no rodape de status), #ff9b9b (ResetPasswordPage.tsx texto de erro/mismatch), #ff8f7c + rgba(255,92,71,.28)/rgba(255,92,71,.08) (=#ff5c47, ProfileSection.tsx bloco de erro de formulario, mesmo vermelho \"destrutivo custom\" do AccountSection.tsx, ainda sem token proprio). Nenhum desses e um dos 8 tokens da US-001; nao inventado token/arbitrario novo. Verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19)."
     },
     {
       "id": "US-025",

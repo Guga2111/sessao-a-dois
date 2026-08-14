@@ -322,3 +322,19 @@
   - `#01b47f` (TMDB vote-average dot in `SearchResultCard.tsx`) is a new, previously-unseen green — distinct from the recurring `#3ddc97` leftover family seen in every prior story. Don't assume it's the same value; it's a one-off with no token either way.
   - Next priority story is US-024 (`ResetPasswordPage.tsx` + `ProfileSection.tsx`, 83 occurrences) — first `routes/auth/` file in this migration sequence; expect the same "leave what doesn't map" fallback since neither AC calls out a chart/series-color exception.
 ---
+
+## 2026-08-14 - US-024
+- Implemented: mechanical hex/arbitrary-color -> semantic token migration in `client/src/routes/auth/ResetPasswordPage.tsx` and `client/src/screens/account/ProfileSection.tsx`. Only `className` strings changed (no JSX structure/prop/handler/import/logic touched).
+  - `#ffcb2b` -> `primary` (bg/text, in both files, including the combined `bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a]` CTA-button pattern -> `bg-primary text-background hover:bg-accent`, matching the established convention already used across `FiltersPanel.tsx`/`SearchTab.tsx`/`PasswordSection.tsx`/`CoupleSection.tsx`/etc.)
+  - `#f6f4ec` -> `foreground` (both files)
+  - `#a6a39a` -> `muted-foreground` (both files)
+  - `#ff6b6b` -> `destructive` (ResetPasswordPage.tsx error banner border/bg)
+  - Left untouched, no matching token among the 8 established in US-001: `#6f6c62` (both files), `#ff9b9b` (ResetPasswordPage.tsx), `#ff8f7c` + `rgba(255,92,71,.28)`/`rgba(255,92,71,.08)` = `#ff5c47` (ProfileSection.tsx form-error block — same custom "destructive" red documented in `client/CLAUDE.md`'s AccountSection section, still has no token of its own). Recorded in the story's `notes` field per AC.
+  - Per the established US-003 exception (documented in `client/CLAUDE.md`): since neither file reaches zero raw color after migration, **both stay in `color-migration-allowlist.txt`** rather than being removed — removing them would just break `check:colors` over genuinely tokenless leftovers. `node scripts/check-color-literals.mjs --list-offenders` still lists both files, confirming they're not falsely allowlisted.
+- Files changed: `client/src/routes/auth/ResetPasswordPage.tsx`, `client/src/screens/account/ProfileSection.tsx`, `scripts/ralph/prd.json` (US-024 `passes`/`notes`).
+- Verification: `bun run typecheck` / `bun run lint` / `bun run test:run` (119 tests, 14 files, all green) / `bun run build` / `bun run check:colors` all pass from `client/`.
+- Verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador neste sandbox, decisao D19) - nao marcado como verificado visualmente, apenas verificado estaticamente (grep + typecheck/lint/test/build/check:colors).
+- **Learnings for future iterations:**
+  - Next priority story is US-025 (`compareUi.tsx` + `MatchScreen.tsx`).
+  - No new tokens or patterns discovered this story — pure application of already-documented mappings (`#ffcb2b`/`#f6f4ec`/`#a6a39a`/`#ff6b6b`) and the already-documented "leave tokenless leftovers, keep file allowlisted" exception from US-003.
+---
