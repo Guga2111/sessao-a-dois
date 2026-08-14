@@ -44,8 +44,8 @@
         "bun run build passa"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Allowlist real (gerada por scripts/check-color-literals.mjs --list-offenders, conferida por grep) tem 54 arquivos, nao 53 como a descricao original estimava - contagem tirada em momento diferente do dia. Nao escrita a mao; regenerar com o mesmo comando se a lista precisar de auditoria."
     },
     {
       "id": "US-003",

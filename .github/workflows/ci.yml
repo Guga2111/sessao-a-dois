@@ -117,6 +117,14 @@ jobs:
         working-directory: client
         run: bun run lint
 
+      # Gate de cor crua (Epico 13, US-002/D18). Falha se um hex/utilitario
+      # arbitrario de cor novo aparecer fora de src/components/ui/ e fora de
+      # client/color-migration-allowlist.txt (divida ja existente, rastreada
+      # por US-003 em diante). Ver client/scripts/check-color-literals.mjs.
+      - name: Check for raw color literals
+        working-directory: client
+        run: bun run check:colors
+
       # Gate de teste (Epico 11, US-017). Sem continue-on-error e sem
       # "|| true" DE PROPOSITO: mesma postura do step Audit dependencies acima
       # - se e gate, tem que quebrar o build. O deploy.yml reusa este workflow
