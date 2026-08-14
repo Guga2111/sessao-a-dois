@@ -38,8 +38,8 @@ const TYPE_LABEL: Record<MediaTrackResponse["mediaType"], string> = {
 }
 
 const STATUS_BORDER_HOVER: Record<MediaTrackResponse["status"], string> = {
-  WATCHING: "hover:border-[rgba(255,203,43,.5)]",
-  WANT_TO_SEE: "hover:border-[rgba(255,203,43,.5)]",
+  WATCHING: "hover:border-primary/50",
+  WANT_TO_SEE: "hover:border-primary/50",
   WATCHED: "hover:border-[rgba(61,220,151,.4)]",
 }
 
@@ -122,10 +122,10 @@ export function MediaCard({
       onClick={() => (compareMode ? onCompareToggle?.(track) : onClick?.(track))}
       aria-pressed={compareMode ? compareSelected : undefined}
       className={cn(
-        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-[#161513] text-[#f6f4ec] transition-transform duration-[.18s] ease-out hover:-translate-y-1",
+        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-card text-foreground transition-transform duration-[.18s] ease-out hover:-translate-y-1",
         compareMode
           ? compareSelected
-            ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+            ? "border-2 border-primary shadow-[0_0_24px_rgba(255,203,43,.18)]"
             : "border-dashed border-white/20 hover:border-white/35"
           : cn("border-[rgba(255,255,255,.07)]", STATUS_BORDER_HOVER[track.status])
       )}
@@ -151,7 +151,7 @@ export function MediaCard({
             }}
           />
         )}
-        <div className="absolute top-2.5 left-2.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+        <div className="absolute top-2.5 left-2.5 rounded-lg bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-md">
           {TYPE_LABEL[track.mediaType]}
         </div>
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
@@ -162,7 +162,7 @@ export function MediaCard({
           )}
           {compareMode ? (
             compareSelected && (
-              <div className="grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+              <div className="grid size-6 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[12px] font-black text-[#111]">
                 {compareOrder}
               </div>
             )
@@ -174,7 +174,7 @@ export function MediaCard({
                 onDelete?.(track)
               }}
               aria-label="Excluir título"
-              className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-[rgba(9,9,10,.6)] text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-[rgba(255,107,107,.85)] hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-[#ff6b6b]"
+              className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-background/60 text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-destructive/85 hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-destructive"
             >
               <Trash2 className="size-3.5" />
             </button>
@@ -196,7 +196,7 @@ export function MediaCard({
               {track.title ?? `Título #${track.tmdbId}`}
             </div>
             {track.releaseYear && (
-              <span className="flex-none text-[13px] text-[#a6a39a]">
+              <span className="flex-none text-[13px] text-muted-foreground">
                 {track.releaseYear}
               </span>
             )}
@@ -204,7 +204,7 @@ export function MediaCard({
 
           {/* Tipo */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-md border border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] px-2.5 py-0.5 text-[11px] font-semibold text-[#ffdd7a]">
+            <span className="rounded-md border border-primary/25 bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#ffdd7a]">
               {TYPE_LABEL[track.mediaType]}
             </span>
           </div>
@@ -219,11 +219,11 @@ export function MediaCard({
                   }
                 >
                   <Stars rating={coupleAvg} />
-                  <span className="text-[13px] text-[#a6a39a]">
+                  <span className="text-[13px] text-muted-foreground">
                     {coupleAvg.toFixed(1).replace(".", ",")}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent className="rounded-lg border border-[rgba(255,255,255,.1)] bg-[#201e18] px-3 py-2 text-[#f6f4ec] shadow-xl">
+                <TooltipContent className="rounded-lg border border-border bg-[#201e18] px-3 py-2 text-foreground shadow-xl">
                   <div className="flex flex-col gap-1">
                     {track.reviews.map((review) => (
                       <span key={review.userId} className="text-[12px]">
@@ -241,7 +241,7 @@ export function MediaCard({
 
           {/* Data */}
           {watchedLabel && (
-            <div className="mt-2 flex items-center gap-1.5 text-[12px] text-[#a6a39a]">
+            <div className="mt-2 flex items-center gap-1.5 text-[12px] text-muted-foreground">
               <Clock3 className="size-3.5 opacity-60" />
               Assistido em {watchedLabel}
             </div>
@@ -249,8 +249,8 @@ export function MediaCard({
 
           {/* Opinião */}
           {(myReview?.opinion || partnerReview?.opinion) && (
-            <div className="mt-2.5 rounded-[10px] border border-[rgba(255,203,43,.18)] bg-[rgba(255,203,43,.07)] px-3 py-2.5 text-[12.5px] leading-snug text-[#d9d4e6] italic">
-              <span className="font-bold text-[#ffcb2b] not-italic">"</span>
+            <div className="mt-2.5 rounded-[10px] border border-primary/18 bg-primary/7 px-3 py-2.5 text-[12.5px] leading-snug text-[#d9d4e6] italic">
+              <span className="font-bold text-primary not-italic">"</span>
               {myReview?.opinion ?? partnerReview?.opinion}
             </div>
           )}
@@ -267,12 +267,12 @@ export function MediaCard({
                 event.stopPropagation()
                 void handleStartWatching()
               }}
-              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-foreground hover:bg-[rgba(255,255,255,.06)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               {startingWatch ? "Iniciando…" : "Começar a assistir"}
             </Button>
             {startWatchError && (
-              <p className="mt-2 text-[12px] text-[#ffb3b3]">{startWatchError}</p>
+              <p className="mt-2 text-[12px] text-destructive-foreground">{startWatchError}</p>
             )}
           </div>
         )}
@@ -284,7 +284,7 @@ export function MediaCard({
                 event.stopPropagation()
                 onStatusChange?.(track)
               }}
-              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+              className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-foreground hover:bg-[rgba(255,255,255,.06)] hover:text-foreground"
             >
               Marcar como assistido
             </Button>
@@ -299,7 +299,7 @@ export function MediaCard({
                   event.stopPropagation()
                   onReview?.(track)
                 }}
-                className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-[rgba(255,255,255,.06)] hover:text-[#f6f4ec]"
+                className="h-auto w-full rounded-full border-[rgba(255,255,255,.15)] bg-transparent py-2.5 text-[13px] font-semibold text-foreground hover:bg-[rgba(255,255,255,.06)] hover:text-foreground"
               >
                 Reavaliar
               </Button>
@@ -312,7 +312,7 @@ export function MediaCard({
                   event.stopPropagation()
                   setRateOpen(true)
                 }}
-                className="h-auto w-full rounded-full border-[rgba(255,203,43,.35)] bg-[rgba(255,203,43,.1)] py-2.5 text-[13px] font-semibold text-[#ffcb2b] hover:bg-[rgba(255,203,43,.16)] hover:text-[#ffcb2b]"
+                className="h-auto w-full rounded-full border-primary/35 bg-primary/10 py-2.5 text-[13px] font-semibold text-primary hover:bg-primary/16 hover:text-primary"
               >
                 <Star className="mr-1.5 -mt-px inline size-3.5" strokeWidth={2.5} />
                 Avaliar
