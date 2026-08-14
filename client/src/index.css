@@ -40,6 +40,7 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -98,22 +99,36 @@
     --sidebar-ring: oklch(0.708 0 0);
 }
 
+/*
+ * A paleta abaixo (US-001, Epico 13) e a identidade visual real do app — Sessao a
+ * Dois e dark-only na pratica (o toggle de tema em light/system ainda existe via
+ * ThemeProvider e a tecla "d", mas produz uma tela quebrada porque todo componente
+ * ja hardcoda hex escuro; fechar esse tema morto e D17, fora do escopo desta story).
+ * So o bloco .dark foi atualizado: e o unico que corresponde a "a cara do produto"
+ * descrita no prototipo (docs/design/claude-design-project/Sessao a Dois.dc.html).
+ * O bloco :root continua com o preset neutro do shadcn, inerte ate D17.
+ * Nenhum componente .tsx consome estes tokens ainda (eles usam os hex diretamente),
+ * entao esta mudanca nao move nenhum pixel — exceto nos poucos primitivos de
+ * components/ui/ que ja consomem --primary/--destructive/--foreground (Button,
+ * Input), onde o valor efetivo so se aproxima mais do hex real do produto.
+ */
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
+    --background: oklch(0.14 0.002 286.109); /* #09090a — fundo base de toda tela escura do app (body, HubScreen, MatchScreen, telas de auth) */
+    --foreground: oklch(0.966 0.011 95.163); /* #f6f4ec — texto principal sobre o fundo escuro (creme quente, nao branco puro) */
+    --card: oklch(0.196 0.004 84.591); /* #161513 — superficie de card/modal/painel (MediaCard, TitleModal, FiltersPanel etc.) */
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.795 0.184 86.047);
+    --primary: oklch(0.864 0.167 88.652); /* #ffcb2b — amarelo de marca: CTA primario, destaque, foco (o hex mais frequente do app) */
     --primary-foreground: oklch(0.421 0.095 57.708);
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.715 0.013 91.563); /* #a6a39a — texto secundario/legenda em cinza quente (datas, contadores, descricoes) */
+    --accent: oklch(0.914 0.111 90.281); /* #ffe08a — amarelo claro de destaque: hover do primario e links em destaque (nenhum semantico ja existente cobria "primario mais claro para hover/link"; --accent nao era consumido por nenhum primitivo ainda, reaproveitado aqui) */
     --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
+    --destructive: oklch(0.712 0.181 22.839); /* #ff6b6b — vermelho de erro/acao destrutiva (bordas, icones, texto de aviso) */
+    --destructive-foreground: oklch(0.839 0.089 19.107); /* #ffb3b3 — vermelho claro: texto sobre fundo destrutivo translucido (avisos, chip de "Tentar novamente"). Token novo: nao existe equivalente entre os 8 semanticos reaproveitaveis (--background/--card/--foreground/--muted-foreground/--primary/--destructive/--accent/--popover) porque nenhum deles representa "texto claro sobre superficie destrutiva" — --destructive-foreground e o par natural de --destructive nessa convencao shadcn e ainda nao existia neste arquivo */
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);

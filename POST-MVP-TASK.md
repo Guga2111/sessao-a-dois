@@ -41,6 +41,14 @@ são vinculantes da mesma forma.
 | D15 | **Backup gerenciado do banco** | **Não fazer.** Backup automatizado sai do free tier do Supabase e o custo não se justifica hoje. | **Não existe Épico de backup.** A recuperação de um incidente de dados depende do que o free tier oferecer no momento + do snapshot manual pontual que a `docs/FLYWAY.md` já recomenda antes de deploy com migration. Risco aceito conscientemente: perda de dados é possível e não há RPO definido. Revisitar se o app ganhar usuários fora do círculo conhecido, ou pela via gratuita (`pg_dump` em cron na VPS, custo zero), se um dia virar prioridade. |
 | D16 | **Escopo de microsserviços** | **Não agora.** A feature de comunidade, quando vier, é um pacote `com.app.community` dentro do monólito modular, seguindo a regra de dependência da `docs/ARCHITECTURE.md` seção 3. | Nenhum épico de API gateway / extração de serviço. O package-by-feature com portas explícitas já é o que torna a extração barata *depois*, se a escala justificar. |
 
+### Decisões da revisão do Épico 13 (2026-08-13)
+
+| # | Questão | Decisão | Consequência |
+|---|---------|---------|--------------|
+| D17 | **Destino do tema claro** (T13.3) | **(a) Assumir dark-only.** Remover o `ThemeProvider`, fixar `.dark` no `<html>`, apagar os tokens `:root` claros não usados. | Fecha a Open Question da T13.3. Remoção pura, dispensada da skill `frontend-design`. Entregar tema claro de verdade continua possível depois — a T13.2 (sem hex fixo) é justamente o que torna isso barato no futuro, mas não é objetivo agora. |
+| D18 | **Ordem da T13.4** (portão de CI) | **Antecipar para logo depois da T13.1**, antes da migração em massa da T13.2, com allowlist dos arquivos ainda não migrados. | Medido: entre 2026-08-06 e 2026-08-13 o hex cresceu 21% e o utilitário arbitrário 33%, sem portão. Sem antecipar, a T13.2 persegue um alvo móvel. Custo: a regra precisa nascer com allowlist e ir encolhendo, em vez de nascer limpa. |
+| D19 | **Verificação visual das stories de UI** | **Gate humano**, não critério automatizável. | O sandbox não tem navegador (limitação já registrada em `client/CLAUDE.md` e nas notas da US-006 do Épico 12). Critérios visuais ficam `- [ ]` com o motivo escrito ao lado, no padrão que este arquivo já usa, e são conferidos pelo mantenedor antes do merge. |
+
 **Ordem de execução:** Épicos 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8, com a **T8.1 (CI)
 antecipada** para junto do Épico 1. As dependências declaradas por task são as únicas
 restrições rígidas; o resto da ordem é negociável.
@@ -73,7 +81,7 @@ meia hora e pode entrar em qualquer momento.
 | [10](#épico-10--recuperação-de-senha-e-e-mail-transacional) | Recuperação de Senha e E-mail Transacional | T10.1 – T10.4 | Alto |
 | [11](#épico-11--rede-de-testes-do-frontend) | Rede de Testes do Frontend | T11.1 – T11.4 | Alto |
 | [12](#épico-12--observabilidade-e-alerta) | Observabilidade e Alerta | T12.1 – T12.5 | Médio |
-| [13](#épico-13--governança-do-design-system) | Governança do Design System | T13.1 – T13.5 | Médio |
+| [13](#épico-13--governança-do-design-system) | Governança do Design System | T13.1 – T13.8 | Médio |
 | [14](#épico-14--documentação-de-entrada) | Documentação de Entrada | T14.1 | Baixo |
 
 > **Como uma task concluída é marcada:** linha `**Status:** ✅ **Concluída em <data>** —
@@ -2136,7 +2144,11 @@ existem; o que não existe é a regra que impede o app de contorná-los.
 
 **Origem:** varredura de lacunas de MVP (2026-08-06).
 
-**Dependências:** T13.2 depende da T13.1. A T13.4 depende da T13.2. **Fortemente
+**Dependências e ordem:** T13.2 depende da T13.1. A **T13.4 depende só da T13.1 e vem logo
+depois dela** (D18) — antes da migração em massa, com allowlist que encolhe. A T13.5 depende
+de T13.6, T13.7 e T13.8 (documenta o estado final dos três — fazer por último no épico).
+Ordem sugerida: **T13.1 → T13.4 → T13.2 → T13.6 → T13.7 → T13.8 → T13.3 → T13.5**.
+**Fortemente
 recomendado fazer o Épico 11 antes** — a T13.2 toca dezenas de arquivos visuais e hoje
 não há nada que detecte uma quebra. **Dependência satisfeita em 2026-08-11, completa em
 2026-08-12:** o Épico 11 (T11.1–T11.4, US-001 a US-018 — as 18 stories) já cobre guards de rota,
@@ -2144,39 +2156,112 @@ não há nada que detecte uma quebra. **Dependência satisfeita em 2026-08-11, c
 papel/texto acessível, não por classe CSS — a rede de regressão que a T13.2 precisa para
 não quebrar em silêncio já existe.
 
+**Revisão de 2026-08-13 — três eixos além de cor:** a auditoria original mediu só cor.
+Reaplicando o mesmo método a arredondamento e a duplicação de primitivo, dois dos três
+eixos levantados se confirmaram como o mesmo hábito medido de outro ângulo — viram
+**T13.6** e **T13.7**, sem dependência de T13.1–T13.5 (são refatoração pura, no mesmo
+espírito da T13.2, e podem ser feitas em qualquer ordem entre si e com as tasks de cor).
+O terceiro eixo (imports diretos da lib de baixo nível contornando `components/ui/`) foi
+investigado e **não é um problema hoje** — `client/package.json` não tem `@radix-ui/*`, os
+primitivos embrulham `@base-ui/react`/`react-day-picker`, e nenhum arquivo fora de
+`components/ui/` importa essas libs diretamente. Registrado aqui para não precisar
+reinvestigar, não vira task. Uma quarta lacuna apareceu durante a investigação e não é
+dedup — é ausência: não existe primitivo `Badge`, e 15 arquivos reimplementam "pill" na
+mão para preencher esse vazio. Vira **T13.8**, mas é **criação**, não governança de algo
+que já existe — por isso aciona a skill `frontend-design` (decisão de design nova:
+variantes, cores, tamanho), diferente de todas as outras tasks deste épico.
+
 ### O diagnóstico, medido
 
-O `client/` **não** precisa de Button/Card/Input: `client/src/components/ui/` já tem 14
+O `client/` **não** precisa de Button/Card/Input: `client/src/components/ui/` já tem **15**
 primitivos, e o `button.tsx` sozinho declara 6 variantes e 8 tamanhos via `cva`.
 `index.css` já tem tokens em `oklch`, escala de raio de `sm` a `4xl` e três famílias
 tipográficas.
 
 O problema é que **o app quase não usa nada disso**. Fora de `components/ui/`:
 
-| Medida | Valor |
-|---|---|
-| Literais hexadecimais em `.tsx` | **689** |
-| Utilitários de cor arbitrários (`bg-[...]`, `text-[...]`, `border-[...]`) | **1033** |
-| `<button>` cru em vez do componente `Button` | **12** |
-| Arquivo mais afetado | `PendingDetailModal.tsx` (71 arbitrários), `ComparisonDialog.tsx` (70), `MediaCard.tsx` (69) |
+| Medida | 2026-08-06 | 2026-08-13 | Δ |
+|---|---|---|---|
+| Literais hexadecimais em `.tsx` | 689 | **831** | +142 (+21%) |
+| Utilitários de cor arbitrários (`bg-[...]`, `text-[...]`, `border-[...]`) | 1033 | **1376** | +343 (+33%) |
+| `<button>` cru em vez do componente `Button` | 12 | **13** | +1 |
+| Arquivo mais afetado | — | `ComparisonDialog.tsx` (72 arbitrários), `PendingDetailModal.tsx` (71), `MediaCard.tsx` (70) | — |
+
+> **A segunda coluna é o argumento da T13.4, medido.** Em **uma semana** (2026-08-06 →
+> 2026-08-13, período dos Épicos 11 e 12) o hex cresceu 21% e o utilitário arbitrário 33%,
+> sem que ninguém tenha decidido "vamos usar mais hex" — cada linha nova foi localmente
+> razoável. Todas as medidas deste épico excluem `components/ui/` e arquivos de teste.
+> **Consequência prática para a execução:** os números aqui são um retrato datado e vão
+> continuar subindo enquanto o portão da T13.4 não existir; qualquer task deste épico deve
+> **remedir na hora de executar** em vez de confiar nesta tabela, e a T13.4 vale mais cedo
+> do que a ordem numérica sugere.
 
 Os hex mais repetidos revelam que a paleta real do app existe — ela só mora
 copiada-e-colada dentro de strings de classe, não em token:
 
-| Cor | Ocorrências | Papel aparente |
+| Cor | Ocorrências (2026-08-13) | Papel aparente |
 |---|---|---|
-| `#a6a39a` | 148 | texto secundário |
-| `#ffcb2b` | 140 | primária / destaque |
-| `#f6f4ec` | 116 | texto sobre fundo escuro |
-| `#161513` | 54 | superfície de card |
-| `#09090a` | 39 | fundo |
-| `#ff6b6b` | 31 | destrutivo / erro |
+| `#ffcb2b` | 182 | primária / destaque |
+| `#a6a39a` | 174 | texto secundário |
+| `#f6f4ec` | 135 | texto sobre fundo escuro |
+| `#161513` | 59 | superfície de card |
+| `#09090a` | 49 | fundo |
+| `#ff6b6b` | 35 | destrutivo / erro |
+| `#ffb3b3` | 23 | destrutivo, variante clara |
+| `#ffe08a` | 22 | destaque, variante clara |
 
 Consequência concreta: `main.tsx:11` monta um `ThemeProvider` que suporta
 `dark`/`light`/`system` — e **nenhum componente do app consome esse contexto**. Não há
 alternador de tema em lugar nenhum, e as telas fixam cores escuras em hex. Um usuário com
 sistema em modo claro recebe os primitivos de `ui/` em tokens claros **por cima** de telas
 codificadas em escuro.
+
+**O mesmo padrão se repete em arredondamento.** `index.css:57-63` já define uma escala
+completa (`--radius-sm` a `--radius-4xl`, derivada de `--radius: 0.625rem`) e o Tailwind 4
+já expõe cada uma como utilitário (`rounded-sm`…`rounded-4xl` — confirmado em
+`components/ui/card.tsx`, `input.tsx`, `popover.tsx`, que já usam `rounded-2xl`/`rounded-lg`
+corretamente). Fora de `ui/`, isso é ignorado:
+
+A escala calculada, com `--radius: 0.625rem` (=16px base do browser → 10px):
+`sm` 6px · `md` 8px · `lg` 10px · `xl` 14px · `2xl` 18px · `3xl` 22px · `4xl` 26px.
+
+Fora de `ui/` (e fora de testes) há **87** `rounded-[…]` arbitrários. O ponto decisivo é
+que **69% deles batem exato com um token que já existe** — não é uma escala inadequada
+sendo contornada por necessidade, é a escala sendo ignorada por desconhecimento:
+
+| Valor | Ocorrências | Token equivalente |
+|---|---|---|
+| `10px` | 19 | `rounded-lg` — **exato** |
+| `22px` | 14 | `rounded-3xl` — **exato** |
+| `18px` | 13 | `rounded-2xl` — **exato** |
+| `14px` | 12 | `rounded-xl` — **exato** |
+| `8px` | 2 | `rounded-md` — **exato** |
+| | **60 (69%)** | **subtotal com token exato** |
+| `20px` | 11 | sem match — entre `2xl` (18px) e `3xl` (22px) |
+| `12px` | 8 | sem match — entre `lg` (10px) e `xl` (14px) |
+| `3px` | 4 | sem match — **abaixo** de `sm` (6px) |
+| `16px` | 3 | sem match — entre `xl` (14px) e `2xl` (18px) |
+| `24px` | 1 | sem match — entre `3xl` (22px) e `4xl` (26px) |
+| | **27 (31%)** | **subtotal sem token exato** |
+
+Arquivos mais afetados: `DashboardScreen.tsx` (9), `Header.tsx` (7),
+`landing/DashboardPreview.tsx` (6), `skeletons/AppShellSkeleton.tsx` (5) — sobrepõem os da
+tabela de cor acima. Não é coincidência: é o mesmo hábito de copiar o valor do protótipo
+(`docs/design/claude-design-project/`, que usa px cru em `style=` inline) em vez de mapear
+para token, medido por outro eixo.
+
+**E também na reutilização dos primitivos de `ui/`.** Além dos "12 `<button>` crus" já
+contados (hoje 13), a mesma varredura encontrou duas categorias que o diagnóstico original
+não media:
+
+| Padrão duplicado | Ocorrências | Primitivo que já resolveria |
+|---|---|---|
+| Modal com backdrop `fixed inset-0` montado na mão | 9 arquivos | `Dialog` (já usado corretamente em `TitleModal`, `ComparisonDialog`, `RatingRequestDialog`) |
+| "Pill"/badge (`rounded-full` + `px-*` manual) | 36 usos em 18 arquivos | nenhum — não existe `Badge` em `ui/` |
+| Shell de card repetido (`rounded-[18px] border … bg-[#161513]`) | 5 arquivos | `Card` |
+
+Os dois primeiros casos são o mesmo problema dos hex e dos raios — o primitivo existe e é
+contornado. O `Badge` é diferente: a lacuna é a ausência do primitivo, não o desuso dele.
 
 ---
 
@@ -2264,17 +2349,19 @@ tokens `:root` claros não usados. Mais barato, honesto sobre o que o app é hoj
 o tema passa a funcionar quase sozinho); revisar contraste de cada token claro e adicionar
 o alternador no `Header` ou na tela de Conta da T9.5.
 
-**Recomendação: (a) agora, (b) quando alguém pedir.** Registrar a decisão neste arquivo,
-como decisão nova, seja qual for a escolha.
+**DECIDIDO em 2026-08-13 (D17): caminho (a), dark-only.** Remover o `ThemeProvider`, fixar
+`.dark` no `<html>`, apagar os tokens `:root` claros não usados. É remoção pura, dispensada
+da skill `frontend-design` pela D11.
 
-Se a escolha for **(b)**, a task **usa a skill `frontend-design`** (o alternador é UI nova
-e a paleta clara é decisão de design). Se for **(a)**, é remoção pura e está dispensada.
+O caminho (b) continua possível no futuro e fica mais barato depois da T13.2 (sem hex fixo,
+o tema passa a funcionar quase sozinho) — mas não é objetivo agora, e reabri-lo exige
+registrar o motivo aqui, como manda a regra do topo deste arquivo.
 
 ### Critérios de aceite
-- [ ] A decisão está registrada na tabela de decisões deste arquivo, com justificativa.
-- [ ] Não sobra código de tema não utilizado (se (a)) nem tema pela metade (se (b)).
-- [ ] Se (b): toda tela legível em claro e escuro, com contraste AA no texto.
-- [ ] Se (a): nenhuma referência residual a `theme`/`ThemeProvider` no `client/`.
+- [x] A decisão está registrada na tabela de decisões deste arquivo, com justificativa (D17, 2026-08-13).
+- [ ] Nenhuma referência residual a `theme`/`ThemeProvider` no `client/`.
+- [ ] Os tokens `:root` claros não utilizados foram removidos de `index.css`.
+- [ ] `.dark` fixo no `<html>`, e o app renderiza idêntico ao de antes.
 - [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
 
 ### Fora do escopo
@@ -2285,11 +2372,24 @@ Temas adicionais; tema por casal; transição animada entre temas.
 ## T13.4 — Barrar a regressão no CI
 
 **Criticidade:** Médio
+**Depende de:** T13.1 (os tokens precisam existir para a mensagem de erro poder apontar qual usar)
+**Ordem:** **antecipada para logo depois da T13.1** (D18) — antes da migração em massa da T13.2
 **Arquivos:** `client/eslint.config.js` ou `.github/workflows/ci.yml`
 
 ### Problema
 Sem um portão, o hex volta. Foi assim que chegaram 689 — um de cada vez, cada um
 justificável isoladamente.
+
+**E continua acontecendo, medido:** entre 2026-08-06 e 2026-08-13 (Épicos 11 e 12) o hex
+foi de 689 para **831** e o utilitário arbitrário de 1033 para **1376** — +21% e +33% em
+uma semana, sem que ninguém tenha decidido usar mais hex. Por isso a **D18** antecipa esta
+task para antes da T13.2: sem o portão, a migração em massa persegue um alvo móvel.
+
+**Consequência da antecipação:** a regra nasce com uma **allowlist** dos arquivos ainda não
+migrados (senão o CI fica vermelho no dia 1), e essa lista encolhe a cada arquivo que a
+T13.2/T13.6 migram — até sumir. A allowlist é o placar da migração, não uma exceção
+permanente: cada entrada nela é dívida declarada, e o PR que esvazia a última linha é o que
+fecha a T13.2.
 
 ### O que fazer
 Regra que falhe quando aparecer literal de cor fora de `components/ui/`. Duas opções, a
@@ -2306,7 +2406,8 @@ Toda exceção precisa de comentário explicando por quê — mesma disciplina e
 - [ ] Um `#ffcb2b` novo em `src/screens/` faz o CI falhar.
 - [ ] O mesmo hex dentro de `src/components/ui/` não falha.
 - [ ] A mensagem de erro diz qual token usar em vez da cor crua.
-- [ ] Exceções existentes documentadas uma a uma.
+- [ ] A allowlist inicial contém **exatamente** os arquivos que hoje têm hex/arbitrário — nenhum a mais (um arquivo já limpo entrando na lista viraria porta aberta silenciosa).
+- [ ] Um hex novo **em arquivo que está na allowlist** também falha, se o arquivo tiver sido migrado no meio-tempo — ou seja, a lista é conferida contra a realidade, não confiada cegamente.
 - [ ] O CI não fica mais lento de forma perceptível.
 
 ### Fora do escopo
@@ -2318,32 +2419,164 @@ cobre ordenação).
 ## T13.5 — Documentar o inventário e o critério de uso
 
 **Criticidade:** Baixo
+**Depende de:** T13.6, T13.7, T13.8 (documenta o estado final dos três; fazer por último no épico)
 **Arquivos:** novo `client/docs/DESIGN-SYSTEM.md`, `client/CLAUDE.md`
 
 ### Problema
 Mesmo com tokens e lint, falta a parte que só se resolve escrevendo: **quando usar cada
 variante**. `Button` tem 6 variantes e 8 tamanhos e nada diz qual usar onde — foi assim
 que apareceram 12 `<button>` crus, provavelmente porque era mais fácil que descobrir a
-variante certa.
+variante certa. O mesmo vale para `Dialog` (T13.7) e para o novo `Badge` (T13.8): sem
+critério escrito, o próximo modal ou pill customizado volta a ser reimplementado na mão.
 
 ### O que fazer
 Documento curto e operacional, não catálogo enfeitado:
 
-- Inventário dos 14 primitivos de `ui/`, com o que cada um resolve.
-- Para `Button`, `Card` e `Input`: qual variante em qual situação, com exemplo de uso errado.
-- Tabela de tokens (T13.1): nome, papel, quando usar.
-- A regra: **primitivo antes de elemento cru; token antes de cor**. Se nenhum atende, a saída é estender o primitivo, não contornar.
+- Inventário dos primitivos de `ui/` (**15 hoje** — a contagem de "14" no diagnóstico de 2026-08-06 ficou desatualizada; 16+ depois da T13.8), com o que cada um resolve.
+- Para `Button`, `Card`, `Input`, `Dialog` e `Badge`: qual variante em qual situação, com exemplo de uso errado.
+- Tabela de tokens de cor (T13.1) **e** da escala de raio (`index.css:57-63`): nome, papel/valor, quando usar.
+- A regra: **primitivo antes de elemento cru; token antes de cor ou pixel de raio**. Se nenhum atende, a saída é estender o primitivo, não contornar — inclui explicitamente "não montar `fixed inset-0` na mão: é `Dialog`".
 - Link a partir de `client/CLAUDE.md`, para virar contexto obrigatório de quem for mexer em `client/`.
 
 ### Critérios de aceite
-- [ ] O documento existe e cobre os 14 primitivos.
-- [ ] `Button`, `Card` e `Input` têm critério explícito de escolha de variante.
-- [ ] Tabela de tokens com papel de cada um.
+- [ ] O documento existe e cobre todos os primitivos de `ui/`, incluindo `Dialog` e `Badge`.
+- [ ] `Button`, `Card`, `Input`, `Dialog` e `Badge` têm critério explícito de escolha de variante.
+- [ ] Tabela de tokens de cor **e** de raio, com papel/valor de cada um.
 - [ ] `client/CLAUDE.md` aponta para ele.
 - [ ] Nenhum código alterado.
 
 ### Fora do escopo
 Storybook; site de documentação; catálogo de componentes navegável.
+
+---
+
+## T13.6 — Substituir raio arbitrário pelos tokens de raio já existentes
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/components/` (fora de `ui/`), `client/src/screens/`, `client/src/routes/`
+
+### Problema
+`index.css:57-63` já define `--radius-sm` a `--radius-4xl` dentro do `@theme inline`, e o
+Tailwind já expõe cada um como utilitário (`rounded-sm`…`rounded-4xl`) —
+`components/ui/card.tsx`, `input.tsx` e `popover.tsx` já usam a escala corretamente. Fora
+de `ui/`, **87** ocorrências de `rounded-[…]` reinventam o valor em pixel, nos mesmos
+arquivos já flagrados pela T13.2 para cor — é o hábito de copiar o px cru do protótipo em
+vez de mapear para token, medido por outro eixo.
+
+### O que fazer
+Esta task tem **duas metades com naturezas diferentes**, e a distinção importa mais que a
+substituição em si (ver tabela na abertura do épico):
+
+**Metade A — 60 ocorrências (69%) com token exato.** Substituição mecânica pura, no mesmo
+espírito da T13.2, **pixel-idêntica por construção**, dispensada da skill `frontend-design`
+pela D11:
+
+`10px`→`rounded-lg` · `14px`→`rounded-xl` · `18px`→`rounded-2xl` · `22px`→`rounded-3xl` · `8px`→`rounded-md`
+
+**Metade B — 27 ocorrências (31%) sem token exato** (`20px`×11, `12px`×8, `3px`×4,
+`16px`×3, `24px`×1). Aqui **não existe substituição pixel-idêntica**: snapar para o token
+vizinho move o raio em 1–2px (o `3px` move 3px, dobrando o raio para `sm`=6px). Isso é uma
+**decisão de design, não refatoração** — assumir o contrário é como a T13.2 acabaria
+"corrigindo" o design sem dizer. A saída é escolher **um** caminho e registrar:
+
+- **(a) Snapar para o vizinho mais próximo**, aceitando a diferença de 1–2px como custo de ter uma escala. Barato, e ninguém percebe 1px num raio — mas é mudança visual, então **usa a skill `frontend-design`** para a metade B.
+- **(b) Estender a escala** com os degraus que faltam, se o padrão do protótipo mostrar que `12px`/`20px` são intencionais e recorrentes (8 e 11 usos não é ruído). Mantém pixel-idêntico ao custo de uma escala maior.
+- **(c) Deixar os 27 como arbitrários**, cada um com comentário justificando — honesto, mas esvazia o portão da T13.4 para raio.
+
+**Recomendação: (a) para `20px`/`16px`/`24px` (15 usos, diferença ≤2px, imperceptível) e
+(b) para `12px` (8 usos, e `lg`→`xl` é um salto de 4px, visível em elemento pequeno).** Os
+4 `3px` provavelmente são detalhe decorativo (barra/indicador) e merecem olhar caso a caso.
+Decidir na execução, com a skill, e registrar a escolha aqui.
+
+Disciplina de execução para as duas metades: um commit por arquivo (ou grupo pequeno),
+mesma da T13.2. **Fazer a metade A inteira antes da B** — assim 69% do ganho entra como
+refatoração revisável de forma trivial, e a discussão de design fica isolada nos 31%.
+
+### Critérios de aceite
+- [ ] Metade A: as 60 ocorrências com token exato foram substituídas, e o diff é comprovadamente pixel-idêntico.
+- [ ] Metade B: a decisão (a)/(b)/(c) está registrada neste arquivo, com justificativa, antes de qualquer edição da metade B.
+- [ ] Zero `rounded-[…]` fora de `components/ui/`, exceto os que a decisão (c) preservar — cada um com comentário.
+- [ ] Se a metade B usou (a) ou (b): verificação visual tela a tela, e a diferença de 1–2px está declarada no PR, não escondida atrás de "sem mudança visual".
+- [ ] Os testes do Épico 11 continuam verdes.
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Mudar o `--radius` base (move a escala inteira); T13.4 (a regra de lint pode ganhar o mesmo
+padrão para raio depois, mas não é criada aqui).
+
+---
+
+## T13.7 — Consolidar modais customizados no primitivo `Dialog`
+
+**Criticidade:** Médio
+**Arquivos:** `DeleteTrackDialog.tsx`, `WatchModal.tsx`, `MediaDetailModal.tsx`, `PendingDetailModal.tsx`, `ReviewModal.tsx`, `ErrorBoundary.tsx`, `MatchCelebrationModal.tsx`, `screens/account/CoupleSection.tsx`, `screens/account/DeleteAccountSection.tsx`
+
+### Problema
+9 arquivos montam um overlay de modal na mão (`fixed inset-0` + backdrop + fechamento por
+Escape/clique-fora reimplementados), enquanto `TitleModal.tsx`, `ComparisonDialog.tsx` e
+`RatingRequestDialog.tsx` já usam o primitivo `Dialog` corretamente — provando que ele dá
+conta do caso. `screens/account/CoupleSection.tsx:84` tem inclusive um comentário admitindo
+a escolha: *"backdrop `fixed inset-0` próprio + Escape"*. Cada reimplementação é uma chance
+a mais de esquecer foco preso (focus trap), `aria-modal`, ou o fechamento por Escape que o
+primitivo já resolve uma vez.
+
+### O que fazer
+Trocar o backdrop/wrapper manual de cada um dos 9 arquivos pelo primitivo `Dialog` de
+`components/ui/dialog.tsx`, preservando o conteúdo interno de cada modal.
+
+- **Refatoração pura quando o resultado for pixel-idêntico** — dispensada da skill `frontend-design` pela D11. Se o comportamento de acessibilidade do `Dialog` (focus trap, `aria-modal`, Escape) mudar algo visível hoje ausente (ex.: um dos 9 não fecha com Escape hoje), isso é uma correção de bug, não mudança de design — registrar no PR, não é motivo para acionar a skill.
+- **`ErrorBoundary.tsx` é o caso que pode não valer a pena.** É o único da lista que não é modal de fluxo normal, e sim a tela de erro que renderiza justamente quando a árvore React quebrou — trocar por `Dialog` o faz depender de mais contexto React (portal, estado do primitivo) exatamente no momento em que menos se pode confiar nisso. Se a análise confirmar esse risco, **deixá-lo como está e registrar o porquê** é o resultado correto da task, não uma falha: são 8 arquivos migrados e uma exceção documentada.
+- Um commit por arquivo.
+
+### Critérios de aceite
+- [ ] Os 9 arquivos usam `Dialog` de `components/ui/`, sem `fixed inset-0` próprio — ou, para o que ficar de fora (provavelmente `ErrorBoundary.tsx`), há justificativa escrita no código e no PR.
+- [ ] Foco, Escape e clique-fora funcionam em todos, via comportamento do primitivo (não reimplementado).
+- [ ] Nenhuma mudança visual não-intencional — verificado tela a tela.
+- [ ] `ErrorBoundary.tsx` continua funcionando em cenário de erro simulado (não só no caminho feliz).
+- [ ] Os testes do Épico 11 continuam verdes.
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Redesenhar o conteúdo interno de qualquer modal; mudar quando cada modal abre/fecha.
+
+---
+
+## T13.8 — Criar o primitivo `Badge` e migrar os usos manuais de "pill"
+
+**Criticidade:** Médio
+**Arquivos:** novo `client/src/components/ui/badge.tsx`, 18 arquivos consumidores (remedir na execução — a contagem é de 2026-08-13 e cresce, ver a nota de deriva na abertura do épico)
+
+### Problema
+**36 usos em 18 arquivos** reimplementam um "pill" (`rounded-full` + `px-*`/`py-*` manual,
+tipicamente com cor de status — assistido, pendente, gênero, filtro ativo) sem primitivo
+para reusar. Ao contrário da T13.6 e da T13.7, aqui não há o que consolidar: **o primitivo
+não existe**. É a única lacuna dos eixos revisados que é criação, não governança de algo
+já disponível.
+
+Nem todos os 36 são o mesmo componente: a amostra mistura **badge de status estático**
+(`CoupleSection.tsx:57-58`, pill de "casal dissolvido") com **chip clicável de filtro**
+(`FiltersPanel.tsx:136`, `compareUi.tsx:28` — têm `cursor-pointer`, estado ativo/inativo e
+`disabled:`) e até um `SelectTrigger` estilizado como pill (`FiltersPanel.tsx:117`). Isso
+provavelmente são **dois** primitivos (`Badge` estático e algo como `FilterChip`
+interativo), não um com muitas variantes — decidir isso é justamente o trabalho do passo 1.
+
+### O que fazer
+Esta task **usa a skill `frontend-design`** — diferente de todo o resto do épico, que é
+refatoração pura dispensada pela D11. Criar um componente novo é decisão de design (quais
+variantes, quais cores/tokens, quais tamanhos), não move de lugar algo que já existe.
+
+1. Levantar os 15 usos manuais e agrupar por papel visual (ex.: status de tracking, gênero, contagem/badge numérico) — o agrupamento define as variantes necessárias, não o inverso.
+2. Com a skill, desenhar `Badge` em `components/ui/badge.tsx`, seguindo o padrão de `cva` já usado em `button.tsx` (variantes + tamanhos), consumindo os tokens de cor da T13.1 e de raio (`rounded-full` provavelmente permanece, mas via token/classe padrão do primitivo, não repetido em cada call site).
+3. Migrar os 15 consumidores para o novo primitivo.
+
+### Critérios de aceite
+- [ ] `Badge` existe em `components/ui/`, com variantes cobrindo os papéis identificados no passo 1.
+- [ ] Os 36 usos manuais em 18 arquivos (ou a contagem real remedida na execução) migraram para o(s) primitivo(s).
+- [ ] Nenhum token de cor novo criado sem passar pela T13.1 (reusa os semânticos existentes).
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Redesenhar o significado visual de cada status (a task migra a implementação, não decide de novo o que cada cor significa, a menos que a skill `frontend-design` aponte uma inconsistência real entre os usos que justifique unificar).
 
 ---
 
