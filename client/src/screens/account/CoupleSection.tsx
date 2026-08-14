@@ -55,7 +55,7 @@ function BondLine({ label, severed = false }: { label: string; severed?: boolean
         className={
           severed
             ? "inline-flex flex-none items-center gap-1.5 rounded-full border border-[rgba(255,92,71,.3)] bg-[rgba(255,92,71,.08)] px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-[#ff8f7c]"
-            : "inline-flex flex-none items-center gap-1.5 rounded-full border border-[#ffcb2b]/30 bg-[#ffcb2b]/10 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-[#ffcb2b]"
+            : "inline-flex flex-none items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-primary"
         }
       >
         {label}
@@ -140,7 +140,7 @@ function DissolveDialog({
         aria-modal="true"
         aria-labelledby="conta-casal-dialogo-titulo"
         onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[460px]"
+        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[460px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,92,71,.12)] text-[#ff5c47]">
@@ -153,7 +153,7 @@ function DissolveDialog({
             >
               Desfazer o vínculo com {partnerName}?
             </h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[#a6a39a]">
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               Vale para vocês dois, na hora, sem aviso para o outro lado.
             </p>
           </div>
@@ -165,7 +165,7 @@ function DissolveDialog({
           </div>
         ) : null}
 
-        <ul className="m-0 flex list-none flex-col gap-2.5 px-6 pb-5 text-[13px] leading-relaxed text-[#a6a39a]">
+        <ul className="m-0 flex list-none flex-col gap-2.5 px-6 pb-5 text-[13px] leading-relaxed text-muted-foreground">
           {[
             "O vínculo acaba para os dois — ninguém precisa confirmar do outro lado.",
             "O histórico do casal (títulos, avaliações e notificações) sai do alcance dos dois. Nada é apagado do banco.",
@@ -197,7 +197,7 @@ function DissolveDialog({
               variant="outline"
               onClick={onClose}
               disabled={working}
-              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
+              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-foreground hover:bg-white/[0.06]"
             >
               Manter o vínculo
             </Button>
@@ -237,10 +237,10 @@ function EmptyBond({ couple }: { couple: Couple | null }) {
           <Link2Off className="size-[18px]" />
         </div>
         <div className="min-w-0">
-          <p className="font-display m-0 text-[16px] font-bold tracking-tight text-[#f6f4ec]">
+          <p className="font-display m-0 text-[16px] font-bold tracking-tight text-foreground">
             {waitingForPartner ? "Seu convite está aberto" : "Você não está em um casal"}
           </p>
-          <p className="mt-1 max-w-[46ch] text-[13px] leading-relaxed text-[#a6a39a]">
+          <p className="mt-1 max-w-[46ch] text-[13px] leading-relaxed text-muted-foreground">
             {waitingForPartner
               ? "Falta alguém entrar com o seu código. Enquanto isso, o app fica esperando."
               : "Crie um convite ou entre com o código de quem já criou o seu."}
@@ -250,7 +250,7 @@ function EmptyBond({ couple }: { couple: Couple | null }) {
 
       <Button
         render={<Link to="/join" />}
-        className="rounded-xl bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a]"
+        className="rounded-xl bg-primary text-background hover:bg-accent"
       >
         {waitingForPartner ? "Ver o convite" : "Formar um casal"}
       </Button>
@@ -290,10 +290,10 @@ export function CoupleSection() {
             partnerInitial={initialOf(partner.name)}
           />
           <div className="min-w-0 flex-1">
-            <p className="font-display m-0 truncate text-[17px] font-bold tracking-tight text-[#f6f4ec]">
+            <p className="font-display m-0 truncate text-[17px] font-bold tracking-tight text-foreground">
               Você e {partner.name}
             </p>
-            <p className="mt-1 text-[13px] text-[#a6a39a]">
+            <p className="mt-1 text-[13px] text-muted-foreground">
               {startDate ? `Juntos no app desde ${startDate}` : "Vínculo ativo"}
             </p>
           </div>
