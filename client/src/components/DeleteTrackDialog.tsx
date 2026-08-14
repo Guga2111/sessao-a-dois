@@ -74,17 +74,17 @@ function DeleteTrackDialogContent({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         <div className="flex items-start gap-4 p-6 pb-5">
-          <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,90,90,.12)] text-[#ff6b6b]">
+          <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,90,90,.12)] text-destructive">
             <Trash2 className="size-5" />
           </div>
           <div>
             <h2 className="font-display text-[20px] font-bold tracking-tight">
               Excluir título
             </h2>
-            <p className="mt-1 text-[13px] text-[#a6a39a]">
+            <p className="mt-1 text-[13px] text-muted-foreground">
               Essa ação é compartilhada entre os dois e não pode ser desfeita.
               As avaliações de vocês dois também serão apagadas.
             </p>
@@ -93,7 +93,7 @@ function DeleteTrackDialogContent({
 
         <div className="flex flex-col gap-5 px-6 pb-6">
           {error && (
-            <p className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3.5 py-2.5 text-[13px] text-[#ffb3b3]">
+            <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-[13px] text-destructive-foreground">
               {error}
             </p>
           )}
@@ -104,7 +104,7 @@ function DeleteTrackDialogContent({
               variant="outline"
               onClick={onClose}
               disabled={deleting}
-              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
+              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-foreground hover:bg-white/[0.06]"
             >
               Cancelar
             </Button>
@@ -113,7 +113,7 @@ function DeleteTrackDialogContent({
               variant="ghost"
               onClick={handleConfirm}
               disabled={deleting}
-              className="flex-[1.4] rounded-xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.12)] py-3.5 text-sm font-bold text-[#ff6b6b] shadow-[0_6px_20px_rgba(255,107,107,.15)] hover:bg-[rgba(255,107,107,.18)] disabled:opacity-60"
+              className="flex-[1.4] rounded-xl border border-destructive/35 bg-destructive/12 py-3.5 text-sm font-bold text-destructive shadow-[0_6px_20px_rgba(255,107,107,.15)] hover:bg-destructive/18 disabled:opacity-60"
             >
               {deleting ? "Excluindo…" : "Excluir"}
             </Button>

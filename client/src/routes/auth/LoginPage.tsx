@@ -50,7 +50,7 @@ export function LoginPage() {
       footer={
         <>
           Ainda não tem conta?{" "}
-          <Link to="/register" className="font-medium text-[#ffcb2b]">
+          <Link to="/register" className="font-medium text-primary">
             Criar conta
           </Link>
         </>
@@ -59,7 +59,7 @@ export function LoginPage() {
       {notice ? (
         <p
           role="status"
-          className="mb-4 rounded-xl border border-[#ffcb2b]/25 bg-[#ffcb2b]/[0.08] px-3.5 py-2.5 text-sm text-[#f6f4ec]"
+          className="mb-4 rounded-xl border border-primary/25 bg-primary/[0.08] px-3.5 py-2.5 text-sm text-foreground"
         >
           {notice}
         </p>
@@ -67,7 +67,7 @@ export function LoginPage() {
 
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-[#a6a39a]">E-mail</span>
+          <span className="text-xs font-medium text-muted-foreground">E-mail</span>
           <Input
             type="email"
             autoComplete="email"
@@ -80,10 +80,10 @@ export function LoginPage() {
 
         <label className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs font-medium text-[#a6a39a]">Senha</span>
+            <span className="text-xs font-medium text-muted-foreground">Senha</span>
             <Link
               to="/esqueci-senha"
-              className="text-xs font-medium text-[#ffcb2b] hover:text-[#ffe08a]"
+              className="text-xs font-medium text-primary hover:text-accent"
             >
               Esqueci minha senha
             </Link>
@@ -101,7 +101,7 @@ export function LoginPage() {
         {error ? (
           <p
             role="alert"
-            className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b]"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b]"
           >
             {error}
           </p>
@@ -111,7 +111,7 @@ export function LoginPage() {
           type="submit"
           size="lg"
           disabled={isSubmitting}
-          className="mt-1 w-full bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-60"
+          className="mt-1 w-full bg-primary text-background hover:bg-accent disabled:opacity-60"
         >
           {isSubmitting ? "Entrando…" : "Entrar"}
         </Button>

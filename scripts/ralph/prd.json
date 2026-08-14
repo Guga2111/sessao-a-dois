@@ -552,8 +552,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 26,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migrated everything mapping to the 8 US-001 tokens in both files. LoginPage.tsx: text/border/bg #ffcb2b -> primary, hover #ffe08a -> accent, #f6f4ec -> foreground, #a6a39a -> muted-foreground, #ff6b6b border/bg -> destructive, #09090a text -> background. Leftover with no token: text-[#ff9b9b] on the login error message (same near-miss hex already documented on DeleteTrackDialog/CoupleSection destructive-foreground variants, not identical to #ffb3b3). DeleteTrackDialog.tsx: #161513 -> bg-card, #f6f4ec -> foreground (x2), #a6a39a -> muted-foreground, #ff6b6b -> destructive (text/border/bg, all RGB(255,107,107) exact match), #ffb3b3 -> destructive-foreground. Leftover with no token: bg-[rgba(8,7,11,.72)] (backdrop, not #09090a), bg-[rgba(255,90,90,.12)] (icon wash, RGB(255,90,90) != destructive RGB(255,107,107)), shadow-[...] (no --shadow-* token), border-white/10 and hover:bg-white/[0.06] (named-white opacity, out of gate scope). Neither file removed from color-migration-allowlist.txt (raw color remains in both, same precedent as US-003+)."
     },
     {
       "id": "US-027",
