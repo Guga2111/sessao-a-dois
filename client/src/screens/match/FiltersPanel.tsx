@@ -98,12 +98,12 @@ export function FiltersPanel({
     >
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-[#a6a39a]" />
+          <Search className="pointer-events-none absolute top-1/2 left-4 size-4.5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Ex.: Coracao de Vidro, Fronteira Norte..."
-            className="w-full rounded-2xl border border-white/10 bg-[#161513] py-3.5 pr-4 pl-11 text-sm text-[#f6f4ec] outline-none transition-shadow focus:border-[#ffcb2b] focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+            className="w-full rounded-2xl border border-white/10 bg-card py-3.5 pr-4 pl-11 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
           />
         </div>
 
@@ -114,10 +114,10 @@ export function FiltersPanel({
             onValueChange={handleSortChange}
             disabled={hasQuery}
           >
-            <SelectTrigger className="rounded-full border-white/10 bg-[#161513] px-4 py-2.5 text-[13px] font-semibold text-[#f6f4ec] hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40 data-[popup-open]:bg-white/[0.06]">
+            <SelectTrigger className="rounded-full border-white/10 bg-card px-4 py-2.5 text-[13px] font-semibold text-foreground hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40 data-[popup-open]:bg-white/[0.06]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="border border-white/10 bg-[#161513] text-[#f6f4ec]">
+            <SelectContent className="border border-white/10 bg-card text-foreground">
               {SORT_OPTIONS.map((option) => (
                 <SelectItem
                   key={option.value}
@@ -135,14 +135,14 @@ export function FiltersPanel({
             className={cn(
               "flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
               filtersOpen || activeFilterCount > 0
-                ? "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.12)] text-[#ffcb2b]"
-                : "border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06]"
+                ? "border-primary/50 bg-primary/12 text-primary"
+                : "border-white/10 bg-card text-foreground hover:bg-white/[0.06]"
             )}
           >
             <SlidersHorizontal className="size-4" />
             Filtros
             {activeFilterCount > 0 && (
-              <span className="flex size-5 items-center justify-center rounded-full bg-[#ffcb2b] text-[11px] font-bold text-[#09090a]">
+              <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-background">
                 {activeFilterCount}
               </span>
             )}
@@ -157,10 +157,10 @@ export function FiltersPanel({
         </div>
       </div>
 
-      <CollapsibleContent className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161513] px-5 py-5 data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out data-[starting-style]:fade-in">
+      <CollapsibleContent className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-card px-5 py-5 data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out data-[starting-style]:fade-in">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
-            <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+            <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-muted-foreground uppercase">
               Data de lancamento
             </div>
             <ToggleGroup
@@ -177,7 +177,7 @@ export function FiltersPanel({
           </div>
 
           <div>
-            <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+            <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-muted-foreground uppercase">
               Classificacao indicativa
             </div>
             <ToggleGroup
@@ -196,7 +196,7 @@ export function FiltersPanel({
 
         {genres.length > 0 && (
           <div className="mt-6 border-t border-white/10 pt-5">
-            <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+            <div className="mb-2.5 text-[11px] font-semibold tracking-[.1em] text-muted-foreground uppercase">
               Generos
             </div>
             <ToggleGroup
@@ -216,10 +216,10 @@ export function FiltersPanel({
         <div className="mt-6 grid grid-cols-1 gap-6 border-t border-white/10 pt-5 sm:grid-cols-2">
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+              <span className="text-[11px] font-semibold tracking-[.1em] text-muted-foreground uppercase">
                 Nota TMDB
               </span>
-              <span className="text-[13px] font-bold text-[#ffcb2b]">
+              <span className="text-[13px] font-bold text-primary">
                 {formatVoteRangeLabel(voteRange)}
               </span>
             </div>
@@ -239,7 +239,7 @@ export function FiltersPanel({
                 <SliderThumb index={1} />
               </SliderControl>
             </Slider>
-            <div className="mt-1.5 flex justify-between text-[11px] text-[#a6a39a]">
+            <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
               <span>0</span>
               <span>10</span>
             </div>
@@ -247,10 +247,10 @@ export function FiltersPanel({
 
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-[11px] font-semibold tracking-[.1em] text-[#a6a39a] uppercase">
+              <span className="text-[11px] font-semibold tracking-[.1em] text-muted-foreground uppercase">
                 Duracao
               </span>
-              <span className="text-[13px] font-bold text-[#ffcb2b] uppercase">
+              <span className="text-[13px] font-bold text-primary uppercase">
                 {formatRuntimeRangeLabel(runtimeRange)}
               </span>
             </div>
@@ -270,7 +270,7 @@ export function FiltersPanel({
                 <SliderThumb index={1} />
               </SliderControl>
             </Slider>
-            <div className="mt-1.5 flex justify-between text-[11px] text-[#a6a39a]">
+            <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
               <span>0 min</span>
               <span>240 min</span>
             </div>
@@ -282,7 +282,7 @@ export function FiltersPanel({
             type="button"
             onClick={handleClearFilters}
             disabled={activeFilterCount === 0}
-            className="text-[13px] font-semibold text-[#a6a39a] transition-colors hover:text-[#f6f4ec] disabled:cursor-not-allowed disabled:opacity-40"
+            className="text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           >
             Limpar tudo
           </button>
@@ -290,7 +290,7 @@ export function FiltersPanel({
             type="button"
             onClick={handleApplyFilters}
             disabled={hasQuery || searching}
-            className="rounded-full bg-[#ffcb2b] px-5 py-2.5 text-[13px] font-bold text-[#09090a] hover:bg-[#ffdd7a] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-primary px-5 py-2.5 text-[13px] font-bold text-background hover:bg-[#ffdd7a] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Aplicar filtros
           </Button>
