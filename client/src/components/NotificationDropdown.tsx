@@ -47,7 +47,7 @@ function notificationText(notification: Notification, currentUserId?: string): s
 function NotificationIcon({ type }: { type: Notification["type"] }) {
   if (type === "MATCH") {
     return (
-      <div className="grid size-9 flex-none place-items-center rounded-full bg-gradient-to-b from-[#ffcb2b] to-[#ff9e2c] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.35)]">
+      <div className="grid size-9 flex-none place-items-center rounded-full bg-gradient-to-b from-primary to-[#ff9e2c] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.35)]">
         <Heart className="size-4 fill-current" />
       </div>
     )
@@ -55,14 +55,14 @@ function NotificationIcon({ type }: { type: Notification["type"] }) {
 
   if (type === "RATING_REQUEST") {
     return (
-      <div className="grid size-9 flex-none place-items-center rounded-full border border-[#ffcb2b]/40 bg-[#ffcb2b]/[0.1] text-[#ffcb2b]">
+      <div className="grid size-9 flex-none place-items-center rounded-full border border-primary/40 bg-primary/10 text-primary">
         <Star className="size-4 fill-current" />
       </div>
     )
   }
 
   return (
-    <div className="grid size-9 flex-none place-items-center rounded-full border border-white/[0.1] bg-white/[0.05] text-[#a6a39a]">
+    <div className="grid size-9 flex-none place-items-center rounded-full border border-white/[0.1] bg-white/[0.05] text-muted-foreground">
       <X className="size-4" />
     </div>
   )
@@ -83,7 +83,7 @@ function NotificationItem({
       onClick={() => onSelect(notification.id)}
       className={cn(
         "flex w-full items-start gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-white/[0.05]",
-        !notification.read && "bg-[#ffcb2b]/[0.06]"
+        !notification.read && "bg-primary/6"
       )}
     >
       <NotificationIcon type={notification.type} />
@@ -92,14 +92,14 @@ function NotificationItem({
           <div
             className={cn(
               "text-[13.5px] font-semibold leading-snug",
-              notification.read ? "text-[#a6a39a]" : "text-[#f6f4ec]"
+              notification.read ? "text-muted-foreground" : "text-foreground"
             )}
           >
             {notification.title}
           </div>
           {!notification.read && (
             <span
-              className="mt-1.5 size-2 flex-none rounded-full bg-[#ffcb2b]"
+              className="mt-1.5 size-2 flex-none rounded-full bg-primary"
               aria-hidden="true"
             />
           )}
@@ -148,17 +148,17 @@ export function NotificationDropdown() {
         <PopoverContent
           align="end"
           sideOffset={10}
-          className="flex w-[min(380px,calc(100vw-32px))] flex-col gap-0 rounded-[18px] border border-white/[0.1] bg-[#161513] p-0 shadow-[0_24px_60px_rgba(0,0,0,.5)]"
+          className="flex w-[min(380px,calc(100vw-32px))] flex-col gap-0 rounded-[18px] border border-white/[0.1] bg-card p-0 shadow-[0_24px_60px_rgba(0,0,0,.5)]"
         >
           <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3.5">
-            <div className="font-display text-[15px] font-bold tracking-tight text-[#f6f4ec]">
+            <div className="font-display text-[15px] font-bold tracking-tight text-foreground">
               Notificações
             </div>
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={() => void markAllAsRead()}
-                className="text-[12px] font-semibold text-[#ffcb2b] transition-colors hover:text-[#ffe08a]"
+                className="text-[12px] font-semibold text-primary transition-colors hover:text-accent"
               >
                 Marcar todas como lidas
               </button>
@@ -175,10 +175,10 @@ export function NotificationDropdown() {
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-                  <div className="grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#a6a39a]">
+                  <div className="grid size-11 place-items-center rounded-full border border-white/[0.08] bg-white/[0.04] text-muted-foreground">
                     <BellOff className="size-5" />
                   </div>
-                  <p className="text-[13px] leading-snug text-[#a6a39a]">
+                  <p className="text-[13px] leading-snug text-muted-foreground">
                     Nenhuma notificação por aqui ainda.
                   </p>
                 </div>
@@ -199,7 +199,7 @@ export function NotificationDropdown() {
                 <button
                   type="button"
                   onClick={() => void fetchMore()}
-                  className="mt-1 w-full rounded-[10px] py-2.5 text-center text-[13px] font-semibold text-[#a6a39a] transition-colors hover:bg-white/[0.05] hover:text-[#f6f4ec]"
+                  className="mt-1 w-full rounded-[10px] py-2.5 text-center text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground"
                 >
                   Ver mais
                 </button>
