@@ -58,7 +58,7 @@ export function RegisterPage() {
       footer={
         <>
           Já tem conta?{" "}
-          <Link to="/login" className="font-medium text-[#ffcb2b]">
+          <Link to="/login" className="font-medium text-primary">
             Entrar
           </Link>
         </>
@@ -66,7 +66,7 @@ export function RegisterPage() {
     >
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-[#a6a39a]">Nome</span>
+          <span className="text-xs font-medium text-muted-foreground">Nome</span>
           <Input
             type="text"
             autoComplete="name"
@@ -78,7 +78,7 @@ export function RegisterPage() {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-[#a6a39a]">E-mail</span>
+          <span className="text-xs font-medium text-muted-foreground">E-mail</span>
           <Input
             type="email"
             autoComplete="email"
@@ -90,7 +90,7 @@ export function RegisterPage() {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-[#a6a39a]">Senha</span>
+          <span className="text-xs font-medium text-muted-foreground">Senha</span>
           <Input
             type="password"
             autoComplete="new-password"
@@ -110,7 +110,7 @@ export function RegisterPage() {
         {error ? (
           <p
             role="alert"
-            className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b]"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b]"
           >
             {error}
           </p>
@@ -120,7 +120,7 @@ export function RegisterPage() {
           type="submit"
           size="lg"
           disabled={isSubmitting}
-          className="mt-1 w-full bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-60"
+          className="mt-1 w-full bg-primary text-background hover:bg-accent disabled:opacity-60"
         >
           {isSubmitting ? "Criando conta…" : "Criar conta"}
         </Button>
