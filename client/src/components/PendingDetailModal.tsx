@@ -111,16 +111,16 @@ export function PendingDetailModal({
       style={{ background: "rgba(9,9,10,.82)", backdropFilter: "blur(12px)" }}
     >
       <div
-        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.08)] text-[#f6f4ec] sm:w-full sm:max-w-[900px]"
+        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.08)] text-foreground sm:w-full sm:max-w-[900px]"
         style={{
           background:
-            "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), #161513",
+            "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), var(--card)",
           maxHeight: "90svh",
           overflowY: "auto",
         }}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/90 px-6 pt-6 pb-4 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,.06)] bg-card/90 px-6 pt-6 pb-4 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {showSkeleton ? (
@@ -130,8 +130,8 @@ export function PendingDetailModal({
                   {details?.title ?? item.title}
                 </h2>
               )}
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#a6a39a]">
-                <span className="rounded-md border border-[rgba(255,203,43,.4)] bg-[rgba(255,203,43,.18)] px-2.5 py-0.5 text-[11px] font-semibold text-[#ffcb2b]">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+                <span className="rounded-md border border-primary/40 bg-primary/18 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
                   Sugestao
                 </span>
                 {showSkeleton ? (
@@ -141,7 +141,7 @@ export function PendingDetailModal({
                     <span>{TYPE_LABEL[item.mediaType]}</span>
                     {providerLine && (
                       <>
-                        <span className="text-[#a6a39a]/40">·</span>
+                        <span className="text-muted-foreground/40">·</span>
                         <span>{providerLine}</span>
                       </>
                     )}
@@ -154,7 +154,7 @@ export function PendingDetailModal({
               variant="outline"
               size="icon-sm"
               onClick={onClose}
-              className="mt-0.5 flex-none rounded-xl border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#a6a39a] hover:bg-[rgba(255,255,255,.1)] hover:text-[#f6f4ec]"
+              className="mt-0.5 flex-none rounded-xl border-border bg-[rgba(255,255,255,.05)] text-muted-foreground hover:bg-[rgba(255,255,255,.1)] hover:text-foreground"
             >
               <X className="size-4" />
             </Button>
@@ -196,15 +196,15 @@ export function PendingDetailModal({
           {/* Details */}
           <div className="min-w-0 flex-1">
             {detailsError ? (
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-8 text-center">
-                <TriangleAlert className="size-5 text-[#ffb3b3]" />
-                <p className="text-[13px] text-[#ffb3b3]">
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 px-5 py-8 text-center">
+                <TriangleAlert className="size-5 text-destructive-foreground" />
+                <p className="text-[13px] text-destructive-foreground">
                   Não foi possível carregar os detalhes deste título.
                 </p>
                 <Button
                   type="button"
                   onClick={handleRetryDetails}
-                  className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                  className="flex items-center gap-2 rounded-full border border-destructive/40 bg-transparent px-4 py-1.5 text-[13px] font-semibold text-destructive-foreground hover:bg-destructive/12"
                 >
                   <RefreshCw className="size-3.5" /> Tentar novamente
                 </Button>
@@ -217,7 +217,7 @@ export function PendingDetailModal({
                 <div className="flex flex-wrap gap-x-6 gap-y-3">
                   {details.year && (
                     <div className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                      <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                         Ano
                       </span>
                       <span className="text-[17px] font-bold">
@@ -227,7 +227,7 @@ export function PendingDetailModal({
                   )}
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Nota TMDB
                     </span>
                     <div className="flex items-center gap-1.5">
@@ -239,7 +239,7 @@ export function PendingDetailModal({
                         {details.voteAverage != null
                           ? details.voteAverage.toFixed(1)
                           : "—"}
-                        <span className="text-[13px] font-normal text-[#a6a39a]">
+                        <span className="text-[13px] font-normal text-muted-foreground">
                           {" "}
                           /10
                         </span>
@@ -249,7 +249,7 @@ export function PendingDetailModal({
 
                   {details.runtime != null && (
                     <div className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                      <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                         Duracao
                       </span>
                       <span className="text-[17px] font-bold">
@@ -262,14 +262,14 @@ export function PendingDetailModal({
                 {/* Genres */}
                 {details.genres && details.genres.length > 0 && (
                   <div>
-                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Generos
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {details.genres.map((genre) => (
                         <span
                           key={genre}
-                          className="rounded-full border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-3 py-0.5 text-[12px] text-[#d6d2c8]"
+                          className="rounded-full border border-border bg-[rgba(255,255,255,.05)] px-3 py-0.5 text-[12px] text-[#d6d2c8]"
                         >
                           {genre}
                         </span>
@@ -281,14 +281,14 @@ export function PendingDetailModal({
                 {/* Watch Providers */}
                 {details.watchProviders && details.watchProviders.length > 0 && (
                   <div>
-                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Onde Assistir
                     </span>
                     <div className="flex flex-wrap gap-2">
                       {details.watchProviders.map((provider) => (
                         <span
                           key={provider.name}
-                          className="flex items-center gap-1.5 rounded-full border border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] px-3 py-1 text-[12px] text-[#d6d2c8]"
+                          className="flex items-center gap-1.5 rounded-full border border-border bg-[rgba(255,255,255,.05)] px-3 py-1 text-[12px] text-[#d6d2c8]"
                         >
                           {provider.logoUrl ? (
                             <img
@@ -299,7 +299,7 @@ export function PendingDetailModal({
                           ) : (
                             <span
                               className="size-2 rounded-full"
-                              style={{ background: "#ffcb2b" }}
+                              style={{ background: "var(--primary)" }}
                             />
                           )}
                           {provider.name}
@@ -312,7 +312,7 @@ export function PendingDetailModal({
                 {/* Overview */}
                 {details.overview && (
                   <div>
-                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+                    <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Sinopse
                     </span>
                     <p className="text-[14px] leading-relaxed text-[#c4bfb4]">
@@ -328,7 +328,7 @@ export function PendingDetailModal({
                     variant="destructive"
                     onClick={onReject}
                     disabled={actionLoading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] px-4 py-3 text-[14px] font-semibold text-[#ff6b6b] hover:bg-[rgba(255,107,107,.14)]"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-destructive/30 bg-destructive/8 px-4 py-3 text-[14px] font-semibold text-destructive hover:bg-destructive/14"
                   >
                     <X className="size-4" strokeWidth={2.5} />
                     Passar
@@ -346,8 +346,8 @@ export function PendingDetailModal({
                 </div>
 
                 {actionError && (
-                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-3 text-center">
-                    <p className="flex items-center gap-2 text-[13px] text-[#ffb3b3]">
+                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-destructive/35 bg-destructive/8 px-5 py-3 text-center">
+                    <p className="flex items-center gap-2 text-[13px] text-destructive-foreground">
                       <TriangleAlert className="size-4" />
                       {actionError}
                     </p>
@@ -355,7 +355,7 @@ export function PendingDetailModal({
                       type="button"
                       onClick={onRetryAction}
                       disabled={actionLoading}
-                      className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                      className="flex items-center gap-2 rounded-full border border-destructive/40 bg-transparent px-4 py-1.5 text-[13px] font-semibold text-destructive-foreground hover:bg-destructive/12"
                     >
                       <RefreshCw className="size-3.5" /> Tentar novamente
                     </Button>
