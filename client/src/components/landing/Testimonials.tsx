@@ -37,10 +37,10 @@ export function Testimonials() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
       <div className="mb-12 text-center sm:mb-16">
-        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-[#ffcb2b] uppercase">
+        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-primary uppercase">
           Quem já usa
         </span>
-        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-[#f6f4ec]">
+        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-foreground">
           Casais que trocaram a discussão pelo match
         </h2>
       </div>
@@ -49,11 +49,11 @@ export function Testimonials() {
         {TESTIMONIALS.map((testimonial) => (
           <figure
             key={testimonial.names}
-            className="relative flex flex-col rounded-[20px] border border-[rgba(255,255,255,.07)] bg-[#161513] p-6 shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+            className="relative flex flex-col rounded-[20px] border border-[rgba(255,255,255,.07)] bg-card p-6 shadow-[0_10px_26px_rgba(0,0,0,.35)]"
           >
             <span
               aria-hidden="true"
-              className="font-display absolute top-4 right-5 text-5xl leading-none text-[#ffcb2b]/20"
+              className="font-display absolute top-4 right-5 text-5xl leading-none text-primary/20"
             >
               &rdquo;
             </span>
@@ -63,23 +63,23 @@ export function Testimonials() {
             <figcaption className="mt-6 flex items-center gap-3">
               <div aria-hidden="true" className="relative h-9 w-[46px] flex-none">
                 <span
-                  className="absolute top-0.5 left-0 size-8 rounded-full border-2 border-[#161513]"
+                  className="absolute top-0.5 left-0 size-8 rounded-full border-2 border-card"
                   style={{
                     background: `linear-gradient(160deg, hsl(${testimonial.hueA} 70% 55%), hsl(${testimonial.hueA} 60% 30%))`,
                   }}
                 />
                 <span
-                  className="absolute top-0.5 right-0 size-8 rounded-full border-2 border-[#161513]"
+                  className="absolute top-0.5 right-0 size-8 rounded-full border-2 border-card"
                   style={{
                     background: `linear-gradient(160deg, hsl(${testimonial.hueB} 70% 55%), hsl(${testimonial.hueB} 60% 30%))`,
                   }}
                 />
               </div>
               <div>
-                <div className="font-display text-[14px] font-bold text-[#f6f4ec]">
+                <div className="font-display text-[14px] font-bold text-foreground">
                   {testimonial.names}
                 </div>
-                <div className="text-[12px] text-[#a6a39a]">{testimonial.together}</div>
+                <div className="text-[12px] text-muted-foreground">{testimonial.together}</div>
               </div>
             </figcaption>
           </figure>
