@@ -7,7 +7,7 @@ const LIKED_TITLE = {
 }
 
 const VIEWERS = [
-  { name: "Ana", from: "from-[#ffcb2b] to-[#c98f00]" },
+  { name: "Ana", from: "from-primary to-[#c98f00]" },
   { name: "Léo", from: "from-[#ff9e2c] to-[#8a4a00]" },
 ] as const
 
@@ -17,7 +17,7 @@ function LikedCard({ name, gradient }: { name: string; gradient: string }) {
       <div className="relative">
         <span
           aria-hidden="true"
-          className="absolute inset-0 rounded-[16px] border-2 border-[#ffcb2b] opacity-0 motion-safe:animate-[sd-match-ring_6s_ease-in-out_infinite]"
+          className="absolute inset-0 rounded-[16px] border-2 border-primary opacity-0 motion-safe:animate-[sd-match-ring_6s_ease-in-out_infinite]"
         />
         <div className="relative w-[104px] overflow-hidden rounded-[16px] border border-white/[0.07] bg-[#0f0e0c] sm:w-[120px]">
           <div
@@ -28,10 +28,10 @@ function LikedCard({ name, gradient }: { name: string; gradient: string }) {
           >
             <div className="absolute inset-0 grid place-items-center">
               <span
-                className="grid size-9 place-items-center rounded-full bg-[#09090a]/70 opacity-100 backdrop-blur-sm motion-safe:animate-[sd-match-like_6s_ease-in-out_infinite]"
+                className="grid size-9 place-items-center rounded-full bg-background/70 opacity-100 backdrop-blur-sm motion-safe:animate-[sd-match-like_6s_ease-in-out_infinite]"
                 aria-hidden="true"
               >
-                <Heart className="size-4 fill-[#ffcb2b] text-[#ffcb2b]" />
+                <Heart className="size-4 fill-primary text-primary" />
               </span>
             </div>
           </div>
@@ -42,7 +42,7 @@ function LikedCard({ name, gradient }: { name: string; gradient: string }) {
           className={`size-4 flex-none rounded-full bg-gradient-to-br ${gradient}`}
           aria-hidden="true"
         />
-        <span className="font-auth-body text-[12.5px] font-semibold text-[#a6a39a]">
+        <span className="font-auth-body text-[12.5px] font-semibold text-muted-foreground">
           {name} curtiu
         </span>
       </div>
@@ -54,13 +54,13 @@ export function MatchShowcase() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
       <div className="mb-12 text-center sm:mb-16">
-        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-[#ffcb2b] uppercase">
+        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-primary uppercase">
           O momento Match
         </span>
-        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-[#f6f4ec]">
+        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-foreground">
           Quando os dois curtem o mesmo título, dá Match
         </h2>
-        <p className="font-auth-body mx-auto mt-3 max-w-md text-[15px] text-[#a6a39a]">
+        <p className="font-auth-body mx-auto mt-3 max-w-md text-[15px] text-muted-foreground">
           Sem combinar antes: cada um curte na sua tela e, se bater, os dois ficam sabendo na hora.
         </p>
       </div>
@@ -72,19 +72,19 @@ export function MatchShowcase() {
           <div className="relative grid size-16 flex-none place-items-center sm:size-20">
             <span
               aria-hidden="true"
-              className="absolute inset-0 rounded-full bg-[#ffcb2b]/20 opacity-0 blur-lg motion-safe:animate-[sd-match-burst_6s_ease-in-out_infinite]"
+              className="absolute inset-0 rounded-full bg-primary/20 opacity-0 blur-lg motion-safe:animate-[sd-match-burst_6s_ease-in-out_infinite]"
             />
             <Heart
               aria-hidden="true"
-              className="relative size-8 fill-[#ffcb2b] text-[#ffcb2b] opacity-100 sm:size-9 motion-safe:animate-[sd-match-burst_6s_ease-in-out_infinite]"
+              className="relative size-8 fill-primary text-primary opacity-100 sm:size-9 motion-safe:animate-[sd-match-burst_6s_ease-in-out_infinite]"
             />
             <Sparkles
               aria-hidden="true"
-              className="absolute -top-1 -right-1 size-4 text-[#ffe08a] opacity-0 motion-safe:animate-[sd-match-sparkle_6s_ease-in-out_infinite]"
+              className="absolute -top-1 -right-1 size-4 text-accent opacity-0 motion-safe:animate-[sd-match-sparkle_6s_ease-in-out_infinite]"
             />
             <Sparkles
               aria-hidden="true"
-              className="absolute -bottom-1 -left-1 size-3.5 text-[#ffe08a] opacity-0 motion-safe:animate-[sd-match-sparkle_6s_ease-in-out_infinite_.3s]"
+              className="absolute -bottom-1 -left-1 size-3.5 text-accent opacity-0 motion-safe:animate-[sd-match-sparkle_6s_ease-in-out_infinite_.3s]"
             />
           </div>
 
@@ -96,12 +96,12 @@ export function MatchShowcase() {
         </span>
 
         <div
-          className="mt-4 flex items-center gap-2.5 rounded-full border border-[#ffcb2b]/25 bg-[#161513] py-2 pr-4 pl-2.5 opacity-100 motion-safe:animate-[sd-match-pill_6s_ease-in-out_infinite]"
+          className="mt-4 flex items-center gap-2.5 rounded-full border border-primary/25 bg-card py-2 pr-4 pl-2.5 opacity-100 motion-safe:animate-[sd-match-pill_6s_ease-in-out_infinite]"
         >
-          <span className="rounded-full bg-[#ffcb2b]/12 px-2.5 py-1 text-[11px] font-semibold text-[#ffdd7a]">
+          <span className="rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-[#ffdd7a]">
             Queremos Ver
           </span>
-          <span className="font-auth-body text-[13px] font-semibold text-[#f6f4ec]">
+          <span className="font-auth-body text-[13px] font-semibold text-foreground">
             {LIKED_TITLE.title}
           </span>
         </div>
