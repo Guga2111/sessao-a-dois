@@ -86,7 +86,7 @@ export function SuggestionsTab() {
     return (
       <div className="flex flex-col items-center">
         <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
-          <div className="overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-[#161513]">
+          <div className="overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-card">
             <Skeleton className="aspect-[2/3] rounded-none" />
           </div>
 
@@ -105,15 +105,15 @@ export function SuggestionsTab() {
 
   if (pendingError) {
     return (
-      <div className="mx-auto flex max-w-[320px] flex-col items-center gap-2 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-3 text-center">
-        <p className="flex items-center gap-2 text-[13px] text-[#ffb3b3]">
+      <div className="mx-auto flex max-w-[320px] flex-col items-center gap-2 rounded-2xl border border-destructive/35 bg-destructive/8 px-5 py-3 text-center">
+        <p className="flex items-center gap-2 text-[13px] text-destructive-foreground">
           <TriangleAlert className="size-4" />
           Nao foi possivel carregar as sugestoes pendentes.
         </p>
         <Button
           type="button"
           onClick={() => fetchPending()}
-          className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+          className="flex items-center gap-2 rounded-full border border-destructive/40 bg-transparent px-4 py-1.5 text-[13px] font-semibold text-destructive-foreground hover:bg-destructive/12"
         >
           <RefreshCw className="size-3.5" /> Tentar novamente
         </Button>
@@ -135,7 +135,7 @@ export function SuggestionsTab() {
   return (
     <>
       <div className="mb-6 flex items-center justify-between gap-3">
-        <p className="text-[13px] text-[#a6a39a]">
+        <p className="text-[13px] text-muted-foreground">
           {pendingQueue.length > 0
             ? `${pendingQueue.length} ${
                 pendingQueue.length === 1 ? "sugestão pendente" : "sugestões pendentes"
@@ -147,7 +147,7 @@ export function SuggestionsTab() {
 
       {compare.compareMode ? (
         pendingQueue.length === 0 ? (
-          <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
+          <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-muted-foreground">
             Nenhuma sugestão pendente para comparar.
           </div>
         ) : (
@@ -168,9 +168,9 @@ export function SuggestionsTab() {
                   onClick={() => compare.toggle(item)}
                   aria-pressed={isSelected}
                   className={cn(
-                    "cursor-pointer overflow-hidden rounded-[16px] border bg-[#161513] transition-colors",
+                    "cursor-pointer overflow-hidden rounded-[16px] border bg-card transition-colors",
                     isSelected
-                      ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+                      ? "border-2 border-primary shadow-[0_0_24px_rgba(255,203,43,.18)]"
                       : "border-dashed border-white/20 hover:border-white/35"
                   )}
                 >
@@ -195,16 +195,16 @@ export function SuggestionsTab() {
                         }}
                       />
                     )}
-                    <div className="absolute top-2 left-2 rounded-lg bg-[rgba(9,9,10,.6)] px-2 py-0.5 text-[10px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+                    <div className="absolute top-2 left-2 rounded-lg bg-background/60 px-2 py-0.5 text-[10px] font-semibold text-foreground backdrop-blur-md">
                       {TYPE_LABEL[item.mediaType]}
                     </div>
                     {isSelected && (
-                      <div className="absolute top-2 right-2 grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+                      <div className="absolute top-2 right-2 grid size-6 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[12px] font-black text-[#111]">
                         {order}
                       </div>
                     )}
                   </div>
-                  <div className="truncate p-2.5 text-[12.5px] font-semibold text-[#f6f4ec]">
+                  <div className="truncate p-2.5 text-[12.5px] font-semibold text-foreground">
                     {item.title}
                   </div>
                 </div>
@@ -213,14 +213,14 @@ export function SuggestionsTab() {
           </div>
         )
       ) : !current ? (
-        <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
+        <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-muted-foreground">
           Nenhuma sugestao pendente. Voltem a buscar titulos na aba "Buscar".
         </div>
       ) : (
         <div className="flex flex-col items-center">
           <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
             <div
-              className="cursor-pointer overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-[#161513] transition-shadow hover:shadow-[0_0_0_2px_rgba(255,203,43,.25)]"
+              className="cursor-pointer overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-card transition-shadow hover:shadow-[0_0_0_2px_rgba(255,203,43,.25)]"
               onClick={() => setDetailItem(current)}
             >
               <div
@@ -244,10 +244,10 @@ export function SuggestionsTab() {
                     }}
                   />
                 )}
-                <div className="absolute top-3 left-3 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+                <div className="absolute top-3 left-3 rounded-lg bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-md">
                   {TYPE_LABEL[current.mediaType]}
                 </div>
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#09090a] via-[rgba(9,9,10,.85)] to-transparent px-5 pt-16 pb-5">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/85 to-transparent px-5 pt-16 pb-5">
                   <h2 className="font-display text-[22px] font-bold leading-tight tracking-tight">
                     {current.title}
                   </h2>
@@ -262,7 +262,7 @@ export function SuggestionsTab() {
                 size="icon-lg"
                 onClick={handleReject}
                 disabled={actionLoading}
-                className="size-14 rounded-full border border-[rgba(255,107,107,.3)] bg-[rgba(255,107,107,.08)] text-[#ff6b6b] hover:bg-[rgba(255,107,107,.16)]"
+                className="size-14 rounded-full border border-destructive/30 bg-destructive/8 text-destructive hover:bg-destructive/16"
               >
                 <X className="size-6" strokeWidth={2.5} />
               </Button>
@@ -278,14 +278,14 @@ export function SuggestionsTab() {
               </Button>
             </div>
 
-            <p className="mt-4 text-center text-[13px] text-[#a6a39a]">
+            <p className="mt-4 text-center text-[13px] text-muted-foreground">
               1 de {pendingQueue.length}{" "}
               {pendingQueue.length === 1 ? "sugestao" : "sugestoes"}
             </p>
 
             {actionError && !detailItem && (
-              <div className="mx-auto mt-4 flex max-w-[320px] flex-col items-center gap-2 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-5 py-3 text-center">
-                <p className="flex items-center gap-2 text-[13px] text-[#ffb3b3]">
+              <div className="mx-auto mt-4 flex max-w-[320px] flex-col items-center gap-2 rounded-2xl border border-destructive/35 bg-destructive/8 px-5 py-3 text-center">
+                <p className="flex items-center gap-2 text-[13px] text-destructive-foreground">
                   <TriangleAlert className="size-4" />
                   {actionError}
                 </p>
@@ -293,7 +293,7 @@ export function SuggestionsTab() {
                   type="button"
                   onClick={handleActionRetry}
                   disabled={actionLoading}
-                  className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+                  className="flex items-center gap-2 rounded-full border border-destructive/40 bg-transparent px-4 py-1.5 text-[13px] font-semibold text-destructive-foreground hover:bg-destructive/12"
                 >
                   <RefreshCw className="size-3.5" /> Tentar novamente
                 </Button>
