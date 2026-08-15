@@ -764,8 +764,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 36,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migrado apenas bg-[#161513] -> bg-card em ambos os arquivos (unico literal com token exato). border-[rgba(255,255,255,.07)] (2 ocorrencias, uma por arquivo) NAO tem token exato — --border e oklch(1 0 0 / 10%), alpha .10, diferente de .07 — deixado como esta, conforme fallback da AC. Ambos os arquivos permanecem na allowlist (client/color-migration-allowlist.txt) porque check-color-literals.mjs ainda flagearia o border-[rgba(...,.07)] restante; removê-los quebraria o gate check:colors da US-002. Mesmo padrao de desvio documentado em US-003/US-004/US-005."
     },
     {
       "id": "US-037",

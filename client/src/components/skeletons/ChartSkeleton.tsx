@@ -56,7 +56,7 @@ interface ChartSkeletonProps {
 export function ChartSkeleton({ variant = "bars", className }: ChartSkeletonProps) {
   return (
     <div
-      className={`rounded-[18px] border border-[rgba(255,255,255,.07)] bg-[#161513] p-6 ${className ?? ""}`}
+      className={`rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-6 ${className ?? ""}`}
     >
       <Skeleton className="h-[17px] w-40" />
       {variant === "bars" && <BarsBody />}
