@@ -84,7 +84,7 @@ function NotificationItem({
       variant="ghost"
       onClick={() => onSelect(notification.id)}
       className={cn(
-        "h-auto w-full items-start justify-start gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-white/[0.05]",
+        "h-auto w-full items-start justify-start gap-3 rounded-chip px-3 py-3 text-left transition-colors hover:bg-white/[0.05]",
         !notification.read && "bg-primary/6"
       )}
     >

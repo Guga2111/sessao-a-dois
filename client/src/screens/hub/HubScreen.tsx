@@ -271,7 +271,7 @@ export function HubScreen() {
         type="button"
         onClick={() => setModalOpen(true)}
         title="Adicionar Título"
-        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-primary text-[28px] text-on-primary shadow-[var(--shadow-glow-primary-6)] sm:right-11"
+        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-2xl border-none bg-primary text-[28px] text-on-primary shadow-[var(--shadow-glow-primary-6)] sm:right-11"
       >
         ＋
       </Button>

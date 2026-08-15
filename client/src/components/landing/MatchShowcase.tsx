@@ -19,10 +19,10 @@ function LikedCard({ name, gradient }: { name: string; gradient: string }) {
       <div className="relative">
         <span
           aria-hidden="true"
-          className="absolute inset-0 rounded-[16px] border-2 border-primary opacity-0 motion-safe:animate-[sd-match-ring_6s_ease-in-out_infinite]"
+          className="absolute inset-0 rounded-2xl border-2 border-primary opacity-0 motion-safe:animate-[sd-match-ring_6s_ease-in-out_infinite]"
         />
         {/* color-ok: #0f0e0c e o fundo decorativo do mockup de poster da preview de match (ilustracao, nao cor de interface) */}
-        <div className="relative w-[104px] overflow-hidden rounded-[16px] border border-white/[0.07] bg-[#0f0e0c] sm:w-[120px]">
+        <div className="relative w-[104px] overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0f0e0c] sm:w-[120px]">
           <div
             className="relative aspect-[3/4]"
             style={{

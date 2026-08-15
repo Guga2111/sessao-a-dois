@@ -63,6 +63,7 @@ function MonthlyBarsChart({ monthlySeries }: { monthlySeries: MonthlyStatDto[] }
             >
               <span className="text-[12px] text-muted-foreground">{m.count}</span>
               <div
+                // radius-ok: D20/US-043 opcao (c) — canto da barra mensal, detalhe decorativo de grafico, snapar para --radius-sm (6px) dobraria o raio num elemento de 3px
                 className="w-full rounded-t-md rounded-b-[3px] bg-primary"
                 style={{ height: `${Math.max((m.count / maxCount) * 100, 2)}%` }}
               />
@@ -115,6 +116,7 @@ function MovieTvDonutChart({
         <div className="flex flex-col gap-3.5">
           <div>
             <div className="flex items-center gap-2">
+              {/* radius-ok: D20/US-043 opcao (c) — quadradinho de legenda 11x11px, snapar dobraria o raio */}
               <span className="h-[11px] w-[11px] rounded-[3px] bg-primary" />
               <span className="text-[13px] font-semibold">Filmes</span>
             </div>
@@ -124,6 +126,7 @@ function MovieTvDonutChart({
           </div>
           <div>
             <div className="flex items-center gap-2">
+              {/* radius-ok: D20/US-043 opcao (c) — quadradinho de legenda 11x11px, snapar dobraria o raio */}
               <span className="h-[11px] w-[11px] rounded-[3px] bg-chart-2" />
               <span className="text-[13px] font-semibold">Séries</span>
             </div>
@@ -154,9 +157,9 @@ function GenreBarsChart({
                   {Math.round(genre.percentage)}%
                 </span>
               </div>
-              <div className="h-[9px] rounded-[20px] bg-white/[0.06]">
+              <div className="h-[9px] rounded-2xl bg-white/[0.06]">
                 <div
-                  className="h-full rounded-[20px] bg-primary"
+                  className="h-full rounded-2xl bg-primary"
                   style={{ width: `${genre.percentage}%` }}
                 />
               </div>
@@ -269,7 +272,7 @@ export function DashboardScreen() {
                     {Math.round(stats.moviePercentage)}
                     <span className="text-[18px] text-muted-foreground"> % filmes</span>
                   </div>
-                  <div className="mt-3 flex h-2 overflow-hidden rounded-[20px] bg-white/[0.06]">
+                  <div className="mt-3 flex h-2 overflow-hidden rounded-2xl bg-white/[0.06]">
                     <div
                       className="bg-primary"
                       style={{ width: `${stats.moviePercentage}%` }}

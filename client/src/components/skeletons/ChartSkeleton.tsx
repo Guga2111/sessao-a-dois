@@ -7,6 +7,7 @@ function BarsBody() {
     <div className="mt-5.5 flex h-[200px] items-end gap-2 pt-2.5 sm:gap-3 md:gap-5">
       {BAR_HEIGHTS.map((height, i) => (
         <div key={i} className="flex h-full flex-1 flex-col items-end justify-end gap-2.5">
+          {/* radius-ok: D20/US-043 opcao (c) — espelha o canto arredondado da barra real (DashboardScreen.tsx), detalhe decorativo de skeleton */}
           <Skeleton className="w-full rounded-t-md rounded-b-[3px]" style={{ height }} />
         </div>
       ))}
@@ -41,7 +42,7 @@ function GenreBarsBody() {
             <Skeleton className="h-3 w-24" />
             <Skeleton className="h-3 w-8" />
           </div>
-          <Skeleton className="h-[9px] w-full rounded-[20px]" />
+          <Skeleton className="h-[9px] w-full rounded-2xl" />
         </div>
       ))}
     </div>

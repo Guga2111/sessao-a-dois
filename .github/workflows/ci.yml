@@ -127,6 +127,14 @@ jobs:
         working-directory: client
         run: bun run check:colors
 
+      # Extensao do gate acima para arredondamento (Epico 13, US-044/D20):
+      # recusa rounded-[...] novo fora de src/components/ui/, sem excecao
+      # comentada ("radius-ok: <motivo>"). Ver
+      # client/scripts/check-radius-literals.mjs.
+      - name: Check for raw radius literals
+        working-directory: client
+        run: bun run check:radius
+
       # Gate de teste (Epico 11, US-017). Sem continue-on-error e sem
       # "|| true" DE PROPOSITO: mesma postura do step Audit dependencies acima
       # - se e gate, tem que quebrar o build. O deploy.yml reusa este workflow

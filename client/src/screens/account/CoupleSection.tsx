@@ -185,7 +185,7 @@ function DissolveDialog({
           {error ? (
             <p
               role="alert"
-              className="m-0 rounded-[12px] border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
+              className="m-0 rounded-chip border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
             >
               {error}
             </p>

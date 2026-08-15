@@ -61,7 +61,7 @@ export function FeatureGrid() {
           return (
             <div
               key={feature.title}
-              className="rounded-[20px] border border-white/7 bg-card p-6 shadow-[var(--shadow-elevation-1)]"
+              className="rounded-2xl border border-white/7 bg-card p-6 shadow-[var(--shadow-elevation-1)]"
             >
               <div className="grid size-12 flex-none place-items-center rounded-2xl border border-primary/25 bg-background">
                 <Icon className="size-5 text-primary" aria-hidden="true" />

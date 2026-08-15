@@ -923,8 +923,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 44,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Executada a decisao D20 (US-043) sem desvio: (a) snap 20px x11 + 16px x3 -> rounded-2xl (18px), 24px x1 (MatchCelebrationModal) -> rounded-3xl (22px), diferenca de 1-2px declarada aqui e em progress.txt, nao escondida; (b) novo token --radius-chip: calc(var(--radius) * 1.2) = 12px em index.css (@theme inline, entre --radius-lg e --radius-xl, com comentario), aplicado aos 8 usos de rounded-[12px] -> rounded-chip; (c) os 4 rounded-[3px]/rounded-b-[3px] (DashboardScreen.tsx x3, ChartSkeleton.tsx x1) mantidos arbitrarios com comentario radius-ok: na linha imediatamente acima do className. Novo gate scripts/check-radius-literals.mjs (script check:radius, step 'Check for raw radius literals' no ci.yml logo apos check:colors) barra rounded-[...] (e variantes direcionais) fora de components/ui/ sem excecao radius-ok: comentada - confirmado manualmente que um rounded-[17px] novo em screens/ falha (exit 1) e o mesmo dentro de components/ui/ passa (exit 0), igual ao teste da propria AC."
     },
     {
       "id": "US-045",

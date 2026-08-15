@@ -328,7 +328,7 @@ export function PendingDetailModal({
                     variant="destructive"
                     onClick={onReject}
                     disabled={actionLoading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-destructive/30 bg-destructive/8 px-4 py-3 text-[14px] font-semibold text-destructive hover:bg-destructive/14"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-chip border border-destructive/30 bg-destructive/8 px-4 py-3 text-[14px] font-semibold text-destructive hover:bg-destructive/14"
                   >
                     <X className="size-4" strokeWidth={2.5} />
                     Passar
@@ -338,7 +338,7 @@ export function PendingDetailModal({
                     variant="ghost"
                     onClick={onLike}
                     disabled={actionLoading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-success/30 bg-success/8 px-4 py-3 text-[14px] font-semibold text-success hover:bg-success/14"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-chip border border-success/30 bg-success/8 px-4 py-3 text-[14px] font-semibold text-success hover:bg-success/14"
                   >
                     <Heart className="size-4" strokeWidth={2.5} />
                     Curtir

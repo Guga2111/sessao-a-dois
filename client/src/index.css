@@ -82,6 +82,13 @@
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
+    /* --radius-chip (D20/US-044): degrau novo entre --radius-lg (1.0x) e
+     * --radius-xl (1.4x) — o salto de 4px entre eles era visivel nas pills de
+     * aviso coral (PasswordSection/DeleteAccountSection/CoupleSection/
+     * ProfileSection) e no item de notificacao, que usavam rounded-[12px]
+     * (=1.2x a base atual) sem token exato. Nome semantico porque o uso e
+     * consistentemente chip/pill, nao uma superficie generica. */
+    --radius-chip: calc(var(--radius) * 1.2);
     --radius-xl: calc(var(--radius) * 1.4);
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);

@@ -49,7 +49,7 @@ export function Testimonials() {
         {TESTIMONIALS.map((testimonial) => (
           <figure
             key={testimonial.names}
-            className="relative flex flex-col rounded-[20px] border border-white/7 bg-card p-6 shadow-[var(--shadow-elevation-1)]"
+            className="relative flex flex-col rounded-2xl border border-white/7 bg-card p-6 shadow-[var(--shadow-elevation-1)]"
           >
             <span
               aria-hidden="true"

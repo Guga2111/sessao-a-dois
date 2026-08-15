@@ -10,6 +10,7 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc -b",
     "check:colors": "node scripts/check-color-literals.mjs",
+    "check:radius": "node scripts/check-radius-literals.mjs",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",

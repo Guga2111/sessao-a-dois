@@ -108,9 +108,9 @@ export function DashboardPreview() {
                   <span className="font-semibold text-foreground">{genre.name}</span>
                   <span className="text-muted-foreground">{genre.percentage}%</span>
                 </div>
-                <div className="h-[8px] rounded-[20px] bg-white/[0.06]">
+                <div className="h-[8px] rounded-2xl bg-white/[0.06]">
                   <div
-                    className="h-full rounded-[20px] bg-success motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out"
+                    className="h-full rounded-2xl bg-success motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out"
                     style={{ width: revealed ? `${genre.percentage}%` : "0%" }}
                   />
                 </div>
@@ -125,7 +125,7 @@ export function DashboardPreview() {
           <span>Filmes vs Séries</span>
           <span>{MOVIE_PERCENTAGE}% · {TV_PERCENTAGE}%</span>
         </div>
-        <div className="flex h-2.5 overflow-hidden rounded-[20px] bg-white/[0.06]">
+        <div className="flex h-2.5 overflow-hidden rounded-2xl bg-white/[0.06]">
           <div
             className="bg-primary motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out"
             style={{ width: revealed ? `${MOVIE_PERCENTAGE}%` : "0%" }}

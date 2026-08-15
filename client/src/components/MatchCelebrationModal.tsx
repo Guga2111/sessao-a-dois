@@ -26,7 +26,7 @@ export function MatchCelebrationModal() {
       <div
         onClick={(e) => e.stopPropagation()}
         // color-ok: #251e0c e o stop escuro do gradiente de celebracao do match, ilustrativo (nao e cor de interface reutilizada em outro lugar)
-        className="w-full max-w-[400px] animate-in rounded-[24px] border border-series/35 bg-gradient-to-b from-[#251e0c] to-card p-9 text-center text-foreground shadow-[var(--shadow-elevation-10)] duration-300 zoom-in-95 fade-in"
+        className="w-full max-w-[400px] animate-in rounded-3xl border border-series/35 bg-gradient-to-b from-[#251e0c] to-card p-9 text-center text-foreground shadow-[var(--shadow-elevation-10)] duration-300 zoom-in-95 fade-in"
       >
         <div className="bg-primary bg-clip-text text-[14px] font-extrabold tracking-[.22em] text-transparent uppercase">
           É um Match!

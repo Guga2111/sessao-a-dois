@@ -63,7 +63,7 @@ export function FaqSection() {
         {FAQS.map((faq) => (
           <Collapsible
             key={faq.question}
-            className="rounded-[20px] border border-white/7 bg-card shadow-[var(--shadow-elevation-1)]"
+            className="rounded-2xl border border-white/7 bg-card shadow-[var(--shadow-elevation-1)]"
           >
             <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 px-6 py-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
               <span className="font-display text-base font-bold text-foreground sm:text-lg">

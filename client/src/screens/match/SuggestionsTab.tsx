@@ -168,7 +168,7 @@ export function SuggestionsTab() {
                   onClick={() => compare.toggle(item)}
                   aria-pressed={isSelected}
                   className={cn(
-                    "cursor-pointer overflow-hidden rounded-[16px] border bg-card transition-colors",
+                    "cursor-pointer overflow-hidden rounded-2xl border bg-card transition-colors",
                     isSelected
                       ? "border-2 border-primary shadow-[var(--shadow-glow-primary-3)]"
                       : "border-dashed border-white/20 hover:border-white/35"
