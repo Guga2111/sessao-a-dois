@@ -59,7 +59,7 @@ export function AccountScreen() {
       <Header />
       <main className="mx-auto max-w-[1240px] px-5 pt-10 pb-32 sm:px-8 sm:pt-11">
         <div className="mb-7">
-          <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-[#ff9e2c] uppercase">
+          <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-series uppercase">
             Conta e Casal
           </div>
           <h1 className="font-display text-[clamp(28px,4vw,40px)] font-bold tracking-tight">
@@ -87,7 +87,7 @@ export function AccountScreen() {
                       aria-hidden="true"
                       className={
                         section.reach === "both"
-                          ? "size-1.5 flex-none rounded-full bg-[#ff5c47]"
+                          ? "size-1.5 flex-none rounded-full bg-coral"
                           : "size-1.5 flex-none rounded-full bg-primary"
                       }
                     />

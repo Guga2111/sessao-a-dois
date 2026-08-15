@@ -7,8 +7,10 @@ const LIKED_TITLE = {
 }
 
 const VIEWERS = [
+  // color-ok: #c98f00 e o stop escuro do gradiente decorativo do avatar "curtiu" (ilustracao, nao cor de interface)
   { name: "Ana", from: "from-primary to-[#c98f00]" },
-  { name: "Léo", from: "from-[#ff9e2c] to-[#8a4a00]" },
+  // color-ok: #8a4a00 e o stop escuro do gradiente decorativo do avatar "curtiu" (ilustracao, nao cor de interface)
+  { name: "Léo", from: "from-series to-[#8a4a00]" },
 ] as const
 
 function LikedCard({ name, gradient }: { name: string; gradient: string }) {
@@ -19,6 +21,7 @@ function LikedCard({ name, gradient }: { name: string; gradient: string }) {
           aria-hidden="true"
           className="absolute inset-0 rounded-[16px] border-2 border-primary opacity-0 motion-safe:animate-[sd-match-ring_6s_ease-in-out_infinite]"
         />
+        {/* color-ok: #0f0e0c e o fundo decorativo do mockup de poster da preview de match (ilustracao, nao cor de interface) */}
         <div className="relative w-[104px] overflow-hidden rounded-[16px] border border-white/[0.07] bg-[#0f0e0c] sm:w-[120px]">
           <div
             className="relative aspect-[3/4]"
@@ -91,14 +94,14 @@ export function MatchShowcase() {
           <LikedCard name={VIEWERS[1].name} gradient={VIEWERS[1].from} />
         </div>
 
-        <span className="font-display mt-5 text-lg font-extrabold text-[#ffdd7a] opacity-100 motion-safe:animate-[sd-match-burst_6s_ease-in-out_infinite]">
+        <span className="font-display mt-5 text-lg font-extrabold text-accent-strong opacity-100 motion-safe:animate-[sd-match-burst_6s_ease-in-out_infinite]">
           Deu Match!
         </span>
 
         <div
           className="mt-4 flex items-center gap-2.5 rounded-full border border-primary/25 bg-card py-2 pr-4 pl-2.5 opacity-100 motion-safe:animate-[sd-match-pill_6s_ease-in-out_infinite]"
         >
-          <span className="rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-[#ffdd7a]">
+          <span className="rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-accent-strong">
             Queremos Ver
           </span>
           <span className="font-auth-body text-[13px] font-semibold text-foreground">

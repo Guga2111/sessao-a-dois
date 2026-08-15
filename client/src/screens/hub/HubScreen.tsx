@@ -170,7 +170,7 @@ export function HubScreen() {
                   )}
                   {compare.compareMode ? "Cancelar" : "Comparar"}
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[240px] rounded-lg border border-border bg-[#201e18] px-3 py-2 text-foreground shadow-xl">
+                <TooltipContent className="max-w-[240px] rounded-lg border border-border bg-surface-secondary px-3 py-2 text-foreground shadow-xl">
                   {COMPARE_TOOLTIP}
                 </TooltipContent>
               </Tooltip>
@@ -179,7 +179,7 @@ export function HubScreen() {
             <Button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-primary px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5 sm:flex-none"
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-primary px-5.5 py-3.5 text-[15px] font-bold text-on-primary shadow-[var(--shadow-glow-primary-4)] transition-transform hover:-translate-y-0.5 sm:flex-none"
             >
               <span className="text-[19px] leading-none">＋</span> Adicionar Título
             </Button>
@@ -225,7 +225,7 @@ export function HubScreen() {
 
       {compare.compareMode && (
         <div className="fixed inset-x-0 bottom-8 z-[35] flex justify-center px-4">
-          <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-card/95 px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,.5)] backdrop-blur-md">
+          <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-card/95 px-5 py-3 shadow-[var(--shadow-elevation-5)] backdrop-blur-md">
             <div className="flex items-center gap-3">
               <span className="text-[13.5px] font-semibold text-foreground">
                 {compare.selected.length}/2 selecionados
@@ -271,7 +271,7 @@ export function HubScreen() {
         type="button"
         onClick={() => setModalOpen(true)}
         title="Adicionar Título"
-        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-primary text-[28px] text-[#111] shadow-[0_14px_34px_rgba(255,203,43,.45)] sm:right-11"
+        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-primary text-[28px] text-on-primary shadow-[var(--shadow-glow-primary-6)] sm:right-11"
       >
         ＋
       </Button>

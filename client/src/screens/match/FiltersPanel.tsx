@@ -103,7 +103,7 @@ export function FiltersPanel({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Ex.: Coracao de Vidro, Fronteira Norte..."
-            className="w-full rounded-2xl border border-white/10 bg-card py-3.5 pr-4 pl-11 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+            className="w-full rounded-2xl border border-white/10 bg-card py-3.5 pr-4 pl-11 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[var(--shadow-glow-primary-2)]"
           />
         </div>
 
@@ -291,7 +291,7 @@ export function FiltersPanel({
             type="button"
             onClick={handleApplyFilters}
             disabled={hasQuery || searching}
-            className="rounded-full bg-primary px-5 py-2.5 text-[13px] font-bold text-background hover:bg-[#ffdd7a] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-primary px-5 py-2.5 text-[13px] font-bold text-background hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
           >
             Aplicar filtros
           </Button>

@@ -306,7 +306,7 @@ export function SearchTab() {
                         disabled={searching}
                         className={cn(
                           item === page
-                            ? "bg-primary text-background hover:bg-[#ffdd7a]"
+                            ? "bg-primary text-background hover:bg-accent-strong"
                             : "border border-white/10 bg-card text-foreground hover:bg-white/[0.06]",
                           "disabled:pointer-events-none disabled:opacity-40"
                         )}

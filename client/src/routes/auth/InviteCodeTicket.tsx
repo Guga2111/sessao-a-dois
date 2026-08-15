@@ -62,8 +62,8 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
       <div
         className={`relative isolate flex overflow-hidden rounded-2xl transition-colors ${
           expired
-            ? "bg-card text-foreground shadow-[0_16px_40px_-12px_rgba(0,0,0,.5)]"
-            : "bg-primary text-background shadow-[0_16px_40px_-12px_rgba(255,203,43,.45)]"
+            ? "bg-card text-foreground shadow-[var(--shadow-elevation-2)]"
+            : "bg-primary text-background shadow-[var(--shadow-glow-primary-7)]"
         }`}
       >
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4 py-5 sm:px-5 sm:py-6">
@@ -84,9 +84,9 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
           <span
             className={`text-xs font-medium ${
               expired
-                ? "text-[#ff9b9b]"
+                ? "text-destructive-soft"
                 : urgent
-                  ? "text-[#a3560a]"
+                  ? "text-warning-foreground"
                   : "opacity-70"
             }`}
           >
@@ -123,10 +123,12 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
         ) : (
           <div className="relative flex w-[104px] shrink-0 flex-col items-center justify-center gap-2 border-l-2 border-dashed border-background/25 px-2 py-5 sm:w-[136px] sm:px-3 sm:py-6">
             <span
+              // color-ok: #0d0d0f simula a perfuracao (notch) de um ticket fisico - ilustracao, nao cor de interface
               className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#0d0d0f]"
               aria-hidden
             />
             <span
+              // color-ok: #0d0d0f simula a perfuracao (notch) de um ticket fisico - ilustracao, nao cor de interface
               className="absolute -bottom-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#0d0d0f]"
               aria-hidden
             />
@@ -149,7 +151,7 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
       {regenerateError ? (
         <p
           role="alert"
-          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b] text-center"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft text-center"
         >
           {regenerateError}
         </p>

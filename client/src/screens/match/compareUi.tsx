@@ -36,7 +36,7 @@ export function CompareToggleButton({
           {active ? <X className="size-4" /> : <Columns2 className="size-4" />}
           {active ? "Cancelar" : "Comparar"}
         </TooltipTrigger>
-        <TooltipContent className="max-w-[240px] rounded-lg border border-border bg-[#201e18] px-3 py-2 text-foreground shadow-xl">
+        <TooltipContent className="max-w-[240px] rounded-lg border border-border bg-surface-secondary px-3 py-2 text-foreground shadow-xl">
           {COMPARE_TOOLTIP}
         </TooltipContent>
       </Tooltip>
@@ -57,7 +57,7 @@ export function CompareSelectionChip({
 }) {
   return (
     <div className="fixed inset-x-0 bottom-8 z-[35] flex justify-center px-4">
-      <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-card/95 px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,.5)] backdrop-blur-md">
+      <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-card/95 px-5 py-3 shadow-[var(--shadow-elevation-5)] backdrop-blur-md">
         <div className="flex items-center gap-3">
           <span className="text-[13.5px] font-semibold text-foreground">
             {count}/2 selecionados

@@ -14,8 +14,8 @@ export function FinalCta() {
       />
 
       <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-6 text-center">
-        <div className="grid size-14 flex-none place-items-center rounded-2xl bg-primary shadow-[0_10px_32px_rgba(255,203,43,.4)]">
-          <Heart className="size-6 fill-current text-[#111]" aria-hidden="true" />
+        <div className="grid size-14 flex-none place-items-center rounded-2xl bg-primary shadow-[var(--shadow-glow-primary-5)]">
+          <Heart className="size-6 fill-current text-on-primary" aria-hidden="true" />
         </div>
 
         <h2 className="font-display text-[clamp(1.75rem,4vw,2.75rem)] leading-tight font-extrabold text-foreground">
@@ -29,7 +29,7 @@ export function FinalCta() {
         <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
           <Link
             to="/register"
-            className="rounded-xl bg-primary px-7 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="rounded-xl bg-primary px-7 py-3.5 text-[15px] font-bold text-on-primary shadow-[var(--shadow-glow-primary-4)] transition-transform hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Começar a dois
           </Link>

@@ -16,10 +16,10 @@ export function LandingFooter() {
           className="flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
         >
           <div className="grid size-8 flex-none place-items-center rounded-lg bg-primary">
-            <Heart className="size-3.5 fill-current text-[#111]" aria-hidden="true" />
+            <Heart className="size-3.5 fill-current text-on-primary" aria-hidden="true" />
           </div>
           <span className="font-display text-[15px] font-bold tracking-tight text-foreground">
-            Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
+            Sessão<span className="text-series">·</span>a·Dois
           </span>
         </Link>
 

@@ -203,7 +203,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
     >
       <DialogContent
         showCloseButton={false}
-        className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] gap-0 overflow-visible rounded-[22px] border border-white/10 bg-card p-0 text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:w-full sm:max-w-[520px]"
+        className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] gap-0 overflow-visible rounded-[22px] border border-white/10 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[520px]"
       >
         <DialogTitle className="sr-only">Adicionar Título</DialogTitle>
         <DialogDescription className="sr-only">
@@ -232,7 +232,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
         </div>
 
         <div className="px-6 pt-5.5" ref={searchBoxRef}>
-          <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+          <label className="mb-2 block text-[13px] font-semibold text-label-foreground">
             Buscar título
           </label>
           <div className="relative">
@@ -258,16 +258,16 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                 }))
               }
               placeholder="Ex.: Coração de Vidro, Fronteira Norte…"
-              className="w-full rounded-xl border border-white/10 bg-[#201e18] py-3.5 pr-3.5 pl-10 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+              className="w-full rounded-xl border border-white/10 bg-surface-secondary py-3.5 pr-3.5 pl-10 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[var(--shadow-glow-primary-2)]"
             />
             {showSearchSkeleton && (
-              <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-[#201e18] shadow-[0_18px_40px_rgba(0,0,0,.5)]">
+              <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-surface-secondary shadow-[var(--shadow-elevation-4)]">
                 <SearchResultSkeleton rows={3} />
               </div>
             )}
 
             {!showSearchSkeleton && searchOpen && results.length > 0 && (
-              <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-[#201e18] py-1.5 shadow-[0_18px_40px_rgba(0,0,0,.5)]">
+              <div className="absolute top-[calc(100%+6px)] left-0 z-10 w-full overflow-hidden rounded-xl border border-white/10 bg-surface-secondary py-1.5 shadow-[var(--shadow-elevation-4)]">
                 <ScrollArea className="h-full max-h-64 [&_[data-slot=scroll-area-viewport]]:max-h-64">
                   {results.map((result) => (
                     <Button
@@ -291,7 +291,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
           </div>
           {selected && (
             <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              Selecionado: <span className="text-[#ffdd7a]">{selected.title}</span>
+              Selecionado: <span className="text-accent-strong">{selected.title}</span>
               <Button
                 type="button"
                 variant="link"
@@ -306,7 +306,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
 
         <div className="flex max-h-[calc(90vh-280px)] flex-col gap-5 overflow-y-auto px-6 pb-2 pt-5">
           <div>
-            <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+            <label className="mb-2 block text-[13px] font-semibold text-label-foreground">
               Status
             </label>
             <div className="flex flex-wrap gap-2">
@@ -328,8 +328,8 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                     className={cn(
                       "cursor-pointer rounded-[10px] border px-4 py-2 text-sm font-semibold transition-colors",
                       active
-                        ? "border-primary bg-primary text-[#111]"
-                        : "border-white/10 bg-transparent text-[#d8d3c5] hover:bg-white/[0.06]"
+                        ? "border-primary bg-primary text-on-primary"
+                        : "border-white/10 bg-transparent text-label-foreground hover:bg-white/[0.06]"
                     )}
                   >
                     {option.label}
@@ -342,7 +342,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
           {status === "WATCHED" && (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+                <label className="mb-2 block text-[13px] font-semibold text-label-foreground">
                   Nota do casal
                 </label>
                 <div className="flex h-11 items-center gap-1">
@@ -360,7 +360,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                       aria-label={`${star} estrelas`}
                       className="h-auto cursor-pointer bg-transparent px-0.5 py-0 text-[26px] leading-none"
                       style={{
-                        color: star <= rating ? "#ffb443" : "rgba(255,255,255,.18)",
+                        color: star <= rating ? "var(--rating)" : "rgba(255,255,255,.18)",
                       }}
                     >
                       ★
@@ -370,7 +370,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
               </div>
 
               <div>
-                <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+                <label className="mb-2 block text-[13px] font-semibold text-label-foreground">
                   Data assistida
                 </label>
                 <input
@@ -379,7 +379,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                   onChange={(event) =>
                     setState((s) => ({ ...s, watchedDate: event.target.value }))
                   }
-                  className="w-full rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)] [color-scheme:dark]"
+                  className="w-full rounded-xl border border-white/10 bg-surface-secondary px-3.5 py-3 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[var(--shadow-glow-primary-2)] [color-scheme:dark]"
                 />
               </div>
             </div>
@@ -387,7 +387,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
 
           {status === "WATCHED" && (
             <div>
-              <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+              <label className="mb-2 block text-[13px] font-semibold text-label-foreground">
                 Opinião do casal{" "}
                 <span className="font-normal text-muted-foreground">(opcional)</span>
               </label>
@@ -398,7 +398,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                   setState((s) => ({ ...s, opinion: event.target.value }))
                 }
                 placeholder="O que vocês acharam? Alguma cena inesquecível?"
-                className="w-full resize-y rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3.5 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+                className="w-full resize-y rounded-xl border border-white/10 bg-surface-secondary px-3.5 py-3.5 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[var(--shadow-glow-primary-2)]"
               />
             </div>
           )}
@@ -425,7 +425,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
             variant="default"
             onClick={handleSave}
             disabled={saving}
-            className="flex-[1.4] rounded-xl border-none bg-primary py-3.5 text-sm font-bold text-[#111] shadow-[0_8px_22px_rgba(255,203,43,.35)] transition-opacity disabled:opacity-60"
+            className="flex-[1.4] rounded-xl border-none bg-primary py-3.5 text-sm font-bold text-on-primary shadow-[var(--shadow-glow-primary-13)] transition-opacity disabled:opacity-60"
           >
             {saving ? "Salvando…" : "Salvar Título"}
           </Button>

@@ -34,7 +34,7 @@ function ChartCard({
 }) {
   return (
     <div
-      className={`rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-6 ${className ?? ""}`}
+      className={`rounded-[18px] border border-white/7 bg-card p-6 ${className ?? ""}`}
     >
       <h3 className="font-display m-0 text-[17px]">{title}</h3>
       {children}
@@ -184,7 +184,7 @@ function KpiCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-5.5">
+    <div className="rounded-[18px] border border-white/7 bg-card p-5.5">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
         <span style={{ color: iconColor }}>{icon}</span> {label}
       </div>
@@ -223,7 +223,7 @@ export function DashboardScreen() {
       <Header />
       <main className="mx-auto max-w-[1240px] px-5 pt-10 pb-32 sm:px-8 sm:pt-11">
         <div className="mb-7">
-          <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-[#ff9e2c] uppercase">
+          <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-series uppercase">
             Estatísticas do Casal
           </div>
           <h1 className="font-display text-[clamp(28px,4vw,40px)] font-bold tracking-tight">
@@ -257,14 +257,14 @@ export function DashboardScreen() {
                       {stats.totalWatchedMinutes}m
                     </span>
                   </div>
-                  <div className="mt-1.5 text-[12.5px] text-[#3ddc97]">
+                  <div className="mt-1.5 text-[12.5px] text-success">
                     {stats.currentMonthWatchedHours > 0
                       ? `↑ ${stats.currentMonthWatchedHours}h neste mês`
                       : "Nada assistido neste mês ainda"}
                   </div>
                 </KpiCard>
 
-                <KpiCard icon="◲" iconColor="#ff9e2c" label="Filmes vs Séries">
+                <KpiCard icon="◲" iconColor="var(--series)" label="Filmes vs Séries">
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {Math.round(stats.moviePercentage)}
                     <span className="text-[18px] text-muted-foreground"> % filmes</span>
@@ -285,7 +285,7 @@ export function DashboardScreen() {
                   </div>
                 </KpiCard>
 
-                <KpiCard icon={<Heart className="size-3.5 fill-current" />} iconColor="#ffb443" label="Gênero favorito">
+                <KpiCard icon={<Heart className="size-3.5 fill-current" />} iconColor="var(--rating)" label="Gênero favorito">
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {stats.favoriteGenre ?? "—"}
                   </div>
@@ -296,7 +296,7 @@ export function DashboardScreen() {
                   </div>
                 </KpiCard>
 
-                <KpiCard icon="✓" iconColor="#3ddc97" label="Total assistido">
+                <KpiCard icon="✓" iconColor="var(--success)" label="Total assistido">
                   <div className="font-display mt-3 text-[36px] font-bold tracking-tight">
                     {stats.totalTitles}{" "}
                     <span className="text-[18px] text-muted-foreground">títulos</span>

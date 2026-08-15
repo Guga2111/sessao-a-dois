@@ -50,7 +50,7 @@ export function CoupleAvatars({ userInitial, partnerInitial }: CoupleAvatarsProp
 
       {/* Heart badge */}
       <div className="absolute -bottom-[3px] left-1/2 grid size-[18px] -translate-x-1/2 place-items-center rounded-full border-2 border-background bg-primary">
-        <Heart className="size-[9px] fill-current text-[#111]" />
+        <Heart className="size-[9px] fill-current text-on-primary" />
       </div>
     </div>
   )

@@ -47,14 +47,14 @@ function BondLine({ label, severed = false }: { label: string; severed?: boolean
         aria-hidden="true"
         className={
           severed
-            ? "h-px w-8 flex-none bg-[linear-gradient(90deg,transparent,rgba(255,92,71,.55))] sm:w-12"
-            : "h-px w-8 flex-none bg-[linear-gradient(90deg,transparent,rgba(255,203,43,.55))] sm:w-12"
+            ? "h-px w-8 flex-none bg-coral-fade-h sm:w-12"
+            : "h-px w-8 flex-none bg-primary-fade-h sm:w-12"
         }
       />
       <span
         className={
           severed
-            ? "inline-flex flex-none items-center gap-1.5 rounded-full border border-[rgba(255,92,71,.3)] bg-[rgba(255,92,71,.08)] px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-[#ff8f7c]"
+            ? "inline-flex flex-none items-center gap-1.5 rounded-full border border-coral/30 bg-coral/8 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-coral-chip"
             : "inline-flex flex-none items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-primary"
         }
       >
@@ -64,8 +64,8 @@ function BondLine({ label, severed = false }: { label: string; severed?: boolean
         aria-hidden="true"
         className={
           severed
-            ? "h-px w-8 flex-none border-t border-dashed border-[rgba(255,92,71,.45)] sm:w-12"
-            : "h-px w-8 flex-none bg-[linear-gradient(90deg,rgba(255,203,43,.55),transparent)] sm:w-12"
+            ? "h-px w-8 flex-none border-t border-dashed border-coral/45 sm:w-12"
+            : "h-px w-8 flex-none bg-primary-fade-h-reverse sm:w-12"
         }
       />
     </div>
@@ -133,23 +133,23 @@ function DissolveDialog({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(8,7,11,.72)] p-5 backdrop-blur-md"
+      className="fixed inset-0 z-[60] grid place-items-center bg-backdrop/72 p-5 backdrop-blur-md"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="conta-casal-dialogo-titulo"
         onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[460px]"
+        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[460px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
-          <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,92,71,.12)] text-[#ff5c47]">
+          <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">
             <HeartCrack aria-hidden="true" className="size-5" />
           </div>
           <div className="min-w-0">
             <h2
               id="conta-casal-dialogo-titulo"
-              className="font-display m-0 text-[20px] font-bold tracking-tight text-[#ffb3a5]"
+              className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground"
             >
               Desfazer o vínculo com {partnerName}?
             </h2>
@@ -174,7 +174,7 @@ function DissolveDialog({
             <li key={line} className="flex gap-2.5">
               <span
                 aria-hidden="true"
-                className="mt-[7px] size-1.5 flex-none rounded-full bg-[#ff5c47]"
+                className="mt-[7px] size-1.5 flex-none rounded-full bg-coral"
               />
               <span>{line}</span>
             </li>
@@ -185,7 +185,7 @@ function DissolveDialog({
           {error ? (
             <p
               role="alert"
-              className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+              className="m-0 rounded-[12px] border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
             >
               {error}
             </p>
@@ -206,7 +206,7 @@ function DissolveDialog({
               variant="ghost"
               onClick={handleConfirm}
               disabled={working}
-              className="flex-[1.4] rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.12)] py-3.5 text-sm font-bold text-[#ff5c47] shadow-[0_6px_20px_rgba(255,92,71,.15)] hover:bg-[rgba(255,92,71,.18)] disabled:opacity-60"
+              className="flex-[1.4] rounded-xl border border-coral/35 bg-coral/12 py-3.5 text-sm font-bold text-coral shadow-[var(--shadow-glow-coral-1)] hover:bg-coral/18 disabled:opacity-60"
             >
               {working ? (
                 <>
@@ -232,7 +232,7 @@ function EmptyBond({ couple }: { couple: Couple | null }) {
       <div className="flex min-w-0 items-center gap-3.5">
         <div
           aria-hidden="true"
-          className="grid size-10 flex-none place-items-center rounded-full border border-dashed border-white/15 text-[#6f6c62]"
+          className="grid size-10 flex-none place-items-center rounded-full border border-dashed border-white/15 text-tertiary-foreground"
         >
           <Link2Off className="size-[18px]" />
         </div>
@@ -305,7 +305,7 @@ export function CoupleSection() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-4">
-          <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-[#6f6c62]">
+          <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-tertiary-foreground">
             Desfazer é imediato e vale para os dois. O histórico não é apagado — ele só
             deixa de ser alcançável por vocês.
           </p>
@@ -313,7 +313,7 @@ export function CoupleSection() {
             type="button"
             variant="ghost"
             onClick={() => setConfirming(true)}
-            className="rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.1)] text-sm font-bold text-[#ff5c47] hover:bg-[rgba(255,92,71,.18)]"
+            className="rounded-xl border border-coral/35 bg-coral/10 text-sm font-bold text-coral hover:bg-coral/18"
           >
             Desfazer o vínculo
           </Button>

@@ -101,7 +101,7 @@ export function ForgotPasswordPage() {
             placeholder="voce@exemplo.com"
           />
           {emailInvalid ? (
-            <span className="text-xs text-[#ff9b9b]">
+            <span className="text-xs text-destructive-soft">
               Esse e-mail não parece válido.
             </span>
           ) : null}
@@ -110,7 +110,7 @@ export function ForgotPasswordPage() {
         {error ? (
           <p
             role="alert"
-            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b]"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft"
           >
             {error}
           </p>

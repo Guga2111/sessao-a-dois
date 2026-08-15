@@ -67,11 +67,11 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(8,7,11,.72)] p-5 backdrop-blur-md"
+      className="fixed inset-0 z-[60] grid place-items-center bg-backdrop/72 p-5 backdrop-blur-md"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 p-6 pb-5">
@@ -98,7 +98,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
         <div className="flex flex-col gap-5 px-6 pb-6">
           {/* Stars */}
           <div>
-            <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+            <label className="mb-2 block text-[13px] font-semibold text-label-foreground">
               Sua nota{" "}
               <span className="font-normal text-muted-foreground">(opcional)</span>
             </label>
@@ -112,7 +112,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
                   aria-label={`${star} estrela${star > 1 ? "s" : ""}`}
                   className="h-auto cursor-pointer bg-transparent px-1 py-0 text-[28px] leading-none transition-transform hover:scale-110"
                   style={{
-                    color: star <= rating ? "#ffb443" : "rgba(255,255,255,.18)",
+                    color: star <= rating ? "var(--rating)" : "rgba(255,255,255,.18)",
                   }}
                 >
                   ★
@@ -123,7 +123,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
 
           {/* Opinion */}
           <div>
-            <label className="mb-2 block text-[13px] font-semibold text-[#d8d3c5]">
+            <label className="mb-2 block text-[13px] font-semibold text-label-foreground">
               Sua opinião{" "}
               <span className="font-normal text-muted-foreground">(opcional)</span>
             </label>
@@ -132,7 +132,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
               value={opinion}
               onChange={(e) => setOpinion(e.target.value)}
               placeholder="O que você achou? Alguma cena inesquecível?"
-              className="w-full resize-y rounded-xl border border-white/10 bg-[#201e18] px-3.5 py-3.5 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[0_0_0_3px_rgba(255,203,43,.2)]"
+              className="w-full resize-y rounded-xl border border-white/10 bg-surface-secondary px-3.5 py-3.5 text-sm text-foreground outline-none transition-shadow focus:border-primary focus:shadow-[var(--shadow-glow-primary-2)]"
             />
           </div>
 
@@ -158,7 +158,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
               variant="ghost"
               onClick={handleConfirm}
               disabled={saving}
-              className="flex-[1.4] rounded-xl border border-[rgba(61,220,151,.35)] bg-[rgba(61,220,151,.12)] py-3.5 text-sm font-bold text-[#3ddc97] shadow-[0_6px_20px_rgba(61,220,151,.15)] hover:bg-[rgba(61,220,151,.18)] disabled:opacity-60"
+              className="flex-[1.4] rounded-xl border border-success/35 bg-success/12 py-3.5 text-sm font-bold text-success shadow-[var(--shadow-glow-success-1)] hover:bg-success/18 disabled:opacity-60"
             >
               {saving ? "Salvando…" : "Confirmar"}
             </Button>

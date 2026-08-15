@@ -111,7 +111,7 @@ export function PendingDetailModal({
       style={{ background: "rgba(9,9,10,.82)", backdropFilter: "blur(12px)" }}
     >
       <div
-        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.08)] text-foreground sm:w-full sm:max-w-[900px]"
+        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-white/8 text-foreground sm:w-full sm:max-w-[900px]"
         style={{
           background:
             "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), var(--card)",
@@ -120,7 +120,7 @@ export function PendingDetailModal({
         }}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-[rgba(255,255,255,.06)] bg-card/90 px-6 pt-6 pb-4 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 border-b border-white/6 bg-card/90 px-6 pt-6 pb-4 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {showSkeleton ? (
@@ -154,7 +154,7 @@ export function PendingDetailModal({
               variant="outline"
               size="icon-sm"
               onClick={onClose}
-              className="mt-0.5 flex-none rounded-xl border-border bg-[rgba(255,255,255,.05)] text-muted-foreground hover:bg-[rgba(255,255,255,.1)] hover:text-foreground"
+              className="mt-0.5 flex-none rounded-xl border-border bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
             >
               <X className="size-4" />
             </Button>
@@ -233,7 +233,7 @@ export function PendingDetailModal({
                     <div className="flex items-center gap-1.5">
                       <span
                         className="size-2 rounded-full"
-                        style={{ background: "#3ddc97" }}
+                        style={{ background: "var(--success)" }}
                       />
                       <span className="text-[17px] font-bold">
                         {details.voteAverage != null
@@ -269,7 +269,7 @@ export function PendingDetailModal({
                       {details.genres.map((genre) => (
                         <span
                           key={genre}
-                          className="rounded-full border border-border bg-[rgba(255,255,255,.05)] px-3 py-0.5 text-[12px] text-[#d6d2c8]"
+                          className="rounded-full border border-border bg-white/5 px-3 py-0.5 text-[12px] text-pill-foreground"
                         >
                           {genre}
                         </span>
@@ -288,7 +288,7 @@ export function PendingDetailModal({
                       {details.watchProviders.map((provider) => (
                         <span
                           key={provider.name}
-                          className="flex items-center gap-1.5 rounded-full border border-border bg-[rgba(255,255,255,.05)] px-3 py-1 text-[12px] text-[#d6d2c8]"
+                          className="flex items-center gap-1.5 rounded-full border border-border bg-white/5 px-3 py-1 text-[12px] text-pill-foreground"
                         >
                           {provider.logoUrl ? (
                             <img
@@ -315,7 +315,7 @@ export function PendingDetailModal({
                     <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
                       Sinopse
                     </span>
-                    <p className="text-[14px] leading-relaxed text-[#c4bfb4]">
+                    <p className="text-[14px] leading-relaxed text-synopsis-foreground">
                       {details.overview}
                     </p>
                   </div>
@@ -338,7 +338,7 @@ export function PendingDetailModal({
                     variant="ghost"
                     onClick={onLike}
                     disabled={actionLoading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] px-4 py-3 text-[14px] font-semibold text-[#3ddc97] hover:bg-[rgba(61,220,151,.14)]"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[12px] border border-success/30 bg-success/8 px-4 py-3 text-[14px] font-semibold text-success hover:bg-success/14"
                   >
                     <Heart className="size-4" strokeWidth={2.5} />
                     Curtir

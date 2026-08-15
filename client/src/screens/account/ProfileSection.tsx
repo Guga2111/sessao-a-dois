@@ -138,7 +138,7 @@ export function ProfileSection() {
             placeholder="Como você aparece no app"
           />
           {fieldErrors.name ? (
-            <p id={NAME_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={NAME_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               {fieldErrors.name}
             </p>
           ) : null}
@@ -162,7 +162,7 @@ export function ProfileSection() {
             placeholder="voce@exemplo.com"
           />
           {fieldErrors.email ? (
-            <p id={EMAIL_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={EMAIL_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               {fieldErrors.email}
             </p>
           ) : null}
@@ -172,7 +172,7 @@ export function ProfileSection() {
       {formError ? (
         <p
           role="alert"
-          className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+          className="m-0 rounded-[12px] border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
         >
           {formError}
         </p>
@@ -182,7 +182,7 @@ export function ProfileSection() {
         <div
           role="status"
           aria-live="polite"
-          className="flex min-h-[28px] min-w-0 flex-wrap items-center gap-2 text-[13px] text-[#6f6c62]"
+          className="flex min-h-[28px] min-w-0 flex-wrap items-center gap-2 text-[13px] text-tertiary-foreground"
         >
           {saving ? (
             <>

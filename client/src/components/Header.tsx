@@ -27,11 +27,11 @@ export function Header() {
   return (
     <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-background/72 px-5 py-4 backdrop-blur-xl sm:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-primary shadow-[0_6px_20px_rgba(255,203,43,.35)]">
-          <Heart className="size-[18px] fill-current text-[#111]" />
+        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-primary shadow-[var(--shadow-glow-primary-12)]">
+          <Heart className="size-[18px] fill-current text-on-primary" />
         </div>
         <div className="font-display truncate text-[19px] font-bold tracking-tight text-foreground">
-          Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
+          Sessão<span className="text-series">·</span>a·Dois
         </div>
       </div>
 
@@ -45,7 +45,7 @@ export function Header() {
               cn(
                 "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors",
                 isActive
-                  ? "bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                  ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                   : "text-muted-foreground hover:text-foreground"
               )
             }
@@ -83,7 +83,7 @@ export function Header() {
             cn(
               "hidden size-9.5 flex-none place-items-center rounded-[10px] border transition-colors md:grid",
               isActive
-                ? "border-transparent bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                ? "border-transparent bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                 : "border-white/[0.06] bg-white/[0.05] text-muted-foreground hover:bg-white/[0.09] hover:text-foreground"
             )
           }
@@ -115,7 +115,7 @@ function MobileNav() {
       </Button>
 
       {menuOpen && (
-        <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-[14px] border border-white/[0.08] bg-[#141312] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.5)]">
+        <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-[14px] border border-white/[0.08] bg-nav-surface p-1.5 shadow-[var(--shadow-elevation-3)]">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -126,7 +126,7 @@ function MobileNav() {
                 cn(
                   "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
                   isActive
-                    ? "bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                    ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                     : "text-muted-foreground hover:text-foreground"
                 )
               }
@@ -145,7 +145,7 @@ function MobileNav() {
               cn(
                 "inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
                 isActive
-                  ? "bg-primary text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
+                  ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                   : "text-muted-foreground hover:text-foreground"
               )
             }

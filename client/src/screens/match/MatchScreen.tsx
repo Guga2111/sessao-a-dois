@@ -23,7 +23,7 @@ export function MatchScreen() {
       <Header />
       <main className="mx-auto max-w-[1240px] px-5 pt-10 pb-32 sm:px-8 sm:pt-11">
         <div className="mx-auto mb-9 max-w-[560px] text-center">
-          <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-[#ff9e2c] uppercase">
+          <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-series uppercase">
             Match a Dois
           </div>
           <h1 className="font-display text-[clamp(26px,4vw,38px)] font-bold tracking-tight">
@@ -35,7 +35,7 @@ export function MatchScreen() {
           </p>
         </div>
 
-        <div className="mx-auto mb-10 flex w-fit gap-1 rounded-xl bg-[rgba(255,255,255,.06)] p-1">
+        <div className="mx-auto mb-10 flex w-fit gap-1 rounded-xl bg-white/6 p-1">
           <Button
             type="button"
             variant="ghost"

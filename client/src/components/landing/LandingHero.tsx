@@ -40,7 +40,7 @@ export function LandingHero() {
         <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
           <Link
             to="/register"
-            className="rounded-xl bg-primary px-6 py-3 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="rounded-xl bg-primary px-6 py-3 text-[15px] font-bold text-on-primary shadow-[var(--shadow-glow-primary-4)] transition-transform hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Começar a dois
           </Link>
@@ -55,19 +55,21 @@ export function LandingHero() {
 
       <div
         aria-hidden="true"
-        className="w-full max-w-[420px] justify-self-center rounded-[22px] border border-white/[0.07] bg-card p-4 shadow-[0_30px_70px_rgba(0,0,0,.45)] sm:p-5 md:justify-self-end"
+        className="w-full max-w-[420px] justify-self-center rounded-[22px] border border-white/[0.07] bg-card p-4 shadow-[var(--shadow-elevation-8)] sm:p-5 md:justify-self-end"
       >
         <div className="flex items-center justify-between gap-3 px-1 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="flex -space-x-2">
+              {/* color-ok: #c98f00 e o stop escuro do gradiente decorativo do avatar (ilustracao da preview, nao cor de interface) */}
               <span className="size-7 rounded-full border-2 border-card bg-gradient-to-br from-primary to-[#c98f00]" />
-              <span className="size-7 rounded-full border-2 border-card bg-gradient-to-br from-[#ff9e2c] to-[#8a4a00]" />
+              {/* color-ok: #8a4a00 e o stop escuro do gradiente decorativo do avatar (ilustracao da preview, nao cor de interface) */}
+              <span className="size-7 rounded-full border-2 border-card bg-gradient-to-br from-series to-[#8a4a00]" />
             </div>
             <span className="font-auth-body text-[13px] font-semibold text-foreground">
               Lista de vocês dois
             </span>
           </div>
-          <span className="rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-[#ffdd7a]">
+          <span className="rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-accent-strong">
             Queremos Ver
           </span>
         </div>
@@ -76,8 +78,10 @@ export function LandingHero() {
           {PREVIEW_TITLES.map((item) => (
             <div
               key={item.title}
+              // color-ok: #0f0e0c e o fundo decorativo do mockup de poster da preview da landing (ilustracao, nao cor de interface)
               className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#0f0e0c]"
             >
+              {/* color-ok: #1a1816 e o fundo decorativo do mockup de poster da preview da landing (ilustracao, nao cor de interface) */}
               <div className="relative aspect-3/4 overflow-hidden bg-[#1a1816]">
                 <img
                   src={item.poster}
@@ -91,7 +95,7 @@ export function LandingHero() {
                 <img
                   src={item.provider}
                   alt={item.providerName}
-                  className="absolute right-2 bottom-2 size-7 rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.5)]"
+                  className="absolute right-2 bottom-2 size-7 rounded-lg shadow-[var(--shadow-elevation-7)]"
                   loading="lazy"
                 />
               </div>
@@ -103,9 +107,9 @@ export function LandingHero() {
                   <span className="flex-none text-[10.5px] text-muted-foreground">{item.year}</span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-1">
-                  <Star className="size-3 fill-[#ffb443] text-[#ffb443]" aria-hidden="true" />
+                  <Star className="size-3 fill-rating text-rating" aria-hidden="true" />
                   <span className="text-[10.5px] text-muted-foreground">{item.rating}</span>
-                  <span className="ml-auto rounded-md border border-primary/25 bg-primary/12 px-1.5 py-0.5 text-[9.5px] font-semibold text-[#ffdd7a]">
+                  <span className="ml-auto rounded-md border border-primary/25 bg-primary/12 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-strong">
                     {item.type}
                   </span>
                 </div>

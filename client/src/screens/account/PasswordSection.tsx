@@ -44,7 +44,7 @@ function LengthRail({ length }: { length: number }) {
           className={
             insideWindow
               ? "h-full rounded-full bg-primary transition-[width] duration-200"
-              : "h-full rounded-full bg-[#6f6c62] transition-[width] duration-200"
+              : "h-full rounded-full bg-tertiary-foreground transition-[width] duration-200"
           }
           style={{ width: `${filled}%` }}
         />
@@ -54,7 +54,7 @@ function LengthRail({ length }: { length: number }) {
           style={{ left: `${minMark}%` }}
         />
       </div>
-      <div id={RANGE_HINT_ID} className="flex justify-between text-[12px] text-[#6f6c62]">
+      <div id={RANGE_HINT_ID} className="flex justify-between text-[12px] text-tertiary-foreground">
         <span>
           De {PASSWORD_MIN_LENGTH} a {PASSWORD_MAX_LENGTH} caracteres
         </span>
@@ -176,7 +176,7 @@ export function PasswordSection() {
           Isso inclui esta aba e qualquer aparelho que ainda estivesse conectado — se alguém
           mais tinha acesso à sua conta, acabou de perder.
         </p>
-        <p className="m-0 flex items-center gap-2 text-[13px] text-[#6f6c62]">
+        <p className="m-0 flex items-center gap-2 text-[13px] text-tertiary-foreground">
           <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-primary" />
           Levando você para entrar de novo…
         </p>
@@ -201,7 +201,7 @@ export function PasswordSection() {
           placeholder="••••••••"
         />
         {fieldErrors.currentPassword ? (
-          <p id={CURRENT_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+          <p id={CURRENT_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
             {fieldErrors.currentPassword}
           </p>
         ) : null}
@@ -227,7 +227,7 @@ export function PasswordSection() {
           />
           <LengthRail length={newPassword.length} />
           {fieldErrors.newPassword ? (
-            <p id={NEW_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={NEW_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               {fieldErrors.newPassword}
             </p>
           ) : null}
@@ -249,7 +249,7 @@ export function PasswordSection() {
             placeholder="••••••••"
           />
           {mismatch ? (
-            <p id={CONFIRM_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={CONFIRM_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               As duas senhas novas ainda não são iguais.
             </p>
           ) : null}
@@ -259,21 +259,21 @@ export function PasswordSection() {
       {formError ? (
         <p
           role="alert"
-          className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+          className="m-0 rounded-[12px] border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
         >
           {formError}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-4">
-        <p className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-[13px] text-[#6f6c62]">
+        <p className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-[13px] text-tertiary-foreground">
           <span className="text-muted-foreground">Ao salvar:</span>
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-[#ff5c47]" />
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-coral" />
             esta aba sai
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-[#ff5c47]" />
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-coral" />
             os outros aparelhos também
           </span>
         </p>

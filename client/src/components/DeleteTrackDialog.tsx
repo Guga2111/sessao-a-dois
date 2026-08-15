@@ -70,14 +70,14 @@ function DeleteTrackDialogContent({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(8,7,11,.72)] p-5 backdrop-blur-md"
+      className="fixed inset-0 z-[60] grid place-items-center bg-backdrop/72 p-5 backdrop-blur-md"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[420px]"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         <div className="flex items-start gap-4 p-6 pb-5">
-          <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,90,90,.12)] text-destructive">
+          <div className="grid size-10 flex-none place-items-center rounded-full bg-destructive/12 text-destructive">
             <Trash2 className="size-5" />
           </div>
           <div>
@@ -113,7 +113,7 @@ function DeleteTrackDialogContent({
               variant="ghost"
               onClick={handleConfirm}
               disabled={deleting}
-              className="flex-[1.4] rounded-xl border border-destructive/35 bg-destructive/12 py-3.5 text-sm font-bold text-destructive shadow-[0_6px_20px_rgba(255,107,107,.15)] hover:bg-destructive/18 disabled:opacity-60"
+              className="flex-[1.4] rounded-xl border border-destructive/35 bg-destructive/12 py-3.5 text-sm font-bold text-destructive shadow-[var(--shadow-glow-destructive-1)] hover:bg-destructive/18 disabled:opacity-60"
             >
               {deleting ? "Excluindo…" : "Excluir"}
             </Button>

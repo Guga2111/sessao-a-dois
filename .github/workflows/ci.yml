@@ -117,10 +117,12 @@ jobs:
         working-directory: client
         run: bun run lint
 
-      # Gate de cor crua (Epico 13, US-002/D18). Falha se um hex/utilitario
-      # arbitrario de cor novo aparecer fora de src/components/ui/ e fora de
-      # client/color-migration-allowlist.txt (divida ja existente, rastreada
-      # por US-003 em diante). Ver client/scripts/check-color-literals.mjs.
+      # Gate de cor crua (Epico 13, US-002/D18, endurecido na US-039). Falha
+      # se um hex/utilitario arbitrario de cor aparecer fora de
+      # src/components/ui/ em qualquer arquivo do repositorio, sem excecao
+      # comentada ("color-ok: <motivo>") na propria linha. Sem allowlist por
+      # arquivo - a migracao fechou na US-039. Ver
+      # client/scripts/check-color-literals.mjs.
       - name: Check for raw color literals
         working-directory: client
         run: bun run check:colors

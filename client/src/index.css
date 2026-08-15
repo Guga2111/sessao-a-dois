@@ -41,6 +41,30 @@
     --color-border: var(--border);
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
+    --color-series: var(--series);
+    --color-coral: var(--coral);
+    --color-coral-foreground: var(--coral-foreground);
+    --color-coral-chip: var(--coral-chip);
+    --color-success: var(--success);
+    --color-rating: var(--rating);
+    --color-pill-foreground: var(--pill-foreground);
+    --color-label-foreground: var(--label-foreground);
+    --color-tertiary-foreground: var(--tertiary-foreground);
+    --color-accent-strong: var(--accent-strong);
+    --color-destructive-soft: var(--destructive-soft);
+    --color-surface-secondary: var(--surface-secondary);
+    --color-on-primary: var(--on-primary);
+    --color-want-to-see: var(--want-to-see);
+    --color-opinion-foreground: var(--opinion-foreground);
+    --color-synopsis-foreground: var(--synopsis-foreground);
+    --color-caption-foreground: var(--caption-foreground);
+    --color-scrollbar-thumb: var(--scrollbar-thumb);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-backdrop: var(--backdrop);
+    --color-nav-surface: var(--nav-surface);
+    --color-on-success: var(--on-success);
+    --color-on-destructive: var(--on-destructive);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -130,6 +154,73 @@
     --destructive: oklch(0.712 0.181 22.839); /* #ff6b6b — vermelho de erro/acao destrutiva (bordas, icones, texto de aviso) */
     --destructive-foreground: oklch(0.839 0.089 19.107); /* #ffb3b3 — vermelho claro: texto sobre fundo destrutivo translucido (avisos, chip de "Tentar novamente"). Token novo: nao existe equivalente entre os 8 semanticos reaproveitaveis (--background/--card/--foreground/--muted-foreground/--primary/--destructive/--accent/--popover) porque nenhum deles representa "texto claro sobre superficie destrutiva" — --destructive-foreground e o par natural de --destructive nessa convencao shadcn e ainda nao existia neste arquivo */
     --border: oklch(1 0 0 / 10%);
+    /*
+     * Tokens abaixo (US-039, Epico 13) fecham a migracao de cor: cobrem as familias
+     * de hex que sobraram depois de US-003..US-038 por nao estarem entre os 8 mais
+     * frequentes do app (escopo original da US-001), mas que se repetem de forma
+     * sistematica em varios arquivos — nao sao um-off, entao viram token em vez de
+     * excecao com comentario. Cada um documenta o hex de origem e o papel.
+     */
+    --series: oklch(0.782 0.164 64.006); /* #ff9e2c — accent de marca para "Series/TV" (icones, labels, badges do lado series de filmes-vs-series). Distinto de --chart-2 (mantido cinza por decisao pendente de gate humano da US-007, nao mexido aqui) */
+    --coral: oklch(0.688 0.202 30.301); /* #ff5c47 — raiz da paleta destrutiva alternativa de screens/account/ (ver client/CLAUDE.md, "screens/account/"): deliberadamente distinta de --destructive para nao ler como vermelho de sistema num fluxo de desfazer vinculo/excluir conta */
+    --coral-foreground: oklch(0.835 0.092 30.719); /* #ffb3a5 — texto claro sobre --coral (titulo de dialogo destrutivo) */
+    --coral-chip: oklch(0.766 0.139 30.703); /* #ff8f7c — texto de chip/badge sobre --coral */
+    --success: oklch(0.797 0.164 159.689); /* #3ddc97 — verde de status positivo (nota TMDB, badge WATCHED, botao Curtir do Match) */
+    --rating: oklch(0.822 0.151 73.389); /* #ffb443 — dourado da estrela de nota (componente Stars, distinto de --primary) */
+    --pill-foreground: oklch(0.864 0.014 88.694); /* #d6d2c8 — texto de pill de genero/provedor nao-compartilhada (ComparisonDialog, MediaDetailModal, MediaCard) */
+    --label-foreground: oklch(0.867 0.02 90.559); /* #d8d3c5 — texto de label de campo em formulario (TitleModal) */
+    --tertiary-foreground: oklch(0.531 0.016 93.114); /* #6f6c62 — texto terciario, mais apagado que --muted-foreground (screens/account/) */
+    --accent-strong: oklch(0.906 0.124 90.861); /* #ffdd7a — texto de destaque forte (titulo selecionado no ComparisonDialog/TitleModal), mais claro que --accent */
+    --destructive-soft: oklch(0.792 0.12 20.093); /* #ff9b9b — vermelho claro de hover/estado suave sobre botao destrutivo, distinto de --destructive-foreground */
+    --surface-secondary: oklch(0.235 0.012 91.747); /* #201e18 — superficie um degrau acima de --card (input, dropdown, tooltip) */
+    --on-primary: oklch(0.178 0 89.876); /* #111 — texto quase-preto sobre superficie --primary solida (badge/pill amarelo, botao Salvar) */
+    --want-to-see: oklch(0.769 0.142 301.481); /* #c49dff — roxo do badge de status WANT_TO_SEE (MediaDetailModal), unico no app */
+    --opinion-foreground: oklch(0.879 0.025 298.566); /* #d9d4e6 — texto de opiniao em italico (MediaDetailModal/PendingDetailModal) */
+    --synopsis-foreground: oklch(0.806 0.016 86.436); /* #c4bfb4 — texto de paragrafo de sinopse */
+    --caption-foreground: oklch(0.552 0.013 89.792); /* #75726a — legenda/texto auxiliar mais apagado que --muted-foreground, distinto de --tertiary-foreground pelo hex de origem */
+    --scrollbar-thumb: oklch(0.28 0.016 96.891); /* #2b2920 — cor do thumb de scrollbar customizada (ComparisonDialog) */
+    --success-foreground: oklch(0.867 0.102 165.999); /* #8fe9c4 — texto claro sobre --success translucido (pill "compartilhado" verde do SearchResultCard), par natural de --success */
+    --warning-foreground: oklch(0.535 0.127 56.15); /* #a3560a — texto de aviso/contagem regressiva do InviteCodeTicket, mais escuro/saturado que --series */
+    --backdrop: oklch(0.132 0.01 297.638); /* #08070b — fundo do overlay de modal (DeleteTrackDialog/ReviewModal/WatchModal/MatchCelebrationModal/CoupleSection/DeleteAccountSection), mais escuro e levemente roxo perto de --background, nao e o mesmo valor (rgb(8,7,11) vs rgb(9,9,10) de --background) */
+    --nav-surface: oklch(0.187 0.003 67.669); /* #141312 — superficie do dropdown de navegacao mobile (Header), um degrau mais escuro que --card, unico uso */
+    --on-success: oklch(0.173 0.022 161.777); /* #07130d — texto/icone quase-preto sobre --success solido (badge WATCHED do MediaCard), par de --on-primary para superficie verde */
+    --on-destructive: oklch(0.164 0.032 21.209); /* #1a0808 — texto/icone quase-preto sobre --destructive solido no hover (botao excluir do MediaCard) */
+    /*
+     * --shadow-* (US-039): cada box-shadow arbitrario usado em mais de um lugar do
+     * app tinha a cor crua embutida direto na string do utilitario `shadow-[...]`
+     * (rgba, nao hex — por isso nunca aparecia como oferta de token nas stories de
+     * migracao mecanica). Isolar aqui permite usar `shadow-[var(--shadow-x)]` no
+     * componente sem nenhuma cor crua visivel ali. Nomeados por papel (glow de que
+     * token) + indice, nao por pixel exato, porque sao dezenas de combinacoes de
+     * blur/offset distintas para a mesma cor de origem.
+     */
+    --shadow-glow-primary-1: 0 0 0 2px rgba(255,203,43,.25);
+    --shadow-glow-primary-2: 0 0 0 3px rgba(255,203,43,.2);
+    --shadow-glow-primary-3: 0 0 24px rgba(255,203,43,.18);
+    --shadow-elevation-1: 0 10px 26px rgba(0,0,0,.35);
+    --shadow-glow-primary-4: 0 10px 26px rgba(255,203,43,.34);
+    --shadow-glow-primary-5: 0 10px 32px rgba(255,203,43,.4);
+    --shadow-glow-primary-6: 0 14px 34px rgba(255,203,43,.45);
+    --shadow-elevation-2: 0 16px 40px -12px rgba(0,0,0,.5);
+    --shadow-glow-primary-7: 0 16px 40px -12px rgba(255,203,43,.45);
+    --shadow-elevation-3: 0 16px 40px rgba(0,0,0,.5);
+    --shadow-elevation-4: 0 18px 40px rgba(0,0,0,.5);
+    --shadow-elevation-5: 0 20px 50px rgba(0,0,0,.5);
+    --shadow-elevation-6: 0 24px 60px rgba(0,0,0,.5);
+    --shadow-elevation-7: 0 2px 8px rgba(0,0,0,.5);
+    --shadow-elevation-8: 0 30px 70px rgba(0,0,0,.45);
+    --shadow-elevation-9: 0 30px 80px -20px rgba(0,0,0,.6);
+    --shadow-elevation-10: 0 30px 80px rgba(0,0,0,.6);
+    --shadow-glow-primary-8: 0 4px 14px rgba(255,203,43,.35);
+    --shadow-glow-primary-9: 0 4px 14px rgba(255,203,43,.4);
+    --shadow-glow-primary-10: 0 4px 20px rgba(255,203,43,.35);
+    --shadow-glow-destructive-1: 0 6px 20px rgba(255,107,107,.15);
+    --shadow-glow-primary-11: 0 6px 20px rgba(255,203,43,.15);
+    --shadow-glow-primary-12: 0 6px 20px rgba(255,203,43,.35);
+    --shadow-glow-coral-1: 0 6px 20px rgba(255,92,71,.15);
+    --shadow-glow-success-1: 0 6px 20px rgba(61,220,151,.15);
+    --shadow-glow-primary-13: 0 8px 22px rgba(255,203,43,.35);
+    --shadow-glow-primary-14: 0 0 0 4px rgba(255,203,43,.3);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
     --chart-1: oklch(0.87 0 0);
@@ -145,6 +236,35 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+ * Gradientes de duas cores que viviam inteiros dentro de um unico utilitario
+ * arbitrario `bg-[linear-gradient(...)]` (US-039): um `bg-[...]` e indivisivel,
+ * entao nao da para converter "so metade" para um modifier de opacidade do
+ * Tailwind (`bg-coral/55`) quando o outro stop do gradiente e outro token ou
+ * `transparent` — precisava sair inteiro da className. Nomeados pelo papel
+ * visual (regua/divisor entre secoes), nao pelo pixel exato.
+ */
+.bg-coral-fade-h {
+  background: linear-gradient(90deg, transparent, rgba(255, 92, 71, 0.55));
+}
+.bg-primary-fade-h {
+  background: linear-gradient(90deg, transparent, rgba(255, 203, 43, 0.55));
+}
+.bg-primary-fade-h-reverse {
+  background: linear-gradient(90deg, rgba(255, 203, 43, 0.55), transparent);
+}
+.bg-coral-card-wash {
+  background:
+    linear-gradient(180deg, rgba(255, 92, 71, 0.07), rgba(255, 92, 71, 0) 120px),
+    var(--card);
+}
+.bg-coral-divider-v {
+  background: linear-gradient(180deg, rgba(255, 92, 71, 0.5), rgba(255, 203, 43, 0.5));
+}
+.bg-coral-fade-v {
+  background: linear-gradient(180deg, rgba(255, 92, 71, 0.07), transparent);
 }
 
 .no-scrollbar {

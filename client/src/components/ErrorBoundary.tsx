@@ -46,33 +46,33 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#09090a] px-4">
-        <div className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] rounded-[22px] border border-[rgba(255,255,255,.08)] bg-[#161513] px-7 py-10 text-center sm:w-full sm:max-w-[420px]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background px-4">
+        <div className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] rounded-[22px] border border-white/8 bg-card px-7 py-10 text-center sm:w-full sm:max-w-[420px]">
           <div aria-hidden="true" className="mb-3 text-[44px]">
             🎞️
           </div>
-          <h1 className="font-display mb-2 text-xl font-bold text-[#f6f4ec]">
+          <h1 className="font-display mb-2 text-xl font-bold text-foreground">
             Foi mal, algo quebrou do nosso lado
           </h1>
-          <p className="font-auth-body mb-6 text-sm leading-relaxed text-[#a6a39a]">
+          <p className="font-auth-body mb-6 text-sm leading-relaxed text-muted-foreground">
             Não foi nada que vocês fizeram. Já ficamos sabendo — recarregar a página costuma
             resolver.
           </p>
           <button
             type="button"
             onClick={this.handleReload}
-            className="font-auth-body w-full cursor-pointer rounded-xl bg-[#ffcb2b] px-6 py-3 text-sm font-bold text-[#1c1a17]"
+            className="font-auth-body w-full cursor-pointer rounded-xl bg-primary px-6 py-3 text-sm font-bold text-on-primary"
           >
             Recarregar a página
           </button>
           <a
             href="/"
-            className="font-auth-body mt-4 inline-block text-xs text-[#a6a39a] underline underline-offset-2"
+            className="font-auth-body mt-4 inline-block text-xs text-muted-foreground underline underline-offset-2"
           >
             Ir para o início
           </a>
           {this.state.correlationId && (
-            <p className="font-auth-body mt-6 text-[11px] text-[rgba(166,163,154,.7)]">
+            <p className="font-auth-body mt-6 text-[11px] text-muted-foreground/70">
               Código para relatar o problema:{" "}
               <span className="font-mono">{this.state.correlationId}</span>
             </p>

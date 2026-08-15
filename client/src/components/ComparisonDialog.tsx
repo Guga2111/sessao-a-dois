@@ -69,7 +69,7 @@ function CoupleStars({ rating }: { rating: number }) {
   const filled = Math.round(rating)
   return (
     <span className="text-[15px] tracking-[2px]" aria-hidden>
-      <span className="text-[#ffb443]">{"★".repeat(filled)}</span>
+      <span className="text-rating">{"★".repeat(filled)}</span>
       <span className="text-white/15">{"★".repeat(5 - filled)}</span>
     </span>
   )
@@ -130,7 +130,7 @@ function ComparisonColumn({
         </h3>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
           {item.year && <span>{item.year}</span>}
-          <span className="rounded-md border border-primary/25 bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#ffdd7a]">
+          <span className="rounded-md border border-primary/25 bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold text-accent-strong">
             {TYPE_LABEL[item.mediaType]}
           </span>
         </div>
@@ -166,7 +166,7 @@ function ComparisonColumn({
           <div className="flex items-center gap-1.5">
             <span
               className="size-2 rounded-full"
-              style={{ background: "#3ddc97" }}
+              style={{ background: "var(--success)" }}
             />
             <span
               className={cn(
@@ -198,8 +198,8 @@ function ComparisonColumn({
                 className={cn(
                   "rounded-full border px-3 py-0.5 text-[12px]",
                   sharedGenres.has(genre.toLowerCase())
-                    ? "border-primary/25 bg-primary/12 text-[#ffdd7a]"
-                    : "border-border bg-[rgba(255,255,255,.05)] text-[#d6d2c8]"
+                    ? "border-primary/25 bg-primary/12 text-accent-strong"
+                    : "border-border bg-white/5 text-pill-foreground"
                 )}
               >
                 {genre}
@@ -217,7 +217,7 @@ function ComparisonColumn({
           </span>
           <p
             className={cn(
-              "text-[13.5px] leading-relaxed text-[#c4bfb4]",
+              "text-[13.5px] leading-relaxed text-synopsis-foreground",
               !expanded && "line-clamp-4"
             )}
           >
@@ -251,8 +251,8 @@ function ComparisonColumn({
                   className={cn(
                     "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px]",
                     isShared
-                      ? "border-primary/25 bg-primary/12 text-[#ffdd7a]"
-                      : "border-border bg-[rgba(255,255,255,.05)] text-[#d6d2c8]"
+                      ? "border-primary/25 bg-primary/12 text-accent-strong"
+                      : "border-border bg-white/5 text-pill-foreground"
                   )}
                 >
                   {provider.logoUrl ? (
@@ -341,7 +341,7 @@ export function ComparisonDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-[22px] border border-white/10 bg-card p-0 text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:w-full sm:max-w-[880px]"
+        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-[22px] border border-white/10 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[880px]"
       >
         <DialogTitle className="sr-only">Comparar títulos</DialogTitle>
         <DialogDescription className="sr-only">
@@ -350,8 +350,8 @@ export function ComparisonDialog({
             : "Carregando os detalhes dos títulos selecionados para comparação."}
         </DialogDescription>
 
-        <ScrollArea className="max-h-[90svh] **:data-[slot=scroll-area-thumb]:bg-[#2b2920]">
-          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgba(255,255,255,.06)] bg-card/95 px-6 py-5 backdrop-blur-sm">
+        <ScrollArea className="max-h-[90svh] **:data-[slot=scroll-area-thumb]:bg-scrollbar-thumb">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/6 bg-card/95 px-6 py-5 backdrop-blur-sm">
             <div className="min-w-0">
               <div className="text-[12px] font-semibold tracking-[.14em] text-primary uppercase">
                 Comparação
@@ -401,14 +401,14 @@ export function ComparisonDialog({
             {isMobile ? (
               <div className="relative flex items-center gap-3 py-1">
                 <div className="h-px flex-1 bg-white/10" />
-                <span className="grid size-8 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[11px] font-black text-[#111]">
+                <span className="grid size-8 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[11px] font-black text-on-primary">
                   VS
                 </span>
                 <div className="h-px flex-1 bg-white/10" />
               </div>
             ) : (
               <div className="relative w-px flex-none self-stretch bg-white/10">
-                <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-card bg-primary text-[11px] font-black text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]">
+                <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-card bg-primary text-[11px] font-black text-on-primary shadow-[var(--shadow-glow-primary-9)]">
                   VS
                 </span>
               </div>

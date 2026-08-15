@@ -33,9 +33,9 @@ export const NotificationBell = forwardRef<
       <Bell className="size-[18px]" />
       {hasUnread && (
         <>
-          <span className="absolute right-[3px] top-[3px] size-2 animate-ping rounded-full bg-[#ff9e2c] motion-reduce:animate-none" />
+          <span className="absolute right-[3px] top-[3px] size-2 animate-ping rounded-full bg-series motion-reduce:animate-none" />
           <span
-            className="absolute -right-1 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-background bg-gradient-to-b from-primary to-[#ff9e2c] px-1 text-[10px] font-bold leading-none text-[#111]"
+            className="absolute -right-1 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-background bg-gradient-to-b from-primary to-series px-1 text-[10px] font-bold leading-none text-on-primary"
             aria-hidden="true"
           >
             {badgeLabel}

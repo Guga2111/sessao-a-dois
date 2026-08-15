@@ -21,11 +21,12 @@ export function MatchCelebrationModal() {
   return (
     <div
       onClick={closeMatch}
-      className="fixed inset-0 z-[70] grid place-items-center bg-[rgba(8,7,11,.82)] p-5 backdrop-blur-md"
+      className="fixed inset-0 z-[70] grid place-items-center bg-backdrop/82 p-5 backdrop-blur-md"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[400px] animate-in rounded-[24px] border border-[rgba(255,158,44,.35)] bg-gradient-to-b from-[#251e0c] to-card p-9 text-center text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-300 zoom-in-95 fade-in"
+        // color-ok: #251e0c e o stop escuro do gradiente de celebracao do match, ilustrativo (nao e cor de interface reutilizada em outro lugar)
+        className="w-full max-w-[400px] animate-in rounded-[24px] border border-series/35 bg-gradient-to-b from-[#251e0c] to-card p-9 text-center text-foreground shadow-[var(--shadow-elevation-10)] duration-300 zoom-in-95 fade-in"
       >
         <div className="bg-primary bg-clip-text text-[14px] font-extrabold tracking-[.22em] text-transparent uppercase">
           É um Match!
@@ -54,7 +55,7 @@ export function MatchCelebrationModal() {
             type="button"
             variant="default"
             onClick={closeMatch}
-            className="flex-1 rounded-xl border-none bg-primary py-3.5 text-sm font-bold text-[#111]"
+            className="flex-1 rounded-xl border-none bg-primary py-3.5 text-sm font-bold text-on-primary"
           >
             Continuar
           </Button>

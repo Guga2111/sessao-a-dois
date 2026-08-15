@@ -11,11 +11,11 @@ export function LandingHeader() {
   return (
     <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-4 border-b border-white/[0.07] bg-background/72 px-5 py-4 backdrop-blur-xl sm:gap-6 sm:px-8">
       <Link to="/" className="flex min-w-0 items-center gap-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
-        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-primary shadow-[0_6px_20px_rgba(255,203,43,.35)]">
-          <Heart className="size-[18px] fill-current text-[#111]" aria-hidden="true" />
+        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-primary shadow-[var(--shadow-glow-primary-12)]">
+          <Heart className="size-[18px] fill-current text-on-primary" aria-hidden="true" />
         </div>
         <span className="font-display truncate text-[19px] font-bold tracking-tight text-foreground">
-          Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
+          Sessão<span className="text-series">·</span>a·Dois
         </span>
       </Link>
 
@@ -40,7 +40,7 @@ export function LandingHeader() {
         </Link>
         <Link
           to="/register"
-          className="rounded-xl bg-primary px-3.5 py-2 text-sm font-bold whitespace-nowrap text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4"
+          className="rounded-xl bg-primary px-3.5 py-2 text-sm font-bold whitespace-nowrap text-on-primary shadow-[var(--shadow-glow-primary-4)] transition-transform hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4"
         >
           Criar conta
         </Link>

@@ -37,7 +37,7 @@ function LengthHint({ length }: { length: number }) {
           className={
             insideWindow
               ? "h-full rounded-full bg-primary transition-[width] duration-200"
-              : "h-full rounded-full bg-[#6f6c62] transition-[width] duration-200"
+              : "h-full rounded-full bg-tertiary-foreground transition-[width] duration-200"
           }
           style={{ width: `${filled}%` }}
         />
@@ -47,7 +47,7 @@ function LengthHint({ length }: { length: number }) {
           style={{ left: `${minMark}%` }}
         />
       </div>
-      <div id={RANGE_HINT_ID} className="flex justify-between text-xs text-[#6f6c62]">
+      <div id={RANGE_HINT_ID} className="flex justify-between text-xs text-tertiary-foreground">
         <span>
           De {PASSWORD_MIN_LENGTH} a {PASSWORD_MAX_LENGTH} caracteres
         </span>
@@ -204,7 +204,7 @@ export function ResetPasswordPage() {
             placeholder="••••••••"
           />
           {mismatch ? (
-            <span id={CONFIRM_ERROR_ID} className="text-xs text-[#ff9b9b]">
+            <span id={CONFIRM_ERROR_ID} className="text-xs text-destructive-soft">
               As duas senhas ainda não são iguais.
             </span>
           ) : null}
@@ -213,7 +213,7 @@ export function ResetPasswordPage() {
         {error ? (
           <p
             role="alert"
-            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b]"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft"
           >
             {error}
           </p>

@@ -49,7 +49,7 @@ export function Testimonials() {
         {TESTIMONIALS.map((testimonial) => (
           <figure
             key={testimonial.names}
-            className="relative flex flex-col rounded-[20px] border border-[rgba(255,255,255,.07)] bg-card p-6 shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+            className="relative flex flex-col rounded-[20px] border border-white/7 bg-card p-6 shadow-[var(--shadow-elevation-1)]"
           >
             <span
               aria-hidden="true"
@@ -57,7 +57,7 @@ export function Testimonials() {
             >
               &rdquo;
             </span>
-            <blockquote className="font-auth-body relative text-[15px] leading-relaxed text-[#d8d3c5]">
+            <blockquote className="font-auth-body relative text-[15px] leading-relaxed text-label-foreground">
               {testimonial.quote}
             </blockquote>
             <figcaption className="mt-6 flex items-center gap-3">

@@ -48,7 +48,7 @@ function notificationText(notification: Notification, currentUserId?: string): s
 function NotificationIcon({ type }: { type: Notification["type"] }) {
   if (type === "MATCH") {
     return (
-      <div className="grid size-9 flex-none place-items-center rounded-full bg-gradient-to-b from-primary to-[#ff9e2c] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.35)]">
+      <div className="grid size-9 flex-none place-items-center rounded-full bg-gradient-to-b from-primary to-series text-on-primary shadow-[var(--shadow-glow-primary-8)]">
         <Heart className="size-4 fill-current" />
       </div>
     )
@@ -109,12 +109,12 @@ function NotificationItem({
         <p
           className={cn(
             "mt-1 text-[12.5px] leading-snug",
-            notification.read ? "text-[#75726a]" : "text-[#d8d3c5]"
+            notification.read ? "text-caption-foreground" : "text-label-foreground"
           )}
         >
           {notificationText(notification, currentUserId)}
         </p>
-        <div className="mt-1.5 text-[11px] text-[#75726a]">
+        <div className="mt-1.5 text-[11px] text-caption-foreground">
           {relativeTime(notification.createdAt)}
         </div>
       </div>
@@ -150,7 +150,7 @@ export function NotificationDropdown() {
         <PopoverContent
           align="end"
           sideOffset={10}
-          className="flex w-[min(380px,calc(100vw-32px))] flex-col gap-0 rounded-[18px] border border-white/[0.1] bg-card p-0 shadow-[0_24px_60px_rgba(0,0,0,.5)]"
+          className="flex w-[min(380px,calc(100vw-32px))] flex-col gap-0 rounded-[18px] border border-white/[0.1] bg-card p-0 shadow-[var(--shadow-elevation-6)]"
         >
           <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3.5">
             <div className="font-display text-[15px] font-bold tracking-tight text-foreground">

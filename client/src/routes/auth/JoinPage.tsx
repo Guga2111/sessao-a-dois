@@ -109,7 +109,7 @@ export function JoinPage() {
           {notLinkedYet ? (
             <p
               role="alert"
-              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b] text-center"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft text-center"
             >
               Seu par ainda não entrou. Aguarde e tente novamente.
             </p>
@@ -186,7 +186,7 @@ export function JoinPage() {
           {error ? (
             <p
               role="alert"
-              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b]"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft"
             >
               {error}
             </p>
@@ -210,7 +210,7 @@ export function JoinPage() {
           {error ? (
             <p
               role="alert"
-              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-[#ff9b9b]"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft"
             >
               {error}
             </p>

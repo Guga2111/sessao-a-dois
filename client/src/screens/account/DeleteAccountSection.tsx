@@ -43,7 +43,7 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-0">
       <div className="sm:pr-6">
-        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-[#ff8f7c] uppercase">
+        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-coral-chip uppercase">
           Sai com você
         </p>
         <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-foreground">
@@ -51,7 +51,7 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
             <li key={item} className="flex gap-2.5">
               <span
                 aria-hidden="true"
-                className="mt-[7px] h-px w-2.5 flex-none bg-[#ff5c47]"
+                className="mt-[7px] h-px w-2.5 flex-none bg-coral"
               />
               <span>{item}</span>
             </li>
@@ -63,7 +63,7 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
         {/* A regua e a fronteira: coral em cima, ambar embaixo — a propria travessia. */}
         <span
           aria-hidden="true"
-          className="absolute top-0 left-0 hidden h-full w-px bg-[linear-gradient(180deg,rgba(255,92,71,.5),rgba(255,203,43,.5))] sm:block"
+          className="absolute top-0 left-0 hidden h-full w-px bg-coral-divider-v sm:block"
         />
         <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-primary uppercase">
           Fica onde está
@@ -96,7 +96,7 @@ function Latch({ open, label }: { open: boolean; label: string }) {
       className={
         open
           ? "inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary"
-          : "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-[#6f6c62]"
+          : "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-tertiary-foreground"
       }
     >
       <Icon aria-hidden="true" className="size-3" />
@@ -194,23 +194,23 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
   return (
     <div
       onClick={done ? undefined : onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(8,7,11,.72)] p-5 backdrop-blur-md"
+      className="fixed inset-0 z-[60] grid place-items-center bg-backdrop/72 p-5 backdrop-blur-md"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="conta-excluir-dialogo-titulo"
         onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-card text-foreground shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[560px]"
+        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[560px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
-          <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,92,71,.12)] text-[#ff5c47]">
+          <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">
             <Trash2 aria-hidden="true" className="size-5" />
           </div>
           <div className="min-w-0">
             <h2
               id="conta-excluir-dialogo-titulo"
-              className="font-display m-0 text-[20px] font-bold tracking-tight text-[#ffb3a5]"
+              className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground"
             >
               {done ? "Conta excluída." : "Excluir a sua conta?"}
             </h2>
@@ -232,8 +232,8 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
               Sua conta, suas avaliações, suas notificações e todas as suas sessões foram
               apagadas. O histórico de títulos do casal ficou onde estava.
             </p>
-            <p className="m-0 flex items-center gap-2 text-[13px] text-[#6f6c62]">
-              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-[#ff5c47]" />
+            <p className="m-0 flex items-center gap-2 text-[13px] text-tertiary-foreground">
+              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-coral" />
               Levando você para o início…
             </p>
           </div>
@@ -264,7 +264,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                     <p
                       id={PASSWORD_ERROR_ID}
                       role="alert"
-                      className="m-0 text-[13px] text-[#ff8f7c]"
+                      className="m-0 text-[13px] text-coral-chip"
                     >
                       {passwordError}
                     </p>
@@ -286,7 +286,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                     placeholder={ACCOUNT_DELETE_CONFIRMATION_WORD}
                     className="font-display tracking-[.18em] uppercase"
                   />
-                  <p id={WORD_HINT_ID} className="m-0 text-[12px] text-[#6f6c62]">
+                  <p id={WORD_HINT_ID} className="m-0 text-[12px] text-tertiary-foreground">
                     A palavra existe para que ninguém apague uma conta sem querer.
                   </p>
                 </label>
@@ -303,7 +303,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
               {formError ? (
                 <p
                   role="alert"
-                  className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+                  className="m-0 rounded-[12px] border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
                 >
                   {formError}
                 </p>
@@ -323,7 +323,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                   type="button"
                   onClick={handleConfirm}
                   disabled={!canSubmit}
-                  className="flex-[1.4] rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.12)] py-3.5 text-sm font-bold text-[#ff5c47] shadow-[0_6px_20px_rgba(255,92,71,.15)] hover:bg-[rgba(255,92,71,.18)] disabled:opacity-45"
+                  className="flex-[1.4] rounded-xl border border-coral/35 bg-coral/12 py-3.5 text-sm font-bold text-coral shadow-[var(--shadow-glow-coral-1)] hover:bg-coral/18 disabled:opacity-45"
                 >
                   {working ? (
                     <>
@@ -355,7 +355,7 @@ export function DeleteAccountSection() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-[#6f6c62]">
+        <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-tertiary-foreground">
           A exclusão pede a sua senha e mais uma confirmação digitada. Antes de concluir,
           a tela lista o que sai com você e o que fica onde está.
         </p>
@@ -363,7 +363,7 @@ export function DeleteAccountSection() {
           type="button"
           variant="ghost"
           onClick={() => setConfirming(true)}
-          className="rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.1)] text-sm font-bold text-[#ff5c47] hover:bg-[rgba(255,92,71,.18)]"
+          className="rounded-xl border border-coral/35 bg-coral/10 text-sm font-bold text-coral hover:bg-coral/18"
         >
           Excluir minha conta
         </Button>

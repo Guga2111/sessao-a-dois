@@ -51,7 +51,7 @@ export function HowItWorks() {
           return (
             <div key={step.title} className="relative flex flex-col items-center text-center sm:items-start sm:text-left">
               <div className="relative z-10 flex items-center gap-3">
-                <div className="grid size-14 flex-none place-items-center rounded-2xl border border-primary/25 bg-card shadow-[0_10px_26px_rgba(0,0,0,.35)]">
+                <div className="grid size-14 flex-none place-items-center rounded-2xl border border-primary/25 bg-card shadow-[var(--shadow-elevation-1)]">
                   <Icon className="size-6 text-primary" aria-hidden="true" />
                 </div>
                 <span

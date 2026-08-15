@@ -86,7 +86,7 @@ export function SuggestionsTab() {
     return (
       <div className="flex flex-col items-center">
         <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
-          <div className="overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-card">
+          <div className="overflow-hidden rounded-[22px] border border-white/7 bg-card">
             <Skeleton className="aspect-[2/3] rounded-none" />
           </div>
 
@@ -170,7 +170,7 @@ export function SuggestionsTab() {
                   className={cn(
                     "cursor-pointer overflow-hidden rounded-[16px] border bg-card transition-colors",
                     isSelected
-                      ? "border-2 border-primary shadow-[0_0_24px_rgba(255,203,43,.18)]"
+                      ? "border-2 border-primary shadow-[var(--shadow-glow-primary-3)]"
                       : "border-dashed border-white/20 hover:border-white/35"
                   )}
                 >
@@ -199,7 +199,7 @@ export function SuggestionsTab() {
                       {TYPE_LABEL[item.mediaType]}
                     </div>
                     {isSelected && (
-                      <div className="absolute top-2 right-2 grid size-6 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[12px] font-black text-[#111]">
+                      <div className="absolute top-2 right-2 grid size-6 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[12px] font-black text-on-primary">
                         {order}
                       </div>
                     )}
@@ -220,7 +220,7 @@ export function SuggestionsTab() {
         <div className="flex flex-col items-center">
           <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
             <div
-              className="cursor-pointer overflow-hidden rounded-[22px] border border-[rgba(255,255,255,.07)] bg-card transition-shadow hover:shadow-[0_0_0_2px_rgba(255,203,43,.25)]"
+              className="cursor-pointer overflow-hidden rounded-[22px] border border-white/7 bg-card transition-shadow hover:shadow-[var(--shadow-glow-primary-1)]"
               onClick={() => setDetailItem(current)}
             >
               <div
@@ -272,7 +272,7 @@ export function SuggestionsTab() {
                 size="icon-lg"
                 onClick={handleLike}
                 disabled={actionLoading}
-                className="size-14 rounded-full border border-[rgba(61,220,151,.3)] bg-[rgba(61,220,151,.08)] text-[#3ddc97] hover:bg-[rgba(61,220,151,.16)]"
+                className="size-14 rounded-full border border-success/30 bg-success/8 text-success hover:bg-success/16"
               >
                 <Heart className="size-6" strokeWidth={2.5} />
               </Button>

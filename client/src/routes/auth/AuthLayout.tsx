@@ -31,18 +31,18 @@ export function AuthLayout({
           className="mb-8 flex items-center gap-3 no-underline"
         >
           <span
-            className="grid size-10 place-items-center rounded-xl bg-primary shadow-[0_6px_20px_rgba(255,203,43,.35)]"
+            className="grid size-10 place-items-center rounded-xl bg-primary shadow-[var(--shadow-glow-primary-12)]"
             aria-hidden
           >
-            <Heart className="size-[18px] fill-current text-[#111]" />
+            <Heart className="size-[18px] fill-current text-on-primary" />
           </span>
           <span className="font-display text-[19px] font-bold tracking-tight text-foreground">
-            Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
+            Sessão<span className="text-series">·</span>a·Dois
           </span>
         </Link>
 
-        <div className="w-full rounded-3xl border border-white/[0.08] bg-white/[0.045] p-8 shadow-[0_30px_80px_-20px_rgba(0,0,0,.6)] backdrop-blur-2xl sm:p-9">
-          <p className="text-xs font-semibold tracking-[0.16em] text-[#ff9e2c] uppercase">
+        <div className="w-full rounded-3xl border border-white/[0.08] bg-white/[0.045] p-8 shadow-[var(--shadow-elevation-9)] backdrop-blur-2xl sm:p-9">
+          <p className="text-xs font-semibold tracking-[0.16em] text-series uppercase">
             {eyebrow}
           </p>
           <h1 className="font-display mt-2 text-2xl font-bold tracking-tight text-balance sm:text-[28px]">

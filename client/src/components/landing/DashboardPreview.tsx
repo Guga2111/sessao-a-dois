@@ -49,7 +49,7 @@ function KpiTeaser({
   suffix: string
 }) {
   return (
-    <div className="rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-5.5">
+    <div className="rounded-[18px] border border-white/7 bg-card p-5.5">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
         <span style={{ color: iconColor }}>{icon}</span> {label}
       </div>
@@ -90,15 +90,15 @@ export function DashboardPreview() {
         />
         <KpiTeaser
           icon={<Clapperboard className="size-3.5" aria-hidden="true" />}
-          iconColor="#ff9e2c"
+          iconColor="var(--series)"
           label="Filmes vs Séries"
           value={`${MOVIE_PERCENTAGE}%`}
           suffix="filmes"
         />
 
-        <div className="rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-5.5 sm:col-span-2 lg:col-span-1">
+        <div className="rounded-[18px] border border-white/7 bg-card p-5.5 sm:col-span-2 lg:col-span-1">
           <div className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
-            <Sparkles className="size-3.5 text-[#3ddc97]" aria-hidden="true" />
+            <Sparkles className="size-3.5 text-success" aria-hidden="true" />
             Gêneros favoritos
           </div>
           <div className="mt-4 flex flex-col gap-3">
@@ -110,7 +110,7 @@ export function DashboardPreview() {
                 </div>
                 <div className="h-[8px] rounded-[20px] bg-white/[0.06]">
                   <div
-                    className="h-full rounded-[20px] bg-[#3ddc97] motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out"
+                    className="h-full rounded-[20px] bg-success motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out"
                     style={{ width: revealed ? `${genre.percentage}%` : "0%" }}
                   />
                 </div>
@@ -120,7 +120,7 @@ export function DashboardPreview() {
         </div>
       </div>
 
-      <div className="mt-4.5 rounded-[18px] border border-[rgba(255,255,255,.07)] bg-card p-5.5">
+      <div className="mt-4.5 rounded-[18px] border border-white/7 bg-card p-5.5">
         <div className="mb-3 flex items-center justify-between text-[13px] font-semibold text-muted-foreground">
           <span>Filmes vs Séries</span>
           <span>{MOVIE_PERCENTAGE}% · {TV_PERCENTAGE}%</span>
@@ -131,7 +131,7 @@ export function DashboardPreview() {
             style={{ width: revealed ? `${MOVIE_PERCENTAGE}%` : "0%" }}
           />
           <div
-            className="bg-[#ff9e2c] motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out motion-safe:delay-100"
+            className="bg-series motion-safe:transition-[width] motion-safe:duration-700 motion-safe:ease-out motion-safe:delay-100"
             style={{ width: revealed ? `${TV_PERCENTAGE}%` : "0%" }}
           />
         </div>
