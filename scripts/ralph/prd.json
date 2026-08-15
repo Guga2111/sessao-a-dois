@@ -1007,8 +1007,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 48,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Wrapper migrado para o primitivo Dialog (client/src/components/ui/dialog.tsx), mesmo padrao de WatchModal.tsx/ReviewModal.tsx (US-046/US-047): Dialog open={matchOpen && matchData !== null} onOpenChange, DialogContent showCloseButton={false} com className preservando o visual original (gradiente from-[#251e0c] to-card, border-series/35, rounded-3xl, shadow-elevation-10, p-9 text-center) mais overrides gap-0/ring-0 (o layout original usava so margens manuais, nao gap implicito do grid do DialogContent) e z-[70] (preservando o z-index original, mais alto que os modais hand-rolled ainda pendentes em DeleteAccountSection/CoupleSection, que ficam em z-[60] — sem o override o Match passaria a renderizar atras deles se abertos ao mesmo tempo). DialogTitle/DialogDescription sr-only adicionados (o h2/p visiveis ja cobrem o conteudo, mesmo padrao nao-visivel usado em TitleModal/WatchModal). O h2 do titulo usa matchData?.title (era matchData.title) porque closeMatch() zera matchOpen e matchData no mesmo set() do Zustand — o mesmo formato de guarda opcional ja aceito em RatingRequestDialog.tsx (title={ratingRequest?.title ?? \"\"} no NotificationDropdown), nao uma correcao nova. onClick=stopPropagation e o backdrop fixed inset-0 proprios foram removidos - clique fora/Escape agora vem do primitivo. Nenhuma mudanca de bug de fechamento: o hand-rolled ja fechava com clique fora (onClick no backdrop) e nao tinha handler de Escape - o primitivo ADICIONA fechar por Escape, que e uma correcao de comportamento ausente (nao um bug ativo), registrada em progress.txt. Verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, D19)."
     },
     {
       "id": "US-049",
