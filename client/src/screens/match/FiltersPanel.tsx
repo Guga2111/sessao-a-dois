@@ -278,14 +278,15 @@ export function FiltersPanel({
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/10 pt-5">
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={handleClearFilters}
             disabled={activeFilterCount === 0}
-            className="text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-auto p-0 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground hover:no-underline disabled:cursor-not-allowed disabled:opacity-40"
           >
             Limpar tudo
-          </button>
+          </Button>
           <Button
             type="button"
             onClick={handleApplyFilters}

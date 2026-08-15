@@ -1,6 +1,7 @@
 import { forwardRef } from "react"
 import { Bell } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useNotificationStore } from "@/stores/useNotificationStore"
 
@@ -17,9 +18,11 @@ export const NotificationBell = forwardRef<
     : "Notificações"
 
   return (
-    <button
+    <Button
       ref={ref}
       type="button"
+      variant="ghost"
+      size="icon"
       aria-label={ariaLabel}
       className={cn(
         "relative grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-muted-foreground transition-colors hover:bg-white/[0.09] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
@@ -39,6 +42,6 @@ export const NotificationBell = forwardRef<
           </span>
         </>
       )}
-    </button>
+    </Button>
   )
 })

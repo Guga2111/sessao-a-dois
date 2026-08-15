@@ -230,25 +230,28 @@ export function HubScreen() {
               <span className="text-[13.5px] font-semibold text-foreground">
                 {compare.selected.length}/2 selecionados
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={compare.clearSelection}
                 aria-label="Limpar seleção"
                 className="grid size-6 cursor-pointer place-items-center rounded-full bg-white/[0.08] text-muted-foreground transition hover:bg-white/[0.14] hover:text-foreground"
               >
                 <X className="size-3.5" />
-              </button>
+              </Button>
             </div>
             {compare.error && (
               <div className="flex items-center gap-2.5 text-[12.5px] text-destructive-foreground">
                 <span>{compare.error}</span>
-                <button
+                <Button
                   type="button"
+                  variant="link"
                   onClick={compare.retry}
-                  className="cursor-pointer font-semibold text-primary hover:text-accent"
+                  className="h-auto p-0 cursor-pointer font-semibold text-primary hover:text-accent hover:no-underline"
                 >
                   Tentar novamente
-                </button>
+                </Button>
               </div>
             )}
           </div>

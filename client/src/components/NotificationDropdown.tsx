@@ -3,6 +3,7 @@ import { ptBR } from "date-fns/locale"
 import { BellOff, Heart, Star, X } from "lucide-react"
 import { useState } from "react"
 
+import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
@@ -78,11 +79,12 @@ function NotificationItem({
   onSelect: (id: string) => void
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={() => onSelect(notification.id)}
       className={cn(
-        "flex w-full items-start gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-white/[0.05]",
+        "h-auto w-full items-start justify-start gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-white/[0.05]",
         !notification.read && "bg-primary/6"
       )}
     >
@@ -116,7 +118,7 @@ function NotificationItem({
           {relativeTime(notification.createdAt)}
         </div>
       </div>
-    </button>
+    </Button>
   )
 }
 
@@ -155,13 +157,14 @@ export function NotificationDropdown() {
               Notificações
             </div>
             {unreadCount > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => void markAllAsRead()}
-                className="text-[12px] font-semibold text-primary transition-colors hover:text-accent"
+                className="h-auto p-0 text-[12px] font-semibold text-primary transition-colors hover:text-accent hover:no-underline"
               >
                 Marcar todas como lidas
-              </button>
+              </Button>
             )}
           </div>
 
@@ -196,13 +199,14 @@ export function NotificationDropdown() {
               )}
 
               {hasMore && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => void fetchMore()}
-                  className="mt-1 w-full rounded-[10px] py-2.5 text-center text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground"
+                  className="mt-1 h-auto w-full rounded-[10px] py-2.5 text-center text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground"
                 >
                   Ver mais
-                </button>
+                </Button>
               )}
             </div>
           </ScrollArea>

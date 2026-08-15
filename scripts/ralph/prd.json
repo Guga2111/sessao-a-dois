@@ -784,8 +784,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 37,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "As 9 ocorrencias de <button> cru foram substituidas pelo primitivo Button de components/ui/button.tsx: NotificationBell.tsx (1, forwardRef wrapping Button, variant=ghost size=icon), compareUi.tsx (2: botao X Limpar selecao variant=ghost/size=icon, Tentar novamente variant=link), HubScreen.tsx (2: mesmo par X/Tentar novamente duplicado do compareUi, ainda nao compartilhado), FiltersPanel.tsx (1: Limpar tudo variant=link), NotificationDropdown.tsx (3: item de notificacao inteiro variant=ghost h-auto w-full justify-start, Marcar todas como lidas variant=link, Ver mais variant=ghost h-auto w-full). Todas as substituicoes seguiram o padrao ja estabelecido no restante do codebase (TitleModal.tsx trocar: variant=link + h-auto p-0; MediaCard.tsx/RatingRequestDialog.tsx: variant=ghost + h-auto para cancelar a altura fixa h-9 do cva) em vez de estender button.tsx com variante nova - nenhum caso exigiu variante inexistente. variant=link teve hover:no-underline adicionado para cancelar o hover:underline default da variante (o estilo manual anterior nao sublinhava no hover). Diff e apenas troca de tag (button->Button) + prop variant/size + className (h-auto/w-auto adicionados para neutralizar a altura/padding fixos do cva quando o botao original nao tinha esses limites) - zero mudanca de estrutura JSX/handler/aria/disabled/type, confirmado por leitura completa do diff. grep -c \"<button\" retorna 0 nos 5 arquivos."
     },
     {
       "id": "US-038",
