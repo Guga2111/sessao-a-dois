@@ -42,10 +42,10 @@ export function FeatureGrid() {
       className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24"
     >
       <div className="mb-12 text-center sm:mb-16">
-        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-[#ffcb2b] uppercase">
+        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-primary uppercase">
           Recursos
         </span>
-        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-[#f6f4ec]">
+        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-foreground">
           Feito pra ser dos dois, do começo ao fim
         </h2>
       </div>
@@ -61,15 +61,15 @@ export function FeatureGrid() {
           return (
             <div
               key={feature.title}
-              className="rounded-[20px] border border-[rgba(255,255,255,.07)] bg-[#161513] p-6 shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+              className="rounded-[20px] border border-[rgba(255,255,255,.07)] bg-card p-6 shadow-[0_10px_26px_rgba(0,0,0,.35)]"
             >
-              <div className="grid size-12 flex-none place-items-center rounded-2xl border border-[#ffcb2b]/25 bg-[#09090a]">
-                <Icon className="size-5 text-[#ffcb2b]" aria-hidden="true" />
+              <div className="grid size-12 flex-none place-items-center rounded-2xl border border-primary/25 bg-background">
+                <Icon className="size-5 text-primary" aria-hidden="true" />
               </div>
-              <h3 className="font-display mt-5 text-lg font-bold text-[#f6f4ec]">
+              <h3 className="font-display mt-5 text-lg font-bold text-foreground">
                 {feature.title}
               </h3>
-              <p className="font-auth-body mt-2 text-[14px] leading-relaxed text-[#a6a39a]">
+              <p className="font-auth-body mt-2 text-[14px] leading-relaxed text-muted-foreground">
                 {feature.copy}
               </p>
             </div>

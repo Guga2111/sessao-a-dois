@@ -699,8 +699,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 33,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migracao mecanica aplicada (8 substituicoes): text-[#ffcb2b]->text-primary (eyebrow \"Recursos\" + icone), text-[#f6f4ec]->text-foreground (titulo h2 + titulo do card), bg-[#161513]->bg-card (card), border-[#ffcb2b]/25->border-primary/25 (moldura do icone), bg-[#09090a]->bg-background (fundo do icone), text-[#a6a39a]->text-muted-foreground (paragrafo de copy). Leftovers SEM token, deixados intocados (mesma decisao documentada em US-003 a US-032): border-[rgba(255,255,255,.07)] (alpha .07, nao bate com --border que e .1) e shadow-[0_10px_26px_rgba(0,0,0,.35)] (sem --shadow-* token em index.css). Por causa desses dois leftovers, components/landing/FeatureGrid.tsx NAO foi removido de color-migration-allowlist.txt (confirmado via node scripts/check-color-literals.mjs --list-offenders continuando a listar o arquivo) - removê-lo quebraria o gate check:colors da US-002 no CI, mesma justificativa de toda story anterior. Diff e apenas string de className (confirmado por leitura completa do diff - zero mudanca de estrutura JSX/prop/handler/import/logica). typecheck/lint/test:run (119 testes, 14 arquivos)/build/check:colors passam. Verificacao visual em navegador: PENDENTE DE GATE HUMANO (D19, sem browser no sandbox)."
     },
     {
       "id": "US-034",
