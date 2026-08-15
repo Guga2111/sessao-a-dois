@@ -843,8 +843,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 40,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migracao exata aplicada nos 6 arquivos da AC: rounded-[18px]->rounded-2xl (DashboardScreen.tsx x2, ChartSkeleton.tsx, AppShellSkeleton.tsx, DashboardPreview.tsx x3), rounded-[14px]->rounded-xl (Header.tsx x2, AppShellSkeleton.tsx, CoupleSection.tsx x2), rounded-[10px]->rounded-lg (Header.tsx x4, AppShellSkeleton.tsx x3), rounded-[22px]->rounded-3xl (CoupleSection.tsx), rounded-t-[8px]->rounded-t-md preservando a direcao (DashboardScreen.tsx, ChartSkeleton.tsx, rounded-b-[3px] irmao intocado por nao ter equivalencia exata). Valores sem equivalencia exata (20px, 12px, 3px) confirmados intocados por grep pos-edicao: rounded-[20px] (DashboardScreen.tsx x3, DashboardPreview.tsx x3, ChartSkeleton.tsx), rounded-[12px] (CoupleSection.tsx), rounded-[3px] (DashboardScreen.tsx x2, ChartSkeleton.tsx). Diff e somente string de utilitario de raio, confirmado por leitura completa do diff. typecheck/lint/test:run (119 testes)/build/check:colors passam. Verificacao visual em navegador: PENDENTE DE GATE HUMANO (D19, sem browser no sandbox)."
     },
     {
       "id": "US-041",

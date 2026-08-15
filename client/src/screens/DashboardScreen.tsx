@@ -34,7 +34,7 @@ function ChartCard({
 }) {
   return (
     <div
-      className={`rounded-[18px] border border-white/7 bg-card p-6 ${className ?? ""}`}
+      className={`rounded-2xl border border-white/7 bg-card p-6 ${className ?? ""}`}
     >
       <h3 className="font-display m-0 text-[17px]">{title}</h3>
       {children}
@@ -63,7 +63,7 @@ function MonthlyBarsChart({ monthlySeries }: { monthlySeries: MonthlyStatDto[] }
             >
               <span className="text-[12px] text-muted-foreground">{m.count}</span>
               <div
-                className="w-full rounded-t-[8px] rounded-b-[3px] bg-primary"
+                className="w-full rounded-t-md rounded-b-[3px] bg-primary"
                 style={{ height: `${Math.max((m.count / maxCount) * 100, 2)}%` }}
               />
               <span className="text-[12px] text-muted-foreground">
@@ -184,7 +184,7 @@ function KpiCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-[18px] border border-white/7 bg-card p-5.5">
+    <div className="rounded-2xl border border-white/7 bg-card p-5.5">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
         <span style={{ color: iconColor }}>{icon}</span> {label}
       </div>

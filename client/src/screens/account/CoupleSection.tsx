@@ -140,7 +140,7 @@ function DissolveDialog({
         aria-modal="true"
         aria-labelledby="conta-casal-dialogo-titulo"
         onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[460px]"
+        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-3xl border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[460px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">
@@ -228,7 +228,7 @@ function EmptyBond({ couple }: { couple: Couple | null }) {
   const waitingForPartner = couple !== null && couple.partner === null
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-dashed border-white/10 px-4 py-4 sm:px-5">
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed border-white/10 px-4 py-4 sm:px-5">
       <div className="flex min-w-0 items-center gap-3.5">
         <div
           aria-hidden="true"
@@ -284,7 +284,7 @@ export function CoupleSection() {
   return (
     <>
       <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-center gap-4 rounded-[14px] border border-white/[0.07] bg-white/[0.02] px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-4 sm:px-5">
           <CoupleAvatars
             userInitial={initialOf(user?.name)}
             partnerInitial={initialOf(partner.name)}

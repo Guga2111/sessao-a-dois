@@ -35,7 +35,7 @@ export function Header() {
         </div>
       </div>
 
-      <nav className="hidden items-center gap-1.5 rounded-[14px] border border-white/[0.06] bg-white/[0.05] p-1.5 md:flex">
+      <nav className="hidden items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.05] p-1.5 md:flex">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -43,7 +43,7 @@ export function Header() {
             end={item.to === "/hub"}
             className={({ isActive }) =>
               cn(
-                "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors",
+                "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
                 isActive
                   ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                   : "text-muted-foreground hover:text-foreground"
@@ -81,7 +81,7 @@ export function Header() {
           aria-label="Conta"
           className={({ isActive }) =>
             cn(
-              "hidden size-9.5 flex-none place-items-center rounded-[10px] border transition-colors md:grid",
+              "hidden size-9.5 flex-none place-items-center rounded-lg border transition-colors md:grid",
               isActive
                 ? "border-transparent bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                 : "border-white/[0.06] bg-white/[0.05] text-muted-foreground hover:bg-white/[0.09] hover:text-foreground"
@@ -109,13 +109,13 @@ function MobileNav() {
         onClick={() => setMenuOpen((open) => !open)}
         aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
         aria-expanded={menuOpen}
-        className="size-9.5 flex-none rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-foreground transition-colors hover:bg-white/[0.09]"
+        className="size-9.5 flex-none rounded-lg border border-white/[0.06] bg-white/[0.05] text-foreground transition-colors hover:bg-white/[0.09]"
       >
         {menuOpen ? <X size={19} /> : <Menu size={19} />}
       </Button>
 
       {menuOpen && (
-        <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-[14px] border border-white/[0.08] bg-nav-surface p-1.5 shadow-[var(--shadow-elevation-3)]">
+        <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-xl border border-white/[0.08] bg-nav-surface p-1.5 shadow-[var(--shadow-elevation-3)]">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -124,7 +124,7 @@ function MobileNav() {
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors",
                   isActive
                     ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                     : "text-muted-foreground hover:text-foreground"
@@ -143,7 +143,7 @@ function MobileNav() {
             onClick={() => setMenuOpen(false)}
             className={({ isActive }) =>
               cn(
-                "inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
+                "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors",
                 isActive
                   ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
                   : "text-muted-foreground hover:text-foreground"

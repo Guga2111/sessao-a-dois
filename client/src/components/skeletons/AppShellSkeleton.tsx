@@ -14,10 +14,10 @@ export function AppShellSkeleton() {
           <Skeleton className="size-9.5 flex-none rounded-xl" />
           <Skeleton className="h-5 w-36" />
         </div>
-        <div className="hidden items-center gap-1.5 rounded-[14px] border border-white/[0.06] bg-white/[0.05] p-1.5 md:flex">
-          <Skeleton className="h-9 w-28 rounded-[10px]" />
-          <Skeleton className="h-9 w-20 rounded-[10px]" />
-          <Skeleton className="h-9 w-24 rounded-[10px]" />
+        <div className="hidden items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.05] p-1.5 md:flex">
+          <Skeleton className="h-9 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-20 rounded-lg" />
+          <Skeleton className="h-9 w-24 rounded-lg" />
         </div>
         <div className="flex flex-1 items-center justify-end gap-3">
           <Skeleton className="size-9 rounded-full" />
@@ -30,7 +30,7 @@ export function AppShellSkeleton() {
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-[18px]" />
+            <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
       </main>

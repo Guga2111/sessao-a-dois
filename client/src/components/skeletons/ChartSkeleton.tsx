@@ -7,7 +7,7 @@ function BarsBody() {
     <div className="mt-5.5 flex h-[200px] items-end gap-2 pt-2.5 sm:gap-3 md:gap-5">
       {BAR_HEIGHTS.map((height, i) => (
         <div key={i} className="flex h-full flex-1 flex-col items-end justify-end gap-2.5">
-          <Skeleton className="w-full rounded-t-[8px] rounded-b-[3px]" style={{ height }} />
+          <Skeleton className="w-full rounded-t-md rounded-b-[3px]" style={{ height }} />
         </div>
       ))}
     </div>
@@ -56,7 +56,7 @@ interface ChartSkeletonProps {
 export function ChartSkeleton({ variant = "bars", className }: ChartSkeletonProps) {
   return (
     <div
-      className={`rounded-[18px] border border-white/7 bg-card p-6 ${className ?? ""}`}
+      className={`rounded-2xl border border-white/7 bg-card p-6 ${className ?? ""}`}
     >
       <Skeleton className="h-[17px] w-40" />
       {variant === "bars" && <BarsBody />}

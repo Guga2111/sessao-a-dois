@@ -49,7 +49,7 @@ function KpiTeaser({
   suffix: string
 }) {
   return (
-    <div className="rounded-[18px] border border-white/7 bg-card p-5.5">
+    <div className="rounded-2xl border border-white/7 bg-card p-5.5">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
         <span style={{ color: iconColor }}>{icon}</span> {label}
       </div>
@@ -96,7 +96,7 @@ export function DashboardPreview() {
           suffix="filmes"
         />
 
-        <div className="rounded-[18px] border border-white/7 bg-card p-5.5 sm:col-span-2 lg:col-span-1">
+        <div className="rounded-2xl border border-white/7 bg-card p-5.5 sm:col-span-2 lg:col-span-1">
           <div className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
             <Sparkles className="size-3.5 text-success" aria-hidden="true" />
             Gêneros favoritos
@@ -120,7 +120,7 @@ export function DashboardPreview() {
         </div>
       </div>
 
-      <div className="mt-4.5 rounded-[18px] border border-white/7 bg-card p-5.5">
+      <div className="mt-4.5 rounded-2xl border border-white/7 bg-card p-5.5">
         <div className="mb-3 flex items-center justify-between text-[13px] font-semibold text-muted-foreground">
           <span>Filmes vs Séries</span>
           <span>{MOVIE_PERCENTAGE}% · {TV_PERCENTAGE}%</span>
