@@ -965,8 +965,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 46,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migracao mecanica: WatchModal.tsx trocou o backdrop/wrapper fixed inset-0 proprio pelo primitivo Dialog (mesmo padrao de TitleModal.tsx/RatingRequestDialog.tsx: showCloseButton=false, DialogTitle/DialogDescription sr-only, close button proprio no header). Conteudo interno preservado byte a byte (texto, campos, botoes, ordem) - unico diff fora do involucro e o parametro track->trackId (string|null) passado a WatchModalContent, mudanca mecanica necessaria porque o primitivo agora controla montagem via open ao inves do early-return if(!track) return null que existia antes. O listener de Escape manual (useEffect com document.addEventListener) foi removido - o primitivo ja fecha com Escape/clique-fora/foco preso nativamente, entao NAO havia bug de fechamento a corrigir (o hand-rolled ja fechava com Escape), so codigo duplicado removido. bg-backdrop/72 p-5 backdrop-blur-md proprio virou o backdrop padrao do DialogOverlay (bg-black/80 backdrop-blur-xs, sem passthrough de className - mesma limitacao ja documentada em client/CLAUDE.md para todo Dialog-based modal), unica mudanca visual esperada da troca de involucro. typecheck/lint/test:run(119 testes)/build/check:colors/check:radius passam. Verificacao visual em navegador: PENDENTE DE GATE HUMANO (D19, sem browser no sandbox)."
     },
     {
       "id": "US-047",
