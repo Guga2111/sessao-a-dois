@@ -32,7 +32,7 @@ export function SearchResultCard({
       onClick={() => compareMode && onToggleCompare()}
       aria-pressed={compareMode ? isCompareSelected : undefined}
       className={cn(
-        "overflow-hidden rounded-[18px] border bg-card transition-colors",
+        "overflow-hidden rounded-2xl border bg-card transition-colors",
         compareMode
           ? cn(
               "cursor-pointer",
@@ -112,7 +112,7 @@ export function SearchResultCard({
             }}
             disabled={alreadyTracked || likeState === "loading"}
             className={cn(
-              "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] font-semibold transition-colors",
+              "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-[13px] font-semibold transition-colors",
               likeState === "matched" &&
                 "border-primary/50 bg-primary/16 text-accent-strong",
               likeState === "liked" &&

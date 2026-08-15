@@ -100,7 +100,7 @@ function ComparisonColumn({
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       {/* Poster */}
       <div
-        className="w-full overflow-hidden rounded-[14px]"
+        className="w-full overflow-hidden rounded-xl"
         style={{
           aspectRatio: "2/3",
           background: item.posterUrl ? undefined : posterFallback,
@@ -285,7 +285,7 @@ function ComparisonColumn({
 function ComparisonColumnSkeleton() {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
-      <Skeleton className="w-full rounded-[14px]" style={{ aspectRatio: "2/3" }} />
+      <Skeleton className="w-full rounded-xl" style={{ aspectRatio: "2/3" }} />
       <div className="flex flex-col gap-2">
         <Skeleton className="h-5 w-3/4" />
         <Skeleton className="h-4 w-1/3" />
@@ -341,7 +341,7 @@ export function ComparisonDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-[22px] border border-white/10 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[880px]"
+        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-3xl border border-white/10 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[880px]"
       >
         <DialogTitle className="sr-only">Comparar títulos</DialogTitle>
         <DialogDescription className="sr-only">
@@ -373,7 +373,7 @@ export function ComparisonDialog({
               size="icon-sm"
               onClick={() => onOpenChange(false)}
               aria-label="Fechar comparação"
-              className="mt-0.5 flex-none rounded-[10px] border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
+              className="mt-0.5 flex-none rounded-lg border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
             >
               <X className="size-4.5" />
             </Button>

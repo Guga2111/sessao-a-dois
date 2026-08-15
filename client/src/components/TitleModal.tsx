@@ -203,7 +203,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
     >
       <DialogContent
         showCloseButton={false}
-        className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] gap-0 overflow-visible rounded-[22px] border border-white/10 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[520px]"
+        className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] gap-0 overflow-visible rounded-3xl border border-white/10 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[520px]"
       >
         <DialogTitle className="sr-only">Adicionar Título</DialogTitle>
         <DialogDescription className="sr-only">
@@ -225,7 +225,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
             size="icon-sm"
             onClick={handleClose}
             aria-label="Fechar"
-            className="flex-none rounded-[10px] border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
+            className="flex-none rounded-lg border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
           >
             <X className="size-4.5" />
           </Button>
@@ -326,7 +326,7 @@ export function TitleModal({ open, onClose, onSuccess }: TitleModalProps) {
                       }))
                     }
                     className={cn(
-                      "cursor-pointer rounded-[10px] border px-4 py-2 text-sm font-semibold transition-colors",
+                      "cursor-pointer rounded-lg border px-4 py-2 text-sm font-semibold transition-colors",
                       active
                         ? "border-primary bg-primary text-on-primary"
                         : "border-white/10 bg-transparent text-label-foreground hover:bg-white/[0.06]"

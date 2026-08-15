@@ -863,8 +863,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 41,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Mapeamento exato aplicado nos 8 arquivos da AC: rounded-[22px]->rounded-3xl (PendingDetailModal.tsx, ComparisonDialog.tsx, SuggestionsTab.tsx x2, TitleModal.tsx, DeleteAccountSection.tsx), rounded-[14px]->rounded-xl (PendingDetailModal.tsx, ComparisonDialog.tsx, PasswordSection.tsx), rounded-[18px]->rounded-2xl (NotificationDropdown.tsx, SearchResultCard.tsx), rounded-[10px]->rounded-lg (ComparisonDialog.tsx, TitleModal.tsx x2, NotificationDropdown.tsx, SearchResultCard.tsx). Valores sem equivalencia exata confirmados intocados por grep pos-edicao: rounded-[12px] (PendingDetailModal.tsx x2, NotificationDropdown.tsx, PasswordSection.tsx, DeleteAccountSection.tsx), rounded-[16px] (SuggestionsTab.tsx). Nenhuma variante direcional (rounded-t-/rounded-b-) encontrada nestes 8 arquivos. Diff e somente string de utilitario de raio, confirmado por leitura completa do diff. typecheck/lint/test:run (119 testes)/build passam. Verificacao visual em navegador: PENDENTE DE GATE HUMANO (D19, sem browser no sandbox)."
     },
     {
       "id": "US-042",

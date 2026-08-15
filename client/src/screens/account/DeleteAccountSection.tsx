@@ -201,7 +201,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
         aria-modal="true"
         aria-labelledby="conta-excluir-dialogo-titulo"
         onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[560px]"
+        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-3xl border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[560px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">

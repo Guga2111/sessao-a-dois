@@ -150,7 +150,7 @@ export function NotificationDropdown() {
         <PopoverContent
           align="end"
           sideOffset={10}
-          className="flex w-[min(380px,calc(100vw-32px))] flex-col gap-0 rounded-[18px] border border-white/[0.1] bg-card p-0 shadow-[var(--shadow-elevation-6)]"
+          className="flex w-[min(380px,calc(100vw-32px))] flex-col gap-0 rounded-2xl border border-white/[0.1] bg-card p-0 shadow-[var(--shadow-elevation-6)]"
         >
           <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3.5">
             <div className="font-display text-[15px] font-bold tracking-tight text-foreground">
@@ -203,7 +203,7 @@ export function NotificationDropdown() {
                   type="button"
                   variant="ghost"
                   onClick={() => void fetchMore()}
-                  className="mt-1 h-auto w-full rounded-[10px] py-2.5 text-center text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground"
+                  className="mt-1 h-auto w-full rounded-lg py-2.5 text-center text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground"
                 >
                   Ver mais
                 </Button>

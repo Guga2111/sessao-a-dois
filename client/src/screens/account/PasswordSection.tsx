@@ -164,7 +164,7 @@ export function PasswordSection() {
       <div
         role="status"
         aria-live="polite"
-        className="flex flex-col gap-3 rounded-[14px] border border-primary/25 bg-primary/[0.06] px-5 py-4"
+        className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/[0.06] px-5 py-4"
       >
         <div className="flex items-center gap-2.5">
           <ShieldCheck aria-hidden="true" className="size-5 flex-none text-primary" />

@@ -86,7 +86,7 @@ export function SuggestionsTab() {
     return (
       <div className="flex flex-col items-center">
         <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
-          <div className="overflow-hidden rounded-[22px] border border-white/7 bg-card">
+          <div className="overflow-hidden rounded-3xl border border-white/7 bg-card">
             <Skeleton className="aspect-[2/3] rounded-none" />
           </div>
 
@@ -220,7 +220,7 @@ export function SuggestionsTab() {
         <div className="flex flex-col items-center">
           <div className="w-full max-w-[calc(100vw-32px)] sm:max-w-[280px]">
             <div
-              className="cursor-pointer overflow-hidden rounded-[22px] border border-white/7 bg-card transition-shadow hover:shadow-[var(--shadow-glow-primary-1)]"
+              className="cursor-pointer overflow-hidden rounded-3xl border border-white/7 bg-card transition-shadow hover:shadow-[var(--shadow-glow-primary-1)]"
               onClick={() => setDetailItem(current)}
             >
               <div
