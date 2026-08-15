@@ -902,8 +902,8 @@
         "bun run build passa"
       ],
       "priority": 43,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Decisao registrada como D20 em POST-MVP-TASK.md (tabela 'Decisoes da revisao do Epico 13') e tambem inline na secao T13.6, com a skill frontend-design invocada antes (E13.4). Recomendacao de partida do epico aceita integralmente: (a) snap para 20px x11 e 16px x3 -> rounded-2xl (18px), 24px x1 (MatchCelebrationModal) -> rounded-3xl (22px); (b) estender a escala para 12px x8 (pills de aviso coral + item de notificacao) com um token novo --radius-chip: calc(var(--radius) * 1.2), entre --radius-lg e --radius-xl; (c) manter arbitrario com comentario para os 4 rounded-[3px]/rounded-b-[3px] (confirmados por grep: dois quadradinhos de legenda de grafico 11x11px + canto inferior de barra/skeleton, todos em DashboardScreen.tsx/ChartSkeleton.tsx) - detalhe decorativo, snapar dobraria o raio. Nenhum .tsx foi alterado, so POST-MVP-TASK.md. A implementacao real (editar os .tsx da metade B + adicionar --radius-chip em index.css) fica para uma story futura, que deve citar D20."
     },
     {
       "id": "US-044",

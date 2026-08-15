@@ -48,6 +48,7 @@ são vinculantes da mesma forma.
 | D17 | **Destino do tema claro** (T13.3) | **(a) Assumir dark-only.** Remover o `ThemeProvider`, fixar `.dark` no `<html>`, apagar os tokens `:root` claros não usados. | Fecha a Open Question da T13.3. Remoção pura, dispensada da skill `frontend-design`. Entregar tema claro de verdade continua possível depois — a T13.2 (sem hex fixo) é justamente o que torna isso barato no futuro, mas não é objetivo agora. |
 | D18 | **Ordem da T13.4** (portão de CI) | **Antecipar para logo depois da T13.1**, antes da migração em massa da T13.2, com allowlist dos arquivos ainda não migrados. | Medido: entre 2026-08-06 e 2026-08-13 o hex cresceu 21% e o utilitário arbitrário 33%, sem portão. Sem antecipar, a T13.2 persegue um alvo móvel. Custo: a regra precisa nascer com allowlist e ir encolhendo, em vez de nascer limpa. |
 | D19 | **Verificação visual das stories de UI** | **Gate humano**, não critério automatizável. | O sandbox não tem navegador (limitação já registrada em `client/CLAUDE.md` e nas notas da US-006 do Épico 12). Critérios visuais ficam `- [ ]` com o motivo escrito ao lado, no padrão que este arquivo já usa, e são conferidos pelo mantenedor antes do merge. |
+| D20 | **Destino dos 27 raios sem token exato** (T13.6, metade B — US-043) | Decisão **por grupo de valor**, avaliada com a skill `frontend-design` (E13.4): **(a) snapar** `20px`→`rounded-2xl` (18px), `16px`→`rounded-2xl` (18px) e `24px`→`rounded-3xl` (22px) — 15 usos, diferença ≤2px, imperceptível, e a direção do snap (sempre para o vizinho que já é a família visual do `Card`/modal existente) evita introduzir uma segunda "família" de raio grande. **(b) estender a escala** para `12px` (8 usos): novo token `--radius-chip: calc(var(--radius) * 1.2)` (=12px com a base atual), inserido entre `--radius-lg` (×1.0) e `--radius-xl` (×1.4) — mantém pixel-idêntico porque o salto `lg→xl` é 4px, visível nas pills de aviso coral (`PasswordSection`/`DeleteAccountSection`/`CoupleSection`/`ProfileSection`) e no item de notificação onde o valor aparece. Nome semântico (não `--radius-lg2`) porque o uso é consistentemente "chip"/pill, não um raio de superfície genérica. **(c) manter arbitrário com comentário** para os 4 `rounded-[3px]`/`rounded-b-[3px]` (dois quadradinhos de legenda de gráfico de 11×11px e o canto inferior de barra/skeleton de gráfico, todos em `DashboardScreen.tsx`/`ChartSkeleton.tsx`) — snapar dobraria o raio para `sm`=6px num elemento de 11px, mudança visível; é detalhe decorativo de gráfico, não elemento de UI recorrente, então não justifica um token novo. | A recomendação de partida do épico (linha "Recomendação" da T13.6) foi **aceita integralmente**: (a) para `20px`/`16px`/`24px`, (b) para `12px`, e os quatro `3px` avaliados caso a caso confirmaram a hipótese de "detalhe decorativo" (grep confirmou: são exatamente os 4 usos descritos, todos em contexto de gráfico). A implementação da metade B (edição real dos `.tsx` + o novo token em `index.css`) fica para uma story futura — esta é só a decisão, nenhum `.tsx` foi tocado (US-043 não altera código). Verificação visual tela a tela do resultado de (a)/(b), quando implementado, continua sob D19 (gate humano). |
 
 **Ordem de execução:** Épicos 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8, com a **T8.1 (CI)
 antecipada** para junto do Épico 1. As dependências declaradas por task são as únicas
@@ -2487,6 +2488,22 @@ vizinho move o raio em 1–2px (o `3px` move 3px, dobrando o raio para `sm`=6px)
 (b) para `12px` (8 usos, e `lg`→`xl` é um salto de 4px, visível em elemento pequeno).** Os
 4 `3px` provavelmente são detalhe decorativo (barra/indicador) e merecem olhar caso a caso.
 Decidir na execução, com a skill, e registrar a escolha aqui.
+
+**Decisão registrada (US-043, D20 — ver tabela "Decisões da revisão do Épico 13"):**
+recomendação de partida aceita integralmente, com a skill `frontend-design` invocada antes
+da decisão (E13.4).
+- `20px`×11 e `16px`×3 → **(a)** snapar para `rounded-2xl` (18px).
+- `24px`×1 (`MatchCelebrationModal`) → **(a)** snapar para `rounded-3xl` (22px).
+- `12px`×8 (pills de aviso coral + item de notificação) → **(b)** estender a escala com um
+  token novo, `--radius-chip: calc(var(--radius) * 1.2)`, entre `--radius-lg` e
+  `--radius-xl`.
+- `3px`×4 (confirmados por grep: os dois quadradinhos de legenda de 11×11px e o canto
+  inferior de barra/skeleton, todos em `DashboardScreen.tsx`/`ChartSkeleton.tsx`) →
+  **(c)** manter arbitrário com comentário — snapar dobraria o raio num elemento de 11px.
+
+Esta story (US-043) só registra a decisão — nenhum `.tsx` foi alterado. A implementação
+(edição dos arquivos da metade B + o novo `--radius-chip` em `index.css`) é uma story
+futura, que deve citar D20 e reusar exatamente este mapeamento.
 
 Disciplina de execução para as duas metades: um commit por arquivo (ou grupo pequeno),
 mesma da T13.2. **Fazer a metade A inteira antes da B** — assim 69% do ganho entra como
