@@ -80,9 +80,10 @@ interface DissolveDialogProps {
 }
 
 /**
- * Confirmacao explicita da dissolucao, no mesmo padrao estrutural do `DeleteTrackDialog`
- * (backdrop `fixed inset-0` proprio + Escape), com o peso maior que a acao pede: o dialogo
- * enumera o que acontece antes de oferecer o botao.
+ * Confirmacao explicita da dissolucao, com backdrop `fixed inset-0` proprio + Escape
+ * (US-045 moveu `DeleteTrackDialog` para o primitivo Dialog; este ainda e hand-rolled,
+ * ver US-051), com o peso maior que a acao pede: o dialogo enumera o que acontece antes
+ * de oferecer o botao.
  */
 function DissolveDialog({
   partnerName,
