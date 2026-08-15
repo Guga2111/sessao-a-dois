@@ -19,10 +19,10 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   return (
     <div
-      className="font-auth-body flex min-h-svh items-center justify-center px-5 py-12 text-[#f6f4ec]"
+      className="font-auth-body flex min-h-svh items-center justify-center px-5 py-12 text-foreground"
       style={{
         background:
-          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), #09090a",
+          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), var(--background)",
       }}
     >
       <div className="flex w-full max-w-[440px] flex-col items-center">
@@ -31,12 +31,12 @@ export function AuthLayout({
           className="mb-8 flex items-center gap-3 no-underline"
         >
           <span
-            className="grid size-10 place-items-center rounded-xl bg-[#ffcb2b] shadow-[0_6px_20px_rgba(255,203,43,.35)]"
+            className="grid size-10 place-items-center rounded-xl bg-primary shadow-[0_6px_20px_rgba(255,203,43,.35)]"
             aria-hidden
           >
             <Heart className="size-[18px] fill-current text-[#111]" />
           </span>
-          <span className="font-display text-[19px] font-bold tracking-tight text-[#f6f4ec]">
+          <span className="font-display text-[19px] font-bold tracking-tight text-foreground">
             Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
           </span>
         </Link>
@@ -48,7 +48,7 @@ export function AuthLayout({
           <h1 className="font-display mt-2 text-2xl font-bold tracking-tight text-balance sm:text-[28px]">
             {title}
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-[#a6a39a]">
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {subtitle}
           </p>
 
@@ -56,7 +56,7 @@ export function AuthLayout({
         </div>
 
         {footer ? (
-          <div className="mt-6 text-sm text-[#a6a39a]">{footer}</div>
+          <div className="mt-6 text-sm text-muted-foreground">{footer}</div>
         ) : null}
       </div>
     </div>
