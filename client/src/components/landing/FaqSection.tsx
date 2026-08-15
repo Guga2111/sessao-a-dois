@@ -51,10 +51,10 @@ export function FaqSection() {
       className="mx-auto max-w-3xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24"
     >
       <div className="mb-12 text-center sm:mb-16">
-        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-[#ffcb2b] uppercase">
+        <span className="font-auth-body text-xs font-semibold tracking-[0.14em] text-primary uppercase">
           Perguntas frequentes
         </span>
-        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-[#f6f4ec]">
+        <h2 className="font-display mt-3 text-[clamp(1.75rem,3.5vw,2.5rem)] font-bold text-foreground">
           Antes de criar conta
         </h2>
       </div>
@@ -63,19 +63,19 @@ export function FaqSection() {
         {FAQS.map((faq) => (
           <Collapsible
             key={faq.question}
-            className="rounded-[20px] border border-[rgba(255,255,255,.07)] bg-[#161513] shadow-[0_10px_26px_rgba(0,0,0,.35)]"
+            className="rounded-[20px] border border-[rgba(255,255,255,.07)] bg-card shadow-[0_10px_26px_rgba(0,0,0,.35)]"
           >
-            <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 px-6 py-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffcb2b]">
-              <span className="font-display text-base font-bold text-[#f6f4ec] sm:text-lg">
+            <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 px-6 py-5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+              <span className="font-display text-base font-bold text-foreground sm:text-lg">
                 {faq.question}
               </span>
               <Plus
-                className="size-5 flex-none text-[#ffcb2b] transition-transform duration-200 group-data-[panel-open]:rotate-45"
+                className="size-5 flex-none text-primary transition-transform duration-200 group-data-[panel-open]:rotate-45"
                 aria-hidden="true"
               />
             </CollapsibleTrigger>
             <CollapsibleContent className="h-[var(--collapsible-panel-height)] overflow-hidden transition-[height] duration-200 ease-out data-[starting-style]:h-0 data-[ending-style]:h-0">
-              <p className="font-auth-body px-6 pb-5 text-[14px] leading-relaxed text-[#a6a39a] sm:text-[15px]">
+              <p className="font-auth-body px-6 pb-5 text-[14px] leading-relaxed text-muted-foreground sm:text-[15px]">
                 {faq.answer}
               </p>
             </CollapsibleContent>

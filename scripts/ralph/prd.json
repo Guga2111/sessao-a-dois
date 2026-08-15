@@ -720,8 +720,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 34,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "components/ErrorBoundary.tsx deliberately NOT migrated (AC deviation): this file is mounted in main.tsx outside ThemeProvider, and its own header comment + client/CLAUDE.md (\"Error boundary de topo\" section) document that it must stay on inline arbitrary colors, never theme tokens, because ThemeProvider applies the .dark class via a useEffect - if ThemeProvider itself (or anything it wraps) throws before that effect runs, .dark never gets set and token-driven colors would fall back to the :root (light, dead per D17) values on the one screen that must render correctly no matter what crashed. Migrating it would silently reintroduce that failure mode. Kept in color-migration-allowlist.txt untouched, zero-diff. FaqSection.tsx/NotificationBell.tsx/screens/hub/TrackSection.tsx migrated: all hex/rgba values matching the 8 US-001 tokens converted (bg-primary/text-primary/text-foreground/bg-card/text-muted-foreground/border-background/from-primary/hover:border-primary-40/ outline-primary). Leftover values with no token, left untouched per the standing rule: FaqSection.tsx border-[rgba(255,255,255,.07)] (alpha .07 != --border .10) and shadow-[0_10px_26px_rgba(0,0,0,.35)] (no --shadow-* token exists); NotificationBell.tsx bg-[#ff9e2c]/to-[#ff9e2c] (unread-dot orange, not one of the 8 tokens) and text-[#111] (3-digit hex, badge text, not gated by the regex anyway); TrackSection.tsx text-[13px] x2 (font-size, not a color, matched by the regex prefix but not an actual color per the US-008 nuance). None of the four files could be pulled off color-migration-allowlist.txt (confirmed via node scripts/check-color-literals.mjs --list-offenders from client/, all four still listed) - check:colors gate still passes (54 files, unchanged count)."
     },
     {
       "id": "US-035",
