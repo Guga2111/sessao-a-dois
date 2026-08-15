@@ -4,6 +4,7 @@ import { NavLink, useLocation } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
 import { NotificationDropdown } from "@/components/NotificationDropdown"
+import { Button } from "@/components/ui/button"
 import { daysSince } from "@/lib/date"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -101,15 +102,17 @@ function MobileNav() {
 
   return (
     <div className="relative md:hidden">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => setMenuOpen((open) => !open)}
         aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
         aria-expanded={menuOpen}
-        className="grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-foreground transition-colors hover:bg-white/[0.09]"
+        className="size-9.5 flex-none rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-foreground transition-colors hover:bg-white/[0.09]"
       >
         {menuOpen ? <X size={19} /> : <Menu size={19} />}
-      </button>
+      </Button>
 
       {menuOpen && (
         <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-[14px] border border-white/[0.08] bg-[#141312] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.5)]">

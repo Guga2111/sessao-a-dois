@@ -167,17 +167,19 @@ export function MediaCard({
               </div>
             )
           ) : (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={(event) => {
                 event.stopPropagation()
                 onDelete?.(track)
               }}
               aria-label="Excluir título"
-              className="grid size-6 flex-none cursor-pointer place-items-center rounded-full bg-background/60 text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-destructive/85 hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-destructive"
+              className="flex-none cursor-pointer rounded-full bg-background/60 text-[#d6d2c8] opacity-0 backdrop-blur-md transition duration-150 group-hover:opacity-100 hover:bg-destructive/85 hover:text-[#1a0808] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-destructive"
             >
               <Trash2 className="size-3.5" />
-            </button>
+            </Button>
           )}
         </div>
         {track.status === "WANT_TO_SEE" && !track.posterUrl && (

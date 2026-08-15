@@ -224,13 +224,14 @@ function ComparisonColumn({
             {item.overview}
           </p>
           {item.overview.length > 160 && (
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-1.5 text-[12.5px] font-semibold text-primary hover:text-accent"
+              className="mt-1.5 h-auto p-0 text-[12.5px] font-semibold text-primary hover:text-accent hover:no-underline"
             >
               {expanded ? "Ler menos" : "Ler mais"}
-            </button>
+            </Button>
           )}
         </div>
       )}

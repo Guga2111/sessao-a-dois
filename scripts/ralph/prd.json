@@ -804,8 +804,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 38,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "3 dos 4 <button> migrados para o primitivo Button (MediaCard.tsx: variant=ghost size=icon-xs; Header.tsx MobileNav toggle: variant=ghost size=icon + size-9.5 override; ComparisonDialog.tsx 'Ler mais/menos': variant=link h-auto p-0 hover:no-underline). O 4o, components/ErrorBoundary.tsx, foi DELIBERADAMENTE deixado com <button> cru - desvio de AC documentado: o proprio client/CLAUDE.md ('Error boundary de topo') e o comentario do arquivo dizem que ele monta fora do ThemeProvider e por isso nao pode depender de token de tema, so cor inline; o primitivo Button usa classes base incondicionais amarradas a --ring/--border (nao sobrescritas por variant/className), entao troca-lo reintroduziria exatamente a falha que o componente existe para evitar (token resolvendo contra :root/light morto em vez de .dark, se o crash acontecer antes do ThemeProvider aplicar a classe). AC de grep-count portanto cumprida so para os outros 3 arquivos."
     },
     {
       "id": "US-039",
