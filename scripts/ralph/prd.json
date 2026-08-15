@@ -986,8 +986,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 47,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migracao mecanica para o padrao WatchModal.tsx/RatingRequestDialog.tsx: Dialog+DialogContent(showCloseButton=false, mesma classe de largura/altura/borda/sombra usada nos dois modais irmaos) + DialogTitle/DialogDescription sr-only (\"Reavaliar\"/texto do subtitulo) espelhando o h2/p visiveis internos, mesmo padrao ja usado em WatchModal.tsx. O useEffect com addEventListener(\"keydown\",...) para Escape foi removido - o primitivo Dialog (base-ui) ja fecha por Escape e clique-fora nativamente, entao nao havia bug a corrigir aqui (o listener manual ja funcionava, so ficou redundante). O early-return \"if (!track) return null\" virou open=track!==null no Dialog + renderizacao condicional de ReviewModalContent dentro do DialogContent (mesmo padrao do open/handleOpenChange de WatchModal/RatingRequestDialog), preservando o key={track.id} para resetar o form ao trocar de track. Conteudo interno (header com X de fechar, estrelas, textarea de opiniao, bloco de erro, botoes Cancelar/Salvar avaliacao) OFF-BY-ZERO igual ao anterior - diff e so o involucro. bun run typecheck/lint/test:run(119 testes)/build passam. Verificacao visual em navegador PENDENTE DE GATE HUMANO (D19, sem browser no sandbox)."
     },
     {
       "id": "US-048",
