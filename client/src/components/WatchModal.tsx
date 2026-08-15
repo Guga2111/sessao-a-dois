@@ -71,7 +71,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[420px]"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-3xl border border-white/10 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 p-6 pb-5">
@@ -89,7 +89,7 @@ function WatchModalContent({ track, onClose, onSuccess }: WatchModalContentProps
             size="icon-sm"
             onClick={onClose}
             aria-label="Fechar"
-            className="flex-none rounded-[10px] border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
+            className="flex-none rounded-lg border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
           >
             <X className="size-4.5" />
           </Button>

@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background px-4">
-        <div className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] rounded-[22px] border border-white/8 bg-card px-7 py-10 text-center sm:w-full sm:max-w-[420px]">
+        <div className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] rounded-3xl border border-white/8 bg-card px-7 py-10 text-center sm:w-full sm:max-w-[420px]">
           <div aria-hidden="true" className="mb-3 text-[44px]">
             🎞️
           </div>

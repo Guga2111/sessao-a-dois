@@ -40,7 +40,7 @@ export function RatingRequestDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card p-6 text-foreground shadow-[var(--shadow-elevation-10)] sm:w-full sm:max-w-[420px]"
+        className="w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-3xl border border-white/10 bg-card p-6 text-foreground shadow-[var(--shadow-elevation-10)] sm:w-full sm:max-w-[420px]"
       >
         <DialogHeader className="gap-1">
           <DialogTitle className="font-display text-[20px] font-bold tracking-tight text-foreground">

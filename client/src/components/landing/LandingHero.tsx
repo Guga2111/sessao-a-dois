@@ -55,7 +55,7 @@ export function LandingHero() {
 
       <div
         aria-hidden="true"
-        className="w-full max-w-[420px] justify-self-center rounded-[22px] border border-white/[0.07] bg-card p-4 shadow-[var(--shadow-elevation-8)] sm:p-5 md:justify-self-end"
+        className="w-full max-w-[420px] justify-self-center rounded-3xl border border-white/[0.07] bg-card p-4 shadow-[var(--shadow-elevation-8)] sm:p-5 md:justify-self-end"
       >
         <div className="flex items-center justify-between gap-3 px-1 pb-4">
           <div className="flex items-center gap-2.5">
@@ -79,7 +79,7 @@ export function LandingHero() {
             <div
               key={item.title}
               // color-ok: #0f0e0c e o fundo decorativo do mockup de poster da preview da landing (ilustracao, nao cor de interface)
-              className="overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#0f0e0c]"
+              className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#0f0e0c]"
             >
               {/* color-ok: #1a1816 e o fundo decorativo do mockup de poster da preview da landing (ilustracao, nao cor de interface) */}
               <div className="relative aspect-3/4 overflow-hidden bg-[#1a1816]">

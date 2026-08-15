@@ -158,7 +158,7 @@ export function MediaDetailModal({
       style={{ background: "rgba(9,9,10,.82)", backdropFilter: "blur(12px)" }}
     >
       <div
-        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-[22px] border border-white/8 text-foreground sm:w-full sm:max-w-[900px]"
+        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-3xl border border-white/8 text-foreground sm:w-full sm:max-w-[900px]"
         style={{
           background:
             "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), var(--card)",
@@ -220,7 +220,7 @@ export function MediaDetailModal({
           {/* Poster */}
           <div className="flex-none sm:w-[200px]">
             <div
-              className="w-full overflow-hidden rounded-[14px]"
+              className="w-full overflow-hidden rounded-xl"
               style={{
                 aspectRatio: "3/4",
                 background:

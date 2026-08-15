@@ -74,7 +74,7 @@ function DeleteTrackDialogContent({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-[22px] border border-white/10 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[420px]"
+        className="animate-in fade-in zoom-in-95 w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto rounded-3xl border border-white/10 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[420px]"
       >
         <div className="flex items-start gap-4 p-6 pb-5">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-destructive/12 text-destructive">

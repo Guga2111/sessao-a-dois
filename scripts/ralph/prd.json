@@ -883,8 +883,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 42,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Mapeamento exato aplicado nos 22 arquivos da AC: rounded-[22px]->rounded-3xl (DeleteTrackDialog.tsx, ErrorBoundary.tsx, MediaDetailModal.tsx, RatingRequestDialog.tsx, ReviewModal.tsx, WatchModal.tsx, LandingHero.tsx), rounded-[18px]->rounded-2xl (MediaCard.tsx, KpiCardSkeleton.tsx, MediaCardSkeleton.tsx, AccountSection.tsx), rounded-[14px]->rounded-xl (MediaDetailModal.tsx, LandingHero.tsx, DetailModalSkeleton.tsx), rounded-[10px]->rounded-lg (MediaCard.tsx, NotificationBell.tsx, ReviewModal.tsx, WatchModal.tsx, LandingHeader.tsx, AccountScreen.tsx). Nenhum rounded-[8px] encontrado nestes 22 arquivos. Valores sem equivalencia exata confirmados intocados por grep pos-edicao: rounded-[24px] (MatchCelebrationModal.tsx), rounded-[20px] (FaqSection.tsx, HubScreen.tsx, Testimonials.tsx, FeatureGrid.tsx), rounded-[16px] (MatchShowcase.tsx x2), rounded-[12px] (NotificationRowSkeleton.tsx, ProfileSection.tsx). Nenhuma variante direcional (rounded-t-/rounded-b-) encontrada nestes 22 arquivos. Diff e somente string de utilitario de raio, confirmado por leitura completa do diff. typecheck/lint/test:run (119 testes)/build passam. Verificacao visual em navegador: PENDENTE DE GATE HUMANO (D19, sem browser no sandbox). Com isto, as 3 partes da migracao de raio exato (US-040/041/042) estao completas."
     },
     {
       "id": "US-043",

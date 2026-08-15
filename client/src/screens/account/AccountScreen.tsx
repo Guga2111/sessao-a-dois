@@ -81,7 +81,7 @@ export function AccountScreen() {
                 <li key={section.id}>
                   <a
                     href={`#${section.id}`}
-                    className="flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                   >
                     <span
                       aria-hidden="true"

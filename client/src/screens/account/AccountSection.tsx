@@ -54,7 +54,7 @@ export function AccountSection({
       id={id}
       aria-labelledby={`${id}-title`}
       className={cn(
-        "scroll-mt-28 rounded-[18px] border p-6 sm:p-7",
+        "scroll-mt-28 rounded-2xl border p-6 sm:p-7",
         destructive
           ? "border-coral/28 bg-coral-card-wash"
           : "border-white/7 bg-card"

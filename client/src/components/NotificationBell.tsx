@@ -25,7 +25,7 @@ export const NotificationBell = forwardRef<
       size="icon"
       aria-label={ariaLabel}
       className={cn(
-        "relative grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-muted-foreground transition-colors hover:bg-white/[0.09] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+        "relative grid size-9.5 flex-none place-items-center rounded-lg border border-white/[0.06] bg-white/[0.05] text-muted-foreground transition-colors hover:bg-white/[0.09] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
         className
       )}
       {...props}

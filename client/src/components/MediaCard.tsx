@@ -122,7 +122,7 @@ export function MediaCard({
       onClick={() => (compareMode ? onCompareToggle?.(track) : onClick?.(track))}
       aria-pressed={compareMode ? compareSelected : undefined}
       className={cn(
-        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-card text-foreground transition-transform duration-[.18s] ease-out hover:-translate-y-1",
+        "font-auth-body group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-card text-foreground transition-transform duration-[.18s] ease-out hover:-translate-y-1",
         compareMode
           ? compareSelected
             ? "border-2 border-primary shadow-[var(--shadow-glow-primary-3)]"
@@ -251,7 +251,7 @@ export function MediaCard({
 
           {/* Opinião */}
           {(myReview?.opinion || partnerReview?.opinion) && (
-            <div className="mt-2.5 rounded-[10px] border border-primary/18 bg-primary/7 px-3 py-2.5 text-[12.5px] leading-snug text-opinion-foreground italic">
+            <div className="mt-2.5 rounded-lg border border-primary/18 bg-primary/7 px-3 py-2.5 text-[12.5px] leading-snug text-opinion-foreground italic">
               <span className="font-bold text-primary not-italic">"</span>
               {myReview?.opinion ?? partnerReview?.opinion}
             </div>
