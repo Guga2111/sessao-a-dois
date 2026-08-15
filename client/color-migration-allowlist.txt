@@ -4,7 +4,7 @@
 # to-[...]/via-[...]/shadow-[...]/fill-[...]/stroke-[...]) fora de
 # components/ui/ (que e permanentemente isento, ver check-color-literals.mjs).
 #
-# Gerada por scripts/check-color-literals.mjs --list-offenders em 2026-08-13,
+# Gerada por scripts/check-color-literals.mjs --list-offenders em 2026-08-14,
 # nao escrita a mao. E o placar da migracao de cor para token (US-003 em
 # diante), nao uma excecao permanente: todo arquivo migrado sai desta lista
 # no mesmo PR que remove seus hex/arbitrarios. O PR que apagar a ultima
@@ -34,7 +34,6 @@ components/landing/LandingHeader.tsx
 components/landing/LandingHero.tsx
 components/landing/MatchShowcase.tsx
 components/landing/Testimonials.tsx
-components/skeletons/AppShellSkeleton.tsx
 components/skeletons/ChartSkeleton.tsx
 components/skeletons/KpiCardSkeleton.tsx
 components/skeletons/MediaCardSkeleton.tsx
@@ -47,7 +46,6 @@ routes/auth/LoginPage.tsx
 routes/auth/RegisterPage.tsx
 routes/auth/ResetPasswordPage.tsx
 screens/DashboardScreen.tsx
-screens/LandingScreen.tsx
 screens/account/AccountScreen.tsx
 screens/account/AccountSection.tsx
 screens/account/CoupleSection.tsx

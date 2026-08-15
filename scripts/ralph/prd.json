@@ -742,8 +742,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 35,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "components/CoupleAvatars.tsx (text-[#111] no Heart do badge; rgba(255,255,255,.06) dos repeating-linear-gradient dos dois avatares) e components/skeletons/MediaCardSkeleton.tsx (border-[rgba(255,255,255,.07)]) continuam com raw color residual sem token exato — mesmo padrao ja documentado para outros arquivos (ex.: border-white/[0.07] do Header.tsx), permanecem no allowlist. components/skeletons/AppShellSkeleton.tsx e screens/LandingScreen.tsx foram totalmente zerados (confirmado via --list-offenders) e saem do allowlist."
     },
     {
       "id": "US-036",

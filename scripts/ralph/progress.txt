@@ -456,3 +456,16 @@
   - Next priority story is US-035 (`CoupleAvatars.tsx` + `AppShellSkeleton.tsx` + `LandingScreen.tsx` — small-volume, likely similar shape to this one: check each file for the same "leftover non-token color" and "font-size false-positive" patterns before assuming a clean zero-out is possible).
   - `outline-[#hex]` (not just `bg-`/`text-`/`border-`/etc.) is also caught by the gate's plain `HEX_RE` even though `outline` isn't one of the prefixes in `ARBITRARY_COLOR_RE` — the hex-anywhere-in-the-file check doesn't care about the utility prefix. `outline-primary` (not `outline-[var(--primary)]`) is the established idiom for this across `LandingFooter.tsx`/`LandingHero.tsx`/`LandingHeader.tsx`/`FinalCta.tsx` — reuse it, don't invent a new form.
 ---
+
+## 2026-08-14 - US-035
+- Migrated color literals to semantic tokens (pixel-identical, no visual change) in: components/CoupleAvatars.tsx, components/skeletons/AppShellSkeleton.tsx, screens/LandingScreen.tsx, components/skeletons/MediaCardSkeleton.tsx
+- Changes: `border-[#09090a]` -> `border-background`, `bg-[#ffcb2b]` -> `bg-primary` (CoupleAvatars); `text-[#f6f4ec]` -> `text-foreground`, inline gradient `#09090a` -> `var(--background)`, `bg-[#09090a]/72` -> `bg-background/72` (AppShellSkeleton, LandingScreen); `bg-[#161513]` -> `bg-card` (MediaCardSkeleton)
+- Files changed: client/src/components/CoupleAvatars.tsx, client/src/components/skeletons/AppShellSkeleton.tsx, client/src/components/skeletons/MediaCardSkeleton.tsx, client/src/screens/LandingScreen.tsx, client/color-migration-allowlist.txt
+- Allowlist: removed components/skeletons/AppShellSkeleton.tsx and screens/LandingScreen.tsx (fully zeroed, confirmed via `node scripts/check-color-literals.mjs --list-offenders`). components/CoupleAvatars.tsx and components/skeletons/MediaCardSkeleton.tsx stayed in the allowlist — each has one leftover raw-color value with no matching token (documented in prd.json's US-035 notes field), same "can't zero every file" situation documented in client/CLAUDE.md for other files.
+- `bun run typecheck`/`lint`/`test:run`/`build` all pass.
+- Visual verification in browser: PENDENTE DE GATE HUMANO (no browser in sandbox, decision D19) - not marked as visually verified.
+- **Learnings for future iterations:**
+  - Confirmed pattern for `border-[#09090a]` -> `border-background` and `bg-[#ffcb2b]` -> `bg-primary` (already used in Header.tsx/ComparisonDialog.tsx/MediaCard.tsx etc.) — text-[#111]/text-[#1c1a17] stay arbitrary, no exact token match for near-black text-on-primary color.
+  - Inline `style={{ background: "...#09090a" }}` gradient strings become `...var(--background)` (confirmed already-established pattern in HubScreen.tsx/AccountScreen.tsx/DashboardScreen.tsx/AuthLayout.tsx/MatchScreen.tsx) — same string, just swap the trailing hex for the CSS var.
+  - `node scripts/check-color-literals.mjs --list-offenders` (run from client/) ignores the allowlist entirely and lists every file (outside components/ui/) with ANY raw color left, migrated or not — this is the authoritative way to check whether a file is safe to drop from the allowlist, don't infer it from just re-reading the diff.
+---
