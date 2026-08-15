@@ -18,7 +18,7 @@ export function BondDissolvedNotice({ onDismiss }: { onDismiss: () => void }) {
       <h2 className="font-display m-0 text-[15px] font-bold tracking-tight text-[#ffb3a5]">
         O vínculo foi desfeito
       </h2>
-      <p className="mt-1.5 mb-0 text-[13px] leading-relaxed text-[#a6a39a]">
+      <p className="mt-1.5 mb-0 text-[13px] leading-relaxed text-muted-foreground">
         Seu par encerrou o casal de vocês. O histórico de títulos e avaliações não foi
         apagado — ele continua sendo daquele casal e sai do seu alcance. Um casal novo
         começa do zero.
@@ -43,7 +43,7 @@ export function BondDissolvedNotice({ onDismiss }: { onDismiss: () => void }) {
           type="button"
           variant="ghost"
           onClick={onDismiss}
-          className="h-8 rounded-lg px-3 text-[13px] font-medium text-[#a6a39a] hover:bg-white/[0.06] hover:text-[#f6f4ec]"
+          className="h-8 rounded-lg px-3 text-[13px] font-medium text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
         >
           Entendi
         </Button>

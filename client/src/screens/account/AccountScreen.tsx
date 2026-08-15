@@ -50,10 +50,10 @@ const SECTIONS: SectionDef[] = [
 export function AccountScreen() {
   return (
     <div
-      className="font-auth-body min-h-svh text-[#f6f4ec]"
+      className="font-auth-body min-h-svh text-foreground"
       style={{
         background:
-          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), #09090a",
+          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), var(--background)",
       }}
     >
       <Header />
@@ -65,7 +65,7 @@ export function AccountScreen() {
           <h1 className="font-display text-[clamp(28px,4vw,40px)] font-bold tracking-tight">
             Ajustes e caminhos de volta
           </h1>
-          <p className="mt-2 max-w-[58ch] text-[15px] text-[#a6a39a]">
+          <p className="mt-2 max-w-[58ch] text-[15px] text-muted-foreground">
             Corrija seus dados, troque a senha, desfaça o vínculo do casal ou saia
             do app. Cada seção diz de antemão quem ela alcança.
           </p>
@@ -81,14 +81,14 @@ export function AccountScreen() {
                 <li key={section.id}>
                   <a
                     href={`#${section.id}`}
-                    className="flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm font-semibold text-[#a6a39a] transition-colors hover:bg-white/[0.05] hover:text-[#f6f4ec] focus-visible:ring-2 focus-visible:ring-[#ffcb2b] focus-visible:outline-none"
+                    className="flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-white/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                   >
                     <span
                       aria-hidden="true"
                       className={
                         section.reach === "both"
                           ? "size-1.5 flex-none rounded-full bg-[#ff5c47]"
-                          : "size-1.5 flex-none rounded-full bg-[#ffcb2b]"
+                          : "size-1.5 flex-none rounded-full bg-primary"
                       }
                     />
                     {section.title}

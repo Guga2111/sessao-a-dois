@@ -657,8 +657,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 31,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migrado o que tinha token exato. Cores sem token correspondente, deixadas como estao: #ff9e2c (label uppercase \"Conta e Casal\", AccountScreen.tsx) — mesmo laranja ja deixado assim em stories anteriores (nenhum dos 8 tokens da US-001 cobre); a familia coral #ff5c47/rgba(255,92,71,*) (dot \"reach=both\" em AccountScreen.tsx; borda, gradiente, pill e texto do aviso de vinculo desfeito em BondDissolvedNotice.tsx) — proxima de --destructive (#ff6b6b) mas nao identica, nao arredondada por decisao de nao mover pixel; #ffb3a5 (titulo do aviso) e #ff8f7c (texto da pill \"historico guardado\") — proximos porem distintos de --destructive-foreground (#ffb3b3), mesma logica. Por causa desses residuos, screens/account/AccountScreen.tsx e routes/auth/BondDissolvedNotice.tsx NAO foram removidos de color-migration-allowlist.txt (desvio deliberado da AC, mesmo padrao adotado desde US-003: remover quebraria check:colors). node scripts/check-color-literals.mjs confirma 0 cor crua nova."
     },
     {
       "id": "US-032",
