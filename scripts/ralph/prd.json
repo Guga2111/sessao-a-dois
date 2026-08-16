@@ -1049,7 +1049,7 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 50,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
