@@ -4,6 +4,7 @@ import { isAxiosError } from "axios"
 import { Check, Clock3, Star, Trash2 } from "lucide-react"
 
 import { RatingRequestDialog } from "@/components/RatingRequestDialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -206,9 +207,12 @@ export function MediaCard({
 
           {/* Tipo */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-md border border-primary/25 bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold text-accent-strong">
+            <Badge
+              tone="primary"
+              className="rounded-md border-primary/25 bg-primary/12 py-0.5 text-accent-strong"
+            >
               {TYPE_LABEL[track.mediaType]}
-            </span>
+            </Badge>
           </div>
 
           {/* Estrelas + média */}

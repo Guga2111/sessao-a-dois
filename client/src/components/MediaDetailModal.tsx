@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import { RefreshCw, TriangleAlert, X } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -204,8 +205,9 @@ function MediaDetailModalContent({
               </h2>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
-              <span
-                className="rounded-md px-2.5 py-0.5 text-[11px] font-semibold"
+              <Badge
+                tone="neutral"
+                className="rounded-md py-0.5"
                 style={{
                   background: badge.bg,
                   border: `1px solid ${badge.border}`,
@@ -213,7 +215,7 @@ function MediaDetailModalContent({
                 }}
               >
                 {STATUS_LABEL[track.status]}
-              </span>
+              </Badge>
               {showSkeleton ? (
                 <div className="h-4 w-32 animate-pulse rounded bg-white/[0.06]" />
               ) : (
@@ -351,12 +353,13 @@ function MediaDetailModalContent({
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {details.genres.map((genre) => (
-                      <span
+                      <Badge
                         key={genre}
-                        className="rounded-full border border-border bg-white/5 px-3 py-0.5 text-[12px] text-pill-foreground"
+                        tone="neutral"
+                        className="px-3 py-0.5 text-[12px]"
                       >
                         {genre}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -370,9 +373,10 @@ function MediaDetailModalContent({
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {details.watchProviders.map((provider) => (
-                      <span
+                      <Badge
                         key={provider.name}
-                        className="flex items-center gap-1.5 rounded-full border border-border bg-white/5 px-3 py-1 text-[12px] text-pill-foreground"
+                        tone="neutral"
+                        className="flex px-3 py-1 text-[12px]"
                       >
                         {provider.logoUrl ? (
                           <img
@@ -387,7 +391,7 @@ function MediaDetailModalContent({
                           />
                         )}
                         {provider.name}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
