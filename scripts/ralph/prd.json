@@ -1173,8 +1173,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 56,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Re-medido com grep de rounded-full/rounded-md/rounded-lg nos 4 arquivos (aviso do US-054/US-055 sobre a contagem da PRD estar desatualizada, confirmado de novo aqui): apenas 2 usos reais de pill manual existiam nos 4 arquivos - FiltersPanel.tsx's CollapsibleTrigger ('Filtros') e compareUi.tsx's CompareToggleButton, ambos ja identificados como os 2 candidatos solidos do grupo (b) 'Chip interativo' no audit da US-054. Migrados para o primitivo Chip (active=filtersOpen||activeFilterCount>0 / active=compareActive). FiltersPanel.tsx's SelectTrigger de ordenacao tambem migrado, mas para chipVariants({active:false}) via className, exatamente a decisao ja registrada na US-054 para o caso (c) SelectTrigger-como-pill (nao um terceiro primitivo, nao uma prop nova em select.tsx). SuggestionsTab.tsx e SearchTab.tsx NAO tinham nenhum pill manual: todo elemento rounded-full/rounded-lg encontrado neles ja e Button-primitive (botoes de retry, botoes circulares Curtir/Passar) ou e badge de tipo/circulo-contador ja excluido pelo precedente da US-055 (rounded-lg com backdrop-blur sem border = overlay de tipo, size-6 rounded-full = circulo de ordem/contagem, nao pill de texto) - nada foi tocado nesses dois arquivos."
     },
     {
       "id": "US-057",

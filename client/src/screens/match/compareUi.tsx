@@ -1,6 +1,7 @@
 import { Columns2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Chip } from "@/components/ui/chip"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
@@ -19,17 +20,11 @@ export function CompareToggleButton({
       <Tooltip>
         <TooltipTrigger
           render={
-            <Button
-              type="button"
-              variant="outline"
+            <Chip
+              active={active}
               onClick={onToggle}
               aria-label={active ? "Cancelar comparação" : "Comparar títulos"}
-              className={cn(
-                "inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors",
-                active
-                  ? "border-primary/50 bg-primary/12 text-primary hover:bg-primary/18 hover:text-primary"
-                  : "border-white/10 bg-card text-foreground hover:bg-white/[0.06]"
-              )}
+              className={cn(active && "hover:bg-primary/18 hover:text-primary")}
             />
           }
         >

@@ -6,6 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Chip, chipVariants } from "@/components/ui/chip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Slider,
@@ -15,7 +16,6 @@ import {
   SliderTrack,
 } from "@/components/ui/slider"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { cn } from "@/lib/utils"
 import type { MediaGenre } from "@/types/media"
 
 import { CompareToggleButton } from "./compareUi"
@@ -114,7 +114,7 @@ export function FiltersPanel({
             onValueChange={handleSortChange}
             disabled={hasQuery}
           >
-            <SelectTrigger className="rounded-full border-white/10 bg-card px-4 py-2.5 text-[13px] font-semibold text-foreground hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40 data-[popup-open]:bg-white/[0.06]">
+            <SelectTrigger className={chipVariants({ active: false })}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="border border-white/10 bg-card text-foreground">
@@ -132,12 +132,7 @@ export function FiltersPanel({
 
           <CollapsibleTrigger
             disabled={hasQuery}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-              filtersOpen || activeFilterCount > 0
-                ? "border-primary/50 bg-primary/12 text-primary"
-                : "border-white/10 bg-card text-foreground hover:bg-white/[0.06]"
-            )}
+            render={<Chip active={filtersOpen || activeFilterCount > 0} />}
           >
             <SlidersHorizontal className="size-4" />
             Filtros
