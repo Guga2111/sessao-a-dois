@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 export type SectionReach = "you" | "both"
@@ -14,12 +15,10 @@ export function ReachChip({
   const isShared = reach === "both"
 
   return (
-    <span
+    <Badge
+      tone={isShared ? "coral" : "neutral"}
       className={cn(
-        "inline-flex flex-none items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-[.02em]",
-        isShared
-          ? "border-coral/30 bg-coral/8 text-coral-chip"
-          : "border-white/[0.08] bg-white/[0.04] text-muted-foreground",
+        !isShared && "border-white/[0.08] bg-white/[0.04] text-muted-foreground",
         className
       )}
     >
@@ -30,7 +29,7 @@ export function ReachChip({
         )}
       />
       {isShared ? "Afeta vocês dois" : "Só sua conta"}
-    </span>
+    </Badge>
   )
 }
 

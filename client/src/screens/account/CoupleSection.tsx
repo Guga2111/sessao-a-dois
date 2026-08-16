@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -57,15 +58,7 @@ function BondLine({ label, severed = false }: { label: string; severed?: boolean
             : "h-px w-8 flex-none bg-primary-fade-h sm:w-12"
         }
       />
-      <span
-        className={
-          severed
-            ? "inline-flex flex-none items-center gap-1.5 rounded-full border border-coral/30 bg-coral/8 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-coral-chip"
-            : "inline-flex flex-none items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-primary"
-        }
-      >
-        {label}
-      </span>
+      <Badge tone={severed ? "coral" : "primary"}>{label}</Badge>
       <span
         aria-hidden="true"
         className={

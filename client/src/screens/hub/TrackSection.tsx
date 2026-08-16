@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaCardSkeleton } from "@/components/skeletons/MediaCardSkeleton"
@@ -64,9 +65,12 @@ export function TrackSection({
           }}
         />
         <h2 className="font-display text-xl tracking-tight">{section.title}</h2>
-        <span className="flex items-center rounded-full bg-white/[0.05] px-2.5 py-0.5 text-[13px] text-muted-foreground">
+        <Badge
+          tone="neutral"
+          className="border-transparent px-2.5 py-0.5 text-[13px] text-muted-foreground"
+        >
           {showSkeleton ? <Skeleton className="h-3 w-4" /> : total}
-        </span>
+        </Badge>
         <ChevronDown
           className="ml-auto size-4 text-muted-foreground transition-transform duration-200"
           style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}

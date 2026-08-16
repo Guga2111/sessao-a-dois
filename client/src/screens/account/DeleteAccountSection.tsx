@@ -3,6 +3,7 @@ import { Loader2, Lock, LockOpen, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -93,16 +94,17 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
 function Latch({ open, label }: { open: boolean; label: string }) {
   const Icon = open ? LockOpen : Lock
   return (
-    <span
+    <Badge
+      tone={open ? "primary" : "neutral"}
       className={
         open
-          ? "inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary"
-          : "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-tertiary-foreground"
+          ? "tracking-normal"
+          : "border-white/[0.08] bg-white/[0.04] text-tertiary-foreground tracking-normal"
       }
     >
       <Icon aria-hidden="true" className="size-3" />
       {label}
-    </span>
+    </Badge>
   )
 }
 

@@ -3,6 +3,7 @@ import { Check, Loader2 } from "lucide-react"
 import { useState } from "react"
 import type { FormEvent } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -202,12 +203,9 @@ export function ProfileSection() {
             <>
               <span>Vai ser enviado:</span>
               {changedFields.map((field) => (
-                <span
-                  key={field}
-                  className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-[.02em] text-primary"
-                >
+                <Badge key={field} tone="primary" className="py-0.5">
                   {FIELD_LABEL[field]}
-                </span>
+                </Badge>
               ))}
             </>
           ) : (
