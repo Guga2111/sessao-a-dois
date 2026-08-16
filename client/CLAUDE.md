@@ -395,3 +395,10 @@ antes). Teste (`ErrorBoundary.test.tsx`) usa `vi.mock("@/lib/api")` mockando
 `reportClientError`/`getLastRequestId` diretamente (o componente e o consumidor, nao o
 proprio `lib/api.ts` — o outro padrao de mock, com adapter falso do axios, e so para testar
 `lib/api.ts` em si).
+
+**Excecao deliberada a "modal e Dialog" (Epico 13, US-053):** ao contrario dos outros 9
+modais/backdrops do app (ver "Modal patterns" acima), este **nao** migrou para o primitivo
+`Dialog`. Motivo tecnico: ele renderiza justamente quando a arvore React quebrou — o mesmo
+momento em que depender de mais infraestrutura React (portal do base-ui, seu Context, seu
+ciclo de montagem) e menos confiavel. Nao "corrigir" isso numa limpeza futura sem reabrir
+essa analise.

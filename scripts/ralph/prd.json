@@ -1111,8 +1111,8 @@
         "bun run build passa"
       ],
       "priority": 53,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Decisao: FICAR (nao migrar). Motivo tecnico registrado em progress.txt e no proprio ErrorBoundary.tsx (comentario acima da classe): o boundary renderiza justamente quando a arvore React quebrou, o mesmo momento em que Dialog (portal/Context/estado interno do base-ui) e menos confiavel. Zero mudanca de JSX/comportamento - so comentario adicionado. Verificado: continua capturando fora do BrowserRouter/ThemeProvider e continua chamando reportClientError (POST /api/client-errors) via ErrorBoundary.test.tsx (4 testes, ja cobria erro simulado com componente Bomb que lanca)."
     },
     {
       "id": "US-054",
