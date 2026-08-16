@@ -1071,8 +1071,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 51,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "DissolveDialog convertido para o primitivo Dialog (Dialog/DialogContent/DialogTitle/DialogDescription de components/ui/dialog.tsx), mesmo padrao de DeleteTrackDialog.tsx/MatchCelebrationModal.tsx. Trocado de mount condicional ({confirming ? <DissolveDialog/> : null}) para sempre montado com open={confirming} (padrao MatchCelebrationModal), porque o conteudo so le props simples (partnerName/bondLabel), sem objeto nullable com acesso de campo pervasivo - nao precisou do split wrapper/*Content de MediaDetailModal/PendingDetailModal. Removido: backdrop fixed inset-0 z-[60] proprio, o useEffect com addEventListener('keydown') para Escape, e o role/aria-modal/aria-labelledby manuais (o primitivo cobre tudo isso). h2/p viraram DialogTitle/DialogDescription mantendo exatamente as mesmas classes. showCloseButton={false} porque o dialogo original nao tinha X, so os dois botoes no rodape. Nao foi necessario overridear o z-index (DialogContent usa o z-50 padrao) - o unico dialogo que dependia do z-[60] anterior para ficar por cima era MatchCelebrationModal (que ja tem seu proprio z-[70] fixo, independente do valor de CoupleSection), entao baixar para z-50 nao quebra nenhuma sobreposicao existente. Conteudo interno preservado byte a byte (texto, ordem dos elementos, botoes) - nenhuma mudanca visual. Escape/clique-fora/foco preso agora vem do primitivo (nao e correcao de bug: Escape ja fechava antes via o useEffect manual removido)."
     },
     {
       "id": "US-052",

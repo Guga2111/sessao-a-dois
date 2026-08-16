@@ -1,10 +1,16 @@
 import { isAxiosError } from "axios"
 import { HeartCrack, Link2Off, Loader2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { Couple } from "@/stores/useAuthStore"
 
@@ -73,6 +79,7 @@ function BondLine({ label, severed = false }: { label: string; severed?: boolean
 }
 
 interface DissolveDialogProps {
+  open: boolean
   partnerName: string
   bondLabel: string | null
   onClose: () => void
@@ -80,12 +87,13 @@ interface DissolveDialogProps {
 }
 
 /**
- * Confirmacao explicita da dissolucao, com backdrop `fixed inset-0` proprio + Escape
- * (US-045 moveu `DeleteTrackDialog` para o primitivo Dialog; este ainda e hand-rolled,
- * ver US-051), com o peso maior que a acao pede: o dialogo enumera o que acontece antes
- * de oferecer o botao.
+ * Confirmacao explicita da dissolucao, no primitivo Dialog (US-051 - antes era um
+ * backdrop `fixed inset-0` hand-rolled, mesmo padrao ja seguido por TitleModal.tsx e
+ * RatingRequestDialog.tsx), com o peso maior que a acao pede: o dialogo enumera o que
+ * acontece antes de oferecer o botao.
  */
 function DissolveDialog({
+  open,
   partnerName,
   bondLabel,
   onClose,
@@ -95,13 +103,9 @@ function DissolveDialog({
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [onClose])
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) onClose()
+  }
 
   async function handleConfirm() {
     setWorking(true)
@@ -132,31 +136,22 @@ function DissolveDialog({
   }
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-backdrop/72 p-5 backdrop-blur-md"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="conta-casal-dialogo-titulo"
-        onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-3xl border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[460px]"
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-y-auto rounded-3xl border border-coral/28 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[460px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">
             <HeartCrack aria-hidden="true" className="size-5" />
           </div>
           <div className="min-w-0">
-            <h2
-              id="conta-casal-dialogo-titulo"
-              className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground"
-            >
+            <DialogTitle className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground">
               Desfazer o vínculo com {partnerName}?
-            </h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+            </DialogTitle>
+            <DialogDescription className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               Vale para vocês dois, na hora, sem aviso para o outro lado.
-            </p>
+            </DialogDescription>
           </div>
         </div>
 
@@ -220,8 +215,8 @@ function DissolveDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -321,14 +316,13 @@ export function CoupleSection() {
         </div>
       </div>
 
-      {confirming ? (
-        <DissolveDialog
-          partnerName={partner.name}
-          bondLabel={bondLabel}
-          onClose={() => setConfirming(false)}
-          onConfirmed={() => navigate("/join", { replace: true })}
-        />
-      ) : null}
+      <DissolveDialog
+        open={confirming}
+        partnerName={partner.name}
+        bondLabel={bondLabel}
+        onClose={() => setConfirming(false)}
+        onConfirmed={() => navigate("/join", { replace: true })}
+      />
     </>
   )
 }
