@@ -1,9 +1,10 @@
 import { isAxiosError } from "axios"
 import { Loader2, Lock, LockOpen, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ACCOUNT_DELETE_CONFIRMATION_WORD } from "@/screens/account/helpers"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -127,13 +128,9 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
     word.trim().toUpperCase() === ACCOUNT_DELETE_CONFIRMATION_WORD
   const canSubmit = passwordLatched && wordLatched && !working && !done
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !done) onClose()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [onClose, done])
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !done) onClose()
+  }
 
   function handleFailure(error: unknown) {
     if (isAxiosError(error)) {
@@ -192,28 +189,19 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
   }
 
   return (
-    <div
-      onClick={done ? undefined : onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-backdrop/72 p-5 backdrop-blur-md"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="conta-excluir-dialogo-titulo"
-        onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-3xl border border-coral/28 bg-card text-foreground shadow-[var(--shadow-elevation-10)] duration-200 sm:w-full sm:max-w-[560px]"
+    <Dialog open onOpenChange={handleOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-y-auto rounded-3xl border border-coral/28 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[560px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
           <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">
             <Trash2 aria-hidden="true" className="size-5" />
           </div>
           <div className="min-w-0">
-            <h2
-              id="conta-excluir-dialogo-titulo"
-              className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground"
-            >
+            <DialogTitle className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground">
               {done ? "Conta excluída." : "Excluir a sua conta?"}
-            </h2>
+            </DialogTitle>
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               {done
                 ? "Foi tudo embora, agora."
@@ -338,8 +326,8 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
             </div>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -1092,8 +1092,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 52,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Migrado para o padrao conditional-mount + Dialog primitivo (mesmo padrao ja usado em TitleModal.tsx/RatingRequestDialog.tsx). Verificacao visual em navegador PENDENTE DE GATE HUMANO (sem navegador no sandbox, D19)."
     },
     {
       "id": "US-053",
