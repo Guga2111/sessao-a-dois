@@ -1028,8 +1028,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 49,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Modal dividido em wrapper (MediaDetailModal, dono do Dialog/DialogContent, com DialogTitle/DialogDescription sr-only estaticos) + MediaDetailModalContent (prop track NAO-nulavel), renderizado como {track && <MediaDetailModalContent key={track.id} track={track} .../>} - mesmo formato do ReviewModal/ReviewModalContent (US-047), necessario porque o conteudo le track.* extensivamente (badge, glow, hue do poster, reviews) e nao da para tornar null-safe so com fallback como o MatchCelebrationModal fez. backdropRef manual e o useEffect de keydown Escape foram removidos (comportamento nativo do primitivo Dialog assume os dois - fechar por Escape ja funcionava antes via o listener manual, entao NAO e correcao de bug, e apenas troca de mecanismo). Conteudo interno (header sticky, poster, stats, generos, providers, sinopse, avaliacoes individuais, CTA) preservado byte a byte - apenas migrado de <div> solto para dentro de <>...</> do content component. typecheck/lint/test:run (119 testes)/build/check:colors/check:radius passam. Verificacao visual em navegador: PENDENTE DE GATE HUMANO (D19, sem browser no sandbox)."
     },
     {
       "id": "US-050",
