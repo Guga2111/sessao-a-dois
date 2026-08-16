@@ -1133,8 +1133,8 @@
         "Registrar em progress.txt que a verificacao visual em navegador fica PENDENTE DE GATE HUMANO (sem navegador no sandbox, decisao D19) - nao marcar como verificado visualmente"
       ],
       "priority": 54,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Dois primitivos criados (nao um): Badge (client/src/components/ui/badge.tsx, estatico, tone: neutral|primary|coral|muted) e Chip (client/src/components/ui/chip.tsx, interativo, active: true|false, disabled: nativo do <button>). Justificativa completa em progress.txt. SelectTrigger-as-pill (FiltersPanel.tsx~117) decidido: NAO vira terceiro primitivo nem prop nova em SelectTrigger - consumidor futuro aplica chipVariants({active:false}) via className, mesmo padrao ja usado por pagination.tsx com buttonVariants. Nenhum arquivo consumidor tocado nesta story (so os dois primitivos novos). Nenhum token de cor novo - so reuso de tokens existentes (--primary/--coral/--coral-chip/--border/--pill-foreground/--muted-foreground/--card/--foreground). typecheck/lint/test:run(119)/build/check:colors/check:radius passam."
     },
     {
       "id": "US-055",
