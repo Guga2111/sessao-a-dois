@@ -1,6 +1,8 @@
 import { Star } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import { Badge } from "@/components/ui/badge"
+
 const PREVIEW_TITLES = [
   {
     title: "Nossas Noites",
@@ -69,9 +71,9 @@ export function LandingHero() {
               Lista de vocês dois
             </span>
           </div>
-          <span className="rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-accent-strong">
+          <Badge tone="primary" className="border-transparent bg-primary/12 text-accent-strong">
             Queremos Ver
-          </span>
+          </Badge>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -89,9 +91,12 @@ export function LandingHero() {
                   className="size-full object-cover"
                   loading="lazy"
                 />
-                <span className="absolute top-2 left-2 rounded-md bg-background/60 px-2 py-0.5 text-[10px] font-semibold text-foreground backdrop-blur-sm">
+                <Badge
+                  tone="neutral"
+                  className="absolute top-2 left-2 rounded-md border-transparent bg-background/60 px-2 py-0.5 text-[10px] text-foreground backdrop-blur-sm"
+                >
                   {item.genre}
-                </span>
+                </Badge>
                 <img
                   src={item.provider}
                   alt={item.providerName}
@@ -109,9 +114,12 @@ export function LandingHero() {
                 <div className="mt-1.5 flex items-center gap-1">
                   <Star className="size-3 fill-rating text-rating" aria-hidden="true" />
                   <span className="text-[10.5px] text-muted-foreground">{item.rating}</span>
-                  <span className="ml-auto rounded-md border border-primary/25 bg-primary/12 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent-strong">
+                  <Badge
+                    tone="primary"
+                    className="ml-auto rounded-md border-primary/25 bg-primary/12 px-1.5 py-0.5 text-[9.5px] text-accent-strong"
+                  >
                     {item.type}
-                  </span>
+                  </Badge>
                 </div>
               </div>
             </div>

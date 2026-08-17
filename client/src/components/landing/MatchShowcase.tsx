@@ -1,5 +1,7 @@
 import { Heart, Sparkles } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
+
 const LIKED_TITLE = {
   title: "Nós Dois à Noite",
   year: "2023",
@@ -101,9 +103,9 @@ export function MatchShowcase() {
         <div
           className="mt-4 flex items-center gap-2.5 rounded-full border border-primary/25 bg-card py-2 pr-4 pl-2.5 opacity-100 motion-safe:animate-[sd-match-pill_6s_ease-in-out_infinite]"
         >
-          <span className="rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-accent-strong">
+          <Badge tone="primary" className="border-transparent bg-primary/12 text-accent-strong">
             Queremos Ver
-          </span>
+          </Badge>
           <span className="font-auth-body text-[13px] font-semibold text-foreground">
             {LIKED_TITLE.title}
           </span>

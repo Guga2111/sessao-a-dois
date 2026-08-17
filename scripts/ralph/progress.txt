@@ -797,3 +797,14 @@
   - A shared component that itself renders the pill shape (like `AccountSection.tsx`'s `ReachChip`, consumed by 4 different files) only needs migrating once at its own definition — its callers never touch the markup directly, so this counted as one migration site even though it's visually used in `CoupleSection.tsx`/`DeleteAccountSection.tsx`/`ProfileSection.tsx`/`AccountScreen.tsx`.
   - Next priority story is US-058 ("Migrar pills manuais para o primitivo, parte 4/4") — re-measure remaining candidate files via the same grep-first approach (per `client/CLAUDE.md`'s Badge/Chip section, files not yet covered by US-055/056/057) before assuming the PRD's file split still matches reality.
 ---
+
+## 2026-08-17 - US-058
+- Migrated the remaining manual pills (part 4/4 of the Badge migration) in ComparisonDialog.tsx, BondDissolvedNotice.tsx, LandingHero.tsx, and MatchShowcase.tsx to the `Badge` primitive. InviteCodeTicket.tsx and NotificationBell.tsx had no remaining manual pills (already-Button-primitive or excluded overlay/dot/avatar shapes).
+- Files changed: client/src/components/ComparisonDialog.tsx, client/src/routes/auth/BondDissolvedNotice.tsx, client/src/components/landing/LandingHero.tsx, client/src/components/landing/MatchShowcase.tsx, scripts/ralph/prd.json
+- Note: found ComparisonDialog.tsx already partially edited (uncommitted) from a prior interrupted run — that partial edit was completed and folded into this commit rather than discarded.
+- **Learnings for future iterations:**
+  - When a "pill" span has no border class at all in the original (bg + text only), migrating to `Badge` requires an explicit `border-transparent` override, since `badgeVariants`'s base always applies `border` and every `tone` sets a visible `border-<color>`. Same fix already used for TrackSection's counter in US-057.
+  - A rounded-full/border/bg-card container that *wraps* a real text pill plus other sibling content (e.g. MatchShowcase's match-celebration chip) is a layout container, not itself a Badge target — same precedent as CoupleSection's `BondLine` (US-055/057): the outer row stays a plain `div`, only the inner single-label span becomes `<Badge>`.
+  - Circular numeric/overlay badges sized by height with `min-w` (e.g. NotificationBell's unread-count badge) are a different shape/purpose than the horizontal label `Badge` — treated as excluded "avatar/counter" shape, consistent with prior stories, not migrated.
+  - Full check:colors/check:radius pass with zero changes needed here since this story only swaps `<span>`/`<div>` for `<Badge>` around already-tokenized classes — no raw color/radius touched.
+---

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 
 import { ArrowUp, X } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -130,9 +131,12 @@ function ComparisonColumn({
         </h3>
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
           {item.year && <span>{item.year}</span>}
-          <span className="rounded-md border border-primary/25 bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold text-accent-strong">
+          <Badge
+            tone="primary"
+            className="rounded-md border-primary/25 bg-primary/12 py-0.5 text-accent-strong"
+          >
             {TYPE_LABEL[item.mediaType]}
-          </span>
+          </Badge>
         </div>
       </div>
 
@@ -193,17 +197,17 @@ function ComparisonColumn({
           </span>
           <div className="flex flex-wrap gap-1.5">
             {item.genres.map((genre) => (
-              <span
+              <Badge
                 key={genre}
+                tone={sharedGenres.has(genre.toLowerCase()) ? "primary" : "neutral"}
                 className={cn(
-                  "rounded-full border px-3 py-0.5 text-[12px]",
-                  sharedGenres.has(genre.toLowerCase())
-                    ? "border-primary/25 bg-primary/12 text-accent-strong"
-                    : "border-border bg-white/5 text-pill-foreground"
+                  "px-3 py-0.5 text-[12px]",
+                  sharedGenres.has(genre.toLowerCase()) &&
+                    "border-primary/25 bg-primary/12 text-accent-strong"
                 )}
               >
                 {genre}
-              </span>
+              </Badge>
             ))}
           </div>
         </div>
@@ -246,13 +250,12 @@ function ComparisonColumn({
             {item.watchProviders.map((provider) => {
               const isShared = sharedProviders.has(provider.name.toLowerCase())
               return (
-                <span
+                <Badge
                   key={provider.name}
+                  tone={isShared ? "primary" : "neutral"}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px]",
-                    isShared
-                      ? "border-primary/25 bg-primary/12 text-accent-strong"
-                      : "border-border bg-white/5 text-pill-foreground"
+                    "flex px-3 py-1 text-[12px]",
+                    isShared && "border-primary/25 bg-primary/12 text-accent-strong"
                   )}
                 >
                   {provider.logoUrl ? (
@@ -272,7 +275,7 @@ function ComparisonColumn({
                     />
                   )}
                   {provider.name}
-                </span>
+                </Badge>
               )
             })}
           </div>

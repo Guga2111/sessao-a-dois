@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -30,9 +31,7 @@ export function BondDissolvedNotice({ onDismiss }: { onDismiss: () => void }) {
             aria-hidden="true"
             className="h-px w-8 flex-none bg-coral-fade-h sm:w-10"
           />
-          <span className="inline-flex flex-none items-center rounded-full border border-coral/30 bg-coral/8 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-coral-chip">
-            histórico guardado
-          </span>
+          <Badge tone="coral">histórico guardado</Badge>
           <span
             aria-hidden="true"
             className="h-px w-8 flex-none border-t border-dashed border-coral/45 sm:w-10"
