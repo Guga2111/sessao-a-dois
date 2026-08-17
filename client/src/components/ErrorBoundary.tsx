@@ -13,10 +13,9 @@ interface ErrorBoundaryState {
 
 /**
  * Componente de classe (nao ha equivalente em hook para componentDidCatch), montado em
- * main.tsx por fora do ThemeProvider e do BrowserRouter para tambem capturar excecao vinda
- * de dentro deles (US-006, Epico 12). Por isso a tela abaixo nao pode usar useNavigate/Link
- * nem token de tema - so cores inline, no mesmo padrao de arbitrary values do resto do
- * client/ (ver client/CLAUDE.md).
+ * main.tsx por fora do BrowserRouter para tambem capturar excecao vinda de dentro dele
+ * (US-006, Epico 12). Por isso a tela abaixo nao pode usar useNavigate/Link - so cores
+ * inline, no mesmo padrao de arbitrary values do resto do client/ (ver client/CLAUDE.md).
  *
  * Excecao deliberada a "modal e Dialog" (Epico 13, US-053): o resto do app consolidou todo
  * modal no primitivo Dialog (base-ui), mas este componente e o unico que renderiza justamente

@@ -10,7 +10,7 @@ afterEach(() => {
 })
 
 // jsdom has no layout engine, so `window.matchMedia` isn't implemented at
-// all — used by theme-provider.tsx (dark/light/system) and lib/useIsMobile.ts.
+// all — used by lib/useIsMobile.ts.
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   configurable: true,

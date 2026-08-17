@@ -2360,10 +2360,10 @@ registrar o motivo aqui, como manda a regra do topo deste arquivo.
 
 ### Critérios de aceite
 - [x] A decisão está registrada na tabela de decisões deste arquivo, com justificativa (D17, 2026-08-13).
-- [ ] Nenhuma referência residual a `theme`/`ThemeProvider` no `client/`.
-- [ ] Os tokens `:root` claros não utilizados foram removidos de `index.css`.
-- [ ] `.dark` fixo no `<html>`, e o app renderiza idêntico ao de antes.
-- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- [x] Nenhuma referência residual a `theme`/`ThemeProvider` no `client/` (US-059, 2026-08-17).
+- [x] Os tokens `:root` claros não utilizados foram removidos de `index.css` (US-059) — `--radius` (a única variável dimensional que vivia em `:root`, não é cor) foi movida para dentro de `.dark`, já que é consumida por `--radius-sm`/`md`/`lg`/etc no bloco `@theme inline`.
+- [x] `.dark` fixo no `<html>` (`client/index.html`), e o app renderiza idêntico ao de antes — verificação estática (grep + typecheck/lint/test/build); verificação visual em navegador fica **PENDENTE DE GATE HUMANO** (D19, sem navegador no sandbox).
+- [x] `bun run typecheck`, `bun run lint` e `bun run build` passam (US-059).
 
 ### Fora do escopo
 Temas adicionais; tema por casal; transição animada entre temas.

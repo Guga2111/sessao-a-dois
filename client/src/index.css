@@ -95,55 +95,14 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.852 0.199 91.936);
-    --primary-foreground: oklch(0.421 0.095 57.708);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.681 0.162 75.834);
-    --sidebar-primary-foreground: oklch(0.987 0.026 102.212);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-}
-
 /*
- * A paleta abaixo (US-001, Epico 13) e a identidade visual real do app — Sessao a
- * Dois e dark-only na pratica (o toggle de tema em light/system ainda existe via
- * ThemeProvider e a tecla "d", mas produz uma tela quebrada porque todo componente
- * ja hardcoda hex escuro; fechar esse tema morto e D17, fora do escopo desta story).
- * So o bloco .dark foi atualizado: e o unico que corresponde a "a cara do produto"
- * descrita no prototipo (docs/design/claude-design-project/Sessao a Dois.dc.html).
- * O bloco :root continua com o preset neutro do shadcn, inerte ate D17.
- * Nenhum componente .tsx consome estes tokens ainda (eles usam os hex diretamente),
- * entao esta mudanca nao move nenhum pixel — exceto nos poucos primitivos de
- * components/ui/ que ja consomem --primary/--destructive/--foreground (Button,
- * Input), onde o valor efetivo so se aproxima mais do hex real do produto.
+ * A paleta abaixo e a identidade visual real do app (US-001, Epico 13). Sessao a
+ * Dois e dark-only (D17, Epico 13 US-059): o toggle de tema em light/system e os
+ * tokens :root claros do preset neutro do shadcn foram removidos — .dark fica fixo
+ * na tag <html> (client/index.html) e e o unico bloco de tokens que existe.
  */
 .dark {
+    --radius: 0.625rem;
     --background: oklch(0.14 0.002 286.109); /* #09090a — fundo base de toda tela escura do app (body, HubScreen, MatchScreen, telas de auth) */
     --foreground: oklch(0.966 0.011 95.163); /* #f6f4ec — texto principal sobre o fundo escuro (creme quente, nao branco puro) */
     --card: oklch(0.196 0.004 84.591); /* #161513 — superficie de card/modal/painel (MediaCard, TitleModal, FiltersPanel etc.) */
