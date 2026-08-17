@@ -2,6 +2,8 @@
 
 React + TypeScript + Vite, Tailwind v4 (CSS-based config in `src/index.css`, no `tailwind.config.*`), Shadcn UI primitives under `src/components/ui`.
 
+**Before touching a primitive, a color, or a border-radius in `client/`, read `client/docs/DESIGN-SYSTEM.md` first** — it's the operational guide for which primitive/token/radius-step to use and when, written after the Epico 13 color/radius migration to stop the next cycle of raw hex/arbitrary utilities before it starts.
+
 ## Conventions
 
 - Screens live in `src/screens/*.tsx`, route wiring in `src/App.tsx`, nav links in `src/components/Header.tsx`'s `NAV_ITEMS`.
