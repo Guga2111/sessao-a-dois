@@ -819,3 +819,25 @@
   - When deleting a `:root` block that predates a dark-only decision, check every variable in it for a **non-color, cross-theme use** before deleting wholesale — `--radius` was the one variable in this codebase's `:root` that wasn't a color token and was silently relied on by `@theme inline`'s `--radius-sm`/etc `calc()` chain. A naive "delete `:root`, keep `.dark`" edit would have broken radius utilities across the entire app (no visual regression test would have caught it either, since `check:radius`/`check:colors` only gate *raw* literals, not *missing* CSS variables — this would have silently fallen back to each utility's Tailwind default or produced `calc(NaN)`).
   - Next priority story is US-060 (`client/docs/DESIGN-SYSTEM.md`) — no `.tsx`/`.ts`/`.css` file may be touched per that story's own AC, pure documentation.
 ---
+
+## 2026-08-17 - US-060
+- Wrote client/docs/DESIGN-SYSTEM.md: operational guide covering all 17 current primitives in src/components/ui/ (one line each), explicit variant-choice criteria with wrong/right example for Button, Card, Input, Dialog, and Badge/Chip (the pill primitives), a color-token table (~25 tokens from index.css's .dark block, name/role/when-to-use), the radius scale table (--radius-sm through --radius-4xl, px values, when-to-use), the "primitive before raw element / token before raw color-or-radius / extend don't bypass" rule, and the "no hand-rolled fixed inset-0 — use Dialog" rule with the ErrorBoundary exception (US-053) called out explicitly. Linked from client/CLAUDE.md's opening paragraph.
+- Files changed: client/docs/DESIGN-SYSTEM.md (new), client/CLAUDE.md (one new sentence pointing at it), scripts/ralph/prd.json (US-060 passes: true).
+- Docs-only story (AC explicitly forbids touching .ts/.tsx/.css) — no frontend-design skill invocation needed, matches the CLAUDE.md pure-refactor/no-visual-change exemption criterion (nothing here is even a refactor, it's prose).
+- **Learnings for future iterations:**
+  - client/CLAUDE.md and index.css already contain nearly all the raw material for a design-system doc (token hex-to-role comments above `.dark`, the color/radius CI gate description, the Badge/Chip migration notes, the Dialog "Modal patterns" section) — writing US-060 was mostly synthesis/compression of existing CLAUDE.md prose into a task-oriented doc, not new research.
+  - The ui/ directory has 17 files, not 15 — badge.tsx and chip.tsx (added in US-054) bring the original 15 up to 17; the PRD's AC anticipated this ("os 15 atuais mais o(s) criado(s) neste epico").
+  - Only US-061 (root README.md, Epico 14) remains — last story in the PRD.
+---
+
+## 2026-08-17 - US-061
+- Escrito o README.md da raiz (era so "# sessao-a-dois", 15 bytes): o que e o app em dois paragrafos, tabela de stack, estrutura do repositorio, como subir local (docker compose, ./mvnw spring-boot:run, bun install && bun run dev), variaveis de ambiente obrigatorias com o efeito do fail-fast (JwtService/TmdbConfig), como rodar os testes de cada lado, mapa de docs/ com uma linha por arquivo (incluindo docs/design/claude-design-project/) e um paragrafo de gate humano.
+- Arquivos alterados: README.md (raiz).
+- Comandos do lado client/ EXECUTADOS de verdade neste sandbox: `bun install` (OK, 574 installs), `bun run test:run` (14 arquivos, 119 testes, todos verdes), `bun run typecheck` (OK, sem erros), `bun run lint` (OK, sem erros), `bun run build` (OK, `dist/` gerado; unico aviso e o de chunk >500kB, pre-existente e fora do escopo desta story).
+- Comandos que dependem de Docker (`docker compose -f docker-compose-dev.yml up`) e o `./mvnw spring-boot:run` contra esse Postgres NAO foram verificados neste sandbox: nao ha `docker` instalado aqui (mesma limitacao ja documentada em `docs/SCHEMA_BASELINE.md`/`api/CLAUDE.md`). O comando em si (`docker compose -f docker-compose-dev.yml up`) e apenas a leitura do `docker-compose-dev.yml` existente no repo, sem invencao.
+- **GATE HUMANO registrado aqui conforme AC:** o criterio "alguem que nunca viu o projeto sobe o ambiente seguindo so o README" nao pode ser verificado por um agente - exige um leitor humano sem o contexto acumulado desta sessao. Fica pendente de validacao manual pelo mantenedor.
+- Li os arquivos obrigatorios de docs/ (ARCHITECTURE.md, BACKLOG.md, DEPLOY.md, FLYWAY.md, SCHEMA_BASELINE.md, e o prototipo em docs/design/claude-design-project/) conforme a regra do CLAUDE.md da raiz antes de escrever o README - nenhum conteudo foi copiado, so referenciado por uma linha cada.
+- **Ultima story do PRD (Epico 14, US-061) - todas as 61 stories passam agora.**
+- **Learnings for future iterations:**
+  - Nao ha mais stories pendentes neste prd.json.
+---

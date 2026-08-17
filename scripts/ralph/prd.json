@@ -1282,7 +1282,7 @@
         "bun run build passa"
       ],
       "priority": 61,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
