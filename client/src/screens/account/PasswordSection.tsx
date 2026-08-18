@@ -25,7 +25,7 @@ type FieldErrors = {
 }
 
 const FIELD_LABEL_CLASS =
-  "text-[11px] font-semibold tracking-[.08em] text-[#a6a39a] uppercase"
+  "text-[11px] font-semibold tracking-[.08em] text-muted-foreground uppercase"
 
 /**
  * A politica da senha e uma JANELA (8 a 72), nao um limiar — entao ela e desenhada como
@@ -43,22 +43,22 @@ function LengthRail({ length }: { length: number }) {
         <div
           className={
             insideWindow
-              ? "h-full rounded-full bg-[#ffcb2b] transition-[width] duration-200"
-              : "h-full rounded-full bg-[#6f6c62] transition-[width] duration-200"
+              ? "h-full rounded-full bg-primary transition-[width] duration-200"
+              : "h-full rounded-full bg-tertiary-foreground transition-[width] duration-200"
           }
           style={{ width: `${filled}%` }}
         />
         <span
           aria-hidden="true"
-          className="absolute top-0 h-full w-px bg-[#f6f4ec]/40"
+          className="absolute top-0 h-full w-px bg-foreground/40"
           style={{ left: `${minMark}%` }}
         />
       </div>
-      <div id={RANGE_HINT_ID} className="flex justify-between text-[12px] text-[#6f6c62]">
+      <div id={RANGE_HINT_ID} className="flex justify-between text-[12px] text-tertiary-foreground">
         <span>
           De {PASSWORD_MIN_LENGTH} a {PASSWORD_MAX_LENGTH} caracteres
         </span>
-        <span className={insideWindow ? "text-[#ffcb2b]" : undefined}>
+        <span className={insideWindow ? "text-primary" : undefined}>
           {length} / {PASSWORD_MAX_LENGTH}
         </span>
       </div>
@@ -164,20 +164,20 @@ export function PasswordSection() {
       <div
         role="status"
         aria-live="polite"
-        className="flex flex-col gap-3 rounded-[14px] border border-[#ffcb2b]/25 bg-[#ffcb2b]/[0.06] px-5 py-4"
+        className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/[0.06] px-5 py-4"
       >
         <div className="flex items-center gap-2.5">
-          <ShieldCheck aria-hidden="true" className="size-5 flex-none text-[#ffcb2b]" />
-          <p className="font-display m-0 text-[17px] font-bold tracking-tight text-[#f6f4ec]">
+          <ShieldCheck aria-hidden="true" className="size-5 flex-none text-primary" />
+          <p className="font-display m-0 text-[17px] font-bold tracking-tight text-foreground">
             Senha trocada. Todas as sessões foram encerradas.
           </p>
         </div>
-        <p className="m-0 max-w-[56ch] text-[14px] leading-relaxed text-[#a6a39a]">
+        <p className="m-0 max-w-[56ch] text-[14px] leading-relaxed text-muted-foreground">
           Isso inclui esta aba e qualquer aparelho que ainda estivesse conectado — se alguém
           mais tinha acesso à sua conta, acabou de perder.
         </p>
-        <p className="m-0 flex items-center gap-2 text-[13px] text-[#6f6c62]">
-          <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-[#ffcb2b]" />
+        <p className="m-0 flex items-center gap-2 text-[13px] text-tertiary-foreground">
+          <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-primary" />
           Levando você para entrar de novo…
         </p>
       </div>
@@ -201,7 +201,7 @@ export function PasswordSection() {
           placeholder="••••••••"
         />
         {fieldErrors.currentPassword ? (
-          <p id={CURRENT_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+          <p id={CURRENT_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
             {fieldErrors.currentPassword}
           </p>
         ) : null}
@@ -227,7 +227,7 @@ export function PasswordSection() {
           />
           <LengthRail length={newPassword.length} />
           {fieldErrors.newPassword ? (
-            <p id={NEW_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={NEW_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               {fieldErrors.newPassword}
             </p>
           ) : null}
@@ -249,7 +249,7 @@ export function PasswordSection() {
             placeholder="••••••••"
           />
           {mismatch ? (
-            <p id={CONFIRM_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={CONFIRM_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               As duas senhas novas ainda não são iguais.
             </p>
           ) : null}
@@ -259,21 +259,21 @@ export function PasswordSection() {
       {formError ? (
         <p
           role="alert"
-          className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+          className="m-0 rounded-chip border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
         >
           {formError}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-4">
-        <p className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-[13px] text-[#6f6c62]">
-          <span className="text-[#a6a39a]">Ao salvar:</span>
+        <p className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-[13px] text-tertiary-foreground">
+          <span className="text-muted-foreground">Ao salvar:</span>
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-[#ff5c47]" />
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-coral" />
             esta aba sai
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-[#ff5c47]" />
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-coral" />
             os outros aparelhos também
           </span>
         </p>
@@ -281,7 +281,7 @@ export function PasswordSection() {
         <Button
           type="submit"
           disabled={!canSubmit}
-          className="bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-50"
+          className="bg-primary text-background hover:bg-accent disabled:opacity-50"
         >
           {saving ? "Trocando…" : "Trocar senha"}
         </Button>

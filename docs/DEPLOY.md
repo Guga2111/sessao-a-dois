@@ -113,6 +113,43 @@ API_PORT=8085
 
 > O `.env` esta no `.gitignore` e nunca e commitado. E usado tanto pelo `docker-compose-dev.yml` (dev local) quanto pelo `scripts/deploy.sh` (producao).
 
+### ⚠️ O `.env` da VPS e SOBRESCRITO a cada deploy
+
+`scripts/deploy.sh` faz `scp "${ENV_FILE}" ...:~/projects/sessao-a-dois/.env` — o
+ficheiro inteiro, sem merge. E no CD (`.github/workflows/deploy.yml`) o `ENV_FILE` e
+gerado do zero, no runner, **so** com o que o passo "Escrever .env a partir dos
+secrets" escreve.
+
+Consequencia pratica, que ja mordeu uma vez:
+
+**Qualquer variavel que precise existir em producao tem de estar nos Secrets ou
+Variables do GitHub.** Editar o `.env` a mao na VPS funciona ate o proximo merge para
+a `main` — dai o ficheiro e substituido e a edicao desaparece em silencio, sem erro
+nenhum. O container reinicia com o valor antigo e o sintoma so aparece depois, longe
+da causa.
+
+Isso vale inclusive para **rotacao de segredo**: rotacionar o `JWT_SECRET` no `.env`
+da VPS sem atualizar o secret `JWT_SECRET` no GitHub faz o proximo deploy **reverter
+a rotacao**, revalidando exatamente os tokens que ela invalidou. A regra e sempre a
+mesma ordem: **primeiro o GitHub, depois a VPS** (ou so o GitHub, e um
+`workflow_dispatch` para propagar).
+
+Regra de bolso para decidir onde cada uma vive:
+
+| Tipo | Onde | Exemplos |
+|---|---|---|
+| Segredo (vaza = problema) | **Secret** | `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `TMDB_API_KEY`, `VPS_SSH_KEY` |
+| Configuracao nao-sensivel | **Variable** (com default no workflow) | `CORS_ALLOWED_ORIGIN`, `API_PORT`, `APP_URL`, `VPS_IP`, `VPS_USER` |
+
+Adicionar uma variavel nova de producao e sempre uma mudanca em **tres** lugares, e
+faltar um deles e a forma mais comum de o deploy "funcionar" e a feature nao:
+
+1. o secret/variable no GitHub;
+2. a linha correspondente no passo que escreve o `.env` em `.github/workflows/deploy.yml`;
+3. a entrada em `environment:` do `docker-compose-prod.yml`, para o valor atravessar do `.env` para dentro do container.
+
+(E o `.env.example`, para quem roda local nao descobrir por tentativa e erro.)
+
 > **Variaveis novas do Epico 4 (migracao de autenticacao):** `JWT_ACCESS_TOKEN_TTL`
 > (default `15m`, substitui a antiga `JWT_EXPIRATION_DAYS` de 7 dias, que foi
 > REMOVIDA de `application.properties` e nao tem mais efeito nenhum se definida),
@@ -123,7 +160,12 @@ API_PORT=8085
 > janela de graca da deteccao de reuso). Todas tem default de producao seguro -
 > so precisam ir no `.env` se voce quiser um valor diferente do default.
 >
-> **Aviso de deploy:** a primeira execucao com este epico troca o modelo de
+> **Aviso de deploy — JA EXECUTADO em 2026-08-10.** O cutover descrito abaixo
+> aconteceu no deploy dos Epicos 4→9 (ver `docs/FLYWAY.md`, seccao de atualizacao
+> de 2026-08-10). O texto fica como registro do que foi feito; **nenhum deploy
+> futuro repete esse logout em massa** por causa do Epico 4.
+>
+> A primeira execucao com este epico troca o modelo de
 > sessao inteiro (de JWT em `localStorage` para cookies HttpOnly + refresh
 > token). Isso desloga TODOS os usuarios uma unica vez nesse deploy - a sessao
 > antiga simplesmente para de ser reconhecida, nao ha migracao de sessao
@@ -309,7 +351,8 @@ Nenhum segredo passa por `/tmp`: o `ENV_FILE` e copiado diretamente para
 
 O `docker-compose-prod.yml` **nao** define mais `SPRING_FLYWAY_BASELINE_ON_MIGRATE`
 (removido em 2026-08-06, Epico 8). Em producao isso e o comportamento desejado: o
-banco ja tem `flyway_schema_history` com V1 a V6, entao uma migration que nao
+banco ja tem `flyway_schema_history` com V1 a V7 (confirmado em 2026-08-10, ver
+`docs/FLYWAY.md`), entao uma migration que nao
 aplique tem de **quebrar o deploy de forma visivel** em vez de ser silenciosamente
 marcada como baseline, mascarando um schema divergente.
 
@@ -382,6 +425,8 @@ ou no environment `production`, que o workflow referencia):
 | `DB_PASSWORD` | Password do Supabase |
 | `JWT_SECRET` | Segredo de assinatura (>= 32 bytes, `openssl rand -base64 48`) |
 | `TMDB_API_KEY` | API Read Access Token v4 do TMDB |
+| `RESEND_API_KEY` | API key da conta Resend (epico 10 - e-mail transacional, ver secao abaixo) |
+| `ALERT_EMAIL_TO` | Endereco pessoal do mantenedor que recebe o alerta de falha de deploy (epico 12, job `notify-failure` em `deploy.yml`). **Excecao a regra dos "tres lugares" acima:** e consumido so pelo workflow - nao entra no `.env` da VPS nem em `environment:` do `docker-compose-prod.yml`, porque nenhum container precisa dele. |
 
 **Secret opcional:**
 
@@ -390,7 +435,52 @@ ou no environment `production`, que o workflow referencia):
 | `VPS_SSH_KNOWN_HOSTS` | Saida de `ssh-keyscan -H 31.97.169.38`. Se estiver definido, a host key fica fixada; se nao, o workflow faz `ssh-keyscan` a cada execucao (trust-on-first-use, aceitavel mas menos seguro). |
 
 **Variables** (nao sao segredos; todas tem default no workflow, so definir para
-mudar o alvo): `VPS_IP`, `VPS_USER`, `APP_URL`, `CORS_ALLOWED_ORIGIN`, `API_PORT`.
+mudar o alvo): `VPS_IP`, `VPS_USER`, `APP_URL`, `CORS_ALLOWED_ORIGIN`, `API_PORT`,
+`EMAIL_FROM` (epico 10, default `Sessão a Dois <nao-responda@sessaoadois.luisgosampaio.com>`).
+
+### E-mail transacional (Resend) — epico 10
+
+`com.app.email` (ver `docs/ARCHITECTURE.md`, secao 3) manda e-mail de verdade em
+producao atraves do [Resend](https://resend.com); em dev/test a implementacao
+default (`app.email.provider=log`) so loga, sem rede nem credencial.
+
+**Quatro variaveis novas**, escritas no `.env` da VPS pelo
+`.github/workflows/deploy.yml` (ver "O `.env` da VPS e SOBRESCRITO a cada
+deploy" acima — nenhuma delas deve ser editada a mao na VPS):
+
+| Variavel | Tipo no GitHub | Default | Para que serve |
+|---|---|---|---|
+| `RESEND_API_KEY` | Secret (obrigatorio) | nenhum | Autentica as chamadas a API do Resend. Sem ela, `com.app.email.EmailProperties` falha o startup (fail-fast, mesmo padrao de `TMDB_API_KEY`). |
+| `EMAIL_FROM` | Variable | `Sessão a Dois <nao-responda@sessaoadois.luisgosampaio.com>` | Remetente que aparece nos e-mails enviados. |
+| `APP_PUBLIC_URL` | derivada de `APP_URL` (sem variavel propria no GitHub) | igual ao default de `APP_URL` | Base do link de redefinicao de senha (`${APP_PUBLIC_URL}/redefinir-senha?token=...`). |
+| `APP_EMAIL_PROVIDER` | fixo no workflow (`resend`) | `resend` | Liga o adaptador real; so producao usa este valor — dev/test/CI usam o default `log`. |
+
+**`APP_URL` passou a ter dois usos.** Ate o Epico 10 essa variavel so alimentava o
+smoke test do CD (`curl https://.../api/health`). Agora o mesmo valor tambem vira
+`APP_PUBLIC_URL` no `.env` — mudar `APP_URL` sem lembrar disso muda tambem o
+dominio que aparece nos links de e-mail enviados aos usuarios.
+
+**Limite do free tier do Resend:** 3.000 e-mails/mes, 100 e-mails/dia. Com ~8
+usuarios conhecidos (`docs/BACKLOG.md`, decisao #3 SUPERADA) e o volume deste
+epico (pedido de reset + aviso de senha alterada), o uso normal fica muito abaixo
+do teto. **Se o limite diario/mensal estourar:** o Resend devolve 4xx/5xx, que
+`com.app.email.ResendEmailSender` converte em `EmailDeliveryException` — nenhum
+fluxo do usuario quebra por causa disso (o `forgot-password` continua respondendo
+`202`, a troca de senha continua respondendo `204`; o erro so fica registrado em
+`warn` no log da API, nunca em silencio). Para resolver: conferir o uso no
+dashboard do Resend e, se for abuso genuino (spam contra um e-mail alvo), o rate
+limit por e-mail/IP do `forgot-password` (ver `docs/ARCHITECTURE.md`) ja limita o
+quanto um unico ator consegue gerar; se for volume legitimo acima do plano
+gratuito, fazer upgrade do plano Resend.
+
+**Verificacao de dominio no DNS (obrigatoria para enviar de
+`nao-responda@sessaoadois.luisgosampaio.com`):** no dashboard do Resend, em
+**Domains**, adicionar `sessaoadois.luisgosampaio.com` e criar os registros DNS
+que o Resend indicar (tipicamente TXT para SPF/DKIM e um registro de
+verificacao) no provedor onde o dominio esta gerido. Sem o dominio verificado, o
+Resend rejeita o envio com remetente desse dominio — isto e um passo manual,
+fora do alcance de qualquer agente ou pipeline, e precisa acontecer **antes** do
+primeiro deploy que ligue `APP_EMAIL_PROVIDER=resend` em producao.
 
 ### Gerar a chave de deploy
 
@@ -477,7 +567,34 @@ no bloco `/ws/` deve permanecer no conf: e defesa em profundidade barata (uma
 linha de nginx) contra qualquer regressao futura que volte a colocar algo
 sensivel na URL do handshake, e nao ha custo em manter.
 
-Para que a correcao valha em producao:
+### ✅ Estado em 2026-08-10 — tarefas operacionais (a)-(d) executadas
+
+Confirmado pelo mantenedor: **as acoes manuais abaixo ja foram aplicadas na VPS**,
+depois do deploy dos Epicos 4→9 (ver `docs/FLYWAY.md`). Em particular, os
+`access.log*` historicos — que continham JWTs validos gravados pelo handshake do
+`/ws` no modelo antigo — foram **purgados**, e o `JWT_SECRET` foi **rotacionado**,
+o que invalida definitivamente qualquer token que tenha vazado para eles.
+
+Os procedimentos continuam documentados abaixo porque sao o roteiro de repeticao:
+valem de novo a cada reemissao de certificado (o Certbot apaga os headers do bloco
+443) e a cada nova suspeita de vazamento.
+
+> **Ao rotacionar o `JWT_SECRET`, atualizar o secret `JWT_SECRET` no GitHub tambem.**
+> O `.env` da VPS e sobrescrito a cada deploy (ver "O `.env` da VPS e SOBRESCRITO a
+> cada deploy", no Passo 2) — uma rotacao feita so na VPS e revertida pelo proximo
+> merge para a `main`, revalidando os tokens que ela tinha invalidado.
+
+Verificacao rapida de que o estado se manteve:
+
+```bash
+# Os 4 headers de seguranca continuam no bloco 443?
+curl -sI https://sessaoadois.luisgosampaio.com | grep -iE 'strict-transport|content-security|x-content-type|referrer-policy'
+
+# Nenhuma linha de /ws com token no log atual?
+ssh root@31.97.169.38 "grep -c 'token=' /var/log/nginx/access.log || echo 0"
+```
+
+Para reaplicar (ou aplicar num ambiente novo):
 
 **(a) Reinstalar o conf na VPS e recarregar o Nginx**
 
@@ -608,6 +725,207 @@ nao quebra o startup - o `RollingFileAppender` cria o diretorio e o arquivo
 sozinho na primeira escrita (testado tambem em `api/src/test/resources/application.properties`,
 que aponta `app.security.audit-log.path` para `target/test-logs/` em vez do
 default de producao, para nao tentar escrever em `/var/log` durante os testes).
+
+### Retencao de log — os dois logs (Epico 12, US-007)
+
+Esta VPS tem **dois** logs distintos, com politicas de retencao diferentes e
+ja configuradas — nenhuma das duas mudou nesta story, que so documenta o que
+ja existe em `logback-spring.xml` e `docker-compose-prod.yml`.
+
+**1. Audit log (`security.audit`)** — ja detalhado acima. Resumo do teto:
+`maxFileSize` 10MB por arquivo, `maxHistory` 10 arquivos, `totalSizeCap` 100MB
+para o historico comprimido. **Pior caso em disco: ~110MB** (100MB de
+`totalSizeCap` do historico comprimido + ate 10MB do arquivo ativo, que ainda
+nao rotacionou e portanto nao conta para o teto). Vive no volume
+`/var/lib/sessao-a-dois/security-audit-logs` (bind mount na VPS) — sobrevive a
+`docker compose down` + `up`.
+
+**2. Log da aplicacao (stdout/stderr, `docker compose logs api`)** — driver
+`json-file` do Docker, configurado em `docker-compose-prod.yml`:
+`max-size: "10m"`, `max-file: "3"`. **Pior caso em disco: ~30MB** (3 arquivos
+de 10MB). **Sem arquivo dedicado** (decisao E12.4/E12.6 do PRD do Epico 12) —
+o `docker logs` com esse teto e suficiente para o volume desta aplicacao
+(~8 usuarios conhecidos), e nao ha um segundo `RollingFileAppender` para ele.
+Isso e deliberado, nao uma lacuna: o unico log que precisa sobreviver a um
+restart e o audit log (trilha de seguranca, ja em volume acima); o log da
+aplicacao e operacional e **some** no `docker compose down` — aceito
+conscientemente, porque `docker compose down` + `up` e exatamente a etapa 5/5
+de `scripts/deploy.sh`, e recriar o log da aplicacao a cada deploy nao perde
+nenhum dado que precise de retencao entre deploys (o que precisa persistir —
+login, logout, dissolucao de casal, etc. — ja esta no audit log, que e o que
+o volume protege).
+
+Nenhuma mudanca de comportamento de logging: o formato do console continua
+identico, e a razao de `logback-spring.xml` nao incluir `base.xml` (evitar um
+segundo `FILE` appender implicito escrevendo em `/tmp/spring.log`) continua
+valendo — ver o comentario no topo desse arquivo.
+
+### Procedimento de investigacao por correlation id (Epico 12, US-008)
+
+Toda requisicao tem um correlation id (`com.app.security.CorrelationIdFilter`)
+que aparece em **tres** lugares. Partindo de um id, este e o passo a passo
+para chegar ao que aconteceu usando so estes comandos, sem abrir codigo.
+
+**As duas portas de entrada reais:**
+
+- **(a) O usuario leu o id na tela de erro.** A tela de erro do frontend
+  (US-006) mostra o correlation id em texto pequeno quando o
+  `POST /api/client-errors` (US-003) responde a tempo — e o id que o usuario
+  te manda ao relatar "ficou tudo branco".
+- **(b) Ninguem relatou nada, mas existe um `event=client_error` no log.**
+  Nesse caso o primeiro passo e achar o id, nao partir dele:
+
+  ```bash
+  ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs api | grep event=client_error"
+  ```
+
+  A propria linha ja traz o `correlationId=...` a ser usado nos passos abaixo.
+
+**Passo 1 — header `X-Request-Id` da resposta.** Presente em toda resposta,
+sempre (`CorrelationIdFilter` gera um quando o cliente nao manda um —
+`CorrelationIdFilterTest.generatesNewCorrelationIdWhenHeaderAbsent` cobre
+isso). Se voce tem como reproduzir a chamada (DevTools do navegador ou um
+`curl -i`), o id esta ali:
+
+```bash
+curl -sI https://sessaoadois.luisgosampaio.com/api/health | grep -i x-request-id
+```
+
+**Passo 2 — log da aplicacao (`docker compose logs api`).** Todas as linhas
+daquela requisicao, nao so a de `client_error` — util para ver o que
+aconteceu antes e depois dela:
+
+```bash
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs api | grep 'correlationId=<id>'"
+```
+
+Para restringir a janela de tempo, quando o log e grande e o incidente tem
+hora aproximada:
+
+```bash
+ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml logs --since 2h api | grep 'correlationId=<id>'"
+```
+
+**Passo 3 — audit log (`security.audit`).** Login, logout, dissolucao de
+casal, regeneracao de convite, bloqueio por rate limit — o mesmo comando ja
+documentado acima, na secao "Trilha de auditoria de seguranca":
+
+```bash
+ssh root@31.97.169.38 "grep 'correlationId=<id>' /var/lib/sessao-a-dois/security-audit-logs/security-audit.log"
+```
+
+Se o id nao aparecer no audit log, nao e falha do procedimento: significa que
+nenhum dos eventos que o `SecurityAuditLogger` grava aconteceu naquela
+requisicao (ex.: um erro de render puro, sem nenhuma chamada autenticada).
+
+**O que NAO da para achar:**
+
+- Nada anterior ao ultimo `docker compose down` no log da aplicacao — ele nao
+  tem arquivo dedicado (E12.6, ver "Retencao de log" acima) e nao sobrevive ao
+  ciclo de vida do container, ao contrario do audit log.
+- Nada alem do teto do audit log — pior caso ~110MB / 10 arquivos comprimidos
+  (ver "Retencao de log" acima): um incidente velho o suficiente pode ja ter
+  sido descartado pela rotacao.
+- Nenhum dado de negocio (nota, opiniao, titulo assistido) — nenhum dos dois
+  logs registra isso; essa pergunta e do banco (Supabase), fora do escopo
+  deste procedimento.
+
+**Incidente simulado, rastreado ponta a ponta so com este procedimento —
+executado no sandbox de desenvolvimento (sem Docker nem browser disponiveis
+aqui, mesma limitacao ja registrada em `client/CLAUDE.md` e nas notas da
+US-006 no `progress.txt` do ralph):**
+
+Rodado `./mvnw -B test -Dtest=RateLimitFilterTest#clientErrorsBlocksAfterExceedingLimit`,
+que dispara 3 `POST /api/client-errors` do mesmo IP sem header `X-Request-Id`
+(o backend gera um por requisicao, como um cliente anonimo real) — o 3o
+estoura o limite de 2/janela do teste e volta `429`. A saida (equivalente ao
+`docker compose logs api` do Passo 2, mesmo `logback-spring.xml`/mesmo
+formato) mostrou duas linhas `event=client_error` (uma por requisicao aceita,
+cada uma com seu proprio correlation id gerado pelo backend) e uma
+`event=rate_limit_exceeded correlationId=6e368689-b080-4815-9ba0-2aedbff3bc88
+endpoint="/api/client-errors" ip="10.0.137.108"` para a 3a. Essa ultima linha
+tambem foi escrita de verdade em `target/test-logs/security-audit.log` (o
+equivalente local do volume da VPS, via `app.security.audit-log.path` do
+`api/src/test/resources/application.properties`) — rodando literalmente o
+comando do Passo 3 contra esse arquivo
+(`grep 'correlationId=6e368689-b080-4815-9ba0-2aedbff3bc88' target/test-logs/security-audit.log`)
+devolveu exatamente essa linha. **Verificado de ponta a ponta:** Passo 2 (log
+da aplicacao) e Passo 3 (audit log), os dois contra saida/arquivo reais, nao
+mockados. **Nao verificado, fica de gate humano:** o Passo 1 contra uma
+resposta HTTP real (a garantia vem do teste unitario existente
+`CorrelationIdFilterTest`, citado acima, nao de um `curl` ao vivo), os
+comandos SSH/`docker compose` literais contra a VPS de producao (sem Docker
+neste sandbox) e o ciclo completo pela tela de erro no navegador (US-006, sem
+Chromium neste sandbox). Deliberadamente **nao** foi usado o `DB_URL` de
+producao (Supabase) do `.env` deste repo para tentar completar o ciclo — subir
+a aplicacao contra o banco real so para este teste seria um risco
+desnecessario e fora do escopo desta story de documentacao.
+
+---
+
+## Monitoramento (Epico 12, US-011)
+
+**O valor deste monitor depende da US-002.** Antes dela, `/api/health` respondia
+`{"status":"UP"}` constante independentemente do banco — um monitor apontando
+para aquele endpoint seria decorativo, verde mesmo com a aplicacao 100% quebrada
+para o usuario. So a partir da US-002 (banco fora => `503` em ate ~2s) o endpoint
+diz a verdade e o monitor passa a significar algo.
+
+**Servico:** UptimeRobot (free tier) ou equivalente (BetterStack e a alternativa
+mais citada, com free tier menor em numero de monitores mas UI melhor) — decisao
+final do mantenedor na execucao da US-012; esta secao e atualizada com o servico
+realmente escolhido se divergir do aqui documentado. **Nenhum custo recorrente**
+(decisao D15) — o plano usado e sempre free tier; confirmar no painel do servico
+apos a ativacao.
+
+**O que e monitorado:** `https://sessaoadois.luisgosampaio.com/api/health`
+(o mesmo endpoint publico do smoke test do `deploy.yml`), a cada **5 minutos**.
+
+**Para onde vai o alerta:** e-mail (decisao E12.4). **O alerta de uptime desta
+secao e o alerta de falha de deploy (US-009, ver "CI/CD" acima) chegam pelo
+mesmo canal — e-mail — mas por assuntos diferentes:** o alerta de deploy tem
+assunto `Deploy falhou (<job>) - Sessão a Dois`; o alerta de uptime tem o
+assunto padrao do servico escolhido (tipicamente algo como "sessaoadois.
+luisgosampaio.com is DOWN"). Se os dois comecarem a chegar parecidos a ponto de
+confundir, ajustar o nome do monitor no painel do servico, nao este documento.
+
+**Como pausar durante um deploy planejado (e como despausar):** o deploy normal
+via `deploy.yml` e rapido o bastante (smoke test com ate 12 tentativas de 10s)
+para nao costumar disparar o monitor de 5 em 5 minutos, mas para uma manutencao
+mais longa (ex.: troca manual de infraestrutura na VPS):
+
+1. No painel do servico de monitoramento, abrir o monitor de
+   `https://sessaoadois.luisgosampaio.com/api/health` e usar a opcao de
+   pausar (ex.: "Pause Monitor" no UptimeRobot).
+2. Fazer a manutencao.
+3. **Despausar assim que terminar.** Um monitor esquecido em pausa e pior do
+   que nenhum monitor: da a falsa sensacao de que uma queda real seria
+   detectada. Se a manutencao for maior que o esperado, e melhor conferir o
+   monitor de novo no dia seguinte do que confiar na memoria.
+
+### Checklist operacional (US-012 — executado pelo mantenedor, nao por agente)
+
+Story operacional: exige conta no servico de monitoramento e acesso a VPS de
+producao, mesmo tratamento das stories operacionais do Epico 8. Passos:
+
+1. Criar conta no servico escolhido (UptimeRobot ou equivalente, free tier).
+2. Criar o monitor: URL `https://sessaoadois.luisgosampaio.com/api/health`,
+   metodo HTTP GET, intervalo de 5 minutos, alerta por e-mail configurado para
+   o mesmo endereco (ou equivalente) do secret `ALERT_EMAIL_TO` do Epico 12.
+3. Confirmar que um e-mail de teste do proprio servico chega normalmente
+   (a maioria oferece um botao "Send test alert" ou similar).
+4. **Teste real de queda:** `ssh root@31.97.169.38 "cd ~/projects/sessao-a-dois && docker compose -f docker-compose-prod.yml stop api"`,
+   cronometrar ate o alerta chegar (esperado: ate 10 minutos), religar com
+   `docker compose -f docker-compose-prod.yml start api`, e registrar os tres
+   horarios (parada, alerta, volta ao verde) no `progress.txt` ou no PR.
+5. **Complementar (so faz sentido depois da US-002 existir):** derrubar so o
+   banco em vez da API inteira — ou apontar `DB_URL` para um destino invalido
+   momentaneamente — e confirmar que o mesmo alerta dispara. Esse e o cenario
+   que um health check raso escondia (a API de pe, o banco fora, o health
+   antigo respondendo `200` do mesmo jeito) e e o motivo de a T12.1 depender
+   da T12.2 (ver `tasks/prd-epico-12-observabilidade-e-alerta.md` secao 4).
+6. Atualizar esta secao com o nome do servico realmente escolhido, se
+   diferente do default (UptimeRobot) aqui documentado.
 
 ---
 

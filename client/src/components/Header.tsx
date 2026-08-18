@@ -4,6 +4,7 @@ import { NavLink, useLocation } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
 import { NotificationDropdown } from "@/components/NotificationDropdown"
+import { Button } from "@/components/ui/button"
 import { daysSince } from "@/lib/date"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -24,17 +25,17 @@ export function Header() {
   const days = couple?.createdAt ? daysSince(couple.createdAt) : 0
 
   return (
-    <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-[#09090a]/72 px-5 py-4 backdrop-blur-xl sm:px-8">
+    <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-background/72 px-5 py-4 backdrop-blur-xl sm:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-[#ffcb2b] shadow-[0_6px_20px_rgba(255,203,43,.35)]">
-          <Heart className="size-[18px] fill-current text-[#111]" />
+        <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-primary shadow-[var(--shadow-glow-primary-12)]">
+          <Heart className="size-[18px] fill-current text-on-primary" />
         </div>
-        <div className="font-display truncate text-[19px] font-bold tracking-tight text-[#f6f4ec]">
-          Sessão<span className="text-[#ff9e2c]">·</span>a·Dois
+        <div className="font-display truncate text-[19px] font-bold tracking-tight text-foreground">
+          Sessão<span className="text-series">·</span>a·Dois
         </div>
       </div>
 
-      <nav className="hidden items-center gap-1.5 rounded-[14px] border border-white/[0.06] bg-white/[0.05] p-1.5 md:flex">
+      <nav className="hidden items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.05] p-1.5 md:flex">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -42,10 +43,10 @@ export function Header() {
             end={item.to === "/hub"}
             className={({ isActive }) =>
               cn(
-                "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2 text-sm font-semibold transition-colors",
+                "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
                 isActive
-                  ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                  : "text-[#a6a39a] hover:text-[#f6f4ec]"
+                  ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
+                  : "text-muted-foreground hover:text-foreground"
               )
             }
           >
@@ -59,10 +60,10 @@ export function Header() {
         {couple?.partner && (
           <>
             <div className="hidden text-right leading-tight sm:block">
-              <div className="text-[13px] font-semibold text-[#f6f4ec]">
+              <div className="text-[13px] font-semibold text-foreground">
                 {firstName} & {partnerFirstName}
               </div>
-              <div className="text-[11px] text-[#a6a39a]">
+              <div className="text-[11px] text-muted-foreground">
                 {days} {days === 1 ? "dia" : "dias"} juntos no app
               </div>
             </div>
@@ -80,10 +81,10 @@ export function Header() {
           aria-label="Conta"
           className={({ isActive }) =>
             cn(
-              "hidden size-9.5 flex-none place-items-center rounded-[10px] border transition-colors md:grid",
+              "hidden size-9.5 flex-none place-items-center rounded-lg border transition-colors md:grid",
               isActive
-                ? "border-transparent bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                : "border-white/[0.06] bg-white/[0.05] text-[#a6a39a] hover:bg-white/[0.09] hover:text-[#f6f4ec]"
+                ? "border-transparent bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
+                : "border-white/[0.06] bg-white/[0.05] text-muted-foreground hover:bg-white/[0.09] hover:text-foreground"
             )
           }
         >
@@ -101,18 +102,20 @@ function MobileNav() {
 
   return (
     <div className="relative md:hidden">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => setMenuOpen((open) => !open)}
         aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
         aria-expanded={menuOpen}
-        className="grid size-9.5 flex-none place-items-center rounded-[10px] border border-white/[0.06] bg-white/[0.05] text-[#f6f4ec] transition-colors hover:bg-white/[0.09]"
+        className="size-9.5 flex-none rounded-lg border border-white/[0.06] bg-white/[0.05] text-foreground transition-colors hover:bg-white/[0.09]"
       >
         {menuOpen ? <X size={19} /> : <Menu size={19} />}
-      </button>
+      </Button>
 
       {menuOpen && (
-        <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-[14px] border border-white/[0.08] bg-[#141312] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.5)]">
+        <nav className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-48 flex-col gap-1 rounded-xl border border-white/[0.08] bg-nav-surface p-1.5 shadow-[var(--shadow-elevation-3)]">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -121,10 +124,10 @@ function MobileNav() {
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors",
                   isActive
-                    ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                    : "text-[#a6a39a] hover:text-[#f6f4ec]"
+                    ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
+                    : "text-muted-foreground hover:text-foreground"
                 )
               }
             >
@@ -140,10 +143,10 @@ function MobileNav() {
             onClick={() => setMenuOpen(false)}
             className={({ isActive }) =>
               cn(
-                "inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-colors",
+                "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors",
                 isActive
-                  ? "bg-[#ffcb2b] text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]"
-                  : "text-[#a6a39a] hover:text-[#f6f4ec]"
+                  ? "bg-primary text-on-primary shadow-[var(--shadow-glow-primary-9)]"
+                  : "text-muted-foreground hover:text-foreground"
               )
             }
           >

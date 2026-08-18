@@ -57,14 +57,16 @@ public class SecurityConfig {
 				// rejeitaria com 403 o valor cru que o cliente legitimamente reenvia.
 				.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
 				.ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/health",
-						"/api/auth/refresh", "/api/auth/logout"))
+						"/api/auth/refresh", "/api/auth/logout", "/api/auth/forgot-password",
+						"/api/auth/reset-password", "/api/client-errors"))
 			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/refresh",
-						"/api/auth/logout")
+						"/api/auth/logout", "/api/auth/forgot-password", "/api/auth/reset-password")
 					.permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/client-errors").permitAll()
 				.requestMatchers("/ws/**").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(ex -> ex.authenticationEntryPoint(

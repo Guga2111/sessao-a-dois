@@ -26,6 +26,10 @@ public class RateLimitProperties {
 	private Limit profileUpdate = new Limit(10, Duration.ofHours(1));
 	private Limit passwordChange = new Limit(5, Duration.ofHours(1));
 	private Limit accountDelete = new Limit(3, Duration.ofHours(1));
+	private Limit forgotPassword = new Limit(5, Duration.ofHours(1));
+	private Limit forgotPasswordByEmail = new Limit(3, Duration.ofHours(1));
+	private Limit resetPassword = new Limit(10, Duration.ofHours(1));
+	private Limit clientErrors = new Limit(10, Duration.ofMinutes(1));
 
 	public boolean isEnabled() {
 		return enabled;
@@ -113,6 +117,38 @@ public class RateLimitProperties {
 
 	public void setAccountDelete(Limit accountDelete) {
 		this.accountDelete = accountDelete;
+	}
+
+	public Limit getForgotPassword() {
+		return forgotPassword;
+	}
+
+	public void setForgotPassword(Limit forgotPassword) {
+		this.forgotPassword = forgotPassword;
+	}
+
+	public Limit getForgotPasswordByEmail() {
+		return forgotPasswordByEmail;
+	}
+
+	public void setForgotPasswordByEmail(Limit forgotPasswordByEmail) {
+		this.forgotPasswordByEmail = forgotPasswordByEmail;
+	}
+
+	public Limit getResetPassword() {
+		return resetPassword;
+	}
+
+	public void setResetPassword(Limit resetPassword) {
+		this.resetPassword = resetPassword;
+	}
+
+	public Limit getClientErrors() {
+		return clientErrors;
+	}
+
+	public void setClientErrors(Limit clientErrors) {
+		this.clientErrors = clientErrors;
 	}
 
 	public static class Limit {

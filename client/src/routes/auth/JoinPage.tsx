@@ -109,7 +109,7 @@ export function JoinPage() {
           {notLinkedYet ? (
             <p
               role="alert"
-              className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b] text-center"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft text-center"
             >
               Seu par ainda não entrou. Aguarde e tente novamente.
             </p>
@@ -120,7 +120,7 @@ export function JoinPage() {
             size="lg"
             onClick={handleCheckLinked}
             disabled={isChecking}
-            className="w-full border-white/10 bg-white/[0.04] text-[#f6f4ec] hover:bg-white/[0.08]"
+            className="w-full border-white/10 bg-white/[0.04] text-foreground hover:bg-white/[0.08]"
           >
             {isChecking ? "Verificando…" : "Já vinculamos, continuar"}
           </Button>
@@ -146,8 +146,8 @@ export function JoinPage() {
           onClick={() => setMode("join")}
           className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
             mode === "join"
-              ? "bg-[#ffcb2b] text-[#09090a]"
-              : "text-[#a6a39a] hover:text-[#f6f4ec]"
+              ? "bg-primary text-background"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           Tenho um código
@@ -158,8 +158,8 @@ export function JoinPage() {
           onClick={() => setMode("create")}
           className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
             mode === "create"
-              ? "bg-[#ffcb2b] text-[#09090a]"
-              : "text-[#a6a39a] hover:text-[#f6f4ec]"
+              ? "bg-primary text-background"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           Criar meu código
@@ -169,7 +169,7 @@ export function JoinPage() {
       {mode === "join" ? (
         <form className="flex flex-col gap-4" onSubmit={handleJoin} noValidate>
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-[#a6a39a]">
+            <span className="text-xs font-medium text-muted-foreground">
               Código de convite
             </span>
             <Input
@@ -186,7 +186,7 @@ export function JoinPage() {
           {error ? (
             <p
               role="alert"
-              className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b]"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft"
             >
               {error}
             </p>
@@ -196,21 +196,21 @@ export function JoinPage() {
             type="submit"
             size="lg"
             disabled={isSubmitting || !inviteCode.trim()}
-            className="mt-1 w-full bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-60"
+            className="mt-1 w-full bg-primary text-background hover:bg-accent disabled:opacity-60"
           >
             {isSubmitting ? "Vinculando…" : "Vincular"}
           </Button>
         </form>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="text-sm leading-relaxed text-[#a6a39a]">
+          <p className="text-sm leading-relaxed text-muted-foreground">
             Vamos gerar um código único para você compartilhar com sua pessoa.
           </p>
 
           {error ? (
             <p
               role="alert"
-              className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b]"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft"
             >
               {error}
             </p>
@@ -221,7 +221,7 @@ export function JoinPage() {
             size="lg"
             onClick={handleCreate}
             disabled={isSubmitting}
-            className="w-full bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-60"
+            className="w-full bg-primary text-background hover:bg-accent disabled:opacity-60"
           >
             {isSubmitting ? "Gerando…" : "Gerar meu código"}
           </Button>

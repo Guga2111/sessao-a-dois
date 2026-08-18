@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
@@ -44,6 +46,15 @@ class AuthServiceTest {
 	@Mock
 	private RefreshTokenService refreshTokenService;
 
+	@Mock
+	private PasswordResetDispatcher passwordResetDispatcher;
+
+	@Mock
+	private PasswordResetService passwordResetService;
+
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
+
 	private RateLimitProperties rateLimitProperties;
 
 	private AuthService authService;
@@ -52,7 +63,8 @@ class AuthServiceTest {
 	void setUp() {
 		rateLimitProperties = new RateLimitProperties();
 		authService = new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
-				new RateLimitService(), rateLimitProperties, new SecurityAuditLogger());
+				new RateLimitService(), rateLimitProperties, new SecurityAuditLogger(), passwordResetDispatcher,
+				passwordResetService, eventPublisher);
 	}
 
 	private static AuthService newAuthServiceWithLoginByEmailLimit(UserRepository userRepository,
@@ -61,7 +73,18 @@ class AuthServiceTest {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setLoginByEmail(new RateLimitProperties.Limit(capacity, window));
 		return new AuthService(userRepository, passwordEncoder, jwtService, refreshTokenService,
-				new RateLimitService(), properties, new SecurityAuditLogger());
+				new RateLimitService(), properties, new SecurityAuditLogger(), Mockito.mock(PasswordResetDispatcher.class),
+				Mockito.mock(PasswordResetService.class), Mockito.mock(ApplicationEventPublisher.class));
+	}
+
+	private static AuthService newAuthServiceWithForgotPasswordByEmailLimit(UserRepository userRepository,
+			PasswordResetDispatcher passwordResetDispatcher, int capacity, Duration window) {
+		RateLimitProperties properties = new RateLimitProperties();
+		properties.setForgotPasswordByEmail(new RateLimitProperties.Limit(capacity, window));
+		return new AuthService(userRepository, Mockito.mock(PasswordEncoder.class), Mockito.mock(JwtService.class),
+				Mockito.mock(RefreshTokenService.class), new RateLimitService(), properties, new SecurityAuditLogger(),
+				passwordResetDispatcher, Mockito.mock(PasswordResetService.class),
+				Mockito.mock(ApplicationEventPublisher.class));
 	}
 
 	@Test
@@ -235,6 +258,11 @@ class AuthServiceTest {
 		verify(userRepository).save(captor.capture());
 		assertThat(captor.getValue().getPasswordHash()).isEqualTo("hash-novo");
 		verify(refreshTokenService).revokeFamily(userId);
+
+		ArgumentCaptor<PasswordChangedNoticeEvent> eventCaptor = ArgumentCaptor.forClass(PasswordChangedNoticeEvent.class);
+		verify(eventPublisher).publishEvent(eventCaptor.capture());
+		assertThat(eventCaptor.getValue().userId()).isEqualTo(userId);
+		assertThat(eventCaptor.getValue().email()).isEqualTo("ana@example.com");
 	}
 
 	@Test
@@ -252,6 +280,7 @@ class AuthServiceTest {
 		verify(userRepository, never()).save(any(User.class));
 		verify(refreshTokenService, never()).revokeFamily(any());
 		verify(passwordEncoder, never()).encode(anyString());
+		verify(eventPublisher, never()).publishEvent(any());
 	}
 
 	@Test
@@ -259,7 +288,8 @@ class AuthServiceTest {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
 		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
-				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger());
+				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher,
+				passwordResetService, eventPublisher);
 		UUID userId = UUID.randomUUID();
 		User user = new User("Ana", "ana@example.com", "hash-antigo");
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -280,7 +310,8 @@ class AuthServiceTest {
 		RateLimitProperties properties = new RateLimitProperties();
 		properties.setPasswordChange(new RateLimitProperties.Limit(1, Duration.ofMinutes(1)));
 		AuthService limitedAuthService = new AuthService(userRepository, passwordEncoder, jwtService,
-				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger());
+				refreshTokenService, new RateLimitService(), properties, new SecurityAuditLogger(), passwordResetDispatcher,
+				passwordResetService, eventPublisher);
 		UUID first = UUID.randomUUID();
 		UUID second = UUID.randomUUID();
 		// Uma instancia por chamada: a primeira troca muda o hash da entidade em memoria, e
@@ -305,5 +336,114 @@ class AuthServiceTest {
 			.isInstanceOf(RefreshReuseDetectedException.class);
 
 		verify(jwtService, never()).generateToken(any());
+	}
+
+	@Test
+	void forgotPasswordDispatchesForAnExistingEmail() {
+		User user = new User("Ana", "ana@example.com", "hash");
+		when(userRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(user));
+
+		authService.forgotPassword("ana@example.com");
+
+		verify(passwordResetDispatcher).dispatch(user);
+	}
+
+	@Test
+	void forgotPasswordDoesNothingExtraForAnUnknownEmail() {
+		when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+
+		authService.forgotPassword("ghost@example.com");
+
+		verify(passwordResetDispatcher, never()).dispatch(any());
+	}
+
+	@Test
+	void blocksForgotPasswordByEmailAfterExceedingLimitEvenWhenEmailDoesNotExist() {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMinutes(1));
+		when(userRepository.findByEmail("nao-existe@example.com")).thenReturn(Optional.empty());
+
+		limitedAuthService.forgotPassword("nao-existe@example.com");
+
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword("nao-existe@example.com"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(passwordResetDispatcher, never()).dispatch(any());
+	}
+
+	@Test
+	void forgotPasswordByEmailRateLimitIgnoresCaseAndSurroundingSpaces() {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMinutes(1));
+		when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+
+		limitedAuthService.forgotPassword("ana@example.com");
+
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword(" ANA@Example.com "))
+			.isInstanceOf(RateLimitExceededException.class);
+	}
+
+	@Test
+	void forgotPasswordByEmailRateLimitAlsoAppliesWhenEmailExists() {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMinutes(1));
+		User user = new User("Ana", "ana@example.com", "hash");
+		when(userRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(user));
+
+		limitedAuthService.forgotPassword("ana@example.com");
+
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword("ana@example.com"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(passwordResetDispatcher, org.mockito.Mockito.times(1)).dispatch(user);
+	}
+
+	@Test
+	void releasesForgotPasswordByEmailRateLimitAfterWindow() throws InterruptedException {
+		AuthService limitedAuthService = newAuthServiceWithForgotPasswordByEmailLimit(userRepository,
+				passwordResetDispatcher, 1, Duration.ofMillis(150));
+		when(userRepository.findByEmail("nao-existe2@example.com")).thenReturn(Optional.empty());
+
+		limitedAuthService.forgotPassword("nao-existe2@example.com");
+		assertThatThrownBy(() -> limitedAuthService.forgotPassword("nao-existe2@example.com"))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		Thread.sleep(300);
+
+		limitedAuthService.forgotPassword("nao-existe2@example.com");
+	}
+
+	@Test
+	void resetPasswordSavesTheNewHashAndDropsEverySession() {
+		UUID userId = UUID.randomUUID();
+		User user = new User("Ana", "ana@example.com", "hash-antigo");
+		when(passwordResetService.consumeToken("raw-token")).thenReturn(userId);
+		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+		when(passwordEncoder.encode("senha-nova-1234")).thenReturn("hash-novo");
+
+		authService.resetPassword("raw-token", "senha-nova-1234");
+
+		ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+		verify(userRepository).save(captor.capture());
+		assertThat(captor.getValue().getPasswordHash()).isEqualTo("hash-novo");
+		verify(refreshTokenService).revokeFamily(userId);
+
+		ArgumentCaptor<PasswordChangedNoticeEvent> eventCaptor = ArgumentCaptor.forClass(PasswordChangedNoticeEvent.class);
+		verify(eventPublisher).publishEvent(eventCaptor.capture());
+		assertThat(eventCaptor.getValue().userId()).isEqualTo(userId);
+		assertThat(eventCaptor.getValue().email()).isEqualTo("ana@example.com");
+	}
+
+	@Test
+	void resetPasswordPropagatesAnInvalidTokenWithoutTouchingTheUser() {
+		when(passwordResetService.consumeToken("token-invalido"))
+			.thenThrow(new InvalidPasswordResetTokenException());
+
+		assertThatThrownBy(() -> authService.resetPassword("token-invalido", "senha-nova-1234"))
+			.isInstanceOf(InvalidPasswordResetTokenException.class);
+
+		verify(userRepository, never()).save(any(User.class));
+		verify(refreshTokenService, never()).revokeFamily(any());
+		verify(eventPublisher, never()).publishEvent(any());
 	}
 }

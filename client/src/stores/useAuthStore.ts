@@ -75,13 +75,16 @@ interface AuthState {
 }
 
 function loadPersistedSession(): PersistedSession {
-  const raw = localStorage.getItem(SESSION_STORAGE_KEY)
-  if (!raw) {
-    return { user: null, couple: null }
-  }
   try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY)
+    if (!raw) {
+      return { user: null, couple: null }
+    }
     return JSON.parse(raw) as PersistedSession
   } catch {
+    // localStorage is unavailable in non-browser environments (e.g. Node
+    // worker threads before jsdom is applied). Returning an empty session is
+    // the correct no-op for that case.
     return { user: null, couple: null }
   }
 }

@@ -4,9 +4,11 @@ import { Navigate, Route, Routes } from "react-router-dom"
 import { MatchCelebrationModal } from "@/components/MatchCelebrationModal"
 import { AppShellSkeleton } from "@/components/skeletons/AppShellSkeleton"
 import { useDelayedLoading } from "@/lib/useDelayedLoading"
+import { ForgotPasswordPage } from "@/routes/auth/ForgotPasswordPage"
 import { JoinPage } from "@/routes/auth/JoinPage"
 import { LoginPage } from "@/routes/auth/LoginPage"
 import { RegisterPage } from "@/routes/auth/RegisterPage"
+import { ResetPasswordPage } from "@/routes/auth/ResetPasswordPage"
 import {
   ProtectedRoute,
   PublicOnlyRoute,
@@ -30,8 +32,12 @@ export function App() {
   const hasPartner = useAuthStore((state) => Boolean(state.couple?.partner))
   const connect = useMatchStore((state) => state.connect)
   const disconnect = useMatchStore((state) => state.disconnect)
-  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications)
-  const fetchUnreadCount = useNotificationStore((state) => state.fetchUnreadCount)
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications
+  )
+  const fetchUnreadCount = useNotificationStore(
+    (state) => state.fetchUnreadCount
+  )
 
   useEffect(() => {
     void loadCurrentUser()
@@ -88,6 +94,22 @@ export function App() {
           element={
             <PublicOnlyRoute>
               <RegisterPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/esqueci-senha"
+          element={
+            <PublicOnlyRoute>
+              <ForgotPasswordPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/redefinir-senha"
+          element={
+            <PublicOnlyRoute>
+              <ResetPasswordPage />
             </PublicOnlyRoute>
           }
         />

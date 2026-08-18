@@ -10,7 +10,7 @@ export function DetailModalSkeleton({
   return (
     <div className="flex flex-col gap-5">
       {showPoster && (
-        <Skeleton className="aspect-[2/3] w-28 flex-none rounded-[14px] sm:w-32" />
+        <Skeleton className="aspect-[2/3] w-28 flex-none rounded-xl sm:w-32" />
       )}
       <div className="flex gap-4">
         <div className="flex flex-col gap-1.5">

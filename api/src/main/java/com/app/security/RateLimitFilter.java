@@ -18,7 +18,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Aplica rate limit por IP a login/register/refresh/couple-join ANTES da
+ * Aplica rate limit por IP a
+ * login/register/refresh/couple-join/forgot-password/reset-password/client-errors ANTES da
  * cadeia do Spring Security (registrado com @Order baixo em
  * {@link SecurityConfig#rateLimitFilterRegistration}, ao contrario de
  * {@link SecurityConfig#jwtFilterRegistration}, que desliga o filtro na
@@ -108,6 +109,24 @@ public class RateLimitFilter extends OncePerRequestFilter {
 			@Override
 			Limit limit(RateLimitProperties properties) {
 				return properties.getCoupleJoin();
+			}
+		},
+		FORGOT_PASSWORD("POST", "/api/auth/forgot-password") {
+			@Override
+			Limit limit(RateLimitProperties properties) {
+				return properties.getForgotPassword();
+			}
+		},
+		RESET_PASSWORD("POST", "/api/auth/reset-password") {
+			@Override
+			Limit limit(RateLimitProperties properties) {
+				return properties.getResetPassword();
+			}
+		},
+		CLIENT_ERRORS("POST", "/api/client-errors") {
+			@Override
+			Limit limit(RateLimitProperties properties) {
+				return properties.getClientErrors();
 			}
 		};
 

@@ -118,23 +118,23 @@ export function HubScreen() {
 
   return (
     <div
-      className="font-auth-body min-h-svh text-[#f6f4ec]"
+      className="font-auth-body min-h-svh text-foreground"
       style={{
         background:
-          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), #09090a",
+          "radial-gradient(1200px 700px at 78% -8%, rgba(255,203,43,.16), transparent 55%), radial-gradient(1000px 600px at 5% 8%, rgba(255,158,44,.10), transparent 50%), var(--background)",
       }}
     >
       <Header />
       <main className="mx-auto max-w-[1240px] px-4 pt-10 pb-32 sm:px-8 sm:pt-11">
         <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
           <div className="min-w-0">
-            <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-[#ffcb2b] uppercase">
+            <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-primary uppercase">
               Minha Lista
             </div>
             <h1 className="font-display text-[clamp(28px,4vw,40px)] font-bold tracking-tight">
               O que estamos vendo
             </h1>
-            <p className="mt-2 text-[15px] text-[#a6a39a]">
+            <p className="mt-2 text-[15px] text-muted-foreground">
               Tudo o que {user?.name ? `${user.name} e vocês dois` : "vocês dois"}{" "}
               estão acompanhando, em um só lugar.
             </p>
@@ -157,8 +157,8 @@ export function HubScreen() {
                       }
                       className={
                         compare.compareMode
-                          ? "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-[rgba(255,203,43,.35)] bg-[rgba(255,203,43,.12)] px-4.5 py-3.5 text-[14px] font-semibold text-[#ffcb2b] hover:bg-[rgba(255,203,43,.18)] hover:text-[#ffcb2b]"
-                          : "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-white/12 bg-transparent px-4.5 py-3.5 text-[14px] font-semibold text-[#f6f4ec] hover:bg-white/[0.06] hover:text-[#f6f4ec]"
+                          ? "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-primary/35 bg-primary/12 px-4.5 py-3.5 text-[14px] font-semibold text-primary hover:bg-primary/18 hover:text-primary"
+                          : "inline-flex cursor-pointer items-center gap-2 rounded-2xl border-white/12 bg-transparent px-4.5 py-3.5 text-[14px] font-semibold text-foreground hover:bg-white/[0.06] hover:text-foreground"
                       }
                     />
                   }
@@ -170,7 +170,7 @@ export function HubScreen() {
                   )}
                   {compare.compareMode ? "Cancelar" : "Comparar"}
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[240px] rounded-lg border border-[rgba(255,255,255,.1)] bg-[#201e18] px-3 py-2 text-[#f6f4ec] shadow-xl">
+                <TooltipContent className="max-w-[240px] rounded-lg border border-border bg-surface-secondary px-3 py-2 text-foreground shadow-xl">
                   {COMPARE_TOOLTIP}
                 </TooltipContent>
               </Tooltip>
@@ -179,7 +179,7 @@ export function HubScreen() {
             <Button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-[#ffcb2b] px-5.5 py-3.5 text-[15px] font-bold text-[#111] shadow-[0_10px_26px_rgba(255,203,43,.34)] transition-transform hover:-translate-y-0.5 sm:flex-none"
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-2xl border-none bg-primary px-5.5 py-3.5 text-[15px] font-bold text-on-primary shadow-[var(--shadow-glow-primary-4)] transition-transform hover:-translate-y-0.5 sm:flex-none"
             >
               <span className="text-[19px] leading-none">＋</span> Adicionar Título
             </Button>
@@ -225,30 +225,33 @@ export function HubScreen() {
 
       {compare.compareMode && (
         <div className="fixed inset-x-0 bottom-8 z-[35] flex justify-center px-4">
-          <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-[#161513]/95 px-5 py-3 shadow-[0_20px_50px_rgba(0,0,0,.5)] backdrop-blur-md">
+          <div className="flex max-w-[calc(100vw-32px)] flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-card/95 px-5 py-3 shadow-[var(--shadow-elevation-5)] backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <span className="text-[13.5px] font-semibold text-[#f6f4ec]">
+              <span className="text-[13.5px] font-semibold text-foreground">
                 {compare.selected.length}/2 selecionados
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={compare.clearSelection}
                 aria-label="Limpar seleção"
-                className="grid size-6 cursor-pointer place-items-center rounded-full bg-white/[0.08] text-[#a6a39a] transition hover:bg-white/[0.14] hover:text-[#f6f4ec]"
+                className="grid size-6 cursor-pointer place-items-center rounded-full bg-white/[0.08] text-muted-foreground transition hover:bg-white/[0.14] hover:text-foreground"
               >
                 <X className="size-3.5" />
-              </button>
+              </Button>
             </div>
             {compare.error && (
-              <div className="flex items-center gap-2.5 text-[12.5px] text-[#ffb3b3]">
+              <div className="flex items-center gap-2.5 text-[12.5px] text-destructive-foreground">
                 <span>{compare.error}</span>
-                <button
+                <Button
                   type="button"
+                  variant="link"
                   onClick={compare.retry}
-                  className="cursor-pointer font-semibold text-[#ffcb2b] hover:text-[#ffe08a]"
+                  className="h-auto p-0 cursor-pointer font-semibold text-primary hover:text-accent hover:no-underline"
                 >
                   Tentar novamente
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -268,7 +271,7 @@ export function HubScreen() {
         type="button"
         onClick={() => setModalOpen(true)}
         title="Adicionar Título"
-        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-[20px] border-none bg-[#ffcb2b] text-[28px] text-[#111] shadow-[0_14px_34px_rgba(255,203,43,.45)] sm:right-11"
+        className="fixed right-4 bottom-8 z-[35] grid size-15 cursor-pointer place-items-center rounded-2xl border-none bg-primary text-[28px] text-on-primary shadow-[var(--shadow-glow-primary-6)] sm:right-11"
       >
         ＋
       </Button>

@@ -32,15 +32,15 @@ export function SearchResultCard({
       onClick={() => compareMode && onToggleCompare()}
       aria-pressed={compareMode ? isCompareSelected : undefined}
       className={cn(
-        "overflow-hidden rounded-[18px] border bg-[#161513] transition-colors",
+        "overflow-hidden rounded-2xl border bg-card transition-colors",
         compareMode
           ? cn(
               "cursor-pointer",
               isCompareSelected
-                ? "border-2 border-[#ffcb2b] shadow-[0_0_24px_rgba(255,203,43,.18)]"
+                ? "border-2 border-primary shadow-[var(--shadow-glow-primary-3)]"
                 : "border-dashed border-white/20 hover:border-white/35"
             )
-          : "border-[rgba(255,255,255,.07)]"
+          : "border-white/7"
       )}
     >
       <div
@@ -64,18 +64,19 @@ export function SearchResultCard({
             }}
           />
         )}
-        <div className="absolute top-2.5 left-2.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+        <div className="absolute top-2.5 left-2.5 rounded-lg bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-md">
           {TYPE_LABEL[result.mediaType]}
         </div>
         {compareMode ? (
           isCompareSelected && (
-            <div className="absolute top-2.5 right-2.5 grid size-6 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[12px] font-black text-[#111]">
+            <div className="absolute top-2.5 right-2.5 grid size-6 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[12px] font-black text-on-primary">
               {compareOrder}
             </div>
           )
         ) : (
           result.voteAverage != null && (
-            <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-lg bg-[rgba(9,9,10,.6)] px-2.5 py-1 text-[11px] font-semibold text-[#f6f4ec] backdrop-blur-md">
+            <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 rounded-lg bg-background/60 px-2.5 py-1 text-[11px] font-semibold text-foreground backdrop-blur-md">
+              {/* color-ok: #01b47f e o verde de marca oficial do TMDB (identidade externa da fonte da nota, nao token do nosso design system) */}
               <span className="size-1.5 rounded-full bg-[#01b47f]" />
               {result.voteAverage.toFixed(1)}
             </div>
@@ -89,14 +90,14 @@ export function SearchResultCard({
             {result.title}
           </div>
           {result.year && (
-            <span className="flex-none text-[13px] text-[#a6a39a]">
+            <span className="flex-none text-[13px] text-muted-foreground">
               {result.year}
             </span>
           )}
         </div>
 
         {result.overview && (
-          <p className="mt-2 line-clamp-2 text-[12.5px] leading-snug text-[#a6a39a]">
+          <p className="mt-2 line-clamp-2 text-[12.5px] leading-snug text-muted-foreground">
             {result.overview}
           </p>
         )}
@@ -111,15 +112,15 @@ export function SearchResultCard({
             }}
             disabled={alreadyTracked || likeState === "loading"}
             className={cn(
-              "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border px-3 py-2.5 text-[13px] font-semibold transition-colors",
+              "mt-3.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-[13px] font-semibold transition-colors",
               likeState === "matched" &&
-                "border-[rgba(255,203,43,.5)] bg-[rgba(255,203,43,.16)] text-[#ffdd7a]",
+                "border-primary/50 bg-primary/16 text-accent-strong",
               likeState === "liked" &&
-                "border-[rgba(61,220,151,.35)] bg-[rgba(61,220,151,.1)] text-[#8fe9c4]",
+                "border-success/35 bg-success/10 text-success-foreground",
               likeState === "error" &&
-                "border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.1)] text-[#ffb3b3]",
+                "border-destructive/35 bg-destructive/10 text-destructive-foreground",
               (likeState === "idle" || likeState === "loading") &&
-                "border-white/12 bg-transparent text-[#f6f4ec] hover:bg-white/[0.06]"
+                "border-white/12 bg-transparent text-foreground hover:bg-white/[0.06]"
             )}
           >
             {likeState === "loading" && (

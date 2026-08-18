@@ -10,6 +10,10 @@ LOG_FILE/LOG_PATH), o que mudaria o comportamento atual (so console).
 
 Unico acrescimo real: um RollingFileAppender dedicado ao logger "security.audit"
 (US-012), preservando a saida dele tambem no console via additivity="true".
+
+Politica de retencao dos dois logs (este arquivo + docker logs da aplicacao),
+com pior caso em disco de cada um: ver docs/DEPLOY.md, secao "Retencao de log
+- os dois logs (Epico 12, US-007)".
 -->
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>

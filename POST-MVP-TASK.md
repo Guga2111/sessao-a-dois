@@ -41,6 +41,15 @@ são vinculantes da mesma forma.
 | D15 | **Backup gerenciado do banco** | **Não fazer.** Backup automatizado sai do free tier do Supabase e o custo não se justifica hoje. | **Não existe Épico de backup.** A recuperação de um incidente de dados depende do que o free tier oferecer no momento + do snapshot manual pontual que a `docs/FLYWAY.md` já recomenda antes de deploy com migration. Risco aceito conscientemente: perda de dados é possível e não há RPO definido. Revisitar se o app ganhar usuários fora do círculo conhecido, ou pela via gratuita (`pg_dump` em cron na VPS, custo zero), se um dia virar prioridade. |
 | D16 | **Escopo de microsserviços** | **Não agora.** A feature de comunidade, quando vier, é um pacote `com.app.community` dentro do monólito modular, seguindo a regra de dependência da `docs/ARCHITECTURE.md` seção 3. | Nenhum épico de API gateway / extração de serviço. O package-by-feature com portas explícitas já é o que torna a extração barata *depois*, se a escala justificar. |
 
+### Decisões da revisão do Épico 13 (2026-08-13)
+
+| # | Questão | Decisão | Consequência |
+|---|---------|---------|--------------|
+| D17 | **Destino do tema claro** (T13.3) | **(a) Assumir dark-only.** Remover o `ThemeProvider`, fixar `.dark` no `<html>`, apagar os tokens `:root` claros não usados. | Fecha a Open Question da T13.3. Remoção pura, dispensada da skill `frontend-design`. Entregar tema claro de verdade continua possível depois — a T13.2 (sem hex fixo) é justamente o que torna isso barato no futuro, mas não é objetivo agora. |
+| D18 | **Ordem da T13.4** (portão de CI) | **Antecipar para logo depois da T13.1**, antes da migração em massa da T13.2, com allowlist dos arquivos ainda não migrados. | Medido: entre 2026-08-06 e 2026-08-13 o hex cresceu 21% e o utilitário arbitrário 33%, sem portão. Sem antecipar, a T13.2 persegue um alvo móvel. Custo: a regra precisa nascer com allowlist e ir encolhendo, em vez de nascer limpa. |
+| D19 | **Verificação visual das stories de UI** | **Gate humano**, não critério automatizável. | O sandbox não tem navegador (limitação já registrada em `client/CLAUDE.md` e nas notas da US-006 do Épico 12). Critérios visuais ficam `- [ ]` com o motivo escrito ao lado, no padrão que este arquivo já usa, e são conferidos pelo mantenedor antes do merge. |
+| D20 | **Destino dos 27 raios sem token exato** (T13.6, metade B — US-043) | Decisão **por grupo de valor**, avaliada com a skill `frontend-design` (E13.4): **(a) snapar** `20px`→`rounded-2xl` (18px), `16px`→`rounded-2xl` (18px) e `24px`→`rounded-3xl` (22px) — 15 usos, diferença ≤2px, imperceptível, e a direção do snap (sempre para o vizinho que já é a família visual do `Card`/modal existente) evita introduzir uma segunda "família" de raio grande. **(b) estender a escala** para `12px` (8 usos): novo token `--radius-chip: calc(var(--radius) * 1.2)` (=12px com a base atual), inserido entre `--radius-lg` (×1.0) e `--radius-xl` (×1.4) — mantém pixel-idêntico porque o salto `lg→xl` é 4px, visível nas pills de aviso coral (`PasswordSection`/`DeleteAccountSection`/`CoupleSection`/`ProfileSection`) e no item de notificação onde o valor aparece. Nome semântico (não `--radius-lg2`) porque o uso é consistentemente "chip"/pill, não um raio de superfície genérica. **(c) manter arbitrário com comentário** para os 4 `rounded-[3px]`/`rounded-b-[3px]` (dois quadradinhos de legenda de gráfico de 11×11px e o canto inferior de barra/skeleton de gráfico, todos em `DashboardScreen.tsx`/`ChartSkeleton.tsx`) — snapar dobraria o raio para `sm`=6px num elemento de 11px, mudança visível; é detalhe decorativo de gráfico, não elemento de UI recorrente, então não justifica um token novo. | A recomendação de partida do épico (linha "Recomendação" da T13.6) foi **aceita integralmente**: (a) para `20px`/`16px`/`24px`, (b) para `12px`, e os quatro `3px` avaliados caso a caso confirmaram a hipótese de "detalhe decorativo" (grep confirmou: são exatamente os 4 usos descritos, todos em contexto de gráfico). A implementação da metade B (edição real dos `.tsx` + o novo token em `index.css`) fica para uma story futura — esta é só a decisão, nenhum `.tsx` foi tocado (US-043 não altera código). Verificação visual tela a tela do resultado de (a)/(b), quando implementado, continua sob D19 (gate humano). |
+
 **Ordem de execução:** Épicos 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8, com a **T8.1 (CI)
 antecipada** para junto do Épico 1. As dependências declaradas por task são as únicas
 restrições rígidas; o resto da ordem é negociável.
@@ -73,7 +82,7 @@ meia hora e pode entrar em qualquer momento.
 | [10](#épico-10--recuperação-de-senha-e-e-mail-transacional) | Recuperação de Senha e E-mail Transacional | T10.1 – T10.4 | Alto |
 | [11](#épico-11--rede-de-testes-do-frontend) | Rede de Testes do Frontend | T11.1 – T11.4 | Alto |
 | [12](#épico-12--observabilidade-e-alerta) | Observabilidade e Alerta | T12.1 – T12.5 | Médio |
-| [13](#épico-13--governança-do-design-system) | Governança do Design System | T13.1 – T13.5 | Médio |
+| [13](#épico-13--governança-do-design-system) | Governança do Design System | T13.1 – T13.8 | Médio |
 | [14](#épico-14--documentação-de-entrada) | Documentação de Entrada | T14.1 | Baixo |
 
 > **Como uma task concluída é marcada:** linha `**Status:** ✅ **Concluída em <data>** —
@@ -1685,6 +1694,7 @@ parte da D4 que dizia o contrário.
 
 ## T10.1 — Infraestrutura de e-mail
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-001 a US-003, US-013 (`task10/emails-verification`).
 **Criticidade:** Alto
 **Arquivos:** novo pacote `api/src/main/java/com/app/email/`, `api/src/main/resources/application.properties`, `docker-compose-prod.yml`, `docs/DEPLOY.md`
 
@@ -1703,12 +1713,12 @@ Criar `com.app.email` como feature nova, seguindo package-by-feature:
 - A chave entra no `.env` da VPS e no `docker-compose-prod.yml` como os outros segredos, nunca versionada.
 
 ### Critérios de aceite
-- [ ] `EmailSender` é a única superfície pública da feature; nenhuma outra feature importa classe do provedor.
-- [ ] Subir em produção sem a API key falha no startup com mensagem em pt-BR nomeando a variável.
-- [ ] Em teste/dev a implementação no-op é usada e a suíte roda sem rede.
-- [ ] Um e-mail real chega à caixa de entrada em um teste manual documentado no PR.
-- [ ] `docs/DEPLOY.md` registra provedor, variável de ambiente, limite do free tier e o que fazer se estourar.
-- [ ] Nenhuma credencial no repositório.
+- [x] `EmailSender` é a única superfície pública da feature; nenhuma outra feature importa classe do provedor.
+- [x] Subir em produção sem a API key falha no startup com mensagem em pt-BR nomeando a variável.
+- [x] Em teste/dev a implementação no-op é usada e a suíte roda sem rede.
+- [ ] Um e-mail real chega à caixa de entrada em um teste manual documentado no PR — não verificável por agente (exige credencial real da conta Resend e domínio verificado no DNS); gate humano, ver `docs/DEPLOY.md`.
+- [x] `docs/DEPLOY.md` registra provedor, variável de ambiente, limite do free tier e o que fazer se estourar.
+- [x] Nenhuma credencial no repositório.
 
 ### Fora do escopo
 Templates elaborados em HTML; fila/retry de envio; e-mail de boas-vindas ou marketing;
@@ -1718,6 +1728,7 @@ verificação de e-mail no cadastro.
 
 ## T10.2 — Fluxo de "esqueci minha senha"
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-004 a US-009 (`task10/emails-verification`).
 **Criticidade:** Alto
 **Arquivos:** `api/src/main/java/com/app/auth/`, `api/src/main/resources/db/migration/V8__create_password_reset_token.sql`, `api/src/main/java/com/app/security/RateLimitProperties.java`
 
@@ -1738,13 +1749,13 @@ UUID solto:
 7. Limpeza dos tokens expirados, no mesmo molde do `NotificationCleanupService`.
 
 ### Critérios de aceite
-- [ ] `POST /api/auth/forgot-password` responde `202` para e-mail existente e inexistente, com tempo de resposta equivalente.
-- [ ] O e-mail chega com link contendo o token em texto claro; o banco guarda só o hash.
-- [ ] Token válido redefine a senha; token usado, expirado ou adulterado responde `400`, sem distinguir os casos.
-- [ ] Depois do reset, todas as sessões anteriores estão revogadas.
-- [ ] Senha nova fora da política responde `400` com a mensagem da T5.3.
-- [ ] Rate limit por IP e por e-mail alvo funcionando, com teste.
-- [ ] Testes cobrindo: fluxo feliz, token expirado, token reusado, e-mail inexistente, política violada.
+- [x] `POST /api/auth/forgot-password` responde `202` para e-mail existente e inexistente, com tempo de resposta equivalente.
+- [x] O e-mail chega com link contendo o token em texto claro; o banco guarda só o hash.
+- [x] Token válido redefine a senha; token usado, expirado ou adulterado responde `400`, sem distinguir os casos.
+- [x] Depois do reset, todas as sessões anteriores estão revogadas.
+- [x] Senha nova fora da política responde `400` com a mensagem da T5.3.
+- [x] Rate limit por IP e por e-mail alvo funcionando, com teste.
+- [x] Testes cobrindo: fluxo feliz, token expirado, token reusado, e-mail inexistente, política violada.
 
 ### Fora do escopo
 Reabrir a D4 (enumeração no registro); verificação de e-mail no cadastro; 2FA;
@@ -1754,6 +1765,7 @@ Reabrir a D4 (enumeração no registro); verificação de e-mail no cadastro; 2F
 
 ## T10.3 — Telas de recuperação no frontend
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-011 e US-012 (`task10/emails-verification`).
 **Criticidade:** Médio
 **Arquivos:** `client/src/routes/auth/`, `client/src/App.tsx`
 
@@ -1772,12 +1784,13 @@ Duas rotas públicas, no `AuthLayout` já existente, reaproveitando o visual de
 **Esta task usa a skill `frontend-design`** (telas novas).
 
 ### Critérios de aceite
-- [ ] As duas rotas existem, são públicas e usam o `AuthLayout`.
-- [ ] A confirmação do pedido é genérica e não revela se a conta existe.
-- [ ] Token ausente ou inválido na URL mostra estado de erro claro, com caminho para pedir outro.
-- [ ] Erros da API viram mensagem visível.
-- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
-- [ ] A skill `frontend-design` foi invocada antes da implementação.
+- [x] As duas rotas existem, são públicas e usam o `AuthLayout`.
+- [x] A confirmação do pedido é genérica e não revela se a conta existe.
+- [x] Token ausente ou inválido na URL mostra estado de erro claro, com caminho para pedir outro.
+- [x] Erros da API viram mensagem visível.
+- [x] `bun run typecheck`, `bun run lint` e `bun run build` passam (sandbox sem `bun`: `npx tsc -b`/`npx eslint .`/`npx vite build` sobre o mesmo `node_modules`, ver `scripts/ralph/progress.txt`).
+- [x] A skill `frontend-design` foi invocada antes da implementação.
+- [ ] Verificação manual em navegador real — não verificável por agente (sandbox sem Chromium, ver `client/CLAUDE.md`); gate humano.
 
 ### Fora do escopo
 Medidor de força de senha; mudar o visual das telas de login/cadastro existentes.
@@ -1786,6 +1799,7 @@ Medidor de força de senha; mudar o visual das telas de login/cadastro existente
 
 ## T10.4 — Aviso de segurança por e-mail
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 10, US-010 (`task10/emails-verification`).
 **Criticidade:** Baixo
 **Arquivos:** `api/src/main/java/com/app/auth/AuthService.java`, `api/src/main/java/com/app/email/`
 
@@ -1799,10 +1813,10 @@ alterada, pelos dois caminhos. Falha no envio **não** pode derrubar a operaçã
 já mudou; logar em `warn` e seguir.
 
 ### Critérios de aceite
-- [ ] Troca autenticada (T9.3) e reset (T10.2) disparam o aviso.
-- [ ] Provedor de e-mail fora do ar não faz a troca de senha falhar; o erro aparece no log com contexto.
-- [ ] O e-mail não contém senha, token nem link de ação.
-- [ ] Teste garantindo que a falha de envio é tolerada.
+- [x] Troca autenticada (T9.3) e reset (T10.2) disparam o aviso.
+- [x] Provedor de e-mail fora do ar não faz a troca de senha falhar; o erro aparece no log com contexto.
+- [x] O e-mail não contém senha, token nem link de ação.
+- [x] Teste garantindo que a falha de envio é tolerada.
 
 ### Fora do escopo
 Avisos de login em dispositivo novo; digest de atividade; preferências de notificação.
@@ -1823,6 +1837,7 @@ o non-goal que o PRD do Épico 8 deixou explicitamente em aberto ("Testes no fro
 
 ## T11.1 — Infraestrutura de teste
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-001, US-002 (`epico11/frontend-tests`).
 **Criticidade:** Alto
 **Arquivos:** `client/package.json`, `client/vite.config.ts`, novo `client/src/test/setup.ts`, `client/CLAUDE.md`
 
@@ -1844,11 +1859,11 @@ configurados dentro do `vite.config.ts` já existente (sem arquivo de config sep
 - Decidir e registrar a estratégia de mock de HTTP: `axios` é o cliente (`client/src/lib/api.ts`), então mockar o módulo já resolve. MSW só se a T11.3 provar que é necessário — não introduzir a dependência antes.
 
 ### Critérios de aceite
-- [ ] `bun run test:run` executa e passa localmente.
-- [ ] `bun run typecheck` continua passando com os tipos de teste incluídos.
-- [ ] O teste-canário roda em ambiente jsdom com um componente React real.
-- [ ] `client/CLAUDE.md` documenta comando, localização e convenção de nome dos testes.
-- [ ] Nenhuma mudança de comportamento no app.
+- [x] `bun run test:run` executa e passa localmente.
+- [x] `bun run typecheck` continua passando com os tipos de teste incluídos.
+- [x] O teste-canário roda em ambiente jsdom com um componente React real. _(`src/test/canary.test.tsx`)_
+- [x] `client/CLAUDE.md` documenta comando, localização e convenção de nome dos testes.
+- [x] Nenhuma mudança de comportamento no app.
 
 ### Fora do escopo
 Teste E2E (Playwright/Cypress); teste de regressão visual; cobertura mínima (é a T11.4).
@@ -1857,6 +1872,7 @@ Teste E2E (Playwright/Cypress); teste de regressão visual; cobertura mínima (�
 
 ## T11.2 — Testes das stores e hooks
 
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 11, US-003 a US-009 (`epico11/frontend-tests`).
 **Criticidade:** Alto
 **Arquivos:** testes novos para `client/src/stores/{useAuthStore,useMatchStore,useNotificationStore}.ts`, `client/src/screens/match/useDiscoverSearch.ts`, `client/src/lib/useCompareSelection.ts`
 
@@ -1875,11 +1891,11 @@ Priorizar por risco, não por cobertura:
 5. `useNotificationStore` — contagem de não-lidas e marcar-como-lida.
 
 ### Critérios de aceite
-- [ ] Cada um dos 5 módulos tem teste cobrindo o caminho feliz **e** o caso de erro.
-- [ ] Existe teste que falharia se o vazamento de subscription da T7.3 voltasse.
-- [ ] Existe teste que falharia se `celebratedMatchKeys` voltasse a crescer sem limite.
-- [ ] Nenhum teste depende de rede real.
-- [ ] `bun run test:run` verde.
+- [x] Cada um dos 5 módulos tem teste cobrindo o caminho feliz **e** o caso de erro. — `useMatchStore`, `useAuthStore`, `useNotificationStore` e `useCompareSelection` cobertos (US-003/004/005/006/009). `useDiscoverSearch` (US-007/US-008) exigiu duas exceções autorizadas pelo mantenedor em 2026-08-12: (a) exportar `reducer`/`initialState`/`State`/`Action`, mudança puramente aditiva; (b) reescrever a AC "erro não limpa `results` anteriores" para o comportamento real do `reducer` (`FETCH_FAILED` zera `results`/`totalResults`/`totalPages` incondicionalmente — a UI decide o que mostrar via `fetchError`/`searched`). Nenhuma mudança de comportamento em produção. Ver `scripts/ralph/progress.txt` (seções US-007/US-008) e `scripts/ralph/prd.json`.
+- [x] Existe teste que falharia se o vazamento de subscription da T7.3 voltasse. _(`src/stores/useMatchStore.test.ts`, US-003)_
+- [x] Existe teste que falharia se `celebratedMatchKeys` voltasse a crescer sem limite. _(idem)_
+- [x] Nenhum teste depende de rede real.
+- [x] `bun run test:run` verde.
 
 ### Fora do escopo
 Testar componentes (é a T11.3); testar o servidor STOMP de verdade.
@@ -1888,6 +1904,7 @@ Testar componentes (é a T11.3); testar o servidor STOMP de verdade.
 
 ## T11.3 — Testes de componente das telas críticas
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-011 a US-015 (`epico11/frontend-tests`).
 **Criticidade:** Médio
 **Arquivos:** testes para `client/src/screens/hub/`, `client/src/screens/match/`, `client/src/routes/guards.tsx`
 
@@ -1904,11 +1921,11 @@ Testes de comportamento observável pelo usuário, não de detalhe de implementa
 - `SearchTab` — o `switch` que substituiu a cadeia de condicionais na T7, com todos os estados.
 
 ### Critérios de aceite
-- [ ] Os 4 guards têm teste para cada estado de sessão relevante.
-- [ ] Estados de carregando, vazio e **erro** cobertos nas telas listadas.
-- [ ] Existe teste que falharia se a falha de carregamento voltasse a ser silenciosa.
-- [ ] Os testes consultam por papel/texto acessível, não por classe CSS — assim o Épico 13 pode mexer em estilo sem quebrá-los.
-- [ ] `bun run test:run` verde.
+- [x] Os 4 guards têm teste para cada estado de sessão relevante. _(`src/routes/guards.test.tsx`, US-011)_
+- [x] Estados de carregando, vazio e **erro** cobertos nas telas listadas. _(`TrackSection`/`HubScreen` US-012/013, `SearchTab`/`SuggestionsTab` US-014/015)_
+- [x] Existe teste que falharia se a falha de carregamento voltasse a ser silenciosa. _(`HubScreen.test.tsx`, US-013)_
+- [x] Os testes consultam por papel/texto acessível, não por classe CSS — assim o Épico 13 pode mexer em estilo sem quebrá-los.
+- [x] `bun run test:run` verde.
 
 ### Fora do escopo
 Cobrir todos os 14 componentes de `client/src/components/`; testes de landing page.
@@ -1917,6 +1934,7 @@ Cobrir todos os 14 componentes de `client/src/components/`; testes de landing pa
 
 ## T11.4 — Gate no CI
 
+**Status:** ✅ **Concluída em 2026-08-11** — Épico 11, US-016, US-017 (`epico11/frontend-tests`).
 **Criticidade:** Médio
 **Arquivos:** `.github/workflows/ci.yml`
 
@@ -1930,10 +1948,10 @@ cobertura no patamar recém-alcançado, **não** num número aspiracional — me
 adotada para o JaCoCo na T8.1.
 
 ### Critérios de aceite
-- [ ] O CI roda os testes do frontend e falha se algum quebrar.
-- [ ] Limiar de cobertura declarado e no patamar atual.
-- [ ] Um PR com teste quebrado é bloqueado.
-- [ ] O tempo total do CI continua aceitável (registrar o antes/depois no PR).
+- [x] O CI roda os testes do frontend e falha se algum quebrar. _(step `Test` do job `frontend`, entre `Lint` e `Build`, sem `continue-on-error`, US-017)_
+- [x] Limiar de cobertura declarado e no patamar atual. _(52/37/40/55 — statements/branches/functions/lines medidos em 2026-08-11, US-016)_
+- [x] Um PR com teste quebrado é bloqueado. _(verificado localmente com um teste deliberadamente quebrado — `bun run test:coverage` saiu com código 1 — não há PR real aberto nesta iteração, ver `scripts/ralph/progress.txt` seção US-017)_
+- [ ] O tempo total do CI continua aceitável (registrar o antes/depois no PR). — não medido: o agente não executa o workflow real do GitHub Actions no sandbox (sem runner) e nenhum PR foi aberto nesta iteração para comparar os tempos; gate humano no próximo PR real que exercitar o step `Test`.
 
 ### Fora do escopo
 Subir o limiar de cobertura; badge de cobertura; publicar relatório em serviço externo.
@@ -1957,6 +1975,7 @@ com a **D15**, nenhuma task deste épico introduz custo recorrente.
 
 ## T12.1 — Uptime check externo
 
+**Status:** ✅ **Concluída em 2026-08-13** — Épico 12, US-011 (`epico12/alert-observability`). *A ativação do monitor em si é a US-012, story operacional fora do `prd.json` do ralph (mesmo tratamento das stories operacionais do Épico 8) — ver critérios abaixo.*
 **Criticidade:** Médio
 **Arquivos:** `docs/DEPLOY.md`
 
@@ -1974,10 +1993,10 @@ Task **operacional** — executada pelo mantenedor no painel do serviço, não p
 agente. A entrega em repositório é a documentação.
 
 ### Critérios de aceite
-- [ ] Monitor ativo, apontando para o health check, com alerta configurado.
-- [ ] Derrubar a API deliberadamente (`docker compose stop api`) gera alerta em até 10 min — teste feito e registrado.
-- [ ] `docs/DEPLOY.md` ganha seção de monitoramento: serviço, o que é monitorado, para onde vai o alerta, e como pausar durante deploy planejado.
-- [ ] Nenhum custo recorrente.
+- [ ] Monitor ativo, apontando para o health check, com alerta configurado. — não executável por agente: exige conta num serviço de monitoramento externo e acesso ao respectivo painel; gate humano (US-012, ver checklist na seção "Monitoramento" de `docs/DEPLOY.md`).
+- [ ] Derrubar a API deliberadamente (`docker compose stop api`) gera alerta em até 10 min — teste feito e registrado. — mesma razão acima; gate humano (US-012).
+- [x] `docs/DEPLOY.md` ganha seção de monitoramento: serviço, o que é monitorado, para onde vai o alerta, e como pausar durante deploy planejado. *(US-011)*
+- [ ] Nenhum custo recorrente. — não verificável por agente: exige confirmar no painel do serviço de monitoramento escolhido, que ainda não foi ativado; gate humano (US-012).
 
 ### Fora do escopo
 APM, tracing distribuído, dashboard de métricas, SLO formal.
@@ -1986,6 +2005,7 @@ APM, tracing distribuído, dashboard de métricas, SLO formal.
 
 ## T12.2 — Health check com profundidade
 
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 12, US-001, US-002 (`epico12/alert-observability`).
 **Criticidade:** Médio
 **Arquivos:** `api/src/main/java/com/app/HealthController.java`, `api/src/test/java/com/app/HealthControllerTest.java`, `api/Dockerfile`
 
@@ -2004,12 +2024,12 @@ Verificar a dependência crítica antes de responder:
 - Avaliar Spring Boot Actuator: o `pom.xml` **não** o inclui hoje. Se entrar, expor **somente** o grupo de health, sem `/actuator/**` aberto — caso contrário, resolver no controller manual, que é o caminho mais simples.
 
 ### Critérios de aceite
-- [ ] Banco no ar → `200` com status detalhado.
-- [ ] Banco fora → `503` em no máximo ~2s, sem pendurar a thread.
-- [ ] A resposta de falha não contém credencial, host nem stack trace.
-- [ ] `/api/health` continua público e a `SecurityConfigTest` continua passando.
-- [ ] `HealthControllerTest` cobre os dois cenários.
-- [ ] O `HEALTHCHECK` do container passa a refletir o estado real (container fica `unhealthy` com o banco fora).
+- [x] Banco no ar → `200` com status detalhado.
+- [x] Banco fora → `503` em no máximo ~2s, sem pendurar a thread.
+- [x] A resposta de falha não contém credencial, host nem stack trace.
+- [x] `/api/health` continua público e a `SecurityConfigTest` continua passando.
+- [x] `HealthControllerTest` cobre os dois cenários.
+- [ ] O `HEALTHCHECK` do container passa a refletir o estado real (container fica `unhealthy` com o banco fora). — não verificável por agente: sandbox sem Docker (ver `api/CLAUDE.md`), o cenário "banco fora" foi provado com datasource/indicador falso no `HealthControllerTest`, não derrubando um Postgres real nem observando o `HEALTHCHECK` de um container de verdade; gate humano.
 
 ### Fora do escopo
 Checar TMDB no health (dependência externa fora do ar não deve derrubar o container);
@@ -2019,6 +2039,7 @@ métricas de negócio.
 
 ## T12.3 — Erro não tratado no frontend deixa de ser tela branca
 
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 12, US-003 a US-006 (`epico12/alert-observability`).
 **Criticidade:** Médio
 **Arquivos:** `client/src/main.tsx`, novo componente de error boundary, `api/src/main/java/com/app/`
 
@@ -2035,12 +2056,12 @@ coberto.
 3. Proteger o endpoint: rate limit por IP na infra que já existe, limite de tamanho do corpo, e nada de refletir o conteúdo recebido em resposta.
 
 ### Critérios de aceite
-- [ ] Erro de render mostra a tela de erro, não tela branca.
-- [ ] O erro chega ao log do backend com correlation id, rota e mensagem.
-- [ ] O endpoint é rate-limited e rejeita corpo acima do limite.
-- [ ] Nenhum dado sensível (token, e-mail) é enviado no relatório.
-- [ ] Teste do boundary (renderizar filho que lança) e teste do endpoint.
-- [ ] A skill `frontend-design` foi invocada para a tela de erro.
+- [x] Erro de render mostra a tela de erro, não tela branca.
+- [x] O erro chega ao log do backend com correlation id, rota e mensagem.
+- [x] O endpoint é rate-limited e rejeita corpo acima do limite.
+- [x] Nenhum dado sensível (token, e-mail) é enviado no relatório.
+- [x] Teste do boundary (renderizar filho que lança) e teste do endpoint.
+- [x] A skill `frontend-design` foi invocada para a tela de erro. *(a verificação visual da tela em navegador real ficou de gate humano — sandbox sem Chromium, ver `client/CLAUDE.md` e progress.txt da US-006)*
 
 ### Fora do escopo
 Sentry ou qualquer SaaS de erro; source maps em produção; captura de `unhandledrejection`
@@ -2050,6 +2071,7 @@ global.
 
 ## T12.4 — Retenção e consulta de log
 
+**Status:** ✅ **Concluída em 2026-08-12** — Épico 12, US-007, US-008 (`epico12/alert-observability`).
 **Criticidade:** Baixo
 **Arquivos:** `api/src/main/resources/logback-spring.xml`, `docs/DEPLOY.md`
 
@@ -2065,10 +2087,10 @@ procedimento escrito para investigar um incidente por correlation id.
 - Documentar o procedimento de investigação em `docs/DEPLOY.md`: dado um correlation id vindo da T12.3, quais comandos rodar.
 
 ### Critérios de aceite
-- [ ] Retenção do audit log declarada em configuração, com teto de tamanho.
-- [ ] Log da aplicação com limite de tamanho, sem risco de encher o disco.
-- [ ] `docs/DEPLOY.md` traz o passo a passo de investigação por correlation id.
-- [ ] Um incidente simulado é rastreado ponta a ponta seguindo só a documentação.
+- [x] Retenção do audit log declarada em configuração, com teto de tamanho.
+- [x] Log da aplicação com limite de tamanho, sem risco de encher o disco.
+- [x] `docs/DEPLOY.md` traz o passo a passo de investigação por correlation id.
+- [ ] Um incidente simulado é rastreado ponta a ponta seguindo só a documentação. — parcialmente verificável por agente: os passos 2 (log da aplicação) e 3 (audit log, `grep` contra arquivo real) foram rastreados de ponta a ponta contra saída real de teste; o passo 1 (header `X-Request-Id` via `curl` ao vivo contra a aplicação de pé) não, por não haver Docker/Postgres no sandbox (ver `api/CLAUDE.md`) — coberto em vez disso pelo teste unitário pré-existente `CorrelationIdFilterTest`. Detalhe completo em `scripts/ralph/progress.txt`, entrada da US-008; gate humano para o ciclo 100% real contra a VPS.
 
 ### Fora do escopo
 ELK, Loki, Grafana; log estruturado em JSON; envio de log para fora da VPS.
@@ -2077,6 +2099,7 @@ ELK, Loki, Grafana; log estruturado em JSON; envio de log para fora da VPS.
 
 ## T12.5 — Alerta de falha de deploy
 
+**Status:** ✅ **Concluída em 2026-08-13** — Épico 12, US-009, US-010 (`epico12/alert-observability`).
 **Criticidade:** Baixo
 **Arquivos:** `.github/workflows/deploy.yml`
 
@@ -2091,15 +2114,27 @@ celular (webhook de Telegram é o caminho gratuito e mais direto; o token entra 
 secret do repositório). A mensagem precisa dizer qual job falhou e trazer o link da run.
 
 ### Critérios de aceite
-- [ ] Falha no deploy dispara a notificação; sucesso não dispara nada.
-- [ ] A mensagem identifica o job e linka a run.
-- [ ] O token está em secret do repositório, nunca no YAML.
-- [ ] Testado com uma falha forçada, registrada no PR.
-- [ ] A Open Question #1 do PRD do Épico 8 é marcada como fechada, referenciando esta task.
+- [ ] Falha no deploy dispara a notificação; sucesso não dispara nada. — a metade "sucesso não dispara nada" é garantida por construção (`if: failure()` no job `notify-failure`), mas nenhuma das duas metades foi observada numa run real do GitHub Actions — este sandbox não dispara workflows reais; gate humano, passo a passo em `scripts/ralph/progress.txt` (entrada da US-009).
+- [x] A mensagem identifica o job e linka a run. *(lê `needs.tests.result`/`needs.deploy.result` e monta o link com `github.server_url`/`github.repository`/`github.run_id`)*
+- [x] O token está em secret do repositório, nunca no YAML. *(`RESEND_API_KEY` e `ALERT_EMAIL_TO`, ambos `secrets.*`)*
+- [ ] Testado com uma falha forçada, registrada no PR. — não executável por agente: exigiria forçar uma falha numa run real do `deploy.yml`; gate humano, passo a passo em `scripts/ralph/progress.txt` (entrada da US-009).
+- [x] A Open Question #1 do PRD do Épico 8 é marcada como fechada, referenciando esta task. *(US-010, ver seção logo abaixo)*
 
 ### Fora do escopo
 Rollback automático (segue sendo `git revert` + merge, por decisão do Épico 8);
 notificação de deploy bem-sucedido; abrir issue automática.
+
+### Fechamento da Open Question #1 do Épico 8 (2026-08-13)
+**Resolvida.** Implementada pela US-009 do PRD do Épico 12
+(`tasks/prd-epico-12-observabilidade-e-alerta.md`): job `notify-failure` em
+`.github/workflows/deploy.yml`, `needs: [tests, deploy]` + `if: failure()`, alerta por
+e-mail via Resend (não Telegram — decisão E12.4 do PRD do Épico 12, reaproveitando o
+provedor de e-mail já pago zero desde o Épico 10 em vez de introduzir um segundo canal).
+O PRD original do Épico 8 (`tasks/prd-epico-8-cicd-e-infraestrutura.md`) **não existe
+mais no repo** — a pasta `tasks/` é esvaziada quando um épico fecha, e o que sobrou é
+`scripts/ralph/archive/2026-08-06-epico8-cicd-infraestrutura/` (só `prd.json` e
+`progress.txt`, sem o texto da Open Question #1). Por isso o fechamento fica registrado
+aqui, não lá (decisão E12.8 do PRD do Épico 12).
 
 ---
 
@@ -2110,43 +2145,124 @@ existem; o que não existe é a regra que impede o app de contorná-los.
 
 **Origem:** varredura de lacunas de MVP (2026-08-06).
 
-**Dependências:** T13.2 depende da T13.1. A T13.4 depende da T13.2. **Fortemente
+**Dependências e ordem:** T13.2 depende da T13.1. A **T13.4 depende só da T13.1 e vem logo
+depois dela** (D18) — antes da migração em massa, com allowlist que encolhe. A T13.5 depende
+de T13.6, T13.7 e T13.8 (documenta o estado final dos três — fazer por último no épico).
+Ordem sugerida: **T13.1 → T13.4 → T13.2 → T13.6 → T13.7 → T13.8 → T13.3 → T13.5**.
+**Fortemente
 recomendado fazer o Épico 11 antes** — a T13.2 toca dezenas de arquivos visuais e hoje
-não há nada que detecte uma quebra.
+não há nada que detecte uma quebra. **Dependência satisfeita em 2026-08-11, completa em
+2026-08-12:** o Épico 11 (T11.1–T11.4, US-001 a US-018 — as 18 stories) já cobre guards de rota,
+`HubScreen`/`TrackSection` e `SearchTab`/`SuggestionsTab` com testes que consultam por
+papel/texto acessível, não por classe CSS — a rede de regressão que a T13.2 precisa para
+não quebrar em silêncio já existe.
+
+**Revisão de 2026-08-13 — três eixos além de cor:** a auditoria original mediu só cor.
+Reaplicando o mesmo método a arredondamento e a duplicação de primitivo, dois dos três
+eixos levantados se confirmaram como o mesmo hábito medido de outro ângulo — viram
+**T13.6** e **T13.7**, sem dependência de T13.1–T13.5 (são refatoração pura, no mesmo
+espírito da T13.2, e podem ser feitas em qualquer ordem entre si e com as tasks de cor).
+O terceiro eixo (imports diretos da lib de baixo nível contornando `components/ui/`) foi
+investigado e **não é um problema hoje** — `client/package.json` não tem `@radix-ui/*`, os
+primitivos embrulham `@base-ui/react`/`react-day-picker`, e nenhum arquivo fora de
+`components/ui/` importa essas libs diretamente. Registrado aqui para não precisar
+reinvestigar, não vira task. Uma quarta lacuna apareceu durante a investigação e não é
+dedup — é ausência: não existe primitivo `Badge`, e 15 arquivos reimplementam "pill" na
+mão para preencher esse vazio. Vira **T13.8**, mas é **criação**, não governança de algo
+que já existe — por isso aciona a skill `frontend-design` (decisão de design nova:
+variantes, cores, tamanho), diferente de todas as outras tasks deste épico.
 
 ### O diagnóstico, medido
 
-O `client/` **não** precisa de Button/Card/Input: `client/src/components/ui/` já tem 14
+O `client/` **não** precisa de Button/Card/Input: `client/src/components/ui/` já tem **15**
 primitivos, e o `button.tsx` sozinho declara 6 variantes e 8 tamanhos via `cva`.
 `index.css` já tem tokens em `oklch`, escala de raio de `sm` a `4xl` e três famílias
 tipográficas.
 
 O problema é que **o app quase não usa nada disso**. Fora de `components/ui/`:
 
-| Medida | Valor |
-|---|---|
-| Literais hexadecimais em `.tsx` | **689** |
-| Utilitários de cor arbitrários (`bg-[...]`, `text-[...]`, `border-[...]`) | **1033** |
-| `<button>` cru em vez do componente `Button` | **12** |
-| Arquivo mais afetado | `PendingDetailModal.tsx` (71 arbitrários), `ComparisonDialog.tsx` (70), `MediaCard.tsx` (69) |
+| Medida | 2026-08-06 | 2026-08-13 | Δ |
+|---|---|---|---|
+| Literais hexadecimais em `.tsx` | 689 | **831** | +142 (+21%) |
+| Utilitários de cor arbitrários (`bg-[...]`, `text-[...]`, `border-[...]`) | 1033 | **1376** | +343 (+33%) |
+| `<button>` cru em vez do componente `Button` | 12 | **13** | +1 |
+| Arquivo mais afetado | — | `ComparisonDialog.tsx` (72 arbitrários), `PendingDetailModal.tsx` (71), `MediaCard.tsx` (70) | — |
+
+> **A segunda coluna é o argumento da T13.4, medido.** Em **uma semana** (2026-08-06 →
+> 2026-08-13, período dos Épicos 11 e 12) o hex cresceu 21% e o utilitário arbitrário 33%,
+> sem que ninguém tenha decidido "vamos usar mais hex" — cada linha nova foi localmente
+> razoável. Todas as medidas deste épico excluem `components/ui/` e arquivos de teste.
+> **Consequência prática para a execução:** os números aqui são um retrato datado e vão
+> continuar subindo enquanto o portão da T13.4 não existir; qualquer task deste épico deve
+> **remedir na hora de executar** em vez de confiar nesta tabela, e a T13.4 vale mais cedo
+> do que a ordem numérica sugere.
 
 Os hex mais repetidos revelam que a paleta real do app existe — ela só mora
 copiada-e-colada dentro de strings de classe, não em token:
 
-| Cor | Ocorrências | Papel aparente |
+| Cor | Ocorrências (2026-08-13) | Papel aparente |
 |---|---|---|
-| `#a6a39a` | 148 | texto secundário |
-| `#ffcb2b` | 140 | primária / destaque |
-| `#f6f4ec` | 116 | texto sobre fundo escuro |
-| `#161513` | 54 | superfície de card |
-| `#09090a` | 39 | fundo |
-| `#ff6b6b` | 31 | destrutivo / erro |
+| `#ffcb2b` | 182 | primária / destaque |
+| `#a6a39a` | 174 | texto secundário |
+| `#f6f4ec` | 135 | texto sobre fundo escuro |
+| `#161513` | 59 | superfície de card |
+| `#09090a` | 49 | fundo |
+| `#ff6b6b` | 35 | destrutivo / erro |
+| `#ffb3b3` | 23 | destrutivo, variante clara |
+| `#ffe08a` | 22 | destaque, variante clara |
 
 Consequência concreta: `main.tsx:11` monta um `ThemeProvider` que suporta
 `dark`/`light`/`system` — e **nenhum componente do app consome esse contexto**. Não há
 alternador de tema em lugar nenhum, e as telas fixam cores escuras em hex. Um usuário com
 sistema em modo claro recebe os primitivos de `ui/` em tokens claros **por cima** de telas
 codificadas em escuro.
+
+**O mesmo padrão se repete em arredondamento.** `index.css:57-63` já define uma escala
+completa (`--radius-sm` a `--radius-4xl`, derivada de `--radius: 0.625rem`) e o Tailwind 4
+já expõe cada uma como utilitário (`rounded-sm`…`rounded-4xl` — confirmado em
+`components/ui/card.tsx`, `input.tsx`, `popover.tsx`, que já usam `rounded-2xl`/`rounded-lg`
+corretamente). Fora de `ui/`, isso é ignorado:
+
+A escala calculada, com `--radius: 0.625rem` (=16px base do browser → 10px):
+`sm` 6px · `md` 8px · `lg` 10px · `xl` 14px · `2xl` 18px · `3xl` 22px · `4xl` 26px.
+
+Fora de `ui/` (e fora de testes) há **87** `rounded-[…]` arbitrários. O ponto decisivo é
+que **69% deles batem exato com um token que já existe** — não é uma escala inadequada
+sendo contornada por necessidade, é a escala sendo ignorada por desconhecimento:
+
+| Valor | Ocorrências | Token equivalente |
+|---|---|---|
+| `10px` | 19 | `rounded-lg` — **exato** |
+| `22px` | 14 | `rounded-3xl` — **exato** |
+| `18px` | 13 | `rounded-2xl` — **exato** |
+| `14px` | 12 | `rounded-xl` — **exato** |
+| `8px` | 2 | `rounded-md` — **exato** |
+| | **60 (69%)** | **subtotal com token exato** |
+| `20px` | 11 | sem match — entre `2xl` (18px) e `3xl` (22px) |
+| `12px` | 8 | sem match — entre `lg` (10px) e `xl` (14px) |
+| `3px` | 4 | sem match — **abaixo** de `sm` (6px) |
+| `16px` | 3 | sem match — entre `xl` (14px) e `2xl` (18px) |
+| `24px` | 1 | sem match — entre `3xl` (22px) e `4xl` (26px) |
+| | **27 (31%)** | **subtotal sem token exato** |
+
+Arquivos mais afetados: `DashboardScreen.tsx` (9), `Header.tsx` (7),
+`landing/DashboardPreview.tsx` (6), `skeletons/AppShellSkeleton.tsx` (5) — sobrepõem os da
+tabela de cor acima. Não é coincidência: é o mesmo hábito de copiar o valor do protótipo
+(`docs/design/claude-design-project/`, que usa px cru em `style=` inline) em vez de mapear
+para token, medido por outro eixo.
+
+**E também na reutilização dos primitivos de `ui/`.** Além dos "12 `<button>` crus" já
+contados (hoje 13), a mesma varredura encontrou duas categorias que o diagnóstico original
+não media:
+
+| Padrão duplicado | Ocorrências | Primitivo que já resolveria |
+|---|---|---|
+| Modal com backdrop `fixed inset-0` montado na mão | 9 arquivos | `Dialog` (já usado corretamente em `TitleModal`, `ComparisonDialog`, `RatingRequestDialog`) |
+| "Pill"/badge (`rounded-full` + `px-*` manual) | 36 usos em 18 arquivos | nenhum — não existe `Badge` em `ui/` |
+| Shell de card repetido (`rounded-[18px] border … bg-[#161513]`) | 5 arquivos | `Card` |
+
+Os dois primeiros casos são o mesmo problema dos hex e dos raios — o primitivo existe e é
+contornado. O `Badge` é diferente: a lacuna é a ausência do primitivo, não o desuso dele.
 
 ---
 
@@ -2234,18 +2350,20 @@ tokens `:root` claros não usados. Mais barato, honesto sobre o que o app é hoj
 o tema passa a funcionar quase sozinho); revisar contraste de cada token claro e adicionar
 o alternador no `Header` ou na tela de Conta da T9.5.
 
-**Recomendação: (a) agora, (b) quando alguém pedir.** Registrar a decisão neste arquivo,
-como decisão nova, seja qual for a escolha.
+**DECIDIDO em 2026-08-13 (D17): caminho (a), dark-only.** Remover o `ThemeProvider`, fixar
+`.dark` no `<html>`, apagar os tokens `:root` claros não usados. É remoção pura, dispensada
+da skill `frontend-design` pela D11.
 
-Se a escolha for **(b)**, a task **usa a skill `frontend-design`** (o alternador é UI nova
-e a paleta clara é decisão de design). Se for **(a)**, é remoção pura e está dispensada.
+O caminho (b) continua possível no futuro e fica mais barato depois da T13.2 (sem hex fixo,
+o tema passa a funcionar quase sozinho) — mas não é objetivo agora, e reabri-lo exige
+registrar o motivo aqui, como manda a regra do topo deste arquivo.
 
 ### Critérios de aceite
-- [ ] A decisão está registrada na tabela de decisões deste arquivo, com justificativa.
-- [ ] Não sobra código de tema não utilizado (se (a)) nem tema pela metade (se (b)).
-- [ ] Se (b): toda tela legível em claro e escuro, com contraste AA no texto.
-- [ ] Se (a): nenhuma referência residual a `theme`/`ThemeProvider` no `client/`.
-- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+- [x] A decisão está registrada na tabela de decisões deste arquivo, com justificativa (D17, 2026-08-13).
+- [x] Nenhuma referência residual a `theme`/`ThemeProvider` no `client/` (US-059, 2026-08-17).
+- [x] Os tokens `:root` claros não utilizados foram removidos de `index.css` (US-059) — `--radius` (a única variável dimensional que vivia em `:root`, não é cor) foi movida para dentro de `.dark`, já que é consumida por `--radius-sm`/`md`/`lg`/etc no bloco `@theme inline`.
+- [x] `.dark` fixo no `<html>` (`client/index.html`), e o app renderiza idêntico ao de antes — verificação estática (grep + typecheck/lint/test/build); verificação visual em navegador fica **PENDENTE DE GATE HUMANO** (D19, sem navegador no sandbox).
+- [x] `bun run typecheck`, `bun run lint` e `bun run build` passam (US-059).
 
 ### Fora do escopo
 Temas adicionais; tema por casal; transição animada entre temas.
@@ -2255,11 +2373,24 @@ Temas adicionais; tema por casal; transição animada entre temas.
 ## T13.4 — Barrar a regressão no CI
 
 **Criticidade:** Médio
+**Depende de:** T13.1 (os tokens precisam existir para a mensagem de erro poder apontar qual usar)
+**Ordem:** **antecipada para logo depois da T13.1** (D18) — antes da migração em massa da T13.2
 **Arquivos:** `client/eslint.config.js` ou `.github/workflows/ci.yml`
 
 ### Problema
 Sem um portão, o hex volta. Foi assim que chegaram 689 — um de cada vez, cada um
 justificável isoladamente.
+
+**E continua acontecendo, medido:** entre 2026-08-06 e 2026-08-13 (Épicos 11 e 12) o hex
+foi de 689 para **831** e o utilitário arbitrário de 1033 para **1376** — +21% e +33% em
+uma semana, sem que ninguém tenha decidido usar mais hex. Por isso a **D18** antecipa esta
+task para antes da T13.2: sem o portão, a migração em massa persegue um alvo móvel.
+
+**Consequência da antecipação:** a regra nasce com uma **allowlist** dos arquivos ainda não
+migrados (senão o CI fica vermelho no dia 1), e essa lista encolhe a cada arquivo que a
+T13.2/T13.6 migram — até sumir. A allowlist é o placar da migração, não uma exceção
+permanente: cada entrada nela é dívida declarada, e o PR que esvazia a última linha é o que
+fecha a T13.2.
 
 ### O que fazer
 Regra que falhe quando aparecer literal de cor fora de `components/ui/`. Duas opções, a
@@ -2276,7 +2407,8 @@ Toda exceção precisa de comentário explicando por quê — mesma disciplina e
 - [ ] Um `#ffcb2b` novo em `src/screens/` faz o CI falhar.
 - [ ] O mesmo hex dentro de `src/components/ui/` não falha.
 - [ ] A mensagem de erro diz qual token usar em vez da cor crua.
-- [ ] Exceções existentes documentadas uma a uma.
+- [ ] A allowlist inicial contém **exatamente** os arquivos que hoje têm hex/arbitrário — nenhum a mais (um arquivo já limpo entrando na lista viraria porta aberta silenciosa).
+- [ ] Um hex novo **em arquivo que está na allowlist** também falha, se o arquivo tiver sido migrado no meio-tempo — ou seja, a lista é conferida contra a realidade, não confiada cegamente.
 - [ ] O CI não fica mais lento de forma perceptível.
 
 ### Fora do escopo
@@ -2288,32 +2420,180 @@ cobre ordenação).
 ## T13.5 — Documentar o inventário e o critério de uso
 
 **Criticidade:** Baixo
+**Depende de:** T13.6, T13.7, T13.8 (documenta o estado final dos três; fazer por último no épico)
 **Arquivos:** novo `client/docs/DESIGN-SYSTEM.md`, `client/CLAUDE.md`
 
 ### Problema
 Mesmo com tokens e lint, falta a parte que só se resolve escrevendo: **quando usar cada
 variante**. `Button` tem 6 variantes e 8 tamanhos e nada diz qual usar onde — foi assim
 que apareceram 12 `<button>` crus, provavelmente porque era mais fácil que descobrir a
-variante certa.
+variante certa. O mesmo vale para `Dialog` (T13.7) e para o novo `Badge` (T13.8): sem
+critério escrito, o próximo modal ou pill customizado volta a ser reimplementado na mão.
 
 ### O que fazer
 Documento curto e operacional, não catálogo enfeitado:
 
-- Inventário dos 14 primitivos de `ui/`, com o que cada um resolve.
-- Para `Button`, `Card` e `Input`: qual variante em qual situação, com exemplo de uso errado.
-- Tabela de tokens (T13.1): nome, papel, quando usar.
-- A regra: **primitivo antes de elemento cru; token antes de cor**. Se nenhum atende, a saída é estender o primitivo, não contornar.
+- Inventário dos primitivos de `ui/` (**15 hoje** — a contagem de "14" no diagnóstico de 2026-08-06 ficou desatualizada; 16+ depois da T13.8), com o que cada um resolve.
+- Para `Button`, `Card`, `Input`, `Dialog` e `Badge`: qual variante em qual situação, com exemplo de uso errado.
+- Tabela de tokens de cor (T13.1) **e** da escala de raio (`index.css:57-63`): nome, papel/valor, quando usar.
+- A regra: **primitivo antes de elemento cru; token antes de cor ou pixel de raio**. Se nenhum atende, a saída é estender o primitivo, não contornar — inclui explicitamente "não montar `fixed inset-0` na mão: é `Dialog`".
 - Link a partir de `client/CLAUDE.md`, para virar contexto obrigatório de quem for mexer em `client/`.
 
 ### Critérios de aceite
-- [ ] O documento existe e cobre os 14 primitivos.
-- [ ] `Button`, `Card` e `Input` têm critério explícito de escolha de variante.
-- [ ] Tabela de tokens com papel de cada um.
+- [ ] O documento existe e cobre todos os primitivos de `ui/`, incluindo `Dialog` e `Badge`.
+- [ ] `Button`, `Card`, `Input`, `Dialog` e `Badge` têm critério explícito de escolha de variante.
+- [ ] Tabela de tokens de cor **e** de raio, com papel/valor de cada um.
 - [ ] `client/CLAUDE.md` aponta para ele.
 - [ ] Nenhum código alterado.
 
 ### Fora do escopo
 Storybook; site de documentação; catálogo de componentes navegável.
+
+---
+
+## T13.6 — Substituir raio arbitrário pelos tokens de raio já existentes
+
+**Criticidade:** Médio
+**Arquivos:** `client/src/components/` (fora de `ui/`), `client/src/screens/`, `client/src/routes/`
+
+### Problema
+`index.css:57-63` já define `--radius-sm` a `--radius-4xl` dentro do `@theme inline`, e o
+Tailwind já expõe cada um como utilitário (`rounded-sm`…`rounded-4xl`) —
+`components/ui/card.tsx`, `input.tsx` e `popover.tsx` já usam a escala corretamente. Fora
+de `ui/`, **87** ocorrências de `rounded-[…]` reinventam o valor em pixel, nos mesmos
+arquivos já flagrados pela T13.2 para cor — é o hábito de copiar o px cru do protótipo em
+vez de mapear para token, medido por outro eixo.
+
+### O que fazer
+Esta task tem **duas metades com naturezas diferentes**, e a distinção importa mais que a
+substituição em si (ver tabela na abertura do épico):
+
+**Metade A — 60 ocorrências (69%) com token exato.** Substituição mecânica pura, no mesmo
+espírito da T13.2, **pixel-idêntica por construção**, dispensada da skill `frontend-design`
+pela D11:
+
+`10px`→`rounded-lg` · `14px`→`rounded-xl` · `18px`→`rounded-2xl` · `22px`→`rounded-3xl` · `8px`→`rounded-md`
+
+**Metade B — 27 ocorrências (31%) sem token exato** (`20px`×11, `12px`×8, `3px`×4,
+`16px`×3, `24px`×1). Aqui **não existe substituição pixel-idêntica**: snapar para o token
+vizinho move o raio em 1–2px (o `3px` move 3px, dobrando o raio para `sm`=6px). Isso é uma
+**decisão de design, não refatoração** — assumir o contrário é como a T13.2 acabaria
+"corrigindo" o design sem dizer. A saída é escolher **um** caminho e registrar:
+
+- **(a) Snapar para o vizinho mais próximo**, aceitando a diferença de 1–2px como custo de ter uma escala. Barato, e ninguém percebe 1px num raio — mas é mudança visual, então **usa a skill `frontend-design`** para a metade B.
+- **(b) Estender a escala** com os degraus que faltam, se o padrão do protótipo mostrar que `12px`/`20px` são intencionais e recorrentes (8 e 11 usos não é ruído). Mantém pixel-idêntico ao custo de uma escala maior.
+- **(c) Deixar os 27 como arbitrários**, cada um com comentário justificando — honesto, mas esvazia o portão da T13.4 para raio.
+
+**Recomendação: (a) para `20px`/`16px`/`24px` (15 usos, diferença ≤2px, imperceptível) e
+(b) para `12px` (8 usos, e `lg`→`xl` é um salto de 4px, visível em elemento pequeno).** Os
+4 `3px` provavelmente são detalhe decorativo (barra/indicador) e merecem olhar caso a caso.
+Decidir na execução, com a skill, e registrar a escolha aqui.
+
+**Decisão registrada (US-043, D20 — ver tabela "Decisões da revisão do Épico 13"):**
+recomendação de partida aceita integralmente, com a skill `frontend-design` invocada antes
+da decisão (E13.4).
+- `20px`×11 e `16px`×3 → **(a)** snapar para `rounded-2xl` (18px).
+- `24px`×1 (`MatchCelebrationModal`) → **(a)** snapar para `rounded-3xl` (22px).
+- `12px`×8 (pills de aviso coral + item de notificação) → **(b)** estender a escala com um
+  token novo, `--radius-chip: calc(var(--radius) * 1.2)`, entre `--radius-lg` e
+  `--radius-xl`.
+- `3px`×4 (confirmados por grep: os dois quadradinhos de legenda de 11×11px e o canto
+  inferior de barra/skeleton, todos em `DashboardScreen.tsx`/`ChartSkeleton.tsx`) →
+  **(c)** manter arbitrário com comentário — snapar dobraria o raio num elemento de 11px.
+
+Esta story (US-043) só registra a decisão — nenhum `.tsx` foi alterado. A implementação
+(edição dos arquivos da metade B + o novo `--radius-chip` em `index.css`) é uma story
+futura, que deve citar D20 e reusar exatamente este mapeamento.
+
+Disciplina de execução para as duas metades: um commit por arquivo (ou grupo pequeno),
+mesma da T13.2. **Fazer a metade A inteira antes da B** — assim 69% do ganho entra como
+refatoração revisável de forma trivial, e a discussão de design fica isolada nos 31%.
+
+### Critérios de aceite
+- [ ] Metade A: as 60 ocorrências com token exato foram substituídas, e o diff é comprovadamente pixel-idêntico.
+- [ ] Metade B: a decisão (a)/(b)/(c) está registrada neste arquivo, com justificativa, antes de qualquer edição da metade B.
+- [ ] Zero `rounded-[…]` fora de `components/ui/`, exceto os que a decisão (c) preservar — cada um com comentário.
+- [ ] Se a metade B usou (a) ou (b): verificação visual tela a tela, e a diferença de 1–2px está declarada no PR, não escondida atrás de "sem mudança visual".
+- [ ] Os testes do Épico 11 continuam verdes.
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Mudar o `--radius` base (move a escala inteira); T13.4 (a regra de lint pode ganhar o mesmo
+padrão para raio depois, mas não é criada aqui).
+
+---
+
+## T13.7 — Consolidar modais customizados no primitivo `Dialog`
+
+**Criticidade:** Médio
+**Arquivos:** `DeleteTrackDialog.tsx`, `WatchModal.tsx`, `MediaDetailModal.tsx`, `PendingDetailModal.tsx`, `ReviewModal.tsx`, `ErrorBoundary.tsx`, `MatchCelebrationModal.tsx`, `screens/account/CoupleSection.tsx`, `screens/account/DeleteAccountSection.tsx`
+
+### Problema
+9 arquivos montam um overlay de modal na mão (`fixed inset-0` + backdrop + fechamento por
+Escape/clique-fora reimplementados), enquanto `TitleModal.tsx`, `ComparisonDialog.tsx` e
+`RatingRequestDialog.tsx` já usam o primitivo `Dialog` corretamente — provando que ele dá
+conta do caso. `screens/account/CoupleSection.tsx:84` tem inclusive um comentário admitindo
+a escolha: *"backdrop `fixed inset-0` próprio + Escape"*. Cada reimplementação é uma chance
+a mais de esquecer foco preso (focus trap), `aria-modal`, ou o fechamento por Escape que o
+primitivo já resolve uma vez.
+
+### O que fazer
+Trocar o backdrop/wrapper manual de cada um dos 9 arquivos pelo primitivo `Dialog` de
+`components/ui/dialog.tsx`, preservando o conteúdo interno de cada modal.
+
+- **Refatoração pura quando o resultado for pixel-idêntico** — dispensada da skill `frontend-design` pela D11. Se o comportamento de acessibilidade do `Dialog` (focus trap, `aria-modal`, Escape) mudar algo visível hoje ausente (ex.: um dos 9 não fecha com Escape hoje), isso é uma correção de bug, não mudança de design — registrar no PR, não é motivo para acionar a skill.
+- **`ErrorBoundary.tsx` é o caso que pode não valer a pena.** É o único da lista que não é modal de fluxo normal, e sim a tela de erro que renderiza justamente quando a árvore React quebrou — trocar por `Dialog` o faz depender de mais contexto React (portal, estado do primitivo) exatamente no momento em que menos se pode confiar nisso. Se a análise confirmar esse risco, **deixá-lo como está e registrar o porquê** é o resultado correto da task, não uma falha: são 8 arquivos migrados e uma exceção documentada.
+- Um commit por arquivo.
+
+### Critérios de aceite
+- [ ] Os 9 arquivos usam `Dialog` de `components/ui/`, sem `fixed inset-0` próprio — ou, para o que ficar de fora (provavelmente `ErrorBoundary.tsx`), há justificativa escrita no código e no PR.
+- [ ] Foco, Escape e clique-fora funcionam em todos, via comportamento do primitivo (não reimplementado).
+- [ ] Nenhuma mudança visual não-intencional — verificado tela a tela.
+- [ ] `ErrorBoundary.tsx` continua funcionando em cenário de erro simulado (não só no caminho feliz).
+- [ ] Os testes do Épico 11 continuam verdes.
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Redesenhar o conteúdo interno de qualquer modal; mudar quando cada modal abre/fecha.
+
+---
+
+## T13.8 — Criar o primitivo `Badge` e migrar os usos manuais de "pill"
+
+**Criticidade:** Médio
+**Arquivos:** novo `client/src/components/ui/badge.tsx`, 18 arquivos consumidores (remedir na execução — a contagem é de 2026-08-13 e cresce, ver a nota de deriva na abertura do épico)
+
+### Problema
+**36 usos em 18 arquivos** reimplementam um "pill" (`rounded-full` + `px-*`/`py-*` manual,
+tipicamente com cor de status — assistido, pendente, gênero, filtro ativo) sem primitivo
+para reusar. Ao contrário da T13.6 e da T13.7, aqui não há o que consolidar: **o primitivo
+não existe**. É a única lacuna dos eixos revisados que é criação, não governança de algo
+já disponível.
+
+Nem todos os 36 são o mesmo componente: a amostra mistura **badge de status estático**
+(`CoupleSection.tsx:57-58`, pill de "casal dissolvido") com **chip clicável de filtro**
+(`FiltersPanel.tsx:136`, `compareUi.tsx:28` — têm `cursor-pointer`, estado ativo/inativo e
+`disabled:`) e até um `SelectTrigger` estilizado como pill (`FiltersPanel.tsx:117`). Isso
+provavelmente são **dois** primitivos (`Badge` estático e algo como `FilterChip`
+interativo), não um com muitas variantes — decidir isso é justamente o trabalho do passo 1.
+
+### O que fazer
+Esta task **usa a skill `frontend-design`** — diferente de todo o resto do épico, que é
+refatoração pura dispensada pela D11. Criar um componente novo é decisão de design (quais
+variantes, quais cores/tokens, quais tamanhos), não move de lugar algo que já existe.
+
+1. Levantar os 15 usos manuais e agrupar por papel visual (ex.: status de tracking, gênero, contagem/badge numérico) — o agrupamento define as variantes necessárias, não o inverso.
+2. Com a skill, desenhar `Badge` em `components/ui/badge.tsx`, seguindo o padrão de `cva` já usado em `button.tsx` (variantes + tamanhos), consumindo os tokens de cor da T13.1 e de raio (`rounded-full` provavelmente permanece, mas via token/classe padrão do primitivo, não repetido em cada call site).
+3. Migrar os 15 consumidores para o novo primitivo.
+
+### Critérios de aceite
+- [ ] `Badge` existe em `components/ui/`, com variantes cobrindo os papéis identificados no passo 1.
+- [ ] Os 36 usos manuais em 18 arquivos (ou a contagem real remedida na execução) migraram para o(s) primitivo(s).
+- [ ] Nenhum token de cor novo criado sem passar pela T13.1 (reusa os semânticos existentes).
+- [ ] `bun run typecheck`, `bun run lint` e `bun run build` passam.
+
+### Fora do escopo
+Redesenhar o significado visual de cada status (a task migra a implementação, não decide de novo o que cada cor significa, a menos que a skill `frontend-design` aponte uma inconsistência real entre os usos que justifique unificar).
 
 ---
 

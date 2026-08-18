@@ -28,19 +28,19 @@ export const SECTIONS: Section[] = [
   {
     status: "WATCHING",
     title: "Assistindo Atualmente",
-    dotColor: "#ff9e2c",
+    dotColor: "var(--series)",
     emptyMessage: "Nada em andamento agora. Que tal começar algo hoje à noite?",
   },
   {
     status: "WANT_TO_SEE",
     title: "Queremos Ver",
-    dotColor: "#ffcb2b",
+    dotColor: "var(--primary)",
     emptyMessage: "A lista de desejos está vazia. Adicionem um título para começar.",
   },
   {
     status: "WATCHED",
     title: "Já Vimos",
-    dotColor: "#3ddc97",
+    dotColor: "var(--success)",
     emptyMessage: "Ainda não marcaram nada como visto.",
   },
 ]
