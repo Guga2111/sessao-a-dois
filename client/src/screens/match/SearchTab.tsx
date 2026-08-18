@@ -148,7 +148,7 @@ export function SearchTab() {
   switch (status) {
     case "idle":
       statusContent = (
-        <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
+        <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-muted-foreground">
           Comecem digitando o nome de um filme ou serie ai em cima.
         </div>
       )
@@ -158,9 +158,9 @@ export function SearchTab() {
       break
     case "error":
       statusContent = (
-        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 rounded-2xl border border-[rgba(255,107,107,.35)] bg-[rgba(255,107,107,.08)] px-6 py-10 text-center">
-          <TriangleAlert className="size-6 text-[#ffb3b3]" />
-          <p className="text-sm text-[#f6f4ec]">
+        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 px-6 py-10 text-center">
+          <TriangleAlert className="size-6 text-destructive-foreground" />
+          <p className="text-sm text-foreground">
             {resultsContext === "trending" && !hasQuery
               ? "Nao foi possivel carregar os titulos em alta agora."
               : "Algo deu errado ao buscar no TMDB."}{" "}
@@ -169,7 +169,7 @@ export function SearchTab() {
           <Button
             type="button"
             onClick={handleRetry}
-            className="flex items-center gap-2 rounded-full border border-[rgba(255,107,107,.4)] bg-transparent px-4 py-2 text-[13px] font-semibold text-[#ffb3b3] hover:bg-[rgba(255,107,107,.12)]"
+            className="flex items-center gap-2 rounded-full border border-destructive/40 bg-transparent px-4 py-2 text-[13px] font-semibold text-destructive-foreground hover:bg-destructive/12"
           >
             <RefreshCw className="size-4" /> Tentar novamente
           </Button>
@@ -178,7 +178,7 @@ export function SearchTab() {
       break
     case "empty":
       statusContent = (
-        <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-[#a6a39a]">
+        <div className="mx-auto max-w-[420px] rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-muted-foreground">
           {hasQuery
             ? `Nada encontrado para "${query.trim()}". Tentem outro termo.`
             : "Nada encontrado com os filtros atuais. Ajustem a ordenacao ou os filtros."}
@@ -224,7 +224,7 @@ export function SearchTab() {
       {searched && !fetchError && (
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <div>
-            <h2 className="font-display text-lg font-bold text-[#f6f4ec] sm:text-xl">
+            <h2 className="font-display text-lg font-bold text-foreground sm:text-xl">
               {hasQuery
                 ? `Resultados para "${query.trim()}"`
                 : resultsContext === "discover"
@@ -232,13 +232,13 @@ export function SearchTab() {
                   : "Em alta esta semana"}
             </h2>
             {!hasQuery && resultsContext === "trending" && (
-              <p className="mt-1 text-[13px] text-[#a6a39a]">
+              <p className="mt-1 text-[13px] text-muted-foreground">
                 Resultados dinamicos do TMDB - refine com o painel de
                 filtros.
               </p>
             )}
           </div>
-          <span className="flex-none text-[13px] text-[#a6a39a]">
+          <span className="flex-none text-[13px] text-muted-foreground">
             {formatResultsCount(totalResults)}
           </span>
         </div>
@@ -289,14 +289,14 @@ export function SearchTab() {
                 <PaginationPrevious
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page <= 1 || searching}
-                  className="border border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
+                  className="border border-white/10 bg-card text-foreground hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
                 />
               </PaginationItem>
               {paginationRange(page, Math.min(totalPages, TMDB_MAX_PAGE)).map(
                 (item, index) =>
                   item === "ellipsis" ? (
                     <PaginationItem key={`ellipsis-${index}`}>
-                      <PaginationEllipsis className="text-[#a6a39a]" />
+                      <PaginationEllipsis className="text-muted-foreground" />
                     </PaginationItem>
                   ) : (
                     <PaginationItem key={item}>
@@ -306,8 +306,8 @@ export function SearchTab() {
                         disabled={searching}
                         className={cn(
                           item === page
-                            ? "bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffdd7a]"
-                            : "border border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06]",
+                            ? "bg-primary text-background hover:bg-accent-strong"
+                            : "border border-white/10 bg-card text-foreground hover:bg-white/[0.06]",
                           "disabled:pointer-events-none disabled:opacity-40"
                         )}
                       >
@@ -320,13 +320,13 @@ export function SearchTab() {
                 <PaginationNext
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= Math.min(totalPages, TMDB_MAX_PAGE) || searching}
-                  className="border border-white/10 bg-[#161513] text-[#f6f4ec] hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
+                  className="border border-white/10 bg-card text-foreground hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
                 />
               </PaginationItem>
             </PaginationContent>
           </Pagination>
           {page >= Math.min(totalPages, TMDB_MAX_PAGE) && (
-            <p className="text-[12.5px] text-[#a6a39a]">
+            <p className="text-[12.5px] text-muted-foreground">
               Voces chegaram ao fim dos resultados.
             </p>
           )}

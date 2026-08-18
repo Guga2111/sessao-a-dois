@@ -62,8 +62,8 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
       <div
         className={`relative isolate flex overflow-hidden rounded-2xl transition-colors ${
           expired
-            ? "bg-[#161513] text-[#f6f4ec] shadow-[0_16px_40px_-12px_rgba(0,0,0,.5)]"
-            : "bg-[#ffcb2b] text-[#09090a] shadow-[0_16px_40px_-12px_rgba(255,203,43,.45)]"
+            ? "bg-card text-foreground shadow-[var(--shadow-elevation-2)]"
+            : "bg-primary text-background shadow-[var(--shadow-glow-primary-7)]"
         }`}
       >
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4 py-5 sm:px-5 sm:py-6">
@@ -84,9 +84,9 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
           <span
             className={`text-xs font-medium ${
               expired
-                ? "text-[#ff9b9b]"
+                ? "text-destructive-soft"
                 : urgent
-                  ? "text-[#a3560a]"
+                  ? "text-warning-foreground"
                   : "opacity-70"
             }`}
           >
@@ -95,17 +95,17 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
         </div>
 
         {expired ? (
-          <div className="relative flex w-[136px] shrink-0 flex-col items-center justify-center gap-2 border-l-2 border-dashed border-[#f6f4ec]/15 px-3 py-5 sm:py-6">
+          <div className="relative flex w-[136px] shrink-0 flex-col items-center justify-center gap-2 border-l-2 border-dashed border-foreground/15 px-3 py-5 sm:py-6">
             <span
-              className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#09090a]"
+              className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-background"
               aria-hidden
             />
             <span
-              className="absolute -bottom-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#09090a]"
+              className="absolute -bottom-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-background"
               aria-hidden
             />
             <span
-              className="pointer-events-none absolute top-3 -rotate-[10deg] rounded border-2 border-[#ff6b6b] px-2 py-0.5 text-[10px] font-black tracking-[0.14em] text-[#ff6b6b] uppercase"
+              className="pointer-events-none absolute top-3 -rotate-[10deg] rounded border-2 border-destructive px-2 py-0.5 text-[10px] font-black tracking-[0.14em] text-destructive uppercase"
               aria-hidden
             >
               Expirado
@@ -115,18 +115,20 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
               size="xs"
               onClick={handleRegenerate}
               disabled={isRegenerating}
-              className="mt-4 rounded-full bg-[#ffcb2b] px-2.5 py-1 text-[11px] font-semibold tracking-wide text-[#09090a] uppercase hover:bg-[#ffe08a] disabled:opacity-60"
+              className="mt-4 rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold tracking-wide text-background uppercase hover:bg-accent disabled:opacity-60"
             >
               {isRegenerating ? "Gerando…" : "Gerar novo"}
             </Button>
           </div>
         ) : (
-          <div className="relative flex w-[104px] shrink-0 flex-col items-center justify-center gap-2 border-l-2 border-dashed border-[#09090a]/25 px-2 py-5 sm:w-[136px] sm:px-3 sm:py-6">
+          <div className="relative flex w-[104px] shrink-0 flex-col items-center justify-center gap-2 border-l-2 border-dashed border-background/25 px-2 py-5 sm:w-[136px] sm:px-3 sm:py-6">
             <span
+              // color-ok: #0d0d0f simula a perfuracao (notch) de um ticket fisico - ilustracao, nao cor de interface
               className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#0d0d0f]"
               aria-hidden
             />
             <span
+              // color-ok: #0d0d0f simula a perfuracao (notch) de um ticket fisico - ilustracao, nao cor de interface
               className="absolute -bottom-2 left-1/2 size-4 -translate-x-1/2 rounded-full bg-[#0d0d0f]"
               aria-hidden
             />
@@ -138,7 +140,7 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
               variant="ghost"
               size="xs"
               onClick={handleCopy}
-              className="rounded-full bg-[#09090a]/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase hover:bg-[#09090a]/15"
+              className="rounded-full bg-background/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase hover:bg-background/15"
             >
               {copied ? "Copiado!" : "Copiar"}
             </Button>
@@ -149,7 +151,7 @@ export function InviteCodeTicket({ code, expiresAt }: InviteCodeTicketProps) {
       {regenerateError ? (
         <p
           role="alert"
-          className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b] text-center"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft text-center"
         >
           {regenerateError}
         </p>

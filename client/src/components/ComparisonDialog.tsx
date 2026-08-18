@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 
 import { ArrowUp, X } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -59,7 +60,7 @@ function higherSide(left: number | null, right: number | null): Side | null {
 
 function RatingWinnerBadge() {
   return (
-    <span className="inline-flex items-center text-[#ffcb2b]" aria-hidden>
+    <span className="inline-flex items-center text-primary" aria-hidden>
       <ArrowUp className="size-3.5" strokeWidth={3} />
     </span>
   )
@@ -69,7 +70,7 @@ function CoupleStars({ rating }: { rating: number }) {
   const filled = Math.round(rating)
   return (
     <span className="text-[15px] tracking-[2px]" aria-hidden>
-      <span className="text-[#ffb443]">{"★".repeat(filled)}</span>
+      <span className="text-rating">{"★".repeat(filled)}</span>
       <span className="text-white/15">{"★".repeat(5 - filled)}</span>
     </span>
   )
@@ -100,7 +101,7 @@ function ComparisonColumn({
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       {/* Poster */}
       <div
-        className="w-full overflow-hidden rounded-[14px]"
+        className="w-full overflow-hidden rounded-xl"
         style={{
           aspectRatio: "2/3",
           background: item.posterUrl ? undefined : posterFallback,
@@ -125,21 +126,24 @@ function ComparisonColumn({
 
       {/* Title + year + type */}
       <div>
-        <h3 className="font-display text-[19px] font-bold leading-tight tracking-tight text-[#f6f4ec]">
+        <h3 className="font-display text-[19px] font-bold leading-tight tracking-tight text-foreground">
           {item.title}
         </h3>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-[#a6a39a]">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
           {item.year && <span>{item.year}</span>}
-          <span className="rounded-md border border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] px-2.5 py-0.5 text-[11px] font-semibold text-[#ffdd7a]">
+          <Badge
+            tone="primary"
+            className="rounded-md border-primary/25 bg-primary/12 py-0.5 text-accent-strong"
+          >
             {TYPE_LABEL[item.mediaType]}
-          </span>
+          </Badge>
         </div>
       </div>
 
       {/* Ratings */}
       <div className="flex flex-wrap gap-x-6 gap-y-3">
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+          <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
             Nota do Casal
           </span>
           {item.coupleRating !== null ? (
@@ -148,7 +152,7 @@ function ComparisonColumn({
               <span
                 className={cn(
                   "text-[13px] font-semibold",
-                  isCoupleWinner ? "text-[#ffcb2b]" : "text-[#f6f4ec]"
+                  isCoupleWinner ? "text-primary" : "text-foreground"
                 )}
               >
                 {item.coupleRating.toFixed(1).replace(".", ",")} / 5
@@ -156,26 +160,26 @@ function ComparisonColumn({
               {isCoupleWinner && <RatingWinnerBadge />}
             </div>
           ) : (
-            <span className="text-[13px] text-[#a6a39a]">Sem avaliação</span>
+            <span className="text-[13px] text-muted-foreground">Sem avaliação</span>
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+          <span className="text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
             Nota TMDB
           </span>
           <div className="flex items-center gap-1.5">
             <span
               className="size-2 rounded-full"
-              style={{ background: "#3ddc97" }}
+              style={{ background: "var(--success)" }}
             />
             <span
               className={cn(
                 "text-[15px] font-bold",
-                isTmdbWinner ? "text-[#ffcb2b]" : "text-[#f6f4ec]"
+                isTmdbWinner ? "text-primary" : "text-foreground"
               )}
             >
               {item.voteAverage != null ? item.voteAverage.toFixed(1) : "—"}
-              <span className="text-[12px] font-normal text-[#a6a39a]">
+              <span className="text-[12px] font-normal text-muted-foreground">
                 {" "}
                 /10
               </span>
@@ -188,22 +192,22 @@ function ComparisonColumn({
       {/* Genres */}
       {item.genres.length > 0 && (
         <div>
-          <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+          <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
             Gêneros
           </span>
           <div className="flex flex-wrap gap-1.5">
             {item.genres.map((genre) => (
-              <span
+              <Badge
                 key={genre}
+                tone={sharedGenres.has(genre.toLowerCase()) ? "primary" : "neutral"}
                 className={cn(
-                  "rounded-full border px-3 py-0.5 text-[12px]",
-                  sharedGenres.has(genre.toLowerCase())
-                    ? "border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] text-[#ffdd7a]"
-                    : "border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#d6d2c8]"
+                  "px-3 py-0.5 text-[12px]",
+                  sharedGenres.has(genre.toLowerCase()) &&
+                    "border-primary/25 bg-primary/12 text-accent-strong"
                 )}
               >
                 {genre}
-              </span>
+              </Badge>
             ))}
           </div>
         </div>
@@ -212,25 +216,26 @@ function ComparisonColumn({
       {/* Synopsis */}
       {item.overview && (
         <div>
-          <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+          <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
             Sinopse
           </span>
           <p
             className={cn(
-              "text-[13.5px] leading-relaxed text-[#c4bfb4]",
+              "text-[13.5px] leading-relaxed text-synopsis-foreground",
               !expanded && "line-clamp-4"
             )}
           >
             {item.overview}
           </p>
           {item.overview.length > 160 && (
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={() => setExpanded((v) => !v)}
-              className="mt-1.5 text-[12.5px] font-semibold text-[#ffcb2b] hover:text-[#ffe08a]"
+              className="mt-1.5 h-auto p-0 text-[12.5px] font-semibold text-primary hover:text-accent hover:no-underline"
             >
               {expanded ? "Ler menos" : "Ler mais"}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -238,20 +243,19 @@ function ComparisonColumn({
       {/* Watch providers */}
       {item.watchProviders.length > 0 && (
         <div>
-          <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-[#a6a39a] uppercase">
+          <span className="mb-2 block text-[11px] font-semibold tracking-[.12em] text-muted-foreground uppercase">
             Onde Assistir
           </span>
           <div className="flex flex-wrap gap-2">
             {item.watchProviders.map((provider) => {
               const isShared = sharedProviders.has(provider.name.toLowerCase())
               return (
-                <span
+                <Badge
                   key={provider.name}
+                  tone={isShared ? "primary" : "neutral"}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px]",
-                    isShared
-                      ? "border-[rgba(255,203,43,.25)] bg-[rgba(255,203,43,.12)] text-[#ffdd7a]"
-                      : "border-[rgba(255,255,255,.1)] bg-[rgba(255,255,255,.05)] text-[#d6d2c8]"
+                    "flex px-3 py-1 text-[12px]",
+                    isShared && "border-primary/25 bg-primary/12 text-accent-strong"
                   )}
                 >
                   {provider.logoUrl ? (
@@ -263,11 +267,15 @@ function ComparisonColumn({
                   ) : (
                     <span
                       className="size-2 rounded-full"
-                      style={{ background: isShared ? "#ffcb2b" : "#a6a39a" }}
+                      style={{
+                        background: isShared
+                          ? "var(--primary)"
+                          : "var(--muted-foreground)",
+                      }}
                     />
                   )}
                   {provider.name}
-                </span>
+                </Badge>
               )
             })}
           </div>
@@ -280,7 +288,7 @@ function ComparisonColumn({
 function ComparisonColumnSkeleton() {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
-      <Skeleton className="w-full rounded-[14px]" style={{ aspectRatio: "2/3" }} />
+      <Skeleton className="w-full rounded-xl" style={{ aspectRatio: "2/3" }} />
       <div className="flex flex-col gap-2">
         <Skeleton className="h-5 w-3/4" />
         <Skeleton className="h-4 w-1/3" />
@@ -336,7 +344,7 @@ export function ComparisonDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-[22px] border border-white/10 bg-[#161513] p-0 text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] ring-0 sm:w-full sm:max-w-[880px]"
+        className="font-auth-body max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-3xl border border-white/10 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[880px]"
       >
         <DialogTitle className="sr-only">Comparar títulos</DialogTitle>
         <DialogDescription className="sr-only">
@@ -345,19 +353,19 @@ export function ComparisonDialog({
             : "Carregando os detalhes dos títulos selecionados para comparação."}
         </DialogDescription>
 
-        <ScrollArea className="max-h-[90svh] **:data-[slot=scroll-area-thumb]:bg-[#2b2920]">
-          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[rgba(255,255,255,.06)] bg-[#161513]/95 px-6 py-5 backdrop-blur-sm">
+        <ScrollArea className="max-h-[90svh] **:data-[slot=scroll-area-thumb]:bg-scrollbar-thumb">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-white/6 bg-card/95 px-6 py-5 backdrop-blur-sm">
             <div className="min-w-0">
-              <div className="text-[12px] font-semibold tracking-[.14em] text-[#ffcb2b] uppercase">
+              <div className="text-[12px] font-semibold tracking-[.14em] text-primary uppercase">
                 Comparação
               </div>
               {left && right ? (
                 <p className="font-display mt-1 truncate text-[19px] font-bold tracking-tight">
-                  {left.title} <span className="text-[#a6a39a]">vs</span>{" "}
+                  {left.title} <span className="text-muted-foreground">vs</span>{" "}
                   {right.title}
                 </p>
               ) : (
-                <p className="font-display mt-1 text-[19px] font-bold tracking-tight text-[#a6a39a]">
+                <p className="font-display mt-1 text-[19px] font-bold tracking-tight text-muted-foreground">
                   Carregando comparação…
                 </p>
               )}
@@ -368,7 +376,7 @@ export function ComparisonDialog({
               size="icon-sm"
               onClick={() => onOpenChange(false)}
               aria-label="Fechar comparação"
-              className="mt-0.5 flex-none rounded-[10px] border-white/10 text-[#a6a39a] hover:bg-white/[0.06] hover:text-white"
+              className="mt-0.5 flex-none rounded-lg border-white/10 text-muted-foreground hover:bg-white/[0.06] hover:text-white"
             >
               <X className="size-4.5" />
             </Button>
@@ -396,14 +404,14 @@ export function ComparisonDialog({
             {isMobile ? (
               <div className="relative flex items-center gap-3 py-1">
                 <div className="h-px flex-1 bg-white/10" />
-                <span className="grid size-8 flex-none place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[11px] font-black text-[#111]">
+                <span className="grid size-8 flex-none place-items-center rounded-full border-2 border-card bg-primary text-[11px] font-black text-on-primary">
                   VS
                 </span>
                 <div className="h-px flex-1 bg-white/10" />
               </div>
             ) : (
               <div className="relative w-px flex-none self-stretch bg-white/10">
-                <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-[#161513] bg-[#ffcb2b] text-[11px] font-black text-[#111] shadow-[0_4px_14px_rgba(255,203,43,.4)]">
+                <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-card bg-primary text-[11px] font-black text-on-primary shadow-[var(--shadow-glow-primary-9)]">
                   VS
                 </span>
               </div>

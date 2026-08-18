@@ -1,9 +1,11 @@
 import { isAxiosError } from "axios"
 import { Loader2, Lock, LockOpen, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ACCOUNT_DELETE_CONFIRMATION_WORD } from "@/screens/account/helpers"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -15,7 +17,7 @@ const PASSWORD_ERROR_ID = "conta-excluir-senha-erro"
 const WORD_HINT_ID = "conta-excluir-palavra-dica"
 
 const FIELD_LABEL_CLASS =
-  "text-[11px] font-semibold tracking-[.08em] text-[#a6a39a] uppercase"
+  "text-[11px] font-semibold tracking-[.08em] text-muted-foreground uppercase"
 
 const LEAVING = [
   "Sua conta e o seu acesso a ela",
@@ -43,15 +45,15 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-0">
       <div className="sm:pr-6">
-        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-[#ff8f7c] uppercase">
+        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-coral-chip uppercase">
           Sai com você
         </p>
-        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-[#f6f4ec]">
+        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-foreground">
           {LEAVING.map((item) => (
             <li key={item} className="flex gap-2.5">
               <span
                 aria-hidden="true"
-                className="mt-[7px] h-px w-2.5 flex-none bg-[#ff5c47]"
+                className="mt-[7px] h-px w-2.5 flex-none bg-coral"
               />
               <span>{item}</span>
             </li>
@@ -63,17 +65,17 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
         {/* A regua e a fronteira: coral em cima, ambar embaixo — a propria travessia. */}
         <span
           aria-hidden="true"
-          className="absolute top-0 left-0 hidden h-full w-px bg-[linear-gradient(180deg,rgba(255,92,71,.5),rgba(255,203,43,.5))] sm:block"
+          className="absolute top-0 left-0 hidden h-full w-px bg-coral-divider-v sm:block"
         />
-        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-[#ffcb2b] uppercase">
+        <p className="m-0 text-[11px] font-semibold tracking-[.1em] text-primary uppercase">
           Fica onde está
         </p>
-        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-[#a6a39a]">
+        <ul className="m-0 mt-2.5 flex list-none flex-col gap-2 p-0 text-[13px] leading-relaxed text-muted-foreground">
           {staying(partnerName).map((item) => (
             <li key={item} className="flex gap-2.5">
               <span
                 aria-hidden="true"
-                className="mt-[7px] size-1.5 flex-none rounded-full bg-[#ffcb2b]"
+                className="mt-[7px] size-1.5 flex-none rounded-full bg-primary"
               />
               <span>{item}</span>
             </li>
@@ -92,16 +94,17 @@ function Inventory({ partnerName }: { partnerName: string | null }) {
 function Latch({ open, label }: { open: boolean; label: string }) {
   const Icon = open ? LockOpen : Lock
   return (
-    <span
+    <Badge
+      tone={open ? "primary" : "neutral"}
       className={
         open
-          ? "inline-flex items-center gap-1.5 rounded-full border border-[#ffcb2b]/30 bg-[#ffcb2b]/10 px-2.5 py-1 text-[11px] font-semibold text-[#ffcb2b]"
-          : "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-[#6f6c62]"
+          ? "tracking-normal"
+          : "border-white/[0.08] bg-white/[0.04] text-tertiary-foreground tracking-normal"
       }
     >
       <Icon aria-hidden="true" className="size-3" />
       {label}
-    </span>
+    </Badge>
   )
 }
 
@@ -127,13 +130,9 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
     word.trim().toUpperCase() === ACCOUNT_DELETE_CONFIRMATION_WORD
   const canSubmit = passwordLatched && wordLatched && !working && !done
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !done) onClose()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [onClose, done])
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !done) onClose()
+  }
 
   function handleFailure(error: unknown) {
     if (isAxiosError(error)) {
@@ -192,29 +191,20 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
   }
 
   return (
-    <div
-      onClick={done ? undefined : onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(8,7,11,.72)] p-5 backdrop-blur-md"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="conta-excluir-dialogo-titulo"
-        onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[560px]"
+    <Dialog open onOpenChange={handleOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-y-auto rounded-3xl border border-coral/28 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[560px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
-          <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,92,71,.12)] text-[#ff5c47]">
+          <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">
             <Trash2 aria-hidden="true" className="size-5" />
           </div>
           <div className="min-w-0">
-            <h2
-              id="conta-excluir-dialogo-titulo"
-              className="font-display m-0 text-[20px] font-bold tracking-tight text-[#ffb3a5]"
-            >
+            <DialogTitle className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground">
               {done ? "Conta excluída." : "Excluir a sua conta?"}
-            </h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[#a6a39a]">
+            </DialogTitle>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               {done
                 ? "Foi tudo embora, agora."
                 : "É definitivo. Não existe desfazer, nem no suporte."}
@@ -228,12 +218,12 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
             aria-live="polite"
             className="flex flex-col gap-3 px-6 pb-6"
           >
-            <p className="m-0 max-w-[56ch] text-[14px] leading-relaxed text-[#a6a39a]">
+            <p className="m-0 max-w-[56ch] text-[14px] leading-relaxed text-muted-foreground">
               Sua conta, suas avaliações, suas notificações e todas as suas sessões foram
               apagadas. O histórico de títulos do casal ficou onde estava.
             </p>
-            <p className="m-0 flex items-center gap-2 text-[13px] text-[#6f6c62]">
-              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-[#ff5c47]" />
+            <p className="m-0 flex items-center gap-2 text-[13px] text-tertiary-foreground">
+              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-coral" />
               Levando você para o início…
             </p>
           </div>
@@ -264,7 +254,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                     <p
                       id={PASSWORD_ERROR_ID}
                       role="alert"
-                      className="m-0 text-[13px] text-[#ff8f7c]"
+                      className="m-0 text-[13px] text-coral-chip"
                     >
                       {passwordError}
                     </p>
@@ -286,7 +276,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                     placeholder={ACCOUNT_DELETE_CONFIRMATION_WORD}
                     className="font-display tracking-[.18em] uppercase"
                   />
-                  <p id={WORD_HINT_ID} className="m-0 text-[12px] text-[#6f6c62]">
+                  <p id={WORD_HINT_ID} className="m-0 text-[12px] text-tertiary-foreground">
                     A palavra existe para que ninguém apague uma conta sem querer.
                   </p>
                 </label>
@@ -303,7 +293,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
               {formError ? (
                 <p
                   role="alert"
-                  className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+                  className="m-0 rounded-chip border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
                 >
                   {formError}
                 </p>
@@ -315,7 +305,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                   variant="outline"
                   onClick={onClose}
                   disabled={working}
-                  className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
+                  className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-foreground hover:bg-white/[0.06]"
                 >
                   Manter minha conta
                 </Button>
@@ -323,7 +313,7 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
                   type="button"
                   onClick={handleConfirm}
                   disabled={!canSubmit}
-                  className="flex-[1.4] rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.12)] py-3.5 text-sm font-bold text-[#ff5c47] shadow-[0_6px_20px_rgba(255,92,71,.15)] hover:bg-[rgba(255,92,71,.18)] disabled:opacity-45"
+                  className="flex-[1.4] rounded-xl border border-coral/35 bg-coral/12 py-3.5 text-sm font-bold text-coral shadow-[var(--shadow-glow-coral-1)] hover:bg-coral/18 disabled:opacity-45"
                 >
                   {working ? (
                     <>
@@ -338,8 +328,8 @@ function DeleteDialog({ partnerName, onClose }: DeleteDialogProps) {
             </div>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -355,7 +345,7 @@ export function DeleteAccountSection() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-[#6f6c62]">
+        <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-tertiary-foreground">
           A exclusão pede a sua senha e mais uma confirmação digitada. Antes de concluir,
           a tela lista o que sai com você e o que fica onde está.
         </p>
@@ -363,7 +353,7 @@ export function DeleteAccountSection() {
           type="button"
           variant="ghost"
           onClick={() => setConfirming(true)}
-          className="rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.1)] text-sm font-bold text-[#ff5c47] hover:bg-[rgba(255,92,71,.18)]"
+          className="rounded-xl border border-coral/35 bg-coral/10 text-sm font-bold text-coral hover:bg-coral/18"
         >
           Excluir minha conta
         </Button>

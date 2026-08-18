@@ -3,6 +3,7 @@ import { Check, Loader2 } from "lucide-react"
 import { useState } from "react"
 import type { FormEvent } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/useAuthStore"
@@ -122,7 +123,7 @@ export function ProfileSection() {
     <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold tracking-[.08em] text-[#a6a39a] uppercase">
+          <span className="text-[11px] font-semibold tracking-[.08em] text-muted-foreground uppercase">
             Nome
           </span>
           <Input
@@ -138,14 +139,14 @@ export function ProfileSection() {
             placeholder="Como você aparece no app"
           />
           {fieldErrors.name ? (
-            <p id={NAME_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={NAME_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               {fieldErrors.name}
             </p>
           ) : null}
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold tracking-[.08em] text-[#a6a39a] uppercase">
+          <span className="text-[11px] font-semibold tracking-[.08em] text-muted-foreground uppercase">
             E-mail
           </span>
           <Input
@@ -162,7 +163,7 @@ export function ProfileSection() {
             placeholder="voce@exemplo.com"
           />
           {fieldErrors.email ? (
-            <p id={EMAIL_ERROR_ID} role="alert" className="m-0 text-[13px] text-[#ff8f7c]">
+            <p id={EMAIL_ERROR_ID} role="alert" className="m-0 text-[13px] text-coral-chip">
               {fieldErrors.email}
             </p>
           ) : null}
@@ -172,7 +173,7 @@ export function ProfileSection() {
       {formError ? (
         <p
           role="alert"
-          className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+          className="m-0 rounded-chip border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
         >
           {formError}
         </p>
@@ -182,17 +183,17 @@ export function ProfileSection() {
         <div
           role="status"
           aria-live="polite"
-          className="flex min-h-[28px] min-w-0 flex-wrap items-center gap-2 text-[13px] text-[#6f6c62]"
+          className="flex min-h-[28px] min-w-0 flex-wrap items-center gap-2 text-[13px] text-tertiary-foreground"
         >
           {saving ? (
             <>
-              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-[#ffcb2b]" />
+              <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-primary" />
               Salvando…
             </>
           ) : savedFields ? (
             <>
-              <Check aria-hidden="true" className="size-3.5 text-[#ffcb2b]" />
-              <span className="text-[#f6f4ec]">
+              <Check aria-hidden="true" className="size-3.5 text-primary" />
+              <span className="text-foreground">
                 {savedFields.length === 2
                   ? "Nome e e-mail salvos."
                   : `${FIELD_LABEL[savedFields[0]]} salvo.`}
@@ -202,12 +203,9 @@ export function ProfileSection() {
             <>
               <span>Vai ser enviado:</span>
               {changedFields.map((field) => (
-                <span
-                  key={field}
-                  className="inline-flex items-center rounded-full border border-[#ffcb2b]/30 bg-[#ffcb2b]/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-[.02em] text-[#ffcb2b]"
-                >
+                <Badge key={field} tone="primary" className="py-0.5">
                   {FIELD_LABEL[field]}
-                </span>
+                </Badge>
               ))}
             </>
           ) : (
@@ -218,7 +216,7 @@ export function ProfileSection() {
         <Button
           type="submit"
           disabled={!hasChanges || saving}
-          className="bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-50"
+          className="bg-primary text-background hover:bg-accent disabled:opacity-50"
         >
           {saving ? "Salvando…" : "Salvar alterações"}
         </Button>

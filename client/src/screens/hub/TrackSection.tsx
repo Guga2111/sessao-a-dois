@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MediaCard } from "@/components/MediaCard"
 import { MediaCardSkeleton } from "@/components/skeletons/MediaCardSkeleton"
@@ -64,11 +65,14 @@ export function TrackSection({
           }}
         />
         <h2 className="font-display text-xl tracking-tight">{section.title}</h2>
-        <span className="flex items-center rounded-full bg-white/[0.05] px-2.5 py-0.5 text-[13px] text-[#a6a39a]">
+        <Badge
+          tone="neutral"
+          className="border-transparent px-2.5 py-0.5 text-[13px] text-muted-foreground"
+        >
           {showSkeleton ? <Skeleton className="h-3 w-4" /> : total}
-        </span>
+        </Badge>
         <ChevronDown
-          className="ml-auto size-4 text-[#a6a39a] transition-transform duration-200"
+          className="ml-auto size-4 text-muted-foreground transition-transform duration-200"
           style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}
         />
       </CollapsibleTrigger>
@@ -82,7 +86,7 @@ export function TrackSection({
             <MediaCardSkeleton />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-[#a6a39a]">
+          <div className="rounded-2xl border border-dashed border-white/10 px-5 py-7 text-sm text-muted-foreground">
             {section.emptyMessage}
           </div>
         ) : (
@@ -132,7 +136,7 @@ export function TrackSection({
                     type="button"
                     onClick={() => onLoadMore(section.status)}
                     disabled={loadingMore}
-                    className="h-auto cursor-pointer rounded-full border border-white/10 bg-white/[0.04] px-6 py-2.5 text-[13px] font-semibold text-[#f6f4ec] transition-colors hover:border-[rgba(255,203,43,.4)] hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-auto cursor-pointer rounded-full border border-white/10 bg-white/[0.04] px-6 py-2.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Carregar mais
                   </Button>

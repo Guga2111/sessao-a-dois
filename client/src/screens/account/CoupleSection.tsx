@@ -1,10 +1,17 @@
 import { isAxiosError } from "axios"
 import { HeartCrack, Link2Off, Loader2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { CoupleAvatars } from "@/components/CoupleAvatars"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useAuthStore } from "@/stores/useAuthStore"
 import type { Couple } from "@/stores/useAuthStore"
 
@@ -47,25 +54,17 @@ function BondLine({ label, severed = false }: { label: string; severed?: boolean
         aria-hidden="true"
         className={
           severed
-            ? "h-px w-8 flex-none bg-[linear-gradient(90deg,transparent,rgba(255,92,71,.55))] sm:w-12"
-            : "h-px w-8 flex-none bg-[linear-gradient(90deg,transparent,rgba(255,203,43,.55))] sm:w-12"
+            ? "h-px w-8 flex-none bg-coral-fade-h sm:w-12"
+            : "h-px w-8 flex-none bg-primary-fade-h sm:w-12"
         }
       />
-      <span
-        className={
-          severed
-            ? "inline-flex flex-none items-center gap-1.5 rounded-full border border-[rgba(255,92,71,.3)] bg-[rgba(255,92,71,.08)] px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-[#ff8f7c]"
-            : "inline-flex flex-none items-center gap-1.5 rounded-full border border-[#ffcb2b]/30 bg-[#ffcb2b]/10 px-2.5 py-1 text-[11px] font-semibold tracking-[.02em] text-[#ffcb2b]"
-        }
-      >
-        {label}
-      </span>
+      <Badge tone={severed ? "coral" : "primary"}>{label}</Badge>
       <span
         aria-hidden="true"
         className={
           severed
-            ? "h-px w-8 flex-none border-t border-dashed border-[rgba(255,92,71,.45)] sm:w-12"
-            : "h-px w-8 flex-none bg-[linear-gradient(90deg,rgba(255,203,43,.55),transparent)] sm:w-12"
+            ? "h-px w-8 flex-none border-t border-dashed border-coral/45 sm:w-12"
+            : "h-px w-8 flex-none bg-primary-fade-h-reverse sm:w-12"
         }
       />
     </div>
@@ -73,6 +72,7 @@ function BondLine({ label, severed = false }: { label: string; severed?: boolean
 }
 
 interface DissolveDialogProps {
+  open: boolean
   partnerName: string
   bondLabel: string | null
   onClose: () => void
@@ -80,11 +80,13 @@ interface DissolveDialogProps {
 }
 
 /**
- * Confirmacao explicita da dissolucao, no mesmo padrao estrutural do `DeleteTrackDialog`
- * (backdrop `fixed inset-0` proprio + Escape), com o peso maior que a acao pede: o dialogo
- * enumera o que acontece antes de oferecer o botao.
+ * Confirmacao explicita da dissolucao, no primitivo Dialog (US-051 - antes era um
+ * backdrop `fixed inset-0` hand-rolled, mesmo padrao ja seguido por TitleModal.tsx e
+ * RatingRequestDialog.tsx), com o peso maior que a acao pede: o dialogo enumera o que
+ * acontece antes de oferecer o botao.
  */
 function DissolveDialog({
+  open,
   partnerName,
   bondLabel,
   onClose,
@@ -94,13 +96,9 @@ function DissolveDialog({
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [onClose])
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) onClose()
+  }
 
   async function handleConfirm() {
     setWorking(true)
@@ -131,31 +129,22 @@ function DissolveDialog({
   }
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-[60] grid place-items-center bg-[rgba(8,7,11,.72)] p-5 backdrop-blur-md"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="conta-casal-dialogo-titulo"
-        onClick={(event) => event.stopPropagation()}
-        className="animate-in fade-in zoom-in-95 max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] overflow-y-auto rounded-[22px] border border-[rgba(255,92,71,.28)] bg-[#161513] text-[#f6f4ec] shadow-[0_30px_80px_rgba(0,0,0,.6)] duration-200 sm:w-full sm:max-w-[460px]"
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[90svh] w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-y-auto rounded-3xl border border-coral/28 bg-card p-0 text-foreground shadow-[var(--shadow-elevation-10)] ring-0 sm:w-full sm:max-w-[460px]"
       >
         <div className="flex items-start gap-4 p-6 pb-4">
-          <div className="grid size-10 flex-none place-items-center rounded-full bg-[rgba(255,92,71,.12)] text-[#ff5c47]">
+          <div className="grid size-10 flex-none place-items-center rounded-full bg-coral/12 text-coral">
             <HeartCrack aria-hidden="true" className="size-5" />
           </div>
           <div className="min-w-0">
-            <h2
-              id="conta-casal-dialogo-titulo"
-              className="font-display m-0 text-[20px] font-bold tracking-tight text-[#ffb3a5]"
-            >
+            <DialogTitle className="font-display m-0 text-[20px] font-bold tracking-tight text-coral-foreground">
               Desfazer o vínculo com {partnerName}?
-            </h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[#a6a39a]">
+            </DialogTitle>
+            <DialogDescription className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               Vale para vocês dois, na hora, sem aviso para o outro lado.
-            </p>
+            </DialogDescription>
           </div>
         </div>
 
@@ -165,7 +154,7 @@ function DissolveDialog({
           </div>
         ) : null}
 
-        <ul className="m-0 flex list-none flex-col gap-2.5 px-6 pb-5 text-[13px] leading-relaxed text-[#a6a39a]">
+        <ul className="m-0 flex list-none flex-col gap-2.5 px-6 pb-5 text-[13px] leading-relaxed text-muted-foreground">
           {[
             "O vínculo acaba para os dois — ninguém precisa confirmar do outro lado.",
             "O histórico do casal (títulos, avaliações e notificações) sai do alcance dos dois. Nada é apagado do banco.",
@@ -174,7 +163,7 @@ function DissolveDialog({
             <li key={line} className="flex gap-2.5">
               <span
                 aria-hidden="true"
-                className="mt-[7px] size-1.5 flex-none rounded-full bg-[#ff5c47]"
+                className="mt-[7px] size-1.5 flex-none rounded-full bg-coral"
               />
               <span>{line}</span>
             </li>
@@ -185,7 +174,7 @@ function DissolveDialog({
           {error ? (
             <p
               role="alert"
-              className="m-0 rounded-[12px] border border-[rgba(255,92,71,.28)] bg-[rgba(255,92,71,.08)] px-3.5 py-2.5 text-[13px] text-[#ff8f7c]"
+              className="m-0 rounded-chip border border-coral/28 bg-coral/8 px-3.5 py-2.5 text-[13px] text-coral-chip"
             >
               {error}
             </p>
@@ -197,7 +186,7 @@ function DissolveDialog({
               variant="outline"
               onClick={onClose}
               disabled={working}
-              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-[#f6f4ec] hover:bg-white/[0.06]"
+              className="flex-1 rounded-xl border-white/10 bg-transparent py-3.5 text-sm font-semibold text-foreground hover:bg-white/[0.06]"
             >
               Manter o vínculo
             </Button>
@@ -206,7 +195,7 @@ function DissolveDialog({
               variant="ghost"
               onClick={handleConfirm}
               disabled={working}
-              className="flex-[1.4] rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.12)] py-3.5 text-sm font-bold text-[#ff5c47] shadow-[0_6px_20px_rgba(255,92,71,.15)] hover:bg-[rgba(255,92,71,.18)] disabled:opacity-60"
+              className="flex-[1.4] rounded-xl border border-coral/35 bg-coral/12 py-3.5 text-sm font-bold text-coral shadow-[var(--shadow-glow-coral-1)] hover:bg-coral/18 disabled:opacity-60"
             >
               {working ? (
                 <>
@@ -219,8 +208,8 @@ function DissolveDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -228,19 +217,19 @@ function EmptyBond({ couple }: { couple: Couple | null }) {
   const waitingForPartner = couple !== null && couple.partner === null
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-dashed border-white/10 px-4 py-4 sm:px-5">
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed border-white/10 px-4 py-4 sm:px-5">
       <div className="flex min-w-0 items-center gap-3.5">
         <div
           aria-hidden="true"
-          className="grid size-10 flex-none place-items-center rounded-full border border-dashed border-white/15 text-[#6f6c62]"
+          className="grid size-10 flex-none place-items-center rounded-full border border-dashed border-white/15 text-tertiary-foreground"
         >
           <Link2Off className="size-[18px]" />
         </div>
         <div className="min-w-0">
-          <p className="font-display m-0 text-[16px] font-bold tracking-tight text-[#f6f4ec]">
+          <p className="font-display m-0 text-[16px] font-bold tracking-tight text-foreground">
             {waitingForPartner ? "Seu convite está aberto" : "Você não está em um casal"}
           </p>
-          <p className="mt-1 max-w-[46ch] text-[13px] leading-relaxed text-[#a6a39a]">
+          <p className="mt-1 max-w-[46ch] text-[13px] leading-relaxed text-muted-foreground">
             {waitingForPartner
               ? "Falta alguém entrar com o seu código. Enquanto isso, o app fica esperando."
               : "Crie um convite ou entre com o código de quem já criou o seu."}
@@ -250,7 +239,7 @@ function EmptyBond({ couple }: { couple: Couple | null }) {
 
       <Button
         render={<Link to="/join" />}
-        className="rounded-xl bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a]"
+        className="rounded-xl bg-primary text-background hover:bg-accent"
       >
         {waitingForPartner ? "Ver o convite" : "Formar um casal"}
       </Button>
@@ -284,16 +273,16 @@ export function CoupleSection() {
   return (
     <>
       <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-center gap-4 rounded-[14px] border border-white/[0.07] bg-white/[0.02] px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-4 sm:px-5">
           <CoupleAvatars
             userInitial={initialOf(user?.name)}
             partnerInitial={initialOf(partner.name)}
           />
           <div className="min-w-0 flex-1">
-            <p className="font-display m-0 truncate text-[17px] font-bold tracking-tight text-[#f6f4ec]">
+            <p className="font-display m-0 truncate text-[17px] font-bold tracking-tight text-foreground">
               Você e {partner.name}
             </p>
-            <p className="mt-1 text-[13px] text-[#a6a39a]">
+            <p className="mt-1 text-[13px] text-muted-foreground">
               {startDate ? `Juntos no app desde ${startDate}` : "Vínculo ativo"}
             </p>
           </div>
@@ -305,7 +294,7 @@ export function CoupleSection() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-4">
-          <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-[#6f6c62]">
+          <p className="m-0 max-w-[52ch] text-[13px] leading-relaxed text-tertiary-foreground">
             Desfazer é imediato e vale para os dois. O histórico não é apagado — ele só
             deixa de ser alcançável por vocês.
           </p>
@@ -313,21 +302,20 @@ export function CoupleSection() {
             type="button"
             variant="ghost"
             onClick={() => setConfirming(true)}
-            className="rounded-xl border border-[rgba(255,92,71,.35)] bg-[rgba(255,92,71,.1)] text-sm font-bold text-[#ff5c47] hover:bg-[rgba(255,92,71,.18)]"
+            className="rounded-xl border border-coral/35 bg-coral/10 text-sm font-bold text-coral hover:bg-coral/18"
           >
             Desfazer o vínculo
           </Button>
         </div>
       </div>
 
-      {confirming ? (
-        <DissolveDialog
-          partnerName={partner.name}
-          bondLabel={bondLabel}
-          onClose={() => setConfirming(false)}
-          onConfirmed={() => navigate("/join", { replace: true })}
-        />
-      ) : null}
+      <DissolveDialog
+        open={confirming}
+        partnerName={partner.name}
+        bondLabel={bondLabel}
+        onClose={() => setConfirming(false)}
+        onConfirmed={() => navigate("/join", { replace: true })}
+      />
     </>
   )
 }

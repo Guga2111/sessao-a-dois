@@ -9,8 +9,28 @@ afterEach(() => {
   cleanup()
 })
 
+// Node 26+ exposes an experimental localStorage/sessionStorage global that
+// returns undefined without --localstorage-file. Because window === globalThis
+// in the vitest/jsdom setup, window.localStorage also resolves through that
+// same broken getter. Supply a proper in-memory Storage implementation so that
+// test code (and the stores that call setItem/getItem/removeItem/clear) works
+// regardless of the Node version running the worker threads.
+const makeStorage = () => {
+  const store = new Map<string, string>()
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, String(value)) },
+    removeItem: (key: string) => { store.delete(key) },
+    clear: () => { store.clear() },
+    key: (index: number) => [...store.keys()][index] ?? null,
+    get length() { return store.size },
+  }
+}
+vi.stubGlobal("localStorage", makeStorage())
+vi.stubGlobal("sessionStorage", makeStorage())
+
 // jsdom has no layout engine, so `window.matchMedia` isn't implemented at
-// all — used by theme-provider.tsx (dark/light/system) and lib/useIsMobile.ts.
+// all — used by lib/useIsMobile.ts.
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   configurable: true,

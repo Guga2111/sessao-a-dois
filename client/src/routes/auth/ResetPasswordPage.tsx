@@ -36,22 +36,22 @@ function LengthHint({ length }: { length: number }) {
         <div
           className={
             insideWindow
-              ? "h-full rounded-full bg-[#ffcb2b] transition-[width] duration-200"
-              : "h-full rounded-full bg-[#6f6c62] transition-[width] duration-200"
+              ? "h-full rounded-full bg-primary transition-[width] duration-200"
+              : "h-full rounded-full bg-tertiary-foreground transition-[width] duration-200"
           }
           style={{ width: `${filled}%` }}
         />
         <span
           aria-hidden="true"
-          className="absolute top-0 h-full w-px bg-[#f6f4ec]/40"
+          className="absolute top-0 h-full w-px bg-foreground/40"
           style={{ left: `${minMark}%` }}
         />
       </div>
-      <div id={RANGE_HINT_ID} className="flex justify-between text-xs text-[#6f6c62]">
+      <div id={RANGE_HINT_ID} className="flex justify-between text-xs text-tertiary-foreground">
         <span>
           De {PASSWORD_MIN_LENGTH} a {PASSWORD_MAX_LENGTH} caracteres
         </span>
-        <span className={insideWindow ? "text-[#ffcb2b]" : undefined}>
+        <span className={insideWindow ? "text-primary" : undefined}>
           {length} / {PASSWORD_MAX_LENGTH}
         </span>
       </div>
@@ -68,7 +68,7 @@ function BrokenLinkState() {
       footer={
         <>
           Lembrou a senha?{" "}
-          <Link to="/login" className="font-medium text-[#ffcb2b]">
+          <Link to="/login" className="font-medium text-primary">
             Entrar
           </Link>
         </>
@@ -78,7 +78,7 @@ function BrokenLinkState() {
         type="button"
         size="lg"
         render={<Link to="/esqueci-senha" />}
-        className="w-full bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a]"
+        className="w-full bg-primary text-background hover:bg-accent"
       >
         Pedir um novo link
       </Button>
@@ -152,7 +152,7 @@ export function ResetPasswordPage() {
           type="button"
           size="lg"
           render={<Link to="/login" />}
-          className="w-full bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a]"
+          className="w-full bg-primary text-background hover:bg-accent"
         >
           Ir para o login
         </Button>
@@ -168,7 +168,7 @@ export function ResetPasswordPage() {
       footer={
         <>
           Lembrou a senha?{" "}
-          <Link to="/login" className="font-medium text-[#ffcb2b]">
+          <Link to="/login" className="font-medium text-primary">
             Entrar
           </Link>
         </>
@@ -176,7 +176,7 @@ export function ResetPasswordPage() {
     >
       <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-[#a6a39a]">Senha nova</span>
+          <span className="text-xs font-medium text-muted-foreground">Senha nova</span>
           <Input
             type="password"
             autoComplete="new-password"
@@ -191,7 +191,7 @@ export function ResetPasswordPage() {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-[#a6a39a]">Confirmar senha nova</span>
+          <span className="text-xs font-medium text-muted-foreground">Confirmar senha nova</span>
           <Input
             type="password"
             autoComplete="new-password"
@@ -204,7 +204,7 @@ export function ResetPasswordPage() {
             placeholder="••••••••"
           />
           {mismatch ? (
-            <span id={CONFIRM_ERROR_ID} className="text-xs text-[#ff9b9b]">
+            <span id={CONFIRM_ERROR_ID} className="text-xs text-destructive-soft">
               As duas senhas ainda não são iguais.
             </span>
           ) : null}
@@ -213,7 +213,7 @@ export function ResetPasswordPage() {
         {error ? (
           <p
             role="alert"
-            className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-3 py-2 text-sm text-[#ff9b9b]"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive-soft"
           >
             {error}
           </p>
@@ -223,7 +223,7 @@ export function ResetPasswordPage() {
           type="submit"
           size="lg"
           disabled={!canSubmit}
-          className="mt-1 w-full bg-[#ffcb2b] text-[#09090a] hover:bg-[#ffe08a] disabled:opacity-60"
+          className="mt-1 w-full bg-primary text-background hover:bg-accent disabled:opacity-60"
         >
           {isSubmitting ? "Salvando…" : "Redefinir senha"}
         </Button>
