@@ -49,12 +49,10 @@ export function PendingDetailModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="font-auth-body relative w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] gap-0 overflow-hidden rounded-3xl border border-white/8 p-0 text-foreground ring-0 sm:w-full sm:max-w-[900px]"
+        className="font-auth-body w-[calc(100vw-32px)] max-w-[calc(100vw-32px)] max-h-[90svh] overflow-y-auto gap-0 rounded-3xl border border-white/8 p-0 text-foreground ring-0 sm:w-full sm:max-w-[900px]"
         style={{
           background:
             "radial-gradient(800px 500px at 60% -10%, rgba(255,203,43,.06), transparent 55%), var(--card)",
-          maxHeight: "90svh",
-          overflowY: "auto",
         }}
       >
         <DialogTitle className="sr-only">Detalhes da sugestão</DialogTitle>
