@@ -28,7 +28,9 @@ export function Header() {
     <header className="font-auth-body sticky top-0 z-40 flex items-center justify-between gap-6 border-b border-white/[0.07] bg-background/72 px-5 py-4 backdrop-blur-xl sm:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="grid size-9.5 flex-none place-items-center rounded-xl bg-primary shadow-[var(--shadow-glow-primary-12)]">
-          <Heart className="size-[18px] fill-current text-on-primary" />
+          <svg viewBox="0 0 640 640" className="size-[18px] text-on-primary" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M 120 128 L 520 128 A 56 56 0 0 1 576 184 L 576 280 A 40 40 0 0 0 576 360 L 576 456 A 56 56 0 0 1 520 512 L 120 512 A 56 56 0 0 1 64 456 L 64 360 A 40 40 0 0 0 64 280 L 64 184 A 56 56 0 0 1 120 128 Z M 152 200 L 488 200 A 24 24 0 0 1 512 224 L 512 416 A 24 24 0 0 1 488 440 L 152 440 A 24 24 0 0 1 128 416 L 128 224 A 24 24 0 0 1 152 200 Z M 224 264 L 416 264 A 16 16 0 0 1 432 280 L 432 360 A 16 16 0 0 1 416 376 L 224 376 A 16 16 0 0 1 208 360 L 208 280 A 16 16 0 0 1 224 264 Z" />
+          </svg>
         </div>
         <div className="font-display truncate text-[19px] font-bold tracking-tight text-foreground">
           Sessão<span className="text-series">·</span>a·Dois
