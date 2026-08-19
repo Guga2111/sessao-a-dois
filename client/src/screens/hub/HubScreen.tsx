@@ -129,7 +129,7 @@ export function HubScreen() {
         <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
           <div className="min-w-0">
             <div className="mb-2 text-[13px] font-semibold tracking-[.14em] text-primary uppercase">
-              Minha Lista
+              Nossa Lista
             </div>
             <h1 className="font-display text-[clamp(28px,4vw,40px)] font-bold tracking-tight">
               O que estamos vendo
